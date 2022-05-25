@@ -1,0 +1,4 @@
+.stack-work/
+*~
+/ghc-build-analyzer.cabal
+/dist-newstyle

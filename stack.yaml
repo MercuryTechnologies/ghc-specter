@@ -1,0 +1,5 @@
+# https://docs.haskellstack.org/en/stable/yaml_configuration/
+
+resolver: lts-19.8
+packages:
+  - .
