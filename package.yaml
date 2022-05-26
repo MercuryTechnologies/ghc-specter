@@ -67,11 +67,11 @@ dependencies:
   - base >= 4.15 && < 5
   - aeson
   - bytestring
+  - parsec
   - text
 
 ghc-options:
   - -Wall
-  - -ddump-json -dshow-passes
 
 extra-source-files:
   - README.md
