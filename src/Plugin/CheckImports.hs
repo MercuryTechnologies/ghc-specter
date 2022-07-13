@@ -1,65 +1,49 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Plugin.Timing
-( plugin
-) where
+module Plugin.CheckImports
+  ( plugin,
+  )
+where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
 import Data.Foldable (for_)
 import Data.IORef (readIORef)
-import Data.List (concat, foldl', intercalate, sort)
+import Data.List (foldl', sort)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Monoid ((<>))
 import Data.Set (Set)
 import qualified Data.Set as S
-import GHC (getModuleInfo)
+import GHC.Core.Opt.Monad (getDynFlags)
+import GHC.Data.IOEnv (failWithM)
+import GHC.Driver.Session (DynFlags)
 import GHC.Plugins
-{-  ( CommandLineOption,
-    CoreM,
-    CoreToDo,
-    HsParsedModule,
-    Hsc,
+  ( CommandLineOption,
     ModSummary,
+    Name,
     Plugin (..),
     defaultPlugin,
-    putMsgS,
-  ) -}
-import GHC.Core.Opt.Monad
-{-  ( getDynFlags,
-    getHscEnv,
-    getModule,
-    getOrigNameCache,
-  ) -}
-import GHC.Driver.Session -- (DynFlags)
-import GHC.Hs.Decls -- (HsGroup (..))
-import GHC.Hs.Extension -- (GhcRn)
-import GHC.Hs -- (HsParsedModule (..), ModIface (..))
-import GHC.Data.IOEnv -- (failWithM)
-import GHC.Unit.Module -- (ModuleName, lookupModuleEnv)
-import GHC.Unit.Module.Name -- (Name, getName, localiseName)
-import GHC.Utils.Outputable -- (Outputable (ppr), showSDoc)
+    localiseName,
+    showSDoc,
+  )
+import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Types.Name.Reader
-{-  ( GlobalRdrElt (..),
-    GlobalRdrEnv,
+  ( GlobalRdrElt (..),
+    GreName (..),
     ImpDeclSpec (..),
     ImportSpec (..),
-    greLabel,
-    pprGlobalRdrEnv,
-    pprNameProvenance,
-  ) -}
-import GHC.Tc.Types -- (IfM, TcGblEnv (..), TcM)
+  )
+import GHC.Unit.Module (ModuleName)
+import GHC.Utils.Outputable (Outputable (ppr))
+import Prelude hiding ((<>))
 
 plugin :: Plugin
 plugin =
   defaultPlugin
-{-     { typeCheckResultAction = typecheckPlugin
+    { typeCheckResultAction = typecheckPlugin
     }
--}
 
-{-
 printPpr :: (Outputable a, MonadIO m) => DynFlags -> a -> m ()
 printPpr dflags = liftIO . putStrLn . showSDoc dflags . ppr
 
@@ -67,27 +51,30 @@ formatName :: DynFlags -> Name -> String
 formatName dflags name =
   let str = showSDoc dflags . ppr . localiseName $ name
    in case str of
-        (x : xs) ->
+        (x : _) ->
           if isAlpha x
             then str
-            else "(" <> str <> ")"
+            else "(" ++ str ++ ")"
         _ -> str
 
 formatImportedNames :: [String] -> String
 formatImportedNames names =
-  case fmap (<> ",\n") $ sort names of
-    line0 : lines ->
-      let line0' = "  ( " <> line0
-          lines' = fmap ("    " <>) lines
+  case fmap (++ ",\n") $ sort names of
+    l0 : ls ->
+      let l0' = "  ( " ++ l0
+          ls' = fmap ("    " ++) ls
           footer = "  )"
-       in concat ([line0'] <> lines' <> [footer])
+       in concat ([l0'] ++ ls' ++ [footer])
     _ -> "  ()"
 
 mkModuleNameMap :: GlobalRdrElt -> [(ModuleName, Name)]
 mkModuleNameMap gre = do
   spec <- gre_imp gre
-  let modName = is_mod $ is_decl spec
-  pure (modName, gre_name gre)
+  case gre_name gre of
+    NormalGreName name -> do
+      let modName = is_mod $ is_decl spec
+      pure (modName, name)
+    _ -> []
 
 typecheckPlugin ::
   [CommandLineOption] ->
@@ -97,8 +84,6 @@ typecheckPlugin ::
 typecheckPlugin _ modsummary tc = do
   liftIO $ putStrLn "typecheck plugin"
   dflags <- getDynFlags
-  let globalRdrEnv :: GlobalRdrEnv
-      globalRdrEnv = tcg_rdr_env tc
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
   let moduleImportMap :: Map ModuleName (Set Name)
@@ -111,6 +96,5 @@ typecheckPlugin _ modsummary tc = do
     let imported = fmap (formatName dflags) $ S.toList names
     putStrLn $ formatImportedNames imported
   printPpr dflags modsummary
-  failWithM "force fail"
+  _ <- failWithM "force fail"
   pure tc
--}
