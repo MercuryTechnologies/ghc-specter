@@ -1,8 +1,7 @@
 {
   description = "ghc-build-analzyer: utility for analyzing GHC build";
   inputs = {
-    nixpkgs.url =
-      "github:NixOS/nixpkgs/master"; # d142881f4318260f56f9ff8baedd9197c712024f;
+    nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, nixpkgs, flake-utils }:
