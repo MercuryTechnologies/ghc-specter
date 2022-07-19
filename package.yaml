@@ -103,6 +103,9 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - concur-core
+      - concur-replica
+      - extra
       - network
       - ghc-build-analyzer
       - stm

@@ -38,6 +38,7 @@
           p.cabal-install
           p.concur-core
           p.concur-replica
+          p.extra
           p.fourmolu
           p.hpack
           p.optparse-applicative
