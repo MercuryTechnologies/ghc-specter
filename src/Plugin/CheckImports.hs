@@ -39,7 +39,7 @@ import GHC.Types.Name.Reader
   )
 import GHC.Unit.Module (ModuleName)
 import GHC.Utils.Outputable (Outputable (ppr))
-import Network.Socket.ByteString (recv, sendAll)
+import Network.Socket.ByteString (sendAll)
 import Toolbox.Comm (runClient)
 import Prelude hiding ((<>))
 
@@ -106,10 +106,5 @@ typecheckPlugin _ modsummary tc = do
   printPpr dflags modsummary
 
   liftIO $
-    runClient "/tmp/ghc-build-analyzer.ipc" $ \s -> do
-      sendAll s (C.pack rendered)
-      msg <- recv s 1024
-      putStr "Received: "
-      C.putStrLn msg
-
+    runClient "/tmp/ghc-build-analyzer.ipc" $ \s -> sendAll s (C.pack rendered)
   pure tc
