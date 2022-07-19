@@ -98,9 +98,14 @@ executables:
   toolbox-server:
     main: toolbox-server.hs
     source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
       - network
       - ghc-build-analyzer
+      - stm
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
