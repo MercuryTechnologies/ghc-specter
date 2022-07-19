@@ -81,6 +81,7 @@ library:
   dependencies:
     - containers
     - ghc == 9.2.*
+    - network
     - transformers
 
 executables:
@@ -99,11 +100,13 @@ executables:
     source-dirs: app
     dependencies:
       - network
+      - ghc-build-analyzer
   toolbox-client:
     main: toolbox-client.hs
     source-dirs: app
     dependencies:
       - network
+      - ghc-build-analyzer
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
