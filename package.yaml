@@ -94,7 +94,16 @@ executables:
     dependencies:
       - ghc-build-analyzer
       - optparse-applicative
-
+  toolbox-server:
+    main: toolbox-server.hs
+    source-dirs: app
+    dependencies:
+      - network
+  toolbox-client:
+    main: toolbox-client.hs
+    source-dirs: app
+    dependencies:
+      - network
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs

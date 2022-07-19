@@ -42,6 +42,7 @@
           p.hpack
           p.optparse-applicative
           p.replica
+          p.socket
           p.text
         ]);
       in {
