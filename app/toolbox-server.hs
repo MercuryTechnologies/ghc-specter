@@ -2,7 +2,8 @@ module Main (main) where
 
 import Concur.Core
 import Concur.Replica
-import Control.Concurrent (forkIO)
+import Control.Applicative ((<|>))
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -50,19 +51,12 @@ webServer var = do
   runDefault 8080 "test" (\_ -> go initVal)
   where
     go val0 = do
-      val <- liftIO $
-        atomically $ do
-          val' <- readTVar var
-          if val0 == val'
-            then retry
-            else pure val'
-      let txt = T.pack $ "I am thread2: " ++ show val
-      div [] [text txt]
-      go val
-
-{-
-webServer :: IO ()
-webServer =
-  runDefault 8080 "test" $ \_ ->
-    div [] [ text "hello world" ]
--}
+      let txt = T.pack $ "I am thread2: " ++ show val0
+      let action = do
+            val <- liftSTM $ do
+              val' <- readTVar var
+              if val0 == val'
+                then retry
+                else pure val'
+            go val
+      (div [] [text txt] <|> action)
