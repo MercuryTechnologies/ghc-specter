@@ -1,32 +1,42 @@
+{-# OPTIONS_GHC -Werror #-}
+
 module Main (main) where
 
 import Concur.Core
+  ( liftSTM,
+  )
 import Concur.Replica
+  ( pre,
+    runDefault,
+    text,
+  )
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
-    modifyTVar',
     newTVar,
     readTVar,
     retry,
+    writeTVar,
   )
-import Control.Monad (forever, unless)
 import Control.Monad.Extra (loopM)
-import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Char8 as C
+import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import Network.Socket.ByteString (recv)
 import Toolbox.Comm (runServer)
 import Prelude hiding (div)
 
 main :: IO ()
 main = do
-  var <- atomically $ newTVar 0
-  _ <- forkIO $ thread1 var
-  _ <- forkIO $ webServer var
-  -- _ <- forkIO webServer
+  var <- atomically $ newTVar Nothing
+  _ <- forkIO $ listener var
+  webServer var
+
+listener :: TVar (Maybe (Int, Text)) -> IO ()
+listener var =
   runServer "/tmp/ghc-build-analyzer.ipc" talk
   where
     talk s = do
@@ -35,28 +45,29 @@ main = do
         if C.null msg
           then pure $ Right msgs
           else pure $ Left (msgs ++ [msg])
-      C.putStr (C.concat msgs')
-      talk s
+      let txt = decodeUtf8 (C.concat msgs')
+      updateBuffer var txt
 
-thread1 :: TVar Int -> IO ()
-thread1 var = forever $ do
+updateBuffer :: TVar (Maybe (Int, Text)) -> Text -> IO ()
+updateBuffer var txt = do
   val <- atomically $ readTVar var
   putStrLn $ "I am thread1: " ++ show val
-  atomically $ modifyTVar' var (+ 1)
-  getChar
+  case val of
+    Nothing -> atomically $ writeTVar var (Just (1, txt))
+    Just (i, _) -> atomically $ writeTVar var (Just (i + 1, txt))
 
-webServer :: TVar Int -> IO ()
+webServer :: TVar (Maybe (Int, Text)) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
   runDefault 8080 "test" (\_ -> go initVal)
   where
     go val0 = do
-      let txt = T.pack $ "I am thread2: " ++ show val0
+      let txt = maybe "Nothing" (\(i, t) -> T.pack (show i) <> ":\n" <> t) val0
       let action = do
             val <- liftSTM $ do
               val' <- readTVar var
-              if val0 == val'
+              if fmap fst val0 == fmap fst val'
                 then retry
                 else pure val'
             go val
-      (div [] [text txt] <|> action)
+      (pre [] [text txt] <|> action)
