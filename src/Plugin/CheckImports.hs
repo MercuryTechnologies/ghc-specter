@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Werror -Wall #-}
 
 -- | CheckImport plugin:
 --   This plugin checks if imported identifiers as unqualified

@@ -80,6 +80,7 @@ library:
   source-dirs: src
   dependencies:
     - containers
+    - extra
     - ghc == 9.2.*
     - network
     - transformers
@@ -105,8 +106,6 @@ executables:
     dependencies:
       - concur-core
       - concur-replica
-      - extra
-      - network
       - ghc-build-analyzer
       - stm
 tests:

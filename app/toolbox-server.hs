@@ -20,13 +20,14 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
-import Control.Monad.Extra (loopM)
-import qualified Data.ByteString.Char8 as C
+import Control.Monad ((<=<))
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
-import Network.Socket.ByteString (recv)
-import Toolbox.Comm (runServer)
+import Toolbox.Comm
+  ( Message (..),
+    receiveMessage,
+    runServer,
+   )
 import Prelude hiding (div)
 
 main :: IO ()
@@ -37,16 +38,9 @@ main = do
 
 listener :: TVar (Maybe (Int, Text)) -> IO ()
 listener var =
-  runServer "/tmp/ghc-build-analyzer.ipc" talk
-  where
-    talk s = do
-      msgs' <- flip loopM [] $ \msgs -> do
-        msg <- recv s 1024
-        if C.null msg
-          then pure $ Right msgs
-          else pure $ Left (msgs ++ [msg])
-      let txt = decodeUtf8 (C.concat msgs')
-      updateBuffer var txt
+  runServer
+    "/tmp/ghc-build-analyzer.ipc"
+    (updateBuffer var . unMessage <=< receiveMessage)
 
 updateBuffer :: TVar (Maybe (Int, Text)) -> Text -> IO ()
 updateBuffer var txt = do
