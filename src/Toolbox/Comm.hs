@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 module Toolbox.Comm
   ( Message (..),
     runServer,
@@ -34,6 +32,7 @@ import Network.Socket
     withSocketsDo,
   )
 import Network.Socket.ByteString (recv, send, sendMany)
+import System.IO (hFlush, stdout)
 
 newtype Message = Message {unMessage :: C.ByteString}
 
@@ -66,19 +65,17 @@ runClient file client =
 chunksOf :: Int -> C.ByteString -> [C.ByteString]
 chunksOf n bs = go [] bs
   where
-    go acc bs' =
+    go !acc bs' =
       if C.length bs' <= n
         then acc ++ [bs']
         else
-          let (bs1, bs2) = C.splitAt n bs2
+          let (bs1, bs2) = C.splitAt n bs'
            in go (acc ++ [bs1]) bs2
 
 sendMessage :: Socket -> Message -> IO ()
-sendMessage sock (Message payload) = do
+sendMessage sock (Message !payload) = do
   let sz :: Word32 = fromIntegral (C.length payload)
-      chunked = chunksOf 1024 payload
-  print sz
-  print chunked
+      !chunked = chunksOf 1024 payload
   _ <- send sock (CL.toStrict (B.encode sz))
   sendMany sock chunked
 
