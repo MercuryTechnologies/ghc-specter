@@ -110,6 +110,7 @@ executables:
       - containers
       - ghc-build-analyzer
       - stm
+      - replica
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs

@@ -1,15 +1,17 @@
 module Main (main) where
 
 import Concur.Core
-  ( liftSTM,
+  ( Widget,
+    liftSTM,
   )
 import Concur.Replica
-  ( pre,
+  ( div,
+    pre,
     runDefault,
     text,
   )
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -28,6 +30,7 @@ import Toolbox.Comm
     runServer,
   )
 import Prelude hiding (div)
+import Replica.VDOM.Types (HTML)
 
 main :: IO ()
 main = do
@@ -43,6 +46,7 @@ listener var =
     "/tmp/ghc-build-analyzer.ipc"
     ( \sock -> do
         (modName, msg) <- receiveObject sock
+        -- threadDelay 500_000
         updateModuleMessages var (modName, msg)
     )
 
@@ -57,8 +61,17 @@ updateModuleMessages var (modName, msg) = do
       let m' = M.insert modName msg m
       atomically $ writeTVar var (Just (i + 1, m'))
 
-renderModuleMessages :: ModuleMessages -> Text
-renderModuleMessages m = T.pack $ L.intercalate "\n" $ map show $ M.toList m
+renderModuleMessages :: ModuleMessages -> Widget HTML a
+renderModuleMessages m =
+    div [] $ map eachRender $ M.toList m
+  where
+    eachRender :: (Text, Text) -> Widget HTML a
+    eachRender (k, v) =
+      div []
+        [ text ("module: " <> k),
+          pre [] [ text v ],
+          pre [] [ text "-----------" ]
+        ]
 
 webServer :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
 webServer var = do
@@ -66,15 +79,15 @@ webServer var = do
   runDefault 8080 "test" (\_ -> go initVal)
   where
     go val0 = do
-      let txt =
+      let widget =
             maybe
-              "No GHC process yet"
-              (\(i, m) -> T.pack (show i) <> ":\n" <> renderModuleMessages m)
+              (pre [] [text "No GHC process yet"])
+              (\(i, m) -> div [] [text (T.pack (show i)), renderModuleMessages m])
               val0
       let await = liftSTM $ do
             val' <- readTVar var
             if fmap fst val0 == fmap fst val'
               then retry
               else pure val'
-      val <- (pre [] [text txt] <|> await)
+      val <- (widget <|> await)
       go val
