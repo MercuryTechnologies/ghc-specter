@@ -66,12 +66,15 @@ webServer var = do
   runDefault 8080 "test" (\_ -> go initVal)
   where
     go val0 = do
-      let txt = maybe "Nothing" (\(i, m) -> T.pack (show i) <> ":\n" <> renderModuleMessages m) val0
-      let action = do
-            val <- liftSTM $ do
-              val' <- readTVar var
-              if fmap fst val0 == fmap fst val'
-                then retry
-                else pure val'
-            go val
-      (pre [] [text txt] <|> action)
+      let txt =
+            maybe
+              "No GHC process yet"
+              (\(i, m) -> T.pack (show i) <> ":\n" <> renderModuleMessages m)
+              val0
+      let await = liftSTM $ do
+            val' <- readTVar var
+            if fmap fst val0 == fmap fst val'
+              then retry
+              else pure val'
+      val <- (pre [] [text txt] <|> await)
+      go val
