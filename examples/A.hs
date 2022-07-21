@@ -2,6 +2,5 @@
 
 module A (test) where
 
-
 test :: IO ()
 test = putStrLn "test"
