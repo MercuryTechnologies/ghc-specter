@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Toolbox.Comm
   ( Message (..),
     runServer,

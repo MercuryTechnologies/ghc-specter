@@ -11,7 +11,7 @@ import Concur.Replica
     text,
   )
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -20,17 +20,16 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
-import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
+import Replica.VDOM.Types (HTML)
 import Toolbox.Comm
   ( receiveObject,
     runServer,
   )
 import Prelude hiding (div)
-import Replica.VDOM.Types (HTML)
 
 main :: IO ()
 main = do
@@ -63,14 +62,15 @@ updateModuleMessages var (modName, msg) = do
 
 renderModuleMessages :: ModuleMessages -> Widget HTML a
 renderModuleMessages m =
-    div [] $ map eachRender $ M.toList m
+  div [] $ map eachRender $ M.toList m
   where
     eachRender :: (Text, Text) -> Widget HTML a
     eachRender (k, v) =
-      div []
-        [ text ("module: " <> k),
-          pre [] [ text v ],
-          pre [] [ text "-----------" ]
+      div
+        []
+        [ text ("module: " <> k)
+        , pre [] [text v]
+        , pre [] [text "-----------"]
         ]
 
 webServer :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
