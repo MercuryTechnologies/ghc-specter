@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Werror -Wall #-}
 
 -- | CheckImport plugin:
 --   This plugin checks if imported identifiers as unqualified
@@ -11,8 +12,8 @@ module Plugin.CheckImports
 where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import qualified Data.ByteString.Char8 as C
 import Data.Char (isAlpha)
-import Data.Foldable (for_)
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
 import Data.Map (Map)
@@ -38,6 +39,8 @@ import GHC.Types.Name.Reader
   )
 import GHC.Unit.Module (ModuleName)
 import GHC.Utils.Outputable (Outputable (ppr))
+import Network.Socket.ByteString (recv, sendAll)
+import Toolbox.Comm (runClient)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -46,8 +49,11 @@ plugin =
     { typeCheckResultAction = typecheckPlugin
     }
 
+showPpr :: (Outputable a) => DynFlags -> a -> String
+showPpr dflags = showSDoc dflags . ppr
+
 printPpr :: (Outputable a, MonadIO m) => DynFlags -> a -> m ()
-printPpr dflags = liftIO . putStrLn . showSDoc dflags . ppr
+printPpr dflags = liftIO . putStrLn . showPpr dflags
 
 formatName :: DynFlags -> Name -> String
 formatName dflags name =
@@ -91,10 +97,19 @@ typecheckPlugin _ modsummary tc = do
       moduleImportMap =
         foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
           concatMap mkModuleNameMap usedGREs
-  for_ (M.toList moduleImportMap) $ \(modu, names) -> liftIO $ do
-    putStrLn "---------"
-    printPpr dflags modu
-    let imported = fmap (formatName dflags) $ S.toList names
-    putStrLn $ formatImportedNames imported
+
+  let rendered =
+        unlines $
+          flip concatMap (M.toList moduleImportMap) $ \(modu, names) ->
+            let imported = fmap (formatName dflags) $ S.toList names
+             in ["---------", showPpr dflags modu, formatImportedNames imported]
   printPpr dflags modsummary
+
+  liftIO $
+    runClient "/tmp/ghc-build-analyzer.ipc" $ \s -> do
+      sendAll s (C.pack rendered)
+      msg <- recv s 1024
+      putStr "Received: "
+      C.putStrLn msg
+
   pure tc
