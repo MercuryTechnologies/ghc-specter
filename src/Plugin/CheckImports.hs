@@ -1,8 +1,12 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | CheckImport plugin:
+--   This plugin checks if imported identifiers as unqualified
+--   exist and lists them.
 module Plugin.CheckImports
-  ( plugin,
+  ( -- NOTE: The name "plugin" should be used to be called via GHC plugin mechanism.
+    plugin,
   )
 where
 
