@@ -1,19 +1,21 @@
 {-# OPTIONS_GHC -Werror #-}
+
 module Toolbox.Comm
   ( Message (..),
     runServer,
     runClient,
     receiveMessage,
+    sendMessage,
   )
 where
 
 import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
-import Control.Monad (forever, void)
-import Control.Monad.Extra (loopM)
+import Control.Monad (forever, replicateM, void)
+import qualified Data.Binary as B
 import qualified Data.ByteString.Char8 as C
-import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8)
+import qualified Data.ByteString.Lazy.Char8 as CL
+import Data.Word (Word32)
 import Network.Socket
   ( Family (AF_UNIX),
     SockAddr (SockAddrUnix),
@@ -29,9 +31,9 @@ import Network.Socket
     socket,
     withSocketsDo,
   )
-import Network.Socket.ByteString (recv)
+import Network.Socket.ByteString (recv, send, sendMany)
 
-newtype Message = Message {unMessage :: Text}
+newtype Message = Message {unMessage :: C.ByteString}
 
 -- using unix domain socket
 runServer :: FilePath -> (Socket -> IO a) -> IO a
@@ -61,10 +63,30 @@ runClient file client =
 
 receiveMessage :: Socket -> IO Message
 receiveMessage sock = do
-   msgs' <- flip loopM [] $ \msgs -> do
-     msg <- recv sock 1024
-     if C.null msg
-       then pure $ Right msgs
-       else pure $ Left (msgs ++ [msg])
-   let txt = decodeUtf8 (C.concat msgs')
-   pure (Message txt)
+  sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
+  print sz
+  let (n, m) = divMod sz 1024
+  ps <- replicateM (fromIntegral n) (recv sock 1024)
+  p <- recv sock (fromIntegral m)
+  let payload = C.concat (ps ++ [p])
+  C.putStrLn payload
+  pure (Message payload)
+
+chunksOf :: Int -> C.ByteString -> [C.ByteString]
+chunksOf n bs = go [] bs
+  where
+    go acc bs' =
+      if C.length bs' <= n
+        then acc ++ [bs']
+        else
+          let (bs1, bs2) = C.splitAt n bs2
+           in go (acc ++ [bs1]) bs2
+
+sendMessage :: Socket -> Message -> IO ()
+sendMessage sock (Message payload) = do
+  let sz :: Word32 = fromIntegral (C.length payload)
+      chunked = chunksOf 1024 payload
+  print sz
+  print chunked
+  _ <- send sock (CL.toStrict (B.encode sz))
+  sendMany sock chunked

@@ -20,14 +20,14 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
-import Control.Monad ((<=<))
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import Toolbox.Comm
   ( Message (..),
     receiveMessage,
     runServer,
-   )
+  )
 import Prelude hiding (div)
 
 main :: IO ()
@@ -40,7 +40,10 @@ listener :: TVar (Maybe (Int, Text)) -> IO ()
 listener var =
   runServer
     "/tmp/ghc-build-analyzer.ipc"
-    (updateBuffer var . unMessage <=< receiveMessage)
+    ( \sock -> do
+        Message payload <- receiveMessage sock
+        updateBuffer var (decodeUtf8 payload)
+    )
 
 updateBuffer :: TVar (Maybe (Int, Text)) -> Text -> IO ()
 updateBuffer var txt = do
