@@ -80,7 +80,6 @@ typecheckPlugin ::
     TcGblEnv ->
     TcM TcGblEnv
 typecheckPlugin _ modsummary tc = do
-    liftIO $ putStrLn "typecheck plugin"
     dflags <- getDynFlags
     usedGREs :: [GlobalRdrElt] <-
         liftIO $ readIORef (tcg_used_gres tc)
@@ -94,5 +93,4 @@ typecheckPlugin _ modsummary tc = do
         let imported = fmap (formatName dflags) $ S.toList names
         putStrLn $ formatImportedNames imported
     printPpr dflags modsummary
-    -- _ <- failWithM "force fail"
     pure tc
