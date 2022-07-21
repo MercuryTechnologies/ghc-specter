@@ -4,8 +4,10 @@ module Toolbox.Comm
   ( Message (..),
     runServer,
     runClient,
-    receiveMessage,
     sendMessage,
+    receiveMessage,
+    sendObject,
+    receiveObject,
   )
 where
 
@@ -61,17 +63,6 @@ runClient file client =
       connect sock (SockAddrUnix file)
       pure sock
 
-receiveMessage :: Socket -> IO Message
-receiveMessage sock = do
-  sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
-  print sz
-  let (n, m) = divMod sz 1024
-  ps <- replicateM (fromIntegral n) (recv sock 1024)
-  p <- recv sock (fromIntegral m)
-  let payload = C.concat (ps ++ [p])
-  C.putStrLn payload
-  pure (Message payload)
-
 chunksOf :: Int -> C.ByteString -> [C.ByteString]
 chunksOf n bs = go [] bs
   where
@@ -90,3 +81,21 @@ sendMessage sock (Message payload) = do
   print chunked
   _ <- send sock (CL.toStrict (B.encode sz))
   sendMany sock chunked
+
+receiveMessage :: Socket -> IO Message
+receiveMessage sock = do
+  sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
+  print sz
+  let (n, m) = divMod sz 1024
+  ps <- replicateM (fromIntegral n) (recv sock 1024)
+  p <- recv sock (fromIntegral m)
+  let payload = C.concat (ps ++ [p])
+  C.putStrLn payload
+  pure (Message payload)
+
+sendObject :: (B.Binary a) => Socket -> a -> IO ()
+sendObject sock = sendMessage sock . Message . C.toStrict . B.encode
+
+receiveObject :: (B.Binary a) => Socket -> IO a
+receiveObject sock =
+  B.decode . CL.fromStrict . unMessage <$> receiveMessage sock

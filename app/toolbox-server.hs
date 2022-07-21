@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 module Main (main) where
 
 import Concur.Core
@@ -20,12 +18,13 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
+import qualified Data.List as L
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
 import Toolbox.Comm
-  ( Message (..),
-    receiveMessage,
+  ( receiveObject,
     runServer,
   )
 import Prelude hiding (div)
@@ -36,30 +35,38 @@ main = do
   _ <- forkIO $ listener var
   webServer var
 
-listener :: TVar (Maybe (Int, Text)) -> IO ()
+type ModuleMessages = Map Text Text
+
+listener :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
 listener var =
   runServer
     "/tmp/ghc-build-analyzer.ipc"
     ( \sock -> do
-        Message payload <- receiveMessage sock
-        updateBuffer var (decodeUtf8 payload)
+        (modName, msg) <- receiveObject sock
+        updateModuleMessages var (modName, msg)
     )
 
-updateBuffer :: TVar (Maybe (Int, Text)) -> Text -> IO ()
-updateBuffer var txt = do
-  val <- atomically $ readTVar var
-  putStrLn $ "I am thread1: " ++ show val
-  case val of
-    Nothing -> atomically $ writeTVar var (Just (1, txt))
-    Just (i, _) -> atomically $ writeTVar var (Just (i + 1, txt))
+updateModuleMessages :: TVar (Maybe (Int, ModuleMessages)) -> (Text, Text) -> IO ()
+updateModuleMessages var (modName, msg) = do
+  mmap <- atomically $ readTVar var
+  case mmap of
+    Nothing -> do
+      let m = M.singleton modName msg
+      atomically $ writeTVar var (Just (1, m))
+    Just (i, m) -> do
+      let m' = M.insert modName msg m
+      atomically $ writeTVar var (Just (i + 1, m'))
 
-webServer :: TVar (Maybe (Int, Text)) -> IO ()
+renderModuleMessages :: ModuleMessages -> Text
+renderModuleMessages m = T.pack $ L.intercalate "\n" $ map show $ M.toList m
+
+webServer :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
   runDefault 8080 "test" (\_ -> go initVal)
   where
     go val0 = do
-      let txt = maybe "Nothing" (\(i, t) -> T.pack (show i) <> ":\n" <> t) val0
+      let txt = maybe "Nothing" (\(i, m) -> T.pack (show i) <> ":\n" <> renderModuleMessages m) val0
       let action = do
             val <- liftSTM $ do
               val' <- readTVar var

@@ -19,6 +19,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Text (Text)
+import qualified Data.Text as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
   ( CommandLineOption,
@@ -36,10 +38,11 @@ import GHC.Types.Name.Reader
     ImpDeclSpec (..),
     ImportSpec (..),
   )
-import GHC.Unit.Module (ModuleName)
+import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
-import Network.Socket.ByteString (sendAll)
-import Toolbox.Comm (Message (..), runClient, sendMessage)
+import Toolbox.Comm (Message (..), runClient, sendObject)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -101,11 +104,11 @@ typecheckPlugin _ modsummary tc = do
         unlines $
           flip concatMap (M.toList moduleImportMap) $ \(modu, names) ->
             let imported = fmap (formatName dflags) $ S.toList names
-             in ["---------", showPpr dflags modu, formatImportedNames imported]
+             in [showPpr dflags modu, formatImportedNames imported]
   printPpr dflags modsummary
 
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $
     runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendMessage sock $ Message (C.pack rendered)
-  -- sendAll s (C.pack rendered)
+      sendObject sock (modName, rendered)
   pure tc

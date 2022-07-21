@@ -72,6 +72,7 @@ dependencies:
 
 ghc-options:
   - -Wall
+  - -Werror
 
 extra-source-files:
   - README.md
@@ -107,6 +108,7 @@ executables:
     dependencies:
       - concur-core
       - concur-replica
+      - containers
       - ghc-build-analyzer
       - stm
 tests:
