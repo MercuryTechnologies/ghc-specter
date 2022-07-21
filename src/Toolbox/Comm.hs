@@ -34,7 +34,6 @@ import Network.Socket
     withSocketsDo,
   )
 import Network.Socket.ByteString (recv, send, sendMany)
-import System.IO (hFlush, stdout)
 
 newtype Message = Message {unMessage :: C.ByteString}
 

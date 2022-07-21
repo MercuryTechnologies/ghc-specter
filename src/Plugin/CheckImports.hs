@@ -11,7 +11,6 @@ module Plugin.CheckImports
 where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import qualified Data.ByteString.Char8 as C
 import Data.Char (isAlpha)
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
@@ -19,7 +18,6 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
 import qualified Data.Set as S
-import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
@@ -42,7 +40,7 @@ import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
-import Toolbox.Comm (Message (..), runClient, sendObject)
+import Toolbox.Comm (runClient, sendObject)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
