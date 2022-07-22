@@ -1,11 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | CheckImport plugin:
 --   This plugin checks if imported identifiers as unqualified
 --   exist and lists them.
 module Plugin.CheckImports
-  ( -- NOTE: The name "plugin" should be used to be called via GHC plugin mechanism.
+  ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
   )
 where
@@ -41,6 +40,7 @@ import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import Toolbox.Comm (runClient, sendObject)
+import Toolbox.Util (showPpr, printPpr)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -48,12 +48,6 @@ plugin =
   defaultPlugin
     { typeCheckResultAction = typecheckPlugin
     }
-
-showPpr :: (Outputable a) => DynFlags -> a -> String
-showPpr dflags = showSDoc dflags . ppr
-
-printPpr :: (Outputable a, MonadIO m) => DynFlags -> a -> m ()
-printPpr dflags = liftIO . putStrLn . showPpr dflags
 
 formatName :: DynFlags -> Name -> String
 formatName dflags name =
