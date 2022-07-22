@@ -94,6 +94,7 @@ receiveMessage sock = do
 sendObject :: (B.Binary a) => Socket -> a -> IO ()
 sendObject sock = sendMessage sock . Message . C.toStrict . B.encode
 
-receiveObject :: (B.Binary a) => Socket -> IO a
-receiveObject sock =
-  B.decode . CL.fromStrict . unMessage <$> receiveMessage sock
+receiveObject :: (B.Binary a, Show a) => Socket -> IO a
+receiveObject sock = do
+  v <- (B.decode . CL.fromStrict . unMessage <$> receiveMessage sock)
+  v `seq` pure v

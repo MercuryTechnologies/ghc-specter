@@ -21,11 +21,19 @@ data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
   CMTrivial :: ModuleName -> ChanMessage 'Trivial
 
-data ChanMessageBox = forall (a :: Channel). CMBox (ChanMessage a)
+data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
+
+instance Show ChanMessageBox where
+  show (CMBox (CMCheckImports _ _)) = "CMCheckImports"
+  show (CMBox (CMTrivial _)) = "CMTrivial"
 
 instance Binary ChanMessageBox where
-  put (CMBox (CMCheckImports m t)) = put (fromEnum CheckImports, m, t)
-  put (CMBox (CMTrivial m)) = put (fromEnum Trivial, m)
+  put (CMBox (CMCheckImports m t)) = do
+    put (fromEnum CheckImports)
+    put (m, t)
+  put (CMBox (CMTrivial m)) = do
+    put (fromEnum Trivial)
+    put m
 
   get = do
     tag <- get
