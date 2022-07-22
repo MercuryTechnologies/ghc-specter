@@ -14,8 +14,8 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
-import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Set (Set)
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -60,6 +60,9 @@ formatName dflags name =
   let str = showSDoc dflags . ppr . localiseName $ name
    in case str of
         (x : _) ->
+          -- NOTE: As we want to have resultant text directly copied and pasted to
+          --       the source code, the operator identifiers should be wrapped with
+          --       parentheses.
           if isAlpha x
             then str
             else "(" ++ str ++ ")"
@@ -82,7 +85,8 @@ mkModuleNameMap gre = do
     NormalGreName name -> do
       let modName = is_mod $ is_decl spec
       pure (modName, name)
-    _ -> []
+    -- TODO: Handle the record field name case correctly.
+    FieldGreName _ -> []
 
 typecheckPlugin ::
   [CommandLineOption] ->
