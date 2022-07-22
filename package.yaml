@@ -9,6 +9,7 @@ description: Please see the README on GitHub at
 category: Development
 author:
   - Rebecca Turner <rebeccat@mercury.com>
+  - Ian-Woo Kim <iank@mercury.com>
 copyright: © 2022 Mercury Inc. All rights reserved.
 
 default-extensions:
@@ -71,13 +72,16 @@ dependencies:
 
 ghc-options:
   - -Wall
-  - -ddump-json -dshow-passes
 
 extra-source-files:
   - README.md
 
 library:
   source-dirs: src
+  dependencies:
+    - containers
+    - ghc == 9.2.*
+    - transformers
 
 executables:
   ghc-build-analyzer-exe:
