@@ -57,7 +57,7 @@ cssLink =
 renderNavbar :: Channel -> Widget HTML Channel
 renderNavbar chan =
   nav
-    [classList [("navbar", True), ("hero-head", True)]]
+    [classList [("navbar", True)]]
     [ navbarMenu
         [ navbarStart
             [ CheckImports <$ navItem (chan == CheckImports) [text "CheckImports"]
@@ -79,20 +79,21 @@ render ::
   Widget HTML (Channel, (Int, Inbox))
 render (chan, (i, m)) = do
   let (mainPanel, bottomPanel)
-        | i == 0 = (pre [] [text "No GHC process yet"], div [] [])
+        | i == 0 =
+            ( div [] [text "No GHC process yet"]
+            , divClass "box" [] [text "No Messages"]
+            )
         | otherwise =
             ( section
-                [ classList [("hero-body", True)]
-                , style [("overflow-y", "auto")]
-                ]
+                [style [("height", "85vh"), ("overflow-y", "scroll")]]
                 [renderChannel chan m]
             , section
-                [classList [("hero-foot", True)]]
+                []
                 [divClass "box" [] [text $ "message: " <> T.pack (show i)]]
             )
   chan' <-
     div
-      [classList [("container hero is-fullheight", True)]]
+      [classList [("container is-fullheight", True)]]
       [ cssLink
       , renderNavbar chan
       , mainPanel
