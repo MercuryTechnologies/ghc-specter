@@ -13,12 +13,13 @@ import Concur.Replica
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
-  ( TVar,
+  ( STM,
+    TVar,
     atomically,
+    modifyTVar',
     newTVar,
     readTVar,
     retry,
-    writeTVar,
   )
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -45,20 +46,14 @@ listener var =
     "/tmp/ghc-build-analyzer.ipc"
     ( \sock -> do
         (modName, msg) <- receiveObject sock
-        -- threadDelay 500_000
-        updateModuleMessages var (modName, msg)
+        atomically $ updateModuleMessages var (modName, msg)
     )
 
-updateModuleMessages :: TVar (Maybe (Int, ModuleMessages)) -> (Text, Text) -> IO ()
-updateModuleMessages var (modName, msg) = do
-  mmap <- atomically $ readTVar var
+updateModuleMessages :: TVar (Maybe (Int, ModuleMessages)) -> (Text, Text) -> STM ()
+updateModuleMessages var (modName, msg) = modifyTVar' var $ \mmap ->
   case mmap of
-    Nothing -> do
-      let m = M.singleton modName msg
-      atomically $ writeTVar var (Just (1, m))
-    Just (i, m) -> do
-      let m' = M.insert modName msg m
-      atomically $ writeTVar var (Just (i + 1, m'))
+    Nothing -> Just (1, M.singleton modName msg)
+    Just (i, m) -> Just (i + 1, M.insert modName msg m)
 
 renderModuleMessages :: ModuleMessages -> Widget HTML a
 renderModuleMessages m =
