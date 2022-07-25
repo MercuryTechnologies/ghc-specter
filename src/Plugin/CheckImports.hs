@@ -103,10 +103,10 @@ typecheckPlugin _ modsummary tc = do
           concatMap mkModuleNameMap usedGREs
 
   let rendered =
-        unlines $
-          flip concatMap (M.toList moduleImportMap) $ \(modu, names) ->
-            let imported = fmap (formatName dflags) $ S.toList names
-             in [showPpr dflags modu, formatImportedNames imported]
+        unlines $ do
+          (modu, names) <- M.toList moduleImportMap
+          let imported = fmap (formatName dflags) $ S.toList names
+          [showPpr dflags modu, formatImportedNames imported]
   printPpr dflags modsummary
 
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
