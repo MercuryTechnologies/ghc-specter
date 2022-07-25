@@ -34,16 +34,14 @@ import Prelude hiding (div, span)
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
-iconText :: Bool -> Text -> Text -> Widget HTML MouseEvent
-iconText isClickable ico txt =
+iconText :: Text -> Text -> Widget HTML MouseEvent
+iconText ico txt =
   let iconCls = classList [("fas", True), (ico, True)]
-      iconProps
-        | isClickable = [iconCls, onClick]
-        | otherwise = [iconCls]
+      iconProps = [iconCls, onClick]
    in span
         [classList [("icon-text", True)]]
         [ span [classList [("icon", True)]] [el "i" iconProps []]
-        , span [] [text txt]
+        , span [onClick] [text txt]
         ]
 
 renderChannel :: Channel -> Maybe Text -> Inbox -> Widget HTML (Maybe Text)
@@ -56,11 +54,11 @@ renderChannel chan mexpandedModu m =
     eachRender ((_, modu), v) =
       let modinfo
             | mexpandedModu == Just modu =
-                [ iconText False "fa-minus" modu >> pure mexpandedModu
+                [ Nothing <$ iconText "fa-minus" modu
                 , pre [] [text v]
                 ]
             | otherwise =
-                [Just modu <$ iconText True "fa-plus" modu]
+                [Just modu <$ iconText "fa-plus" modu]
        in li [] modinfo
 
 cssLink :: Text -> Widget HTML a
