@@ -17,6 +17,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
@@ -40,7 +41,7 @@ import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (showPpr, printPpr)
+import Toolbox.Util (printPpr, showPpr)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -106,5 +107,5 @@ typecheckPlugin _ modsummary tc = do
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $
     runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (modName, rendered)
+      sendObject sock (("check-imports" :: Text, modName), rendered)
   pure tc
