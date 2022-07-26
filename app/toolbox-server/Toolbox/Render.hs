@@ -77,7 +77,7 @@ renderNavbar chan =
     [ navbarMenu
         [ navbarStart
             [ CheckImports <$ navItem (chan == CheckImports) [text "CheckImports"]
-            , Trivial <$ navItem (chan == Trivial) [text "Trivial"]
+            , Timing <$ navItem (chan == Timing) [text "Timing"]
             ]
         ]
     ]

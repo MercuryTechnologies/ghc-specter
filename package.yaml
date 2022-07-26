@@ -80,10 +80,12 @@ library:
   source-dirs: src
   dependencies:
     - binary
+    - binary-instances
     - containers
     - extra
     - ghc == 9.2.*
     - network
+    - time
     - transformers
 
 executables:
