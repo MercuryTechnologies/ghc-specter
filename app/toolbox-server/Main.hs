@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# OPTIONS_GHC -Werror #-}
 
 module Main (main) where
 
@@ -55,12 +54,16 @@ updateInbox var chanMsg =
 webServer :: TVar (Int, Inbox) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
-  runDefault 8080 "test" $ \_ -> loopM step (CheckImports, initVal)
+  runDefault 8080 "test" $
+    \_ -> loopM step ((CheckImports, Nothing), initVal)
   where
-    step (chan, (i, m)) = do
+    step ((chan, mexpandedModu), (i, m)) = do
       let await = liftSTM $ do
             (i', m') <- readTVar var
             if i == i'
               then retry
               else pure (i', m')
-      Left <$> (render (chan, (i, m)) <|> ((chan,) <$> await))
+      Left
+        <$> ( render ((chan, mexpandedModu), (i, m))
+                <|> (((chan, mexpandedModu),) <$> await)
+            )
