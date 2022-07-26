@@ -8,7 +8,16 @@ module Toolbox.Render
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (button, div, el, onClick, pre, text)
+import Concur.Replica
+  ( body,
+    button,
+    div,
+    el,
+    onClick,
+    pre,
+    text,
+    textProp,
+  )
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -35,6 +44,15 @@ renderChannel chan m =
         , pre [] [text "-----------"]
         ]
 
+cssLink :: Widget HTML a
+cssLink =
+  el
+    "link"
+    [ textProp "rel" "stylesheet"
+    , textProp "href" "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    ]
+    []
+
 render ::
   (Channel, (Int, Inbox)) ->
   Widget HTML (Channel, (Int, Inbox))
@@ -52,5 +70,14 @@ render (chan, (i, m)) = do
             ( div [] [renderChannel chan m]
             , div [] [text $ "message: " <> T.pack (show i)]
             )
-  chan' <- div [] [topPanel, hrule, mainPanel, hrule, bottomPanel]
+  chan' <-
+    body
+      []
+      [ cssLink
+      , topPanel
+      , hrule
+      , mainPanel
+      , hrule
+      , bottomPanel
+      ]
   pure (chan', (i, m))
