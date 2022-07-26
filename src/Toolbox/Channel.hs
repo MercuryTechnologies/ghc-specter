@@ -13,7 +13,7 @@ import Data.Binary (Binary (..))
 import Data.Text (Text)
 
 data Channel = CheckImports | Trivial
-  deriving (Enum)
+  deriving (Enum, Eq, Ord, Show)
 
 type ModuleName = Text
 
