@@ -9,10 +9,11 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( body,
-    button,
+  ( classList,
     div,
     el,
+    footer,
+    nav,
     onClick,
     pre,
     text,
@@ -25,9 +26,6 @@ import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
 import Toolbox.Server.Types (type ChanModule, type Inbox)
 import Prelude hiding (div)
-
-hrule :: Widget HTML a
-hrule = el "hr" [] []
 
 renderChannel :: Channel -> Inbox -> Widget HTML a
 renderChannel chan m =
@@ -53,31 +51,45 @@ cssLink =
     ]
     []
 
+renderNavbar :: Channel -> Widget HTML Channel
+renderNavbar chan =
+  nav
+    [classList [("navbar", True)]]
+    [ navbarMenu
+        [ navbarStart
+            [ CheckImports <$ navItem (chan == CheckImports) [text "CheckImports"]
+            , Trivial <$ navItem (chan == Trivial) [text "Trivial"]
+            ]
+        ]
+    ]
+  where
+    divClass cls props = div (classList [(cls, True)] : props)
+    navbarMenu = divClass "navbar-menu" []
+    navbarStart = divClass "navbar-start" []
+    navItem b =
+      let cls =
+            classList $
+              map (\tag -> (tag, True)) (if b then ["navbar-item", "is-tab", "is-active"] else ["navbar-item", "is-tab"])
+       in el "a" [cls, onClick]
+
 render ::
   (Channel, (Int, Inbox)) ->
   Widget HTML (Channel, (Int, Inbox))
 render (chan, (i, m)) = do
-  let topPanel =
-        div
-          []
-          [ pre [] [text $ "Current channel = " <> T.pack (show chan)]
-          , CheckImports <$ button [onClick] [text "CheckImports"]
-          , Trivial <$ button [onClick] [text "Trivial"]
-          ]
-      (mainPanel, bottomPanel)
+  let (mainPanel, bottomPanel)
         | i == 0 = (pre [] [text "No GHC process yet"], div [] [])
         | otherwise =
             ( div [] [renderChannel chan m]
-            , div [] [text $ "message: " <> T.pack (show i)]
+            , footer
+                [classList [("footer", True)]]
+                [text $ "message: " <> T.pack (show i)]
             )
   chan' <-
-    body
-      []
+    div
+      [classList [("container is-max-desktop", True)]]
       [ cssLink
-      , topPanel
-      , hrule
+      , renderNavbar chan
       , mainPanel
-      , hrule
       , bottomPanel
       ]
   pure (chan', (i, m))
