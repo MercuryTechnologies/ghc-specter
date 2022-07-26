@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 module Toolbox.Render
   ( ChanModule,
     Inbox,
@@ -9,13 +7,15 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( classList,
+  ( Props,
+    classList,
     div,
     el,
-    footer,
     nav,
     onClick,
     pre,
+    section,
+    style,
     text,
     textProp,
   )
@@ -26,6 +26,9 @@ import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
 import Toolbox.Server.Types (type ChanModule, type Inbox)
 import Prelude hiding (div)
+
+divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
+divClass cls props = div (classList [(cls, True)] : props)
 
 renderChannel :: Channel -> Inbox -> Widget HTML a
 renderChannel chan m =
@@ -54,7 +57,7 @@ cssLink =
 renderNavbar :: Channel -> Widget HTML Channel
 renderNavbar chan =
   nav
-    [classList [("navbar", True)]]
+    [classList [("navbar", True), ("hero-head", True)]]
     [ navbarMenu
         [ navbarStart
             [ CheckImports <$ navItem (chan == CheckImports) [text "CheckImports"]
@@ -63,7 +66,6 @@ renderNavbar chan =
         ]
     ]
   where
-    divClass cls props = div (classList [(cls, True)] : props)
     navbarMenu = divClass "navbar-menu" []
     navbarStart = divClass "navbar-start" []
     navItem b =
@@ -79,14 +81,18 @@ render (chan, (i, m)) = do
   let (mainPanel, bottomPanel)
         | i == 0 = (pre [] [text "No GHC process yet"], div [] [])
         | otherwise =
-            ( div [] [renderChannel chan m]
-            , footer
-                [classList [("footer", True)]]
-                [text $ "message: " <> T.pack (show i)]
+            ( section
+                [ classList [("hero-body", True)]
+                , style [("overflow-y", "auto")]
+                ]
+                [renderChannel chan m]
+            , section
+                [classList [("hero-foot", True)]]
+                [divClass "box" [] [text $ "message: " <> T.pack (show i)]]
             )
   chan' <-
     div
-      [classList [("container is-max-desktop", True)]]
+      [classList [("container hero is-fullheight", True)]]
       [ cssLink
       , renderNavbar chan
       , mainPanel
