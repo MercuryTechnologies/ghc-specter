@@ -1,17 +1,10 @@
 {-# LANGUAGE GADTs #-}
+{-# OPTIONS_GHC -Werror #-}
 
 module Main (main) where
 
-import Concur.Core
-  ( Widget,
-    liftSTM,
-  )
-import Concur.Replica
-  ( div,
-    pre,
-    runDefault,
-    text,
-  )
+import Concur.Core (liftSTM)
+import Concur.Replica (runDefault)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
@@ -23,11 +16,8 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
-import Data.Map.Strict (Map)
+import Control.Monad.Extra (loopM)
 import qualified Data.Map.Strict as M
-import Data.Text (Text)
-import qualified Data.Text as T
-import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( ChanMessage (CMCheckImports, CMTrivial),
     ChanMessageBox (..),
@@ -36,6 +26,8 @@ import Toolbox.Comm
   ( receiveObject,
     runServer,
   )
+import Toolbox.Render (render)
+import Toolbox.Server.Types (Inbox)
 import Prelude hiding (div)
 
 main :: IO ()
@@ -43,10 +35,6 @@ main = do
   var <- atomically $ newTVar (0, mempty)
   _ <- forkIO $ listener var
   webServer var
-
-type ChanModule = (Text, Text)
-
-type Inbox = Map ChanModule Text
 
 listener :: TVar (Int, Inbox) -> IO ()
 listener var =
@@ -63,32 +51,15 @@ updateInbox var chanMsg =
             CMBox (CMTrivial m') -> ("trivial", m', "no-message")
      in (i + 1, M.insert (chan, modu) msg m)
 
-renderInbox :: Inbox -> Widget HTML a
-renderInbox m =
-  div [] $ map eachRender $ M.toList m
-  where
-    eachRender :: (ChanModule, Text) -> Widget HTML a
-    eachRender ((chan, modu), v) =
-      div
-        []
-        [ text ("chan: " <> chan <> ", module: " <> modu)
-        , pre [] [text v]
-        , pre [] [text "-----------"]
-        ]
-
 webServer :: TVar (Int, Inbox) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
-  runDefault 8080 "test" (\_ -> go initVal)
+  runDefault 8080 "test" $ \_ -> loopM step initVal
   where
-    go (i, m) = do
-      let widget
-            | i == 0 = pre [] [text "No GHC process yet"]
-            | otherwise = div [] [text (T.pack (show i)), renderInbox m]
-          await = liftSTM $ do
+    step (i, m) = do
+      let await = liftSTM $ do
             (i', m') <- readTVar var
             if i == i'
               then retry
               else pure (i', m')
-      val <- (widget <|> await)
-      go val
+      Left <$> (render (i, m) <|> await)
