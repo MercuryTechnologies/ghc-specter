@@ -46,16 +46,16 @@ main = do
 
 type ChanModule = (Text, Text)
 
-type ModuleMessages = Map ChanModule Text
+type Inbox = Map ChanModule Text
 
-listener :: TVar (Int, ModuleMessages) -> IO ()
+listener :: TVar (Int, Inbox) -> IO ()
 listener var =
   runServer
     "/tmp/ghc-build-analyzer.ipc"
-    (\sock -> receiveObject sock >>= atomically . updateModuleMessages var)
+    (\sock -> receiveObject sock >>= atomically . updateInbox var)
 
-updateModuleMessages :: TVar (Int, ModuleMessages) -> ChanMessageBox -> STM ()
-updateModuleMessages var chanMsg =
+updateInbox :: TVar (Int, Inbox) -> ChanMessageBox -> STM ()
+updateInbox var chanMsg =
   modifyTVar' var $ \(i, m) ->
     let (chan, modu, msg) =
           case chanMsg of
@@ -63,8 +63,8 @@ updateModuleMessages var chanMsg =
             CMBox (CMTrivial m') -> ("trivial", m', "no-message")
      in (i + 1, M.insert (chan, modu) msg m)
 
-renderModuleMessages :: ModuleMessages -> Widget HTML a
-renderModuleMessages m =
+renderInbox :: Inbox -> Widget HTML a
+renderInbox m =
   div [] $ map eachRender $ M.toList m
   where
     eachRender :: (ChanModule, Text) -> Widget HTML a
@@ -76,7 +76,7 @@ renderModuleMessages m =
         , pre [] [text "-----------"]
         ]
 
-webServer :: TVar (Int, ModuleMessages) -> IO ()
+webServer :: TVar (Int, Inbox) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
   runDefault 8080 "test" (\_ -> go initVal)
@@ -84,8 +84,8 @@ webServer var = do
     go (i, m) = do
       let widget
             | i == 0 = pre [] [text "No GHC process yet"]
-            | otherwise = div [] [text (T.pack (show i)), renderModuleMessages m]
-      let await = liftSTM $ do
+            | otherwise = div [] [text (T.pack (show i)), renderInbox m]
+          await = liftSTM $ do
             (i', m') <- readTVar var
             if i == i'
               then retry
