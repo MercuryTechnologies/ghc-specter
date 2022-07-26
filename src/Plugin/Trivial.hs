@@ -35,6 +35,10 @@ import GHC.Unit.Home
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
+import Toolbox.Channel
+  ( ChanMessage (CMTrivial),
+    ChanMessageBox (..),
+  )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr)
 
@@ -69,5 +73,5 @@ afterParser _ modSummary parsed = do
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
   liftIO $
     runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (("trivial" :: Text, modName), "" :: Text)
+      sendObject sock (CMBox (CMTrivial modName))
   pure parsed

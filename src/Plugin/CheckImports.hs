@@ -40,6 +40,10 @@ import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
+import Toolbox.Channel
+  ( ChanMessage (CMCheckImports),
+    ChanMessageBox (..),
+  )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr, showPpr)
 import Prelude hiding ((<>))
@@ -107,5 +111,5 @@ typecheckPlugin _ modsummary tc = do
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $
     runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (("check-imports" :: Text, modName), rendered)
+      sendObject sock (CMBox (CMCheckImports modName (T.pack rendered))) -- (("check-imports" :: Text, modName), rendered)
   pure tc
