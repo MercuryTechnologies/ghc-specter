@@ -34,13 +34,13 @@ import Prelude hiding (div)
 
 main :: IO ()
 main = do
-  var <- atomically $ newTVar Nothing
+  var <- atomically $ newTVar (0, mempty)
   _ <- forkIO $ listener var
   webServer var
 
 type ModuleMessages = Map Text Text
 
-listener :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
+listener :: TVar (Int, ModuleMessages) -> IO ()
 listener var =
   runServer
     "/tmp/ghc-build-analyzer.ipc"
@@ -49,11 +49,9 @@ listener var =
         atomically $ updateModuleMessages var (modName, msg)
     )
 
-updateModuleMessages :: TVar (Maybe (Int, ModuleMessages)) -> (Text, Text) -> STM ()
-updateModuleMessages var (modName, msg) = modifyTVar' var $ \mmap ->
-  case mmap of
-    Nothing -> Just (1, M.singleton modName msg)
-    Just (i, m) -> Just (i + 1, M.insert modName msg m)
+updateModuleMessages :: TVar (Int, ModuleMessages) -> (Text, Text) -> STM ()
+updateModuleMessages var (modName, msg) =
+  modifyTVar' var $ \(i, m) -> (i + 1, M.insert modName msg m)
 
 renderModuleMessages :: ModuleMessages -> Widget HTML a
 renderModuleMessages m =
@@ -68,21 +66,19 @@ renderModuleMessages m =
         , pre [] [text "-----------"]
         ]
 
-webServer :: TVar (Maybe (Int, ModuleMessages)) -> IO ()
+webServer :: TVar (Int, ModuleMessages) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
   runDefault 8080 "test" (\_ -> go initVal)
   where
-    go val0 = do
-      let widget =
-            maybe
-              (pre [] [text "No GHC process yet"])
-              (\(i, m) -> div [] [text (T.pack (show i)), renderModuleMessages m])
-              val0
+    go (i, m) = do
+      let widget
+            | i == 0 = pre [] [text "No GHC process yet"]
+            | otherwise = div [] [text (T.pack (show i)), renderModuleMessages m]
       let await = liftSTM $ do
-            val' <- readTVar var
-            if fmap fst val0 == fmap fst val'
+            (i', m') <- readTVar var
+            if i == i'
               then retry
-              else pure val'
+              else pure (i', m')
       val <- (widget <|> await)
       go val
