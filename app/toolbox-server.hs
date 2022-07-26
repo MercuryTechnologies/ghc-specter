@@ -25,6 +25,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Options.Applicative as OA
 import Replica.VDOM.Types (HTML)
 import Toolbox.Comm
   ( receiveObject,
@@ -32,18 +33,27 @@ import Toolbox.Comm
   )
 import Prelude hiding (div)
 
+newtype Options = Options {optSocketFile :: FilePath}
+
+optsParser :: OA.ParserInfo Options
+optsParser =
+  OA.info
+    (Options <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
+    OA.fullDesc
+
 main :: IO ()
 main = do
+  Options socketFile <- OA.execParser optsParser
   var <- atomically $ newTVar (0, mempty)
-  _ <- forkIO $ listener var
+  _ <- forkIO $ listener socketFile var
   webServer var
 
 type ModuleMessages = Map Text Text
 
-listener :: TVar (Int, ModuleMessages) -> IO ()
-listener var =
+listener :: FilePath -> TVar (Int, ModuleMessages) -> IO ()
+listener socketFile var =
   runServer
-    "/tmp/ghc-build-analyzer.ipc"
+    socketFile
     ( \sock -> do
         (modName, msg) <- receiveObject sock
         atomically $ updateModuleMessages var (modName, msg)

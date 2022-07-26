@@ -81,6 +81,7 @@ library:
   dependencies:
     - binary
     - containers
+    - directory
     - extra
     - ghc == 9.2.*
     - network
@@ -109,8 +110,9 @@ executables:
       - concur-replica
       - containers
       - ghc-build-analyzer
-      - stm
+      - optparse-applicative
       - replica
+      - stm
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs

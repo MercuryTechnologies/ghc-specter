@@ -10,6 +10,7 @@ module Plugin.CheckImports
   )
 where
 
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
 import Data.IORef (readIORef)
@@ -40,6 +41,7 @@ import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
+import System.Directory (doesFileExist)
 import Toolbox.Comm (runClient, sendObject)
 import Prelude hiding ((<>))
 
@@ -88,12 +90,14 @@ mkModuleNameMap gre = do
     -- TODO: Handle the record field name case correctly.
     FieldGreName _ -> []
 
+-- | First argument in -fplugin-opt is interpreted as the socket file path.
+--   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
   [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin _ modsummary tc = do
+typecheckPlugin opts modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -110,7 +114,11 @@ typecheckPlugin _ modsummary tc = do
   printPpr dflags modsummary
 
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $
-    runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (modName, rendered)
+  case opts of
+    ipcfile : _ -> liftIO $ do
+      socketExists <- doesFileExist ipcfile
+      when socketExists $
+        runClient ipcfile $ \sock ->
+          sendObject sock (modName, rendered)
+    _ -> pure ()
   pure tc
