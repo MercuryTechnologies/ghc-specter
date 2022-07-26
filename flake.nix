@@ -35,6 +35,7 @@
         });
         hsenv = hspkgs.ghcWithPackages (p: [
           p.aeson
+          p.binary-instances
           p.cabal-install
           p.concur-core
           p.concur-replica
@@ -45,6 +46,7 @@
           p.replica
           p.socket
           p.text
+          p.time
         ]);
       in {
         devShells.default = pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };

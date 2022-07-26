@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fplugin Plugin.Trivial #-}
+{-# OPTIONS_GHC -fplugin Plugin.Timing #-}
 
 module B (test2) where
 

@@ -6,6 +6,7 @@ module Plugin.Timing
 where
 
 import Control.Monad.IO.Class (liftIO)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
@@ -36,9 +37,11 @@ import GHC.Unit.Home
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
+import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
   ( ChanMessage (CMTiming),
     ChanMessageBox (..),
+    type Session,
   )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr)
@@ -50,8 +53,16 @@ plugin =
     , parsedResultAction = afterParser
     }
 
+-- shared across the session
+sessionRef :: IORef Session
+{-# NOINLINE sessionRef #-}
+sessionRef = unsafePerformIO (newIORef "not-initialized")
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
+  session <- readIORef sessionRef
+  print session
+  writeIORef sessionRef "now-initialized"
   let uenv = hsc_unit_env env
       hu = ue_home_unit uenv
   case hu of
@@ -69,10 +80,11 @@ driver _ env = do
 
 afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
 afterParser _ modSummary parsed = do
-  liftIO $ putStrLn "after parser"
+  -- liftIO $ putStrLn "after parser"
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
   liftIO $ do
+    session <- readIORef sessionRef
     time <- getCurrentTime
     runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (CMBox (CMTiming modName time))
+      sendObject sock $ CMBox (CMTiming modName (session, time))
   pure parsed

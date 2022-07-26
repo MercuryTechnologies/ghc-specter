@@ -6,6 +6,7 @@ module Toolbox.Channel
     type ModuleName,
     ChanMessage (..),
     ChanMessageBox (..),
+    type Session,
   )
 where
 
@@ -19,9 +20,11 @@ data Channel = CheckImports | Timing
 
 type ModuleName = Text
 
+type Session = Text
+
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
-  CMTiming :: ModuleName -> UTCTime -> ChanMessage 'Timing
+  CMTiming :: ModuleName -> (Session, UTCTime) -> ChanMessage 'Timing
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
