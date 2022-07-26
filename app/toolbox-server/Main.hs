@@ -21,6 +21,7 @@ import qualified Data.Map.Strict as M
 import Toolbox.Channel
   ( ChanMessage (CMCheckImports, CMTrivial),
     ChanMessageBox (..),
+    Channel (..),
   )
 import Toolbox.Comm
   ( receiveObject,
@@ -47,19 +48,19 @@ updateInbox var chanMsg =
   modifyTVar' var $ \(i, m) ->
     let (chan, modu, msg) =
           case chanMsg of
-            CMBox (CMCheckImports m' t') -> ("check-imports", m', t')
-            CMBox (CMTrivial m') -> ("trivial", m', "no-message")
+            CMBox (CMCheckImports m' t') -> (CheckImports, m', t')
+            CMBox (CMTrivial m') -> (Trivial, m', "no-message")
      in (i + 1, M.insert (chan, modu) msg m)
 
 webServer :: TVar (Int, Inbox) -> IO ()
 webServer var = do
   initVal <- atomically (readTVar var)
-  runDefault 8080 "test" $ \_ -> loopM step initVal
+  runDefault 8080 "test" $ \_ -> loopM step (CheckImports, initVal)
   where
-    step (i, m) = do
+    step (chan, (i, m)) = do
       let await = liftSTM $ do
             (i', m') <- readTVar var
             if i == i'
               then retry
               else pure (i', m')
-      Left <$> (render (i, m) <|> await)
+      Left <$> (render (chan, (i, m)) <|> ((chan,) <$> await))
