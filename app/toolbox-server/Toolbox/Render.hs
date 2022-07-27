@@ -27,7 +27,7 @@ import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
-import Toolbox.Channel (Channel (..))
+import Toolbox.Channel (Channel (..), SessionInfo (..))
 import Toolbox.Server.Types (type ChanModule, type Inbox)
 import Prelude hiding (div, span)
 
@@ -44,8 +44,8 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderChannel :: Channel -> Maybe Text -> Inbox -> Widget HTML (Maybe Text)
-renderChannel chan mexpandedModu m =
+renderInbox:: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
+renderInbox (chan, mexpandedModu) m =
   ul [] $ map eachRender filtered
   where
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
@@ -60,6 +60,21 @@ renderChannel chan mexpandedModu m =
             | otherwise =
                 [Just modu <$ iconText "fa-plus" modu]
        in li [] modinfo
+
+renderMainPanel ::
+  (Channel, Maybe Text) ->
+  (Inbox, SessionInfo) ->
+  Widget HTML (Maybe Text)
+renderMainPanel (chan, mexpandedModu) (m, s) =
+  case chan of
+    CheckImports -> renderInbox (CheckImports, mexpandedModu) m
+    Timing ->
+      div
+        []
+        [ pre [] [text $ T.pack $ show s]
+        , renderInbox (Timing, mexpandedModu) m
+        ]
+    _ -> renderInbox (Timing, mexpandedModu) m
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
@@ -92,9 +107,9 @@ renderNavbar chan =
        in el "a" [cls, onClick]
 
 render ::
-  ((Channel, Maybe Text), (Int, Inbox)) ->
-  Widget HTML ((Channel, Maybe Text), (Int, Inbox))
-render ((chan, mexpandedModu), (i, m)) = do
+  ((Channel, Maybe Text), (Int, Inbox, SessionInfo)) ->
+  Widget HTML ((Channel, Maybe Text), (Int, Inbox, SessionInfo))
+render ((chan, mexpandedModu), (i, m, s)) = do
   let (mainPanel, bottomPanel)
         | i == 0 =
             ( div [] [text "No GHC process yet"]
@@ -103,7 +118,7 @@ render ((chan, mexpandedModu), (i, m)) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderChannel chan mexpandedModu m]
+                [renderMainPanel (chan, mexpandedModu) (m, s)]
             , section
                 []
                 [divClass "box" [] [text $ "message: " <> T.pack (show i)]]
@@ -117,4 +132,4 @@ render ((chan, mexpandedModu), (i, m)) = do
       , ((chan,) <$> mainPanel)
       , bottomPanel
       ]
-  pure ((chan', mexpandedModu'), (i, m))
+  pure ((chan', mexpandedModu'), (i, m, s))

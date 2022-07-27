@@ -9,7 +9,7 @@ module Plugin.Timing
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.IORef (IORef, newIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Env (HscEnv (..))
@@ -31,7 +31,7 @@ import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
-  ( ChanMessage (CMTiming),
+  ( ChanMessage (CMSession, CMTiming),
     ChanMessageBox (..),
     SessionInfo (..),
     Timer (..),
@@ -49,10 +49,22 @@ sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing))
 
+-- TODO: until PR#9 is merged.
+socketFile :: FilePath
+socketFile = "/tmp/ghc-build-analyzer.ipc"
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
   let dflags = hsc_dflags env
   startTime <- getCurrentTime
+  SessionInfo msessionStart <- readIORef sessionRef
+  case msessionStart of
+    Nothing -> do
+      let startedSession = SessionInfo (Just startTime)
+      writeIORef sessionRef startedSession
+      runClient socketFile $ \sock ->
+        sendObject sock $ CMBox (CMSession startedSession)
+    _ -> pure ()
   let timer0 = resetTimer {timerStart = Just startTime}
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
@@ -71,7 +83,7 @@ driver _ env = do
               Just modName -> liftIO $ do
                 endTime <- getCurrentTime
                 let timer = timer0 {timerEnd = Just endTime}
-                runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
+                runClient socketFile $ \sock ->
                   sendObject sock $ CMBox (CMTiming modName timer)
           _ -> pure ()
 

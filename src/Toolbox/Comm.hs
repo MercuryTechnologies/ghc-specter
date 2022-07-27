@@ -83,12 +83,10 @@ sendMessage sock (Message !payload) = do
 receiveMessage :: Socket -> IO Message
 receiveMessage sock = do
   sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
-  print sz
   let (n, m) = divMod sz 1024
   ps <- replicateM (fromIntegral n) (recv sock 1024)
   p <- recv sock (fromIntegral m)
   let payload = C.concat (ps ++ [p])
-  C.putStrLn payload
   pure (Message payload)
 
 sendObject :: (B.Binary a) => Socket -> a -> IO ()
