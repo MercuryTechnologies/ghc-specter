@@ -49,7 +49,7 @@ updateInbox var chanMsg =
     let (chan, modu, msg) =
           case chanMsg of
             CMBox (CMCheckImports m' t') -> (CheckImports, m', t')
-            CMBox (CMTiming m' time') -> (Timing, m', T.pack (show time'))
+            CMBox (CMTiming m' timer') -> (Timing, m', T.pack (show timer'))
      in (i + 1, M.insert (chan, modu) msg m)
 
 webServer :: TVar (Int, Inbox) -> IO ()

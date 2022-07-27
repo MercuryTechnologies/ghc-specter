@@ -10,13 +10,19 @@ import Data.Foldable (traverse_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Time.Clock (getCurrentTime)
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env
   ( Hsc,
     HscEnv (..),
   )
 import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Pipeline (PhasePlus (HscOut), runPhase)
+import GHC.Driver.Phases (Phase (StopLn))
+import GHC.Driver.Pipeline
+  ( PhasePlus (HscOut, RealPhase),
+    PipeState (iface),
+    getPipeState,
+    runPhase,
+  )
 import GHC.Driver.Plugins
   ( Plugin (..),
     defaultPlugin,
@@ -38,6 +44,7 @@ import GHC.Unit.Env
 import GHC.Unit.Home
   ( GenHomeUnit (..),
   )
+import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Module.Status (HscStatus (..))
@@ -46,6 +53,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
   ( ChanMessage (CMTiming),
     ChanMessageBox (..),
+    Timer (..),
+    resetTimer,
     type Session,
   )
 import Toolbox.Comm (runClient, sendObject)
@@ -53,10 +62,7 @@ import Toolbox.Util (printPpr, showPpr)
 
 plugin :: Plugin
 plugin =
-  defaultPlugin
-    { driverPlugin = driver
-    , parsedResultAction = afterParser
-    }
+  defaultPlugin {driverPlugin = driver}
 
 -- shared across the session
 sessionRef :: IORef Session
@@ -66,54 +72,32 @@ sessionRef = unsafePerformIO (newIORef "not-initialized")
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
   let dflags = hsc_dflags env
-  -- A and B
-  traverse_ (printPpr dflags . targetId) (hsc_targets env)
-  session <- readIORef sessionRef
-  print session
-  writeIORef sessionRef "now-initialized"
   let uenv = hsc_unit_env env
       hu = ue_home_unit uenv
-  case hu of
-    DefiniteHomeUnit _ (Just (_, inst)) -> do
-      putStrLn "definite: instantiated"
-    DefiniteHomeUnit _ Nothing -> do
-      putStrLn "definite: but no instantiation"
-    IndefiniteHomeUnit {} -> putStrLn "indefinite"
-  printPpr dflags (ghcMode dflags)
-  print (outputFile dflags)
-  printPpr dflags (homeUnitId_ dflags)
-  printPpr dflags (mainModuleNameIs dflags)
-  let hooks = hsc_hooks env
+  startTime <- getCurrentTime
+  let timer0 = resetTimer {timerStart = Just startTime}
+      hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         liftIO $ do
           putStrLn $ "###########" <> showPpr dflags phase
-          case phase of
-            HscOut _ _ status ->
-              case status of
-                HscNotGeneratingCode {} ->
-                  print "HscNotGeneratingCode"
-                HscUpToDate {} ->
-                  print "HscUpToDate"
-                HscUpdateBoot {} ->
-                  print "HscUpdateBoot"
-                HscUpdateSig {} ->
-                  print "HscUpdateSig"
-                HscRecomp {} ->
-                  print "HscRecomp"
-            _ -> pure ()
-        runPhase phase fp
-        -- pure (phase, fp)
+        (phase', fp') <- runPhase phase fp
+        liftIO $ putStrLn $ "------------>" <> showPpr dflags phase'
+
+        case phase' of
+          RealPhase StopLn -> do
+            mmodName <-
+              fmap (T.pack . moduleNameString . moduleName . mi_module) . iface
+                <$> getPipeState
+            case mmodName of
+              Nothing -> pure ()
+              Just modName -> liftIO $ do
+                endTime <- getCurrentTime
+                let timer = timer0 {timerEnd = Just endTime}
+                runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
+                  sendObject sock $ CMBox (CMTiming modName timer)
+          _ -> pure ()
+
+        pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
   pure env'
-
-afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
-afterParser _ modSummary parsed = do
-  -- liftIO $ putStrLn "after parser"
-  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
-  liftIO $ do
-    session <- readIORef sessionRef
-    time <- getCurrentTime
-    runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock $ CMBox (CMTiming modName (session, time))
-  pure parsed
