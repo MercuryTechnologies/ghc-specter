@@ -1,24 +1,22 @@
+{-# OPTIONS_GHC -Werror #-}
+
 -- This module provides the current module under compilation.
 module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
+    sessionRef,
   )
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (traverse_)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Text (Text)
+import Data.IORef (IORef, newIORef)
 import qualified Data.Text as T
-import Data.Time.Clock (UTCTime, getCurrentTime)
-import GHC.Driver.Env
-  ( Hsc,
-    HscEnv (..),
-  )
+import Data.Time.Clock (getCurrentTime)
+import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
-  ( PhasePlus (HscOut, RealPhase),
+  ( PhasePlus (RealPhase),
     PipeState (iface),
     getPipeState,
     runPhase,
@@ -28,52 +26,32 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Driver.Session
-  ( DynFlags
-      ( ghcMode,
-        homeUnitId_,
-        mainModuleNameIs
-      ),
-    outputFile,
-  )
-import GHC.Hs (HsParsedModule)
-import GHC.Types.Target (targetId)
-import GHC.Unit.Env
-  ( UnitEnv (..),
-  )
-import GHC.Unit.Home
-  ( GenHomeUnit (..),
-  )
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
-import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHC.Unit.Module.Name (ModuleName, moduleNameString)
-import GHC.Unit.Module.Status (HscStatus (..))
+import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
   ( ChanMessage (CMTiming),
     ChanMessageBox (..),
+    SessionInfo (..),
     Timer (..),
     resetTimer,
-    type Session,
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (printPpr, showPpr)
+import Toolbox.Util (showPpr)
 
 plugin :: Plugin
 plugin =
   defaultPlugin {driverPlugin = driver}
 
 -- shared across the session
-sessionRef :: IORef Session
+sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newIORef "not-initialized")
+sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing))
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
   let dflags = hsc_dflags env
-  let uenv = hsc_unit_env env
-      hu = ue_home_unit uenv
   startTime <- getCurrentTime
   let timer0 = resetTimer {timerStart = Just startTime}
       hooks = hsc_hooks env

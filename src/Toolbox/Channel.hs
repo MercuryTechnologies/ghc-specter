@@ -6,7 +6,7 @@ module Toolbox.Channel
     type ModuleName,
     ChanMessage (..),
     ChanMessageBox (..),
-    type Session,
+    SessionInfo (..),
     Timer (..),
     resetTimer,
   )
@@ -22,7 +22,9 @@ data Channel = CheckImports | Timing
 
 type ModuleName = Text
 
-type Session = Text
+newtype SessionInfo = SessionInfo
+  { sessionStartTime :: Maybe UTCTime }
+  deriving (Show, Binary)
 
 data Timer = Timer
   { timerStart :: Maybe UTCTime
