@@ -7,6 +7,7 @@ where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Env
@@ -37,9 +38,11 @@ import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import System.Directory (doesFileExist)
+import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
   ( ChanMessage (CMTiming),
     ChanMessageBox (..),
+    type Session,
   )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr)
@@ -51,8 +54,16 @@ plugin =
     , parsedResultAction = afterParser
     }
 
+-- shared across the session
+sessionRef :: IORef Session
+{-# NOINLINE sessionRef #-}
+sessionRef = unsafePerformIO (newIORef "not-initialized")
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
+  session <- readIORef sessionRef
+  print session
+  writeIORef sessionRef "now-initialized"
   let uenv = hsc_unit_env env
       hu = ue_home_unit uenv
   case hu of
@@ -70,14 +81,14 @@ driver _ env = do
 
 afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
 afterParser opts modSummary parsed = do
-  liftIO $ putStrLn "after parser"
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
   case opts of
     ipcfile : _ -> liftIO $ do
+      session <- readIORef sessionRef      
       time <- getCurrentTime
       socketExists <- doesFileExist ipcfile
       when socketExists $
         runClient ipcfile $ \sock ->
-          sendObject sock (CMBox (CMTiming modName time))
+          sendObject sock $ CMBox (CMTiming modName (session, time))          
     _ -> pure ()
   pure parsed
