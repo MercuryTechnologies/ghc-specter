@@ -7,6 +7,7 @@ where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable (traverse_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
@@ -14,6 +15,8 @@ import GHC.Driver.Env
   ( Hsc,
     HscEnv (..),
   )
+import GHC.Driver.Hooks (runPhaseHook)
+import GHC.Driver.Pipeline (PhasePlus (HscOut), runPhase)
 import GHC.Driver.Plugins
   ( Plugin (..),
     defaultPlugin,
@@ -28,6 +31,7 @@ import GHC.Driver.Session
     outputFile,
   )
 import GHC.Hs (HsParsedModule)
+import GHC.Types.Target (targetId)
 import GHC.Unit.Env
   ( UnitEnv (..),
   )
@@ -36,6 +40,7 @@ import GHC.Unit.Home
   )
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
+import GHC.Unit.Module.Status (HscStatus (..))
 import GHC.Unit.Types (GenModule (moduleName))
 import System.Directory (doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
@@ -45,7 +50,7 @@ import Toolbox.Channel
     type Session,
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (printPpr)
+import Toolbox.Util (printPpr, showPpr)
 
 plugin :: Plugin
 plugin =
@@ -61,6 +66,9 @@ sessionRef = unsafePerformIO (newIORef "not-initialized")
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
+  let dflags = hsc_dflags env
+  -- A and B
+  traverse_ (printPpr dflags . targetId) (hsc_targets env)
   session <- readIORef sessionRef
   print session
   writeIORef sessionRef "now-initialized"
@@ -72,12 +80,33 @@ driver _ env = do
     DefiniteHomeUnit _ Nothing -> do
       putStrLn "definite: but no instantiation"
     IndefiniteHomeUnit {} -> putStrLn "indefinite"
-  let dflags = hsc_dflags env
   printPpr dflags (ghcMode dflags)
   print (outputFile dflags)
   printPpr dflags (homeUnitId_ dflags)
   printPpr dflags (mainModuleNameIs dflags)
-  pure env
+  let hooks = hsc_hooks env
+      runPhaseHook' phase fp = do
+        liftIO $ do
+          putStrLn $ "###########" <> showPpr dflags phase
+          case phase of
+            HscOut _ _ status ->
+              case status of
+                HscNotGeneratingCode {} ->
+                  print "HscNotGeneratingCode"
+                HscUpToDate {} ->
+                  print "HscUpToDate"
+                HscUpdateBoot {} ->
+                  print "HscUpdateBoot"
+                HscUpdateSig {} ->
+                  print "HscUpdateSig"
+                HscRecomp {} ->
+                  print "HscRecomp"
+            _ -> pure ()
+        runPhase phase fp
+        -- pure (phase, fp)
+      hooks' = hooks {runPhaseHook = Just runPhaseHook'}
+      env' = env {hsc_hooks = hooks'}
+  pure env'
 
 afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
 afterParser opts modSummary parsed = do
