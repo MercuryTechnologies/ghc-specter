@@ -6,7 +6,6 @@ module Plugin.Trivial
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Driver.Env
   ( Hsc,
@@ -33,7 +32,7 @@ import GHC.Unit.Home
   ( GenHomeUnit (..),
   )
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import Toolbox.Channel
   ( ChanMessage (CMTrivial),
@@ -55,7 +54,7 @@ driver _ env = do
   let uenv = hsc_unit_env env
       hu = ue_home_unit uenv
   case hu of
-    DefiniteHomeUnit _ (Just (_, inst)) -> do
+    DefiniteHomeUnit _ (Just (_, _inst)) -> do
       putStrLn "definite: instantiated"
     DefiniteHomeUnit _ Nothing -> do
       putStrLn "definite: but no instantiation"
