@@ -10,15 +10,16 @@ module Plugin.CheckImports
   )
 where
 
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
-import Data.Foldable (for_)
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
-import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Set (Set)
 import qualified Data.Set as S
+import qualified Data.Text as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
   ( CommandLineOption,
@@ -36,8 +37,12 @@ import GHC.Types.Name.Reader
     ImpDeclSpec (..),
     ImportSpec (..),
   )
-import GHC.Unit.Module (ModuleName)
+import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
+import System.Directory (doesFileExist)
+import Toolbox.Comm (runClient, sendObject)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -46,14 +51,20 @@ plugin =
     { typeCheckResultAction = typecheckPlugin
     }
 
+showPpr :: (Outputable a) => DynFlags -> a -> String
+showPpr dflags = showSDoc dflags . ppr
+
 printPpr :: (Outputable a, MonadIO m) => DynFlags -> a -> m ()
-printPpr dflags = liftIO . putStrLn . showSDoc dflags . ppr
+printPpr dflags = liftIO . putStrLn . showPpr dflags
 
 formatName :: DynFlags -> Name -> String
 formatName dflags name =
   let str = showSDoc dflags . ppr . localiseName $ name
    in case str of
         (x : _) ->
+          -- NOTE: As we want to have resultant text directly copied and pasted to
+          --       the source code, the operator identifiers should be wrapped with
+          --       parentheses.
           if isAlpha x
             then str
             else "(" ++ str ++ ")"
@@ -76,14 +87,17 @@ mkModuleNameMap gre = do
     NormalGreName name -> do
       let modName = is_mod $ is_decl spec
       pure (modName, name)
-    _ -> []
+    -- TODO: Handle the record field name case correctly.
+    FieldGreName _ -> []
 
+-- | First argument in -fplugin-opt is interpreted as the socket file path.
+--   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
   [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin _ modsummary tc = do
+typecheckPlugin opts modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -91,10 +105,20 @@ typecheckPlugin _ modsummary tc = do
       moduleImportMap =
         foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
           concatMap mkModuleNameMap usedGREs
-  for_ (M.toList moduleImportMap) $ \(modu, names) -> liftIO $ do
-    putStrLn "---------"
-    printPpr dflags modu
-    let imported = fmap (formatName dflags) $ S.toList names
-    putStrLn $ formatImportedNames imported
+
+  let rendered =
+        unlines $ do
+          (modu, names) <- M.toList moduleImportMap
+          let imported = fmap (formatName dflags) $ S.toList names
+          [showPpr dflags modu, formatImportedNames imported]
   printPpr dflags modsummary
+
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  case opts of
+    ipcfile : _ -> liftIO $ do
+      socketExists <- doesFileExist ipcfile
+      when socketExists $
+        runClient ipcfile $ \sock ->
+          sendObject sock (modName, rendered)
+    _ -> pure ()
   pure tc
