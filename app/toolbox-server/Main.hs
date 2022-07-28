@@ -18,7 +18,6 @@ import Control.Concurrent.STM
 import Control.Monad.Extra (loopM)
 import qualified Data.Map.Strict as M
 import qualified Options.Applicative as OA
-import qualified Data.Text as T
 import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -49,7 +48,6 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing))
   var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing) mempty)
   _ <- forkIO $ listener socketFile var
   webServer var

@@ -77,7 +77,7 @@ renderTimingChart timingInfos =
           [text modu]
       svgElement =
         S.svg
-          [width (T.pack $ show maxWidth), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
+          [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
             (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
           )

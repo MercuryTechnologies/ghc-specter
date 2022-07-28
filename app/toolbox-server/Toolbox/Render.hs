@@ -28,10 +28,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
-import Toolbox.Render.Timing
-  ( renderTiming,
-    renderTimingChart,
-  )
+import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( ServerState (..),
     UIState (..),
