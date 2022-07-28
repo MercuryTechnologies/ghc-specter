@@ -28,6 +28,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
+import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
@@ -49,7 +50,7 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderInbox:: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
+renderInbox :: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
 renderInbox (chan, mexpandedModu) m =
   ul [] $ map eachRender filtered
   where
@@ -77,6 +78,7 @@ renderMainPanel (UIState chan mexpandedModu) (ServerState _ m s) =
       div
         []
         [ pre [] [text $ T.pack $ show s]
+        , div [] [renderTiming]
         , renderInbox (Timing, mexpandedModu) m
         ]
     _ -> renderInbox (Timing, mexpandedModu) m
