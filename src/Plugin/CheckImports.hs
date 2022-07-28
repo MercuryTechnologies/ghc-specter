@@ -42,6 +42,10 @@ import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import System.Directory (doesFileExist)
+import Toolbox.Channel
+  ( ChanMessage (CMCheckImports),
+    ChanMessageBox (..),
+  )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr, showPpr)
 import Prelude hiding ((<>))
@@ -114,6 +118,6 @@ typecheckPlugin opts modsummary tc = do
       socketExists <- doesFileExist ipcfile
       when socketExists $
         runClient ipcfile $ \sock ->
-          sendObject sock (("check-imports" :: Text, modName), rendered)
+          sendObject sock (CMBox (CMCheckImports modName (T.pack rendered)))
     _ -> pure ()
   pure tc

@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 module Main (main) where
 
 import Concur.Core
@@ -27,6 +29,10 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Options.Applicative as OA
 import Replica.VDOM.Types (HTML)
+import Toolbox.Channel
+  ( ChanMessage (CMCheckImports, CMTrivial),
+    ChanMessageBox (..),
+  )
 import Toolbox.Comm
   ( receiveObject,
     runServer,
@@ -56,14 +62,16 @@ listener :: FilePath -> TVar (Int, ModuleMessages) -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    ( \sock -> do
-        ((chan, modu), msg) <- receiveObject sock
-        atomically $ updateModuleMessages var ((chan, modu), msg)
-    )
+    (\sock -> receiveObject sock >>= atomically . updateModuleMessages var)
 
-updateModuleMessages :: TVar (Int, ModuleMessages) -> (ChanModule, Text) -> STM ()
-updateModuleMessages var ((chan, modu), msg) =
-  modifyTVar' var $ \(i, m) -> (i + 1, M.insert (chan, modu) msg m)
+updateModuleMessages :: TVar (Int, ModuleMessages) -> ChanMessageBox -> STM ()
+updateModuleMessages var chanMsg =
+  modifyTVar' var $ \(i, m) ->
+    let (chan, modu, msg) =
+          case chanMsg of
+            CMBox (CMCheckImports m' t') -> ("check-imports", m', t')
+            CMBox (CMTrivial m') -> ("trivial", m', "no-message")
+     in (i + 1, M.insert (chan, modu) msg m)
 
 renderModuleMessages :: ModuleMessages -> Widget HTML a
 renderModuleMessages m =
