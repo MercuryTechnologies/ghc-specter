@@ -5,8 +5,12 @@ module Plugin.Trivial
   )
 where
 
+import Control.Monad.IO.Class (liftIO)
+import Data.Text (Text)
+import qualified Data.Text as T
 import GHC.Driver.Env
-  ( HscEnv (..),
+  ( Hsc,
+    HscEnv (..),
   )
 import GHC.Driver.Plugins
   ( Plugin (..),
@@ -21,18 +25,24 @@ import GHC.Driver.Session
       ),
     outputFile,
   )
+import GHC.Hs (HsParsedModule)
 import GHC.Unit.Env
   ( UnitEnv (..),
   )
 import GHC.Unit.Home
   ( GenHomeUnit (..),
   )
+import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+import GHC.Unit.Types (GenModule (moduleName))
+import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr)
 
 plugin :: Plugin
 plugin =
   defaultPlugin
     { driverPlugin = driver
+    , parsedResultAction = afterParser
     }
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
@@ -52,3 +62,12 @@ driver _ env = do
   printPpr dflags (homeUnitId_ dflags)
   printPpr dflags (mainModuleNameIs dflags)
   pure env
+
+afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
+afterParser _ modSummary parsed = do
+  liftIO $ putStrLn "after parser"
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
+  liftIO $
+    runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
+      sendObject sock (("trivial" :: Text, modName), "" :: Text)
+  pure parsed

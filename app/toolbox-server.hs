@@ -21,8 +21,8 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
-import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Options.Applicative as OA
@@ -48,30 +48,32 @@ main = do
   _ <- forkIO $ listener socketFile var
   webServer var
 
-type ModuleMessages = Map Text Text
+type ChanModule = (Text, Text)
+
+type ModuleMessages = Map ChanModule Text
 
 listener :: FilePath -> TVar (Int, ModuleMessages) -> IO ()
 listener socketFile var =
   runServer
     socketFile
     ( \sock -> do
-        (modName, msg) <- receiveObject sock
-        atomically $ updateModuleMessages var (modName, msg)
+        ((chan, modu), msg) <- receiveObject sock
+        atomically $ updateModuleMessages var ((chan, modu), msg)
     )
 
-updateModuleMessages :: TVar (Int, ModuleMessages) -> (Text, Text) -> STM ()
-updateModuleMessages var (modName, msg) =
-  modifyTVar' var $ \(i, m) -> (i + 1, M.insert modName msg m)
+updateModuleMessages :: TVar (Int, ModuleMessages) -> (ChanModule, Text) -> STM ()
+updateModuleMessages var ((chan, modu), msg) =
+  modifyTVar' var $ \(i, m) -> (i + 1, M.insert (chan, modu) msg m)
 
 renderModuleMessages :: ModuleMessages -> Widget HTML a
 renderModuleMessages m =
   div [] $ map eachRender $ M.toList m
   where
-    eachRender :: (Text, Text) -> Widget HTML a
-    eachRender (k, v) =
+    eachRender :: (ChanModule, Text) -> Widget HTML a
+    eachRender ((chan, modu), v) =
       div
         []
-        [ text ("module: " <> k)
+        [ text ("chan: " <> chan <> ", module: " <> modu)
         , pre [] [text v]
         , pre [] [text "-----------"]
         ]

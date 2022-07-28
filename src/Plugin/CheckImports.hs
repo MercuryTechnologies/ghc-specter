@@ -18,6 +18,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
@@ -42,7 +43,7 @@ import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import System.Directory (doesFileExist)
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (showPpr, printPpr)
+import Toolbox.Util (printPpr, showPpr)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -113,6 +114,6 @@ typecheckPlugin opts modsummary tc = do
       socketExists <- doesFileExist ipcfile
       when socketExists $
         runClient ipcfile $ \sock ->
-          sendObject sock (modName, rendered)
+          sendObject sock (("check-imports" :: Text, modName), rendered)
     _ -> pure ()
   pure tc
