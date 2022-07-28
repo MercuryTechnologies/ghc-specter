@@ -7,6 +7,8 @@ module Toolbox.Channel
     ChanMessage (..),
     ChanMessageBox (..),
     type Session,
+    Timer (..),
+    resetTimer,
   )
 where
 
@@ -22,9 +24,22 @@ type ModuleName = Text
 
 type Session = Text
 
+data Timer = Timer
+  { timerStart :: Maybe UTCTime
+  , timerEnd :: Maybe UTCTime
+  }
+  deriving (Show)
+
+instance Binary Timer where
+  put (Timer s t) = put (s, t)
+  get = uncurry Timer <$> get
+
+resetTimer :: Timer
+resetTimer = Timer Nothing Nothing
+
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
-  CMTiming :: ModuleName -> (Session, UTCTime) -> ChanMessage 'Timing
+  CMTiming :: ModuleName -> Timer -> ChanMessage 'Timing
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
