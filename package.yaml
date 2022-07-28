@@ -116,6 +116,7 @@ executables:
       - optparse-applicative
       - replica
       - stm
+      - time
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
