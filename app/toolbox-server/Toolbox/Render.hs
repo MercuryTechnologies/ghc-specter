@@ -27,7 +27,7 @@ import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
-import Toolbox.Channel (Channel (..), SessionInfo (..))
+import Toolbox.Channel (Channel (..))
 import Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
