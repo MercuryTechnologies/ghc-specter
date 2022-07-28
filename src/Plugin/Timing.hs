@@ -1,5 +1,5 @@
 -- This module provides the current module under compilation.
-module Plugin.Trivial
+module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
   )
@@ -8,6 +8,7 @@ where
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
+import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Env
   ( Hsc,
     HscEnv (..),
@@ -37,7 +38,7 @@ import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import System.Directory (doesFileExist)
 import Toolbox.Channel
-  ( ChanMessage (CMTrivial),
+  ( ChanMessage (CMTiming),
     ChanMessageBox (..),
   )
 import Toolbox.Comm (runClient, sendObject)
@@ -52,7 +53,6 @@ plugin =
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver _ env = do
-  putStrLn "driver plugin is called"
   let uenv = hsc_unit_env env
       hu = ue_home_unit uenv
   case hu of
@@ -74,9 +74,10 @@ afterParser opts modSummary parsed = do
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
   case opts of
     ipcfile : _ -> liftIO $ do
+      time <- getCurrentTime
       socketExists <- doesFileExist ipcfile
       when socketExists $
         runClient ipcfile $ \sock ->
-          sendObject sock (CMBox (CMTrivial modName))
+          sendObject sock (CMBox (CMTiming modName time))
     _ -> pure ()
   pure parsed
