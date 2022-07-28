@@ -30,7 +30,10 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
-import Toolbox.Server.Types (Inbox)
+import Toolbox.Server.Types
+  ( ServerState (..),
+    UIState (..),
+  )
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -45,40 +48,41 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (0, mempty, SessionInfo Nothing)
+  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing))
   _ <- forkIO $ listener socketFile var
   webServer var
 
-listener :: FilePath -> TVar (Int, Inbox, SessionInfo) -> IO ()
+listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
     (\sock -> receiveObject sock >>= atomically . updateInbox var)
 
-updateInbox :: TVar (Int, Inbox, SessionInfo) -> ChanMessageBox -> STM ()
+updateInbox :: TVar ServerState -> ChanMessageBox -> STM ()
 updateInbox var chanMsg =
-  modifyTVar' var $ \(i, m, s) ->
+  modifyTVar' var $ \(ServerState i m s) ->
     case chanMsg of
       CMBox (CMCheckImports modu msg) ->
-        (i + 1, M.insert (CheckImports, modu) msg m, s)
+        ServerState (i + 1) (M.insert (CheckImports, modu) msg m) s
       CMBox (CMTiming modu timer') ->
-        (i + 1, M.insert (Timing, modu) (T.pack (show timer')) m, s)
+        ServerState (i + 1) (M.insert (Timing, modu) (T.pack (show timer')) m) s
       CMBox (CMSession s') ->
-        (i + 1, m, s')
+        ServerState (i + 1) m s'
 
-webServer :: TVar (Int, Inbox, SessionInfo) -> IO ()
+webServer :: TVar ServerState -> IO ()
 webServer var = do
-  initVal <- atomically (readTVar var)
+  initServerState <- atomically (readTVar var)
+  let initUIState = UIState CheckImports Nothing
   runDefault 8080 "test" $
-    \_ -> loopM step ((CheckImports, Nothing), initVal)
+    \_ -> loopM step (initUIState, initServerState)
   where
-    step ((chan, mexpandedModu), (i, m, s)) = do
+    step (ui, ss@(ServerState i _ _)) = do
       let await = liftSTM $ do
-            (i', m', s') <- readTVar var
+            ss'@(ServerState i' _ _) <- readTVar var
             if i == i'
               then retry
-              else pure (i', m', s')
+              else pure ss'
       Left
-        <$> ( render ((chan, mexpandedModu), (i, m, s))
-                <|> (((chan, mexpandedModu),) <$> await)
+        <$> ( render (ui, ss)
+                <|> ((ui,) <$> await)
             )
