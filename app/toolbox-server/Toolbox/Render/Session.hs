@@ -6,15 +6,22 @@ module Toolbox.Render.Session
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (pre, text)
+import Concur.Replica (div, pre, text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (SessionInfo (..))
 import Toolbox.Server.Types (ServerState (..))
+import Prelude hiding (div)
 
 renderSession :: ServerState -> Widget HTML a
 renderSession ss =
-  case sessionStartTime (serverSessionInfo ss) of
-    Nothing -> pre [] [text "GHC Session has not been started"]
-    Just sessionStartTime ->
-      pre [] [text $ T.pack $ show sessionStartTime]
+  let sessionInfo = serverSessionInfo ss
+   in case sessionStartTime sessionInfo of
+        Nothing ->
+          pre [] [text "GHC Session has not been started"]
+        Just sessionStartTime ->
+          div
+            []
+            [ pre [] [text $ T.pack $ show sessionStartTime]
+            , pre [] [text $ sessionModuleGraph sessionInfo]
+            ]

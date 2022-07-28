@@ -22,9 +22,15 @@ data Channel = CheckImports | Timing | Session
 
 type ModuleName = Text
 
-newtype SessionInfo = SessionInfo
-  {sessionStartTime :: Maybe UTCTime}
-  deriving (Show, Binary)
+data SessionInfo = SessionInfo
+  { sessionStartTime :: Maybe UTCTime
+  , sessionModuleGraph :: Text
+  }
+  deriving (Show)
+
+instance Binary SessionInfo where
+  put (SessionInfo mtime modGraph) = put (mtime, modGraph)
+  get = uncurry SessionInfo <$> get
 
 data Timer = Timer
   { timerStart :: Maybe UTCTime

@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 -- This module provides the current module under compilation.
 module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
@@ -27,6 +25,7 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
+import GHC.Unit.Module.Graph (mgModSummaries')
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
@@ -49,16 +48,18 @@ plugin =
 -- shared across the session
 sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing))
+sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing ""))
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
   startTime <- getCurrentTime
-  SessionInfo msessionStart <- readIORef sessionRef
+  SessionInfo msessionStart _ <- readIORef sessionRef
   case msessionStart of
     Nothing -> do
-      let startedSession = SessionInfo (Just startTime)
+      let modGraph = hsc_mod_graph env
+          modGraphTxt = T.intercalate "\n" $ fmap (T.pack . showPpr dflags) $ mgModSummaries' modGraph
+          startedSession = SessionInfo (Just startTime) modGraphTxt
       writeIORef sessionRef startedSession
       case opts of
         ipcfile : _ -> liftIO $ do

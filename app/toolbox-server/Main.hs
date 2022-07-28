@@ -57,7 +57,7 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing) mempty)
+  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing "") mempty)
   _ <- forkIO $ listener socketFile var
   webServer var
 
