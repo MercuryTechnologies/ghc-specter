@@ -10,7 +10,7 @@ where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
-import Data.IORef (IORef, newIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Env (HscEnv (..))
@@ -33,7 +33,7 @@ import GHC.Unit.Types (GenModule (moduleName))
 import System.Directory (doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
-  ( ChanMessage (CMTiming),
+  ( ChanMessage (CMSession, CMTiming),
     ChanMessageBox (..),
     SessionInfo (..),
     Timer (..),
@@ -55,6 +55,19 @@ driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
   startTime <- getCurrentTime
+  SessionInfo msessionStart <- readIORef sessionRef
+  case msessionStart of
+    Nothing -> do
+      let startedSession = SessionInfo (Just startTime)
+      writeIORef sessionRef startedSession
+      case opts of
+        ipcfile : _ -> liftIO $ do
+          socketExists <- doesFileExist ipcfile
+          when socketExists $
+            runClient ipcfile $ \sock ->
+              sendObject sock $ CMBox (CMSession startedSession)
+        _ -> pure ()
+    _ -> pure ()
   let timer0 = resetTimer {timerStart = Just startTime}
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do

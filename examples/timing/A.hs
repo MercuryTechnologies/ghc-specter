@@ -11,7 +11,7 @@
 --
 -- In this case, the Plugin.Timing module will be invoked as plugin as the module
 -- defines a function with the reserved keyword "plugin".
-{-# OPTIONS_GHC -fplugin Plugin.Timing #-}
+{-# OPTIONS_GHC -fplugin Plugin.CheckImports -fplugin Plugin.Timing #-}
 
 module A (test) where
 
