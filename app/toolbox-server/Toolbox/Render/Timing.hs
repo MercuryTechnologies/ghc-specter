@@ -7,6 +7,7 @@ where
 import Concur.Core (Widget)
 import Concur.Replica
   ( Props,
+    classList,
     div,
     height,
     pre,
@@ -37,6 +38,9 @@ import Prelude hiding (div)
 xmlns :: Props a
 xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 
+maxWidth :: (Num a) => a
+maxWidth = 10240
+
 renderTimingChart :: [(ModuleName, (NominalDiffTime, NominalDiffTime))] -> Widget HTML a
 renderTimingChart timingInfos =
   let nMods = length timingInfos
@@ -49,9 +53,11 @@ renderTimingChart timingInfos =
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
       leftOfBox (_, (startTime, _)) =
-        floor (startTime / totalTime * 1024) :: Int
+        floor (startTime / totalTime * maxWidth) :: Int
+      rightOfBox (_, (_, endTime)) =
+        floor (endTime / totalTime * maxWidth) :: Int
       widthOfBox (_, (startTime, endTime)) =
-        floor ((endTime - startTime) / totalTime * 1024) :: Int
+        floor ((endTime - startTime) / totalTime * maxWidth) :: Int
       box (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
@@ -61,10 +67,20 @@ renderTimingChart timingInfos =
           , SP.fill "red"
           ]
           []
+
+      moduleText (i, item@(modu, _)) =
+        S.text
+          [ SP.x (T.pack $ show (rightOfBox item))
+          , SP.y (T.pack $ show (topOfBox i + 3))
+          , classList [("small", True)]
+          ]
+          [text modu]
       svgElement =
         S.svg
-          [width "1024", height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
-          (fmap box $ zip [0 ..] timingInfos)
+          [width (T.pack $ show maxWidth), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
+          ( S.style [] [text ".small { font: 5px sans-serif; }"] :
+            (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
+          )
       infoElement =
         pre [] [text "text"]
    in div [] [svgElement, infoElement]
