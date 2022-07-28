@@ -5,6 +5,7 @@ module Plugin.Trivial
   )
 where
 
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text as T
 import GHC.Driver.Env
@@ -34,6 +35,7 @@ import GHC.Unit.Home
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
+import System.Directory (doesFileExist)
 import Toolbox.Channel
   ( ChanMessage (CMTrivial),
     ChanMessageBox (..),
@@ -67,10 +69,14 @@ driver _ env = do
   pure env
 
 afterParser :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
-afterParser _ modSummary parsed = do
+afterParser opts modSummary parsed = do
   liftIO $ putStrLn "after parser"
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modSummary
-  liftIO $
-    runClient "/tmp/ghc-build-analyzer.ipc" $ \sock ->
-      sendObject sock (CMBox (CMTrivial modName))
+  case opts of
+    ipcfile : _ -> liftIO $ do
+      socketExists <- doesFileExist ipcfile
+      when socketExists $
+        runClient ipcfile $ \sock ->
+          sendObject sock (CMBox (CMTrivial modName))
+    _ -> pure ()
   pure parsed
