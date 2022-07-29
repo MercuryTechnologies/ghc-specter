@@ -9,6 +9,7 @@ where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
 import Toolbox.Channel (Channel, SessionInfo, Timer)
 
 type ChanModule = (Channel, Text)
@@ -28,4 +29,7 @@ data ServerState = ServerState
   }
 
 incrementSN :: ServerState -> ServerState
-incrementSN ss = ss {serverMessageSN = serverMessageSN ss + 1}
+incrementSN ss =
+  ss
+    { serverMessageSN = serverMessageSN ss + 1
+    }
