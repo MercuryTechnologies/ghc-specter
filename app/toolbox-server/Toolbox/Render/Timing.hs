@@ -24,6 +24,7 @@ import qualified Data.Text as T
 import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,
+    nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
 import Replica.VDOM.Types (HTML)
@@ -49,6 +50,7 @@ renderTimingChart timingInfos =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
           _ -> maximum modEndTimes
+      totalTimeInSec = nominalDiffTimeToSeconds totalTime
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
@@ -67,7 +69,18 @@ renderTimingChart timingInfos =
           , SP.fill "red"
           ]
           []
-
+      sec2X sec =
+        floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
+      line sec =
+        S.line
+          [ SP.x1 (T.pack $ show $ sec2X sec)
+          , SP.x2 (T.pack $ show $ sec2X sec)
+          , SP.y1 "0"
+          , SP.y2 (T.pack $ show totalHeight)
+          , SP.stroke "gray"
+          , SP.strokeWidth "0.25"
+          ]
+          []
       moduleText (i, item@(modu, _)) =
         S.text
           [ SP.x (T.pack $ show (rightOfBox item))
@@ -79,7 +92,9 @@ renderTimingChart timingInfos =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
-            (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
+            ( fmap line [0, 1 .. totalTimeInSec]
+                ++ (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
+            )
           )
       infoElement =
         pre [] [text "text"]
