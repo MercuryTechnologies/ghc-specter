@@ -7,14 +7,12 @@ import Concur.Replica (runDefault)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM
-  ( STM,
-    TVar,
+  ( TVar,
     atomically,
     modifyTVar',
     newTVar,
     readTVar,
     retry,
-    writeTVar,
   )
 import Control.Monad (when)
 import Control.Monad.Extra (loopM)
@@ -22,7 +20,6 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as M
 import Data.Time.Clock
   ( NominalDiffTime,
-    UTCTime,
     diffUTCTime,
     getCurrentTime,
     nominalDiffTimeToSeconds,
@@ -101,13 +98,11 @@ webServer var = do
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
             -- lock until new message comes
-            ss' <-
-              liftIO $
-                atomically $ do
-                  ss' <- readTVar var
-                  if (serverMessageSN ss == serverMessageSN ss')
-                    then retry
-                    else pure ss'
+            ss' <- liftSTM $ do
+              ss' <- readTVar var
+              if (serverMessageSN ss == serverMessageSN ss')
+                then retry
+                else pure ss'
             newUIUpdate <- liftIO getCurrentTime
             pure (ui, ss', newUIUpdate)
       (Left . (,ss,lastUIUpdate) <$> render (ui, ss))

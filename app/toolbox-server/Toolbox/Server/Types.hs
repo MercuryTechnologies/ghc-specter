@@ -9,7 +9,6 @@ where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime)
 import Toolbox.Channel (Channel, SessionInfo, Timer)
 
 type ChanModule = (Channel, Text)
