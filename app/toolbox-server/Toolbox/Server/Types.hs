@@ -1,6 +1,7 @@
 module Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
+    Tab (..),
     UIState (..),
     ServerState (..),
     incrementSN,
@@ -15,8 +16,11 @@ type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
 
+data Tab = TabCheckImports | TabTiming
+  deriving (Eq)
+
 data UIState = UIState
-  { uiTab :: Channel
+  { uiTab :: Tab
   , uiModule :: Maybe Text
   }
 
