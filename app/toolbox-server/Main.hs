@@ -25,6 +25,7 @@ import Data.Time.Clock
     UTCTime,
     diffUTCTime,
     getCurrentTime,
+    nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
 import qualified Options.Applicative as OA
@@ -97,7 +98,8 @@ webServer var = do
             -- wait for update interval, not to have too frequent update
             currentTime_ <- liftIO getCurrentTime
             when (currentTime_ `diffUTCTime` lastUIUpdate < updateInterval) $
-              liftIO $ threadDelay 500_000
+              liftIO $
+                threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
             -- lock until new message comes
             ss' <-
               liftIO $
