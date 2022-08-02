@@ -111,6 +111,7 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - OGDF
       - concur-core
       - concur-replica
       - containers
@@ -119,6 +120,7 @@ executables:
       - ghc-build-analyzer
       - optparse-applicative
       - replica
+      - stdcxx
       - stm
       - time
       - transformers

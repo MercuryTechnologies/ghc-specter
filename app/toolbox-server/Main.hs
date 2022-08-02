@@ -44,6 +44,7 @@ import Toolbox.Server.Types
     UIState (..),
     incrementSN,
   )
+import OGDFTest (ogdfTest)
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -56,6 +57,7 @@ optsParser =
 
 main :: IO ()
 main = do
+  ogdfTest
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
   var <-
