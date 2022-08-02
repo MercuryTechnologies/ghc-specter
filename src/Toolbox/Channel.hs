@@ -9,6 +9,7 @@ module Toolbox.Channel
     SessionInfo (..),
     Timer (..),
     resetTimer,
+    ModuleGraphInfo (..),
   )
 where
 
@@ -21,6 +22,12 @@ data Channel = CheckImports | Timing | Session
   deriving (Enum, Eq, Ord, Show)
 
 type ModuleName = Text
+
+data ModuleGraphInfo = ModuleGraphInfo
+  { mginfoModuleNameMap :: [(Int, Text)]
+  , mginfoModuleDep :: [(Int, [Int])]
+  }
+  deriving (Show)
 
 data SessionInfo = SessionInfo
   { sessionStartTime :: Maybe UTCTime

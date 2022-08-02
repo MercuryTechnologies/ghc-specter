@@ -9,13 +9,13 @@ where
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import Data.Time.Clock (getCurrentTime)
-import GHC.Data.Graph.Directed (SCC (AcyclicSCC, CyclicSCC))
+import qualified GHC.Data.Graph.Directed as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Make (topSortModuleGraph)
+import GHC.Driver.Make (moduleGraphNodes)
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
   ( PhasePlus (RealPhase),
@@ -28,7 +28,6 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Driver.Session (DynFlags)
 import GHC.Unit.Module.Graph
   ( ModuleGraph,
     ModuleGraphNode (..),
@@ -46,6 +45,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
   ( ChanMessage (CMSession, CMTiming),
     ChanMessageBox (..),
+    ModuleGraphInfo (..),
     SessionInfo (..),
     Timer (..),
     resetTimer,
@@ -62,18 +62,22 @@ sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing ""))
 
-inspectModuleGraph :: DynFlags -> ModuleGraph -> IO ()
-inspectModuleGraph dflags modGraph = do
-  let sorted = topSortModuleGraph False modGraph Nothing
-      printSCC (AcyclicSCC node) =
-        "Acyclic : "
-          <> case node of
-               InstantiationNode _ -> "InstantiationNode"
-               ModuleNode mod -> "ModuleNode :" <>
-                 (T.pack $ moduleNameString $ moduleName $ ms_mod (emsModSummary mod))
-      printSCC (CyclicSCC _) = "Cyclic"
-  TIO.putStrLn $
-    T.intercalate "\n" $ fmap printSCC sorted
+getModuleNameText :: ModSummary -> T.Text
+getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
+
+inspectModuleGraph :: ModuleGraph -> ModuleGraphInfo
+inspectModuleGraph modGraph = do
+  let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
+      gnode2ModSummary InstantiationNode {} = Nothing
+      gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
+      vtxs = G.verticesG graph
+      modNameFromVertex = fmap getModuleNameText . gnode2ModSummary . G.node_payload
+      modNameMap =
+        mapMaybe
+          (\v -> (G.node_key v,) <$> modNameFromVertex v)
+          vtxs
+      modDeps = fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
+   in ModuleGraphInfo modNameMap modDeps
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
@@ -85,9 +89,9 @@ driver opts env = do
       let modGraph = hsc_mod_graph env
           modGraphTxt = T.intercalate "\n" $ fmap (T.pack . showPpr dflags) $ mgModSummaries' modGraph
           startedSession = SessionInfo (Just startTime) modGraphTxt
-      inspectModuleGraph dflags modGraph
+          modGraphInfo = inspectModuleGraph modGraph
+      print modGraphInfo
       writeIORef sessionRef startedSession
-      error "end here"
       case opts of
         ipcfile : _ -> liftIO $ do
           socketExists <- doesFileExist ipcfile
