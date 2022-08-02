@@ -20,8 +20,9 @@ renderSession ss =
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just sessionStartTime ->
-          div
-            []
-            [ pre [] [text $ T.pack $ show sessionStartTime]
-            , pre [] [text $ sessionModuleGraph sessionInfo]
-            ]
+          let modGraphTxt = T.pack $ show $ sessionModuleGraph sessionInfo
+           in div
+                []
+                [ pre [] [text $ T.pack $ show sessionStartTime]
+                , pre [] [text modGraphTxt]
+                ]

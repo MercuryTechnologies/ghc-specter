@@ -48,6 +48,7 @@ import Toolbox.Channel
     ModuleGraphInfo (..),
     SessionInfo (..),
     Timer (..),
+    emptyModuleGraphInfo,
     resetTimer,
   )
 import Toolbox.Comm (runClient, sendObject)
@@ -60,13 +61,13 @@ plugin =
 -- shared across the session
 sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing ""))
+sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing emptyModuleGraphInfo))
 
 getModuleNameText :: ModSummary -> T.Text
 getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
 
-inspectModuleGraph :: ModuleGraph -> ModuleGraphInfo
-inspectModuleGraph modGraph = do
+extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
+extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
       gnode2ModSummary InstantiationNode {} = Nothing
       gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
@@ -87,10 +88,8 @@ driver opts env = do
   case msessionStart of
     Nothing -> do
       let modGraph = hsc_mod_graph env
-          modGraphTxt = T.intercalate "\n" $ fmap (T.pack . showPpr dflags) $ mgModSummaries' modGraph
-          startedSession = SessionInfo (Just startTime) modGraphTxt
-          modGraphInfo = inspectModuleGraph modGraph
-      print modGraphInfo
+          modGraphInfo = extractModuleGraphInfo modGraph
+          startedSession = SessionInfo (Just startTime) modGraphInfo
       writeIORef sessionRef startedSession
       case opts of
         ipcfile : _ -> liftIO $ do

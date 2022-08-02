@@ -10,6 +10,7 @@ module Toolbox.Channel
     Timer (..),
     resetTimer,
     ModuleGraphInfo (..),
+    emptyModuleGraphInfo,
   )
 where
 
@@ -29,9 +30,16 @@ data ModuleGraphInfo = ModuleGraphInfo
   }
   deriving (Show)
 
+instance Binary ModuleGraphInfo where
+  put (ModuleGraphInfo m d) = put (m, d)
+  get = uncurry ModuleGraphInfo <$> get
+
+emptyModuleGraphInfo :: ModuleGraphInfo
+emptyModuleGraphInfo = ModuleGraphInfo [] []
+
 data SessionInfo = SessionInfo
   { sessionStartTime :: Maybe UTCTime
-  , sessionModuleGraph :: Text
+  , sessionModuleGraph :: ModuleGraphInfo -- Text
   }
   deriving (Show)
 
