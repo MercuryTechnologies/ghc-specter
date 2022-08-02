@@ -90,7 +90,7 @@ library:
 executables:
   ghc-build-analyzer-exe:
     main: Main.hs
-    source-dirs: app
+    source-dirs: app/ghc-build-analyzer-exe
     ghc-options:
       - -threaded
       - -rtsopts
@@ -99,8 +99,8 @@ executables:
       - ghc-build-analyzer
       - optparse-applicative
   toolbox-server:
-    main: toolbox-server.hs
-    source-dirs: app
+    main: Main.hs
+    source-dirs: app/toolbox-server
     ghc-options:
       - -threaded
       - -rtsopts
@@ -109,6 +109,7 @@ executables:
       - concur-core
       - concur-replica
       - containers
+      - extra
       - ghc-build-analyzer
       - optparse-applicative
       - replica

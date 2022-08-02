@@ -2,7 +2,6 @@ module Lib where
 
 import Data.Aeson as A
 import Data.Aeson.Types as A
-import Data.Text
 
 -- | A JSON message produced by GHC.
 --
