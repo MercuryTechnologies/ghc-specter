@@ -10,9 +10,12 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Data.Time.Clock (getCurrentTime)
+import GHC.Data.Graph.Directed (SCC (AcyclicSCC, CyclicSCC))
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
+import GHC.Driver.Make (topSortModuleGraph)
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
   ( PhasePlus (RealPhase),
@@ -25,8 +28,17 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Unit.Module.Graph (mgModSummaries')
+import GHC.Driver.Session (DynFlags)
+import GHC.Unit.Module.Graph
+  ( ModuleGraph,
+    ModuleGraphNode (..),
+    mgModSummaries',
+  )
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
+import GHC.Unit.Module.ModSummary
+  ( ExtendedModSummary (..),
+    ModSummary (..),
+  )
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import System.Directory (doesFileExist)
@@ -50,6 +62,19 @@ sessionRef :: IORef SessionInfo
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing ""))
 
+inspectModuleGraph :: DynFlags -> ModuleGraph -> IO ()
+inspectModuleGraph dflags modGraph = do
+  let sorted = topSortModuleGraph False modGraph Nothing
+      printSCC (AcyclicSCC node) =
+        "Acyclic : "
+          <> case node of
+               InstantiationNode _ -> "InstantiationNode"
+               ModuleNode mod -> "ModuleNode :" <>
+                 (T.pack $ moduleNameString $ moduleName $ ms_mod (emsModSummary mod))
+      printSCC (CyclicSCC _) = "Cyclic"
+  TIO.putStrLn $
+    T.intercalate "\n" $ fmap printSCC sorted
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
@@ -60,7 +85,9 @@ driver opts env = do
       let modGraph = hsc_mod_graph env
           modGraphTxt = T.intercalate "\n" $ fmap (T.pack . showPpr dflags) $ mgModSummaries' modGraph
           startedSession = SessionInfo (Just startTime) modGraphTxt
+      inspectModuleGraph dflags modGraph
       writeIORef sessionRef startedSession
+      error "end here"
       case opts of
         ipcfile : _ -> liftIO $ do
           socketExists <- doesFileExist ipcfile
