@@ -44,11 +44,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1659372338,
-        "narHash": "sha256-XlSBtncp4hq32kjAFsO0UDxly6iwGT2/mscR2rtNZKU=",
+        "lastModified": 1659538585,
+        "narHash": "sha256-L6aqzPx0Kb1+sNPn6/ql+8I656fi0VOIAJFuEj6tTS4=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "6334d9b1d41be6570312a7c45cb4dbbf37223818",
+        "rev": "3950fd07286658ea5924aa1289b8f563cf4e9e03",
         "type": "github"
       },
       "original": {
@@ -86,11 +86,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1659373905,
-        "narHash": "sha256-H66fmGJo+b4n+57O/bCWPgGT5tfUvyHansVyAuxfC9k=",
+        "lastModified": 1659538699,
+        "narHash": "sha256-3YN8rVfG/0R9AE/gjM+kwho3XM26PhVadzQxhazXz6s=",
         "owner": "wavewave",
         "repo": "hs-ogdf",
-        "rev": "45a5af0bb6209b4e9919f702bec3b6233eb6b766",
+        "rev": "adb4b40eb41c40cfc4412be783d0f95b4e443953",
         "type": "github"
       },
       "original": {
