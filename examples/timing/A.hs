@@ -9,9 +9,9 @@
 -- To turn on a plugin only for a specific module, one can use the OPTIONS_GHC pragma
 -- with the plugin arguments like this example.
 --
--- In this case, the Plugin.Trivial module will be invoked as plugin as the module
+-- In this case, the Plugin.Timing module will be invoked as plugin as the module
 -- defines a function with the reserved keyword "plugin".
-{-# OPTIONS_GHC -fplugin Plugin.Trivial #-}
+{-# OPTIONS_GHC -fplugin Plugin.CheckImports -fplugin Plugin.Timing #-}
 
 module A (test) where
 

@@ -28,7 +28,12 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
-import Toolbox.Server.Types (type ChanModule, type Inbox)
+import Toolbox.Server.Types
+  ( type ChanModule,
+    type Inbox,
+    ServerState (..),
+    UIState (..),
+  )
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
@@ -44,8 +49,8 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderChannel :: Channel -> Maybe Text -> Inbox -> Widget HTML (Maybe Text)
-renderChannel chan mexpandedModu m =
+renderInbox:: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
+renderInbox (chan, mexpandedModu) m =
   ul [] $ map eachRender filtered
   where
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
@@ -60,6 +65,21 @@ renderChannel chan mexpandedModu m =
             | otherwise =
                 [Just modu <$ iconText "fa-plus" modu]
        in li [] modinfo
+
+renderMainPanel ::
+  UIState ->
+  ServerState ->
+  Widget HTML (Maybe Text)
+renderMainPanel (UIState chan mexpandedModu) (ServerState _ m s) =
+  case chan of
+    CheckImports -> renderInbox (CheckImports, mexpandedModu) m
+    Timing ->
+      div
+        []
+        [ pre [] [text $ T.pack $ show s]
+        , renderInbox (Timing, mexpandedModu) m
+        ]
+    _ -> renderInbox (Timing, mexpandedModu) m
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
@@ -77,7 +97,7 @@ renderNavbar chan =
     [ navbarMenu
         [ navbarStart
             [ CheckImports <$ navItem (chan == CheckImports) [text "CheckImports"]
-            , Trivial <$ navItem (chan == Trivial) [text "Trivial"]
+            , Timing <$ navItem (chan == Timing) [text "Timing"]
             ]
         ]
     ]
@@ -92,9 +112,9 @@ renderNavbar chan =
        in el "a" [cls, onClick]
 
 render ::
-  ((Channel, Maybe Text), (Int, Inbox)) ->
-  Widget HTML ((Channel, Maybe Text), (Int, Inbox))
-render ((chan, mexpandedModu), (i, m)) = do
+  (UIState, ServerState) ->
+  Widget HTML (UIState, ServerState)
+render (ui@(UIState chan mexpandedModu), ss@(ServerState i m s)) = do
   let (mainPanel, bottomPanel)
         | i == 0 =
             ( div [] [text "No GHC process yet"]
@@ -103,18 +123,18 @@ render ((chan, mexpandedModu), (i, m)) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderChannel chan mexpandedModu m]
+                [renderMainPanel ui ss]
             , section
                 []
                 [divClass "box" [] [text $ "message: " <> T.pack (show i)]]
             )
-  (chan', mexpandedModu') <-
+  ui' <-
     div
       [classList [("container is-fullheight", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , ((,mexpandedModu) <$> renderNavbar chan)
-      , ((chan,) <$> mainPanel)
+      , (\chan' -> UIState chan' mexpandedModu) <$> renderNavbar chan
+      , (\mexpandedModu' -> UIState chan mexpandedModu') <$> mainPanel
       , bottomPanel
       ]
-  pure ((chan', mexpandedModu'), (i, m))
+  pure (ui', ServerState i m s)

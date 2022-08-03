@@ -18,17 +18,22 @@ import Control.Concurrent.STM
 import Control.Monad.Extra (loopM)
 import qualified Data.Map.Strict as M
 import qualified Options.Applicative as OA
+import qualified Data.Text as T
 import Toolbox.Channel
-  ( ChanMessage (CMCheckImports, CMTrivial),
+  ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    SessionInfo (..),
   )
 import Toolbox.Comm
   ( receiveObject,
     runServer,
   )
 import Toolbox.Render (render)
-import Toolbox.Server.Types (Inbox)
+import Toolbox.Server.Types
+  ( ServerState (..),
+    UIState (..),
+  )
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -43,38 +48,41 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (0, mempty)
+  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing))
   _ <- forkIO $ listener socketFile var
   webServer var
 
-listener :: FilePath -> TVar (Int, Inbox) -> IO ()
+listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
     (\sock -> receiveObject sock >>= atomically . updateInbox var)
 
-updateInbox :: TVar (Int, Inbox) -> ChanMessageBox -> STM ()
+updateInbox :: TVar ServerState -> ChanMessageBox -> STM ()
 updateInbox var chanMsg =
-  modifyTVar' var $ \(i, m) ->
-    let (chan, modu, msg) =
-          case chanMsg of
-            CMBox (CMCheckImports m' t') -> (CheckImports, m', t')
-            CMBox (CMTrivial m') -> (Trivial, m', "no-message")
-     in (i + 1, M.insert (chan, modu) msg m)
+  modifyTVar' var $ \(ServerState i m s) ->
+    case chanMsg of
+      CMBox (CMCheckImports modu msg) ->
+        ServerState (i + 1) (M.insert (CheckImports, modu) msg m) s
+      CMBox (CMTiming modu timer') ->
+        ServerState (i + 1) (M.insert (Timing, modu) (T.pack (show timer')) m) s
+      CMBox (CMSession s') ->
+        ServerState (i + 1) m s'
 
-webServer :: TVar (Int, Inbox) -> IO ()
+webServer :: TVar ServerState -> IO ()
 webServer var = do
-  initVal <- atomically (readTVar var)
+  initServerState <- atomically (readTVar var)
+  let initUIState = UIState CheckImports Nothing
   runDefault 8080 "test" $
-    \_ -> loopM step ((CheckImports, Nothing), initVal)
+    \_ -> loopM step (initUIState, initServerState)
   where
-    step ((chan, mexpandedModu), (i, m)) = do
+    step (ui, ss@(ServerState i _ _)) = do
       let await = liftSTM $ do
-            (i', m') <- readTVar var
+            ss'@(ServerState i' _ _) <- readTVar var
             if i == i'
               then retry
-              else pure (i', m')
+              else pure ss'
       Left
-        <$> ( render ((chan, mexpandedModu), (i, m))
-                <|> (((chan, mexpandedModu),) <$> await)
+        <$> ( render (ui, ss)
+                <|> ((ui,) <$> await)
             )
