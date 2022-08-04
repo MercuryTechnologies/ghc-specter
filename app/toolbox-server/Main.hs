@@ -38,13 +38,13 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
+import Toolbox.Render.ModuleGraph (ogdfTest)
 import Toolbox.Server.Types
   ( ServerState (..),
     Tab (TabCheckImports),
     UIState (..),
     incrementSN,
   )
-import OGDFTest (ogdfTest)
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -57,7 +57,6 @@ optsParser =
 
 main :: IO ()
 main = do
-  ogdfTest
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
   var <-
@@ -73,7 +72,14 @@ listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    (\sock -> receiveObject sock >>= atomically . modifyTVar' var . updateInbox)
+    (\sock -> do
+        o <- receiveObject sock
+        case o of
+          CMBox (CMSession s') -> do
+            ogdfTest (sessionModuleGraph s')
+          _ -> pure ()
+        atomically . modifyTVar' var . updateInbox $ o
+    )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg ss =

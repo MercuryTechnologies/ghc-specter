@@ -1,27 +1,74 @@
 {-# LANGUAGE BangPatterns #-}
 
 module Toolbox.Render.ModuleGraph
-  ( renderModuleGraph,
+  ( ogdfTest,
+    renderModuleGraph,
   )
 where
 
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
-import Control.Monad.Extra (loop)
+import Control.Exception (bracket)
+import Control.Monad (void, when)
+import Control.Monad.Extra (loop, loopM)
+import Data.Bits ((.|.))
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
+import Data.Foldable (forM_)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Foreign.C.String (withCString)
+import Foreign.Ptr (nullPtr)
+import OGDF.Graph
+  ( Graph,
+    graph_firstNode,
+    graph_newEdge,
+    newGraph,
+  )
+import OGDF.GraphAttributes
+  ( GraphAttributes,
+    newGraphAttributes,
+  )
+import OGDF.GraphIO (graphIO_drawSVG)
+import OGDF.LayoutModule (ILayoutModule (call))
+import OGDF.MedianHeuristic (newMedianHeuristic)
+import OGDF.NodeElement (NodeElement (..), nodeElement_index, nodeElement_succ)
+import OGDF.OptimalHierarchyLayout
+  ( newOptimalHierarchyLayout,
+    optimalHierarchyLayout_layerDistance,
+    optimalHierarchyLayout_nodeDistance,
+    optimalHierarchyLayout_weightBalancing,
+  )
+import OGDF.OptimalRanking (newOptimalRanking)
+import OGDF.SugiyamaLayout
+  ( newSugiyamaLayout,
+    sugiyamaLayout_setCrossMin,
+    sugiyamaLayout_setLayout,
+    sugiyamaLayout_setRanking,
+  )
+import STD.CppString (newCppString)
+import STD.Deletable (delete)
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     SessionInfo (..),
   )
 import Toolbox.Server.Types (ServerState (..))
+import Toolbox.Util.OGDF
+  ( edgeGraphics,
+    getHeight,
+    getWidth,
+    getX,
+    getY,
+    newGraphNodeWithSize,
+    nodeGraphics,
+    nodeLabel,
+  )
 import Prelude hiding (div)
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
@@ -112,3 +159,62 @@ renderModuleGraph ss =
             []
             [ pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]
             ]
+
+len :: Int
+len = 11
+
+newGA :: Graph -> IO GraphAttributes
+newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel)
+
+ogdfTest :: ModuleGraphInfo -> IO ()
+ogdfTest graphInfo = do
+  print graphInfo
+  bracket newGraph delete $ \g ->
+    bracket (newGA g) delete $ \ga -> do
+      forM_ [1 .. len - 1] $ \i -> do
+        left <- newGraphNodeWithSize (g, ga) (10 * (i + 1), 15)
+        bottom <- newGraphNodeWithSize (g, ga) (15, 10 * (len + 1 - i))
+        graph_newEdge g left bottom
+
+      bracket newSugiyamaLayout delete $ \sl -> do
+        orank <- newOptimalRanking
+        sugiyamaLayout_setRanking sl orank
+        mh <- newMedianHeuristic
+        sugiyamaLayout_setCrossMin sl mh
+        ohl <- newOptimalHierarchyLayout
+        optimalHierarchyLayout_layerDistance ohl 30.0
+        optimalHierarchyLayout_nodeDistance ohl 25.0
+        optimalHierarchyLayout_weightBalancing ohl 0.8
+        sugiyamaLayout_setLayout sl ohl
+        call sl ga
+
+      -- temporary
+      withCString "current_graph.svg" $ \cstr -> do
+        str <- newCppString cstr
+        _ <- graphIO_drawSVG ga str
+        delete str
+
+      n0@(NodeElement n0') <- graph_firstNode g
+      when (n0' /= nullPtr) $
+        void $
+          flip loopM n0 $ \n@(NodeElement n'') ->
+            if n'' == nullPtr
+              then pure (Right ())
+              else do
+                i <- nodeElement_index n
+                x <- getX ga n
+                y <- getY ga n
+                w <- getWidth ga n
+                h <- getHeight ga n
+                let txt =
+                      T.pack (show (fromIntegral i :: Int))
+                        <> " "
+                        <> T.pack (show (realToFrac x :: Double))
+                        <> " "
+                        <> T.pack (show (realToFrac y :: Double))
+                        <> " "
+                        <> T.pack (show (realToFrac w :: Double))
+                        <> " "
+                        <> T.pack (show (realToFrac h :: Double))
+                TIO.putStrLn txt
+                Left <$> nodeElement_succ n
