@@ -28,4 +28,7 @@ data ServerState = ServerState
   }
 
 incrementSN :: ServerState -> ServerState
-incrementSN ss = ss {serverMessageSN = serverMessageSN ss + 1}
+incrementSN ss =
+  ss
+    { serverMessageSN = serverMessageSN ss + 1
+    }

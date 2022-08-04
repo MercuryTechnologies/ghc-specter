@@ -5,18 +5,26 @@ module Main (main) where
 import Concur.Core (liftSTM)
 import Concur.Replica (runDefault)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM
-  ( STM,
-    TVar,
+  ( TVar,
     atomically,
     modifyTVar',
     newTVar,
     readTVar,
     retry,
   )
+import Control.Monad (when)
 import Control.Monad.Extra (loopM)
+import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as M
+import Data.Time.Clock
+  ( NominalDiffTime,
+    diffUTCTime,
+    getCurrentTime,
+    nominalDiffTimeToSeconds,
+    secondsToNominalDiffTime,
+  )
 import qualified Options.Applicative as OA
 import Toolbox.Channel
   ( ChanMessage (..),
@@ -52,38 +60,50 @@ main = do
   _ <- forkIO $ listener socketFile var
   webServer var
 
+updateInterval :: NominalDiffTime
+updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
+
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    (\sock -> receiveObject sock >>= atomically . updateInbox var)
+    (\sock -> receiveObject sock >>= atomically . modifyTVar' var . updateInbox)
 
-updateInbox :: TVar ServerState -> ChanMessageBox -> STM ()
-updateInbox var chanMsg =
-  modifyTVar' var $ \ss ->
-    incrementSN $
-      case chanMsg of
-        CMBox (CMCheckImports modu msg) ->
-          let m = serverInbox ss
-           in ss {serverInbox = M.insert (CheckImports, modu) msg m}
-        CMBox (CMTiming modu timer') ->
-          let m = serverTiming ss
-           in ss {serverTiming = M.insert modu timer' m}
-        CMBox (CMSession s') ->
-          ss {serverSessionInfo = s'}
+updateInbox :: ChanMessageBox -> ServerState -> ServerState
+updateInbox chanMsg ss =
+  incrementSN $
+    case chanMsg of
+      CMBox (CMCheckImports modu msg) ->
+        let m = serverInbox ss
+         in ss {serverInbox = M.insert (CheckImports, modu) msg m}
+      CMBox (CMTiming modu timer') ->
+        let m = serverTiming ss
+         in ss {serverTiming = M.insert modu timer' m}
+      CMBox (CMSession s') ->
+        ss {serverSessionInfo = s'}
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
   initServerState <- atomically (readTVar var)
+  initTime <- getCurrentTime
   let initUIState = UIState CheckImports Nothing
   runDefault 8080 "test" $
-    \_ -> loopM step (initUIState, initServerState)
+    \_ -> loopM step (initUIState, initServerState, initTime)
   where
-    step (ui, ss) = do
-      let await = liftSTM $ do
-            ss' <- readTVar var
-            if serverMessageSN ss == serverMessageSN ss'
-              then retry
-              else pure ss'
-      (Left . (,ss) <$> render (ui, ss))
-        <|> (Left . (ui,) <$> await)
+    step (ui, ss, lastUIUpdate) = do
+      let await = do
+            -- wait for update interval, not to have too frequent update
+            currentTime_ <- liftIO getCurrentTime
+            when (currentTime_ `diffUTCTime` lastUIUpdate < updateInterval) $
+              liftIO $
+                threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
+            -- lock until new message comes
+            ss' <- liftSTM $ do
+              ss' <- readTVar var
+              if (serverMessageSN ss == serverMessageSN ss')
+                then retry
+                else pure ss'
+            newUIUpdate <- liftIO getCurrentTime
+            pure (ui, ss', newUIUpdate)
+      (Left . (,ss,lastUIUpdate) <$> render (ui, ss))
+        <|> (Left <$> await)
