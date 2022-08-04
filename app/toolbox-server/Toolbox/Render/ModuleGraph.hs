@@ -164,20 +164,25 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel)
 
+sizeLimit :: Int
+sizeLimit = 300
+
 ogdfTest :: ModuleGraphInfo -> IO ()
 ogdfTest graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       moduleNodeMap <-
-        IM.fromList
+        IM.fromList . filter (\(i,_) -> i < sizeLimit)
           <$> ( forM (mginfoModuleNameMap graphInfo) $ \(i, _) -> do
                   node <- newGraphNodeWithSize (g, ga) (10, 10)
                   pure (i, node)
               )
-      for_ (mginfoModuleDep graphInfo) $ \(i, js) ->
+
+      for_ (mginfoModuleDep graphInfo) $ \(i, js) -> do
+        let js' = filter (\j -> j < sizeLimit) js
         for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
-          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
+          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js'
           for_ node_js $ \node_j ->
             graph_newEdge g node_i node_j
 
@@ -187,39 +192,39 @@ ogdfTest graphInfo = do
         mh <- newMedianHeuristic
         sugiyamaLayout_setCrossMin sl mh
         ohl <- newOptimalHierarchyLayout
-        optimalHierarchyLayout_layerDistance ohl 30.0
+        optimalHierarchyLayout_layerDistance ohl 5.0
         optimalHierarchyLayout_nodeDistance ohl 25.0
         optimalHierarchyLayout_weightBalancing ohl 0.8
         sugiyamaLayout_setLayout sl ohl
         call sl ga
 
-      -- temporary
-      withCString "current_graph.svg" $ \cstr -> do
-        str <- newCppString cstr
-        _ <- graphIO_drawSVG ga str
-        delete str
+        -- temporary
+        withCString "current_graph.svg" $ \cstr -> do
+          str <- newCppString cstr
+          _ <- graphIO_drawSVG ga str
+          delete str
 
-      n0@(NodeElement n0') <- graph_firstNode g
-      when (n0' /= nullPtr) $
-        void $
-          flip loopM n0 $ \n@(NodeElement n'') ->
-            if n'' == nullPtr
-              then pure (Right ())
-              else do
-                i <- nodeElement_index n
-                x <- getX ga n
-                y <- getY ga n
-                w <- getWidth ga n
-                h <- getHeight ga n
-                let txt =
-                      T.pack (show (fromIntegral i :: Int))
-                        <> " "
-                        <> T.pack (show (realToFrac x :: Double))
-                        <> " "
-                        <> T.pack (show (realToFrac y :: Double))
-                        <> " "
-                        <> T.pack (show (realToFrac w :: Double))
-                        <> " "
-                        <> T.pack (show (realToFrac h :: Double))
-                TIO.putStrLn txt
-                Left <$> nodeElement_succ n
+        n0@(NodeElement n0') <- graph_firstNode g
+        when (n0' /= nullPtr) $
+          void $
+            flip loopM n0 $ \n@(NodeElement n'') ->
+              if n'' == nullPtr
+                then pure (Right ())
+                else do
+                  i <- nodeElement_index n
+                  x <- getX ga n
+                  y <- getY ga n
+                  w <- getWidth ga n
+                  h <- getHeight ga n
+                  let txt =
+                        T.pack (show (fromIntegral i :: Int))
+                          <> " "
+                          <> T.pack (show (realToFrac x :: Double))
+                          <> " "
+                          <> T.pack (show (realToFrac y :: Double))
+                          <> " "
+                          <> T.pack (show (realToFrac w :: Double))
+                          <> " "
+                          <> T.pack (show (realToFrac h :: Double))
+                  TIO.putStrLn txt
+                  Left <$> nodeElement_succ n
