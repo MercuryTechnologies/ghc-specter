@@ -28,11 +28,12 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
+import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
-  ( type ChanModule,
-    type Inbox,
-    ServerState (..),
+  ( ServerState (..),
     UIState (..),
+    type ChanModule,
+    type Inbox,
   )
 import Prelude hiding (div, span)
 
@@ -49,7 +50,7 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderInbox:: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
+renderInbox :: (Channel, Maybe Text) -> Inbox -> Widget HTML (Maybe Text)
 renderInbox (chan, mexpandedModu) m =
   ul [] $ map eachRender filtered
   where
@@ -70,16 +71,17 @@ renderMainPanel ::
   UIState ->
   ServerState ->
   Widget HTML (Maybe Text)
-renderMainPanel (UIState chan mexpandedModu) (ServerState _ m s) =
+renderMainPanel (UIState chan mexpandedModu) ss =
   case chan of
-    CheckImports -> renderInbox (CheckImports, mexpandedModu) m
+    CheckImports -> renderInbox (CheckImports, mexpandedModu) (serverInbox ss)
     Timing ->
       div
         []
-        [ pre [] [text $ T.pack $ show s]
-        , renderInbox (Timing, mexpandedModu) m
+        [ pre [] [text $ T.pack $ show (serverSessionInfo ss)]
+        , div [] [renderTiming ss]
+        -- , renderTiming ss -- renderInbox (Timing, mexpandedModu) (serverInbox ss)
         ]
-    _ -> renderInbox (Timing, mexpandedModu) m
+    _ -> renderInbox (Timing, mexpandedModu) (serverInbox ss)
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
@@ -113,10 +115,10 @@ renderNavbar chan =
 
 render ::
   (UIState, ServerState) ->
-  Widget HTML (UIState, ServerState)
-render (ui@(UIState chan mexpandedModu), ss@(ServerState i m s)) = do
+  Widget HTML UIState
+render (ui@(UIState chan mexpandedModu), ss) = do
   let (mainPanel, bottomPanel)
-        | i == 0 =
+        | serverMessageSN ss == 0 =
             ( div [] [text "No GHC process yet"]
             , divClass "box" [] [text "No Messages"]
             )
@@ -126,7 +128,7 @@ render (ui@(UIState chan mexpandedModu), ss@(ServerState i m s)) = do
                 [renderMainPanel ui ss]
             , section
                 []
-                [divClass "box" [] [text $ "message: " <> T.pack (show i)]]
+                [divClass "box" [] [text $ "message: " <> T.pack (show (serverMessageSN ss))]]
             )
   ui' <-
     div
@@ -137,4 +139,4 @@ render (ui@(UIState chan mexpandedModu), ss@(ServerState i m s)) = do
       , (\mexpandedModu' -> UIState chan mexpandedModu') <$> mainPanel
       , bottomPanel
       ]
-  pure (ui', ServerState i m s)
+  pure ui'

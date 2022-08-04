@@ -3,12 +3,13 @@ module Toolbox.Server.Types
     type Inbox,
     UIState (..),
     ServerState (..),
+    incrementSN,
   )
 where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Toolbox.Channel (Channel, SessionInfo)
+import Toolbox.Channel (Channel, SessionInfo, Timer)
 
 type ChanModule = (Channel, Text)
 
@@ -23,4 +24,8 @@ data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
+  , serverTiming :: Map Text Timer
   }
+
+incrementSN :: ServerState -> ServerState
+incrementSN ss = ss {serverMessageSN = serverMessageSN ss + 1}

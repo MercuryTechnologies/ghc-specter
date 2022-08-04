@@ -23,7 +23,7 @@ data Channel = CheckImports | Timing | Session
 type ModuleName = Text
 
 newtype SessionInfo = SessionInfo
-  { sessionStartTime :: Maybe UTCTime }
+  {sessionStartTime :: Maybe UTCTime}
   deriving (Show, Binary)
 
 data Timer = Timer

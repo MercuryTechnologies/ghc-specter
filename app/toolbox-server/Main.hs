@@ -18,7 +18,6 @@ import Control.Concurrent.STM
 import Control.Monad.Extra (loopM)
 import qualified Data.Map.Strict as M
 import qualified Options.Applicative as OA
-import qualified Data.Text as T
 import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -33,6 +32,7 @@ import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
     UIState (..),
+    incrementSN,
   )
 import Prelude hiding (div)
 
@@ -48,7 +48,7 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing))
+  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing) mempty)
   _ <- forkIO $ listener socketFile var
   webServer var
 
@@ -60,14 +60,17 @@ listener socketFile var =
 
 updateInbox :: TVar ServerState -> ChanMessageBox -> STM ()
 updateInbox var chanMsg =
-  modifyTVar' var $ \(ServerState i m s) ->
-    case chanMsg of
-      CMBox (CMCheckImports modu msg) ->
-        ServerState (i + 1) (M.insert (CheckImports, modu) msg m) s
-      CMBox (CMTiming modu timer') ->
-        ServerState (i + 1) (M.insert (Timing, modu) (T.pack (show timer')) m) s
-      CMBox (CMSession s') ->
-        ServerState (i + 1) m s'
+  modifyTVar' var $ \ss ->
+    incrementSN $
+      case chanMsg of
+        CMBox (CMCheckImports modu msg) ->
+          let m = serverInbox ss
+           in ss {serverInbox = M.insert (CheckImports, modu) msg m}
+        CMBox (CMTiming modu timer') ->
+          let m = serverTiming ss
+           in ss {serverTiming = M.insert modu timer' m}
+        CMBox (CMSession s') ->
+          ss {serverSessionInfo = s'}
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
@@ -76,13 +79,11 @@ webServer var = do
   runDefault 8080 "test" $
     \_ -> loopM step (initUIState, initServerState)
   where
-    step (ui, ss@(ServerState i _ _)) = do
+    step (ui, ss) = do
       let await = liftSTM $ do
-            ss'@(ServerState i' _ _) <- readTVar var
-            if i == i'
+            ss' <- readTVar var
+            if serverMessageSN ss == serverMessageSN ss'
               then retry
               else pure ss'
-      Left
-        <$> ( render (ui, ss)
-                <|> ((ui,) <$> await)
-            )
+      (Left . (,ss) <$> render (ui, ss))
+        <|> (Left . (ui,) <$> await)
