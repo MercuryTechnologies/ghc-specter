@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# OPTIONS_GHC -Werror #-}
 
 module Toolbox.Render.ModuleGraph
   ( renderModuleGraph,
@@ -9,6 +8,8 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
 import Control.Monad.Extra (loop)
+import Data.Discrimination (inner)
+import Data.Discrimination.Grouping (grouping)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -34,8 +35,9 @@ analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDepMap = mkRevDep modDep
+      modRevDep = IM.toList modRevDepMap
       initials = fmap fst $ filter (\(_, js) -> null js) modDep
-      terminals = fmap fst $ filter (\(_, js) -> null js) $ IM.toList modRevDepMap
+      terminals = fmap fst $ filter (\(_, js) -> null js) modRevDep
       orphans = initials `L.intersect` terminals
       singles = mapMaybe (\(i, js) -> case js of j : [] -> Just (i, j); _ -> Nothing) modDep
       leg i = loop go ([i], i)
@@ -45,6 +47,12 @@ analyze graphInfo =
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
+
+      smallLimit = 20
+      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
+        where
+          joiner (i, js) (_, ks) = (i, (js, ks))
+      larges = fmap fst $ filter (\(_, (js, ks)) -> length js + length ks > smallLimit) modBiDep
    in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
@@ -58,7 +66,8 @@ analyze graphInfo =
         <> "legs: "
         <> (T.pack $ show legs)
         <> "\n=============\n"
-        <> (T.pack $ show modRevDepMap)
+        <> "# of larges: "
+        <> (T.pack $ show (length larges))
 
 formatModuleGraphInfo :: ModuleGraphInfo -> Text
 formatModuleGraphInfo mgi =
@@ -85,4 +94,3 @@ renderModuleGraph ss =
             []
             [ pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]
             ]
-
