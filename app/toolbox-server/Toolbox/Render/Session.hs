@@ -61,18 +61,17 @@ analyze graphInfo =
 
 formatModuleGraphInfo :: ModuleGraphInfo -> Text
 formatModuleGraphInfo mgi =
-  let txt0 = analyze mgi
-      txt1 =
+  let txt1 =
         T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleNameMap mgi
       txt2 =
         T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleDep mgi
-   in txt0
-        <> "\n-----------------\n"
-        <> "(key, module):\n"
+   in "(key, module):\n"
         <> txt1
         <> "\n-----------------\n"
         <> "dependencies:\n"
         <> txt2
+        <> "\n=================\n"
+        <> analyze mgi
 
 renderSession :: ServerState -> Widget HTML a
 renderSession ss =
