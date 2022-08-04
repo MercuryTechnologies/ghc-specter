@@ -14,7 +14,7 @@ import Control.Monad.Extra (loop, loopM)
 import Data.Bits ((.|.))
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
-import Data.Foldable (forM_)
+import Data.Foldable (for_)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -22,6 +22,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Data.Traversable (forM)
 import Foreign.C.String (withCString)
 import Foreign.Ptr (nullPtr)
 import OGDF.Graph
@@ -160,9 +161,6 @@ renderModuleGraph ss =
             [ pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]
             ]
 
-len :: Int
-len = 11
-
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel)
 
@@ -171,10 +169,17 @@ ogdfTest graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
-      forM_ [1 .. len - 1] $ \i -> do
-        left <- newGraphNodeWithSize (g, ga) (10 * (i + 1), 15)
-        bottom <- newGraphNodeWithSize (g, ga) (15, 10 * (len + 1 - i))
-        graph_newEdge g left bottom
+      moduleNodeMap <-
+        IM.fromList
+          <$> ( forM (mginfoModuleNameMap graphInfo) $ \(i, _) -> do
+                  node <- newGraphNodeWithSize (g, ga) (10, 10)
+                  pure (i, node)
+              )
+      for_ (mginfoModuleDep graphInfo) $ \(i, js) ->
+        for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
+          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
+          for_ node_js $ \node_j ->
+            graph_newEdge g node_i node_j
 
       bracket newSugiyamaLayout delete $ \sl -> do
         orank <- newOptimalRanking

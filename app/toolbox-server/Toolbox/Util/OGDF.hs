@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 module Toolbox.Util.OGDF
   ( nodeGraphics,
     edgeGraphics,
