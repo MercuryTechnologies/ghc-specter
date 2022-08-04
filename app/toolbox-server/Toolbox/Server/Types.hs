@@ -16,7 +16,7 @@ type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
 
-data Tab = TabSession | TabCheckImports | TabTiming
+data Tab = TabSession | TabModuleGraph | TabCheckImports | TabTiming
   deriving (Eq)
 
 data UIState = UIState

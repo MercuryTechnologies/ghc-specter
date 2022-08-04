@@ -28,6 +28,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (Channel (..))
+import Toolbox.Render.ModuleGraph (renderModuleGraph)
 import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
@@ -58,6 +59,7 @@ renderInbox (UIState tab mexpandedModu) m =
   where
     chan = case tab of
       TabSession -> Session
+      TabModuleGraph -> Session
       TabCheckImports -> CheckImports
       TabTiming -> Timing
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
@@ -80,6 +82,7 @@ renderMainPanel ::
 renderMainPanel ui@(UIState tab _) ss =
   case tab of
     TabSession -> renderSession ss
+    TabModuleGraph -> renderModuleGraph ss
     TabCheckImports -> renderInbox ui (serverInbox ss)
     TabTiming -> renderTiming ss
 
@@ -99,6 +102,7 @@ renderNavbar tab =
     [ navbarMenu
         [ navbarStart
             [ TabSession <$ navItem (tab == TabSession) [text "Session"]
+            , TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
             , TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
             , TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
             ]
