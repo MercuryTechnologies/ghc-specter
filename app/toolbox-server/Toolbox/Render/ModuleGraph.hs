@@ -79,7 +79,7 @@ mkRevDep deps = L.foldl' step emptyMap deps
     step !acc (i, js) =
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
-analyze :: ModuleGraphInfo -> Text
+analyze :: ModuleGraphInfo -> [Int] -- Text
 analyze graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDepMap = mkRevDep modDep
@@ -101,7 +101,9 @@ analyze graphInfo =
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
       larges = fmap fst $ filter (\(_, (js, ks)) -> length js + length ks > smallLimit) modBiDep
-   in "intials: " <> (T.pack $ show initials) <> ",\n"
+   in larges
+{-
+  in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
         <> ",\n"
@@ -116,6 +118,7 @@ analyze graphInfo =
         <> "\n=============\n"
         <> "# of larges: "
         <> (T.pack $ show (length larges))
+-}
 
 -- | (number of vertices, number of edges)
 stat :: ModuleGraphInfo -> (Int, Int)
@@ -141,8 +144,6 @@ formatModuleGraphInfo mgi =
         <> "\n-----------------\n"
         <> "top sorted:\n"
         <> txt3
-        <> "\n=================\n"
-        <> analyze mgi
         <> "\n=================\n"
         <> "# of vertices: "
         <> T.pack (show nVtx)
@@ -172,9 +173,14 @@ ogdfTest graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
+      let modDep = mginfoModuleDep graphInfo
+          larges = analyze graphInfo
+          reducedGraph =
+            fmap (\(i, js) -> (i, filter (`elem` larges) js)) $
+              filter (\(i, _) -> i `elem` larges) modDep
       moduleNodeMap <-
         IM.fromList . filter (\(i,_) -> i < sizeLimit)
-          <$> ( forM (mginfoModuleNameMap graphInfo) $ \(i, _) -> do
+          <$> ( forM reducedGraph $ \(i, _) -> do
                   node <- newGraphNodeWithSize (g, ga) (10, 10)
                   pure (i, node)
               )
