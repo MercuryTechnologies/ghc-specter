@@ -75,11 +75,16 @@ formatModuleGraphInfo mgi =
         T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleNameMap mgi
       txt2 =
         T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleDep mgi
+      txt3 =
+        T.pack . show $ mginfoModuleTopSorted mgi
    in "(key, module):\n"
         <> txt1
         <> "\n-----------------\n"
         <> "dependencies:\n"
         <> txt2
+        <> "\n-----------------\n"
+        <> "top sorted:\n"
+        <> txt3
         <> "\n=================\n"
         <> analyze mgi
 

@@ -9,13 +9,18 @@ where
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
+import Data.Tuple (swap)
 import qualified GHC.Data.Graph.Directed as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Make (moduleGraphNodes)
+import GHC.Driver.Make
+  ( moduleGraphNodes,
+    topSortModuleGraph,
+  )
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
   ( PhasePlus (RealPhase),
@@ -46,6 +51,7 @@ import Toolbox.Channel
   ( ChanMessage (CMSession, CMTiming),
     ChanMessageBox (..),
     ModuleGraphInfo (..),
+    ModuleName,
     SessionInfo (..),
     Timer (..),
     emptyModuleGraphInfo,
@@ -66,19 +72,34 @@ sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing emptyModuleGraphInfo
 getModuleNameText :: ModSummary -> T.Text
 getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
 
+gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
+gnode2ModSummary InstantiationNode {} = Nothing
+gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
+
+-- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
+getTopSortedModules :: ModuleGraph -> [ModuleName]
+getTopSortedModules =
+  mapMaybe (fmap getModuleNameText . gnode2ModSummary)
+    . concatMap G.flattenSCC
+    . flip (topSortModuleGraph False) Nothing
+
 extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
 extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
-      gnode2ModSummary InstantiationNode {} = Nothing
-      gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
       vtxs = G.verticesG graph
-      modNameFromVertex = fmap getModuleNameText . gnode2ModSummary . G.node_payload
+      modNameFromVertex =
+        fmap getModuleNameText . gnode2ModSummary . G.node_payload
       modNameMap =
         mapMaybe
           (\v -> (G.node_key v,) <$> modNameFromVertex v)
           vtxs
+      modNameRevMap = fmap swap modNameMap
+      topSorted =
+        mapMaybe
+          (\n -> L.lookup n modNameRevMap)
+          $ getTopSortedModules modGraph
       modDeps = fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-   in ModuleGraphInfo modNameMap modDeps
+   in ModuleGraphInfo modNameMap modDeps topSorted
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
@@ -90,6 +111,7 @@ driver opts env = do
       let modGraph = hsc_mod_graph env
           modGraphInfo = extractModuleGraphInfo modGraph
           startedSession = SessionInfo (Just startTime) modGraphInfo
+      -- this is dangerous. should use atomic transaction
       writeIORef sessionRef startedSession
       case opts of
         ipcfile : _ -> liftIO $ do

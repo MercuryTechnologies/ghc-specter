@@ -25,21 +25,22 @@ data Channel = CheckImports | Timing | Session
 type ModuleName = Text
 
 data ModuleGraphInfo = ModuleGraphInfo
-  { mginfoModuleNameMap :: [(Int, Text)]
+  { mginfoModuleNameMap :: [(Int, ModuleName)]
   , mginfoModuleDep :: [(Int, [Int])]
+  , mginfoModuleTopSorted :: [Int]
   }
   deriving (Show)
 
 instance Binary ModuleGraphInfo where
-  put (ModuleGraphInfo m d) = put (m, d)
-  get = uncurry ModuleGraphInfo <$> get
+  put (ModuleGraphInfo m d s) = put (m, d, s)
+  get = (\(m, d, s) -> ModuleGraphInfo m d s) <$> get
 
 emptyModuleGraphInfo :: ModuleGraphInfo
-emptyModuleGraphInfo = ModuleGraphInfo [] []
+emptyModuleGraphInfo = ModuleGraphInfo [] [] []
 
 data SessionInfo = SessionInfo
   { sessionStartTime :: Maybe UTCTime
-  , sessionModuleGraph :: ModuleGraphInfo -- Text
+  , sessionModuleGraph :: ModuleGraphInfo
   }
   deriving (Show)
 
