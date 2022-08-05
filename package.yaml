@@ -86,6 +86,7 @@ library:
     - extra
     - ghc == 9.2.*
     - network
+    - stm
     - time
     - transformers
 
