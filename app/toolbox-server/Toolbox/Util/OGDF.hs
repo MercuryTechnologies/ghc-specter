@@ -15,8 +15,10 @@ module Toolbox.Util.OGDF
     edgeSubGraphs,
     nodeWeight,
     threeD,
+    nodeLabelPosition,
     --
     newGraphNodeWithSize,
+    appendText,
     getX,
     getY,
     getWidth,
@@ -24,6 +26,11 @@ module Toolbox.Util.OGDF
   )
 where
 
+import Control.Exception (bracket)
+import Control.Monad (void)
+import Data.ByteString (useAsCString)
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
 import Foreign.C.Types (CLong)
 import Foreign.Storable (Storable (peek, poke))
 import OGDF.Graph
@@ -33,11 +40,14 @@ import OGDF.Graph
 import OGDF.GraphAttributes
   ( GraphAttributes,
     graphAttributes_height,
+    graphAttributes_label,
     graphAttributes_width,
     graphAttributes_x,
     graphAttributes_y,
   )
 import OGDF.NodeElement (NodeElement (..))
+import STD.CppString (cppString_append, newCppString)
+import STD.Deletable (delete)
 
 nodeGraphics :: CLong
 nodeGraphics = 0x000001
@@ -85,7 +95,10 @@ nodeWeight :: CLong
 nodeWeight = 0x004000
 
 threeD :: CLong
-threeD = 0x010000
+threeD = 0x008000
+
+nodeLabelPosition :: CLong
+nodeLabelPosition = 0x010000
 
 newGraphNodeWithSize :: (Graph, GraphAttributes) -> (Int, Int) -> IO NodeElement
 newGraphNodeWithSize (g, ga) (width, height) = do
@@ -95,6 +108,14 @@ newGraphNodeWithSize (g, ga) (width, height) = do
   p_height <- graphAttributes_height ga node
   poke p_height (fromIntegral height)
   pure node
+
+appendText :: GraphAttributes -> NodeElement -> Text -> IO ()
+appendText ga node txt = do
+  str <- graphAttributes_label ga node
+  let bs = encodeUtf8 txt
+  useAsCString bs $ \cstr ->
+    bracket (newCppString cstr) delete $ \str' ->
+      void $ cppString_append str str'
 
 getX :: GraphAttributes -> NodeElement -> IO Double
 getX ga n = realToFrac <$> (peek =<< graphAttributes_x ga n)

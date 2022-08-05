@@ -62,7 +62,8 @@ import Toolbox.Channel
   )
 import Toolbox.Server.Types (ServerState (..))
 import Toolbox.Util.OGDF
-  ( edgeGraphics,
+  ( appendText,
+    edgeGraphics,
     getHeight,
     getWidth,
     getX,
@@ -70,6 +71,7 @@ import Toolbox.Util.OGDF
     newGraphNodeWithSize,
     nodeGraphics,
     nodeLabel,
+    nodeLabelPosition,
   )
 import Prelude hiding (div)
 
@@ -81,7 +83,7 @@ mkRevDep deps = L.foldl' step emptyMap deps
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
 nodeSizeLimit :: Int
-nodeSizeLimit = 30
+nodeSizeLimit = 150
 
 filterOutSmallNodes :: ModuleGraphInfo -> [Int]
 filterOutSmallNodes graphInfo =
@@ -110,6 +112,7 @@ analyze graphInfo =
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
       larges = filterOutSmallNodes graphInfo
+      largeNames = mapMaybe (\i -> L.lookup i (mginfoModuleNameMap graphInfo)) larges
    in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
@@ -123,6 +126,8 @@ analyze graphInfo =
         <> "legs: "
         <> (T.pack $ show legs)
         <> "\n=============\n"
+        <> "larges: "
+        <> (T.pack $ show largeNames)
         <> "# of larges: "
         <> (T.pack $ show (length larges))
 
@@ -179,6 +184,7 @@ ogdfTest graphInfo = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       let modDep = mginfoModuleDep graphInfo
+          modNameMap = mginfoModuleNameMap graphInfo
           larges = filterOutSmallNodes graphInfo
           reducedGraph =
             fmap (\(i, js) -> (i, filter (`elem` larges) js)) $
@@ -187,6 +193,9 @@ ogdfTest graphInfo = do
         IM.fromList
           <$> ( forM reducedGraph $ \(i, _) -> do
                   node <- newGraphNodeWithSize (g, ga) (10, 10)
+                  let mname = L.lookup i modNameMap
+                  for_ mname $ \name ->
+                    appendText ga node name
                   pure (i, node)
               )
 
