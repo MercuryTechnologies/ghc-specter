@@ -48,7 +48,6 @@ import OGDF.OptimalHierarchyLayout
 import OGDF.OptimalRanking (newOptimalRanking)
 import OGDF.SugiyamaLayout
   ( newSugiyamaLayout,
-    sugiyamaLayout_pageRatio,
     sugiyamaLayout_setCrossMin,
     sugiyamaLayout_setLayout,
     sugiyamaLayout_setRanking,
