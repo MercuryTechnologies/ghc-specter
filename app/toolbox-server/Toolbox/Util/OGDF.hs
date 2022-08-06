@@ -19,6 +19,7 @@ module Toolbox.Util.OGDF
     --
     newGraphNodeWithSize,
     appendText,
+    setFillColor,
     getX,
     getY,
     getWidth,
@@ -33,12 +34,14 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Foreign.C.Types (CLong)
 import Foreign.Storable (Storable (peek, poke))
+import OGDF.Color (color_fromString)
 import OGDF.Graph
   ( Graph,
     graph_newNode,
   )
 import OGDF.GraphAttributes
   ( GraphAttributes,
+    graphAttributes_fillColor,
     graphAttributes_height,
     graphAttributes_label,
     graphAttributes_width,
@@ -116,6 +119,15 @@ appendText ga node txt = do
   useAsCString bs $ \cstr ->
     bracket (newCppString cstr) delete $ \str' ->
       void $ cppString_append str str'
+
+setFillColor :: GraphAttributes -> NodeElement -> Text -> IO ()
+setFillColor ga node colorTxt = do
+  color <- graphAttributes_fillColor ga node
+  let bs = encodeUtf8 colorTxt
+  useAsCString bs $ \cstr ->
+    bracket (newCppString cstr) delete $ \str' ->
+      void $ color_fromString color str'
+
 
 getX :: GraphAttributes -> NodeElement -> IO Double
 getX ga n = realToFrac <$> (peek =<< graphAttributes_x ga n)

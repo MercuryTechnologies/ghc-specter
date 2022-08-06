@@ -71,7 +71,8 @@ import Toolbox.Util.OGDF
     newGraphNodeWithSize,
     nodeGraphics,
     nodeLabel,
-    nodeLabelPosition,
+    nodeStyle,
+    setFillColor,
   )
 import Prelude hiding (div)
 
@@ -176,7 +177,7 @@ renderModuleGraph ss =
             ]
 
 newGA :: Graph -> IO GraphAttributes
-newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel)
+newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
 ogdfTest :: ModuleGraphInfo -> IO ()
 ogdfTest graphInfo = do
@@ -190,13 +191,16 @@ ogdfTest graphInfo = do
             fmap (\(i, js) -> (i, filter (`elem` larges) js)) $
               filter (\(i, _) -> i `elem` larges) modDep
       moduleNodeMap <-
-        IM.fromList
+        IM.fromList . concat
           <$> ( forM reducedGraph $ \(i, _) -> do
-                  node <- newGraphNodeWithSize (g, ga) (10, 10)
-                  let mname = L.lookup i modNameMap
-                  for_ mname $ \name ->
-                    appendText ga node name
-                  pure (i, node)
+                  case L.lookup i modNameMap of
+                    Nothing -> pure []
+                    Just name -> do
+                      let width = 8 * T.length name
+                      node <- newGraphNodeWithSize (g, ga) (width, 15)
+                      setFillColor ga node "White"
+                      appendText ga node name
+                      pure [(i, node)]
               )
 
       for_ reducedGraph $ \(i, js) ->
