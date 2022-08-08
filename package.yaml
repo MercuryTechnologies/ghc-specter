@@ -119,6 +119,18 @@ executables:
       - replica
       - stm
       - time
+  graph-test:
+    main: Main.hs
+    source-dirs: app/graph-test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - containers
+      - discrimination
+      - extra
+      - ghc-build-analyzer
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
