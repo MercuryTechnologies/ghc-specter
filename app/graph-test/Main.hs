@@ -22,7 +22,7 @@ import Toolbox.Channel (ModuleGraphInfo (..))
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster Int
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 repCluster :: ClusterVertex -> Int
 repCluster (Cluster v) = v
@@ -31,7 +31,7 @@ repCluster (Cluster v) = v
 data ICVertex
   = Unclustered Int
   | Clustered ClusterVertex
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 initICVertex :: Int -> ICVertex
 initICVertex i = Unclustered i
@@ -61,11 +61,21 @@ clusterStep graph clustering = flip execState clustering $ do
       let (os, is) = fromMaybe ([], []) $ L.lookup (Clustered cls) graph
           os' = getUnclustered os
           is' = getUnclustered is
-          added = (os' ++ is') L.\\ vs `L.intersect` unclustered
-          vs' = vs ++ added
-          unclustered' = unclustered L.\\ added
+          added = ((os' ++ is') L.\\ vs) `L.intersect` unclustered
+          vs' = L.nub $ L.sort (vs ++ added)
+          unclustered' = L.nub $ L.sort (unclustered L.\\ added)
       modify' (\s -> s {clusterStateUnclustered = unclustered'})
       pure (cls, vs')
+
+pruneStep ::
+  ClusterState ->
+  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  [(ICVertex, ([ICVertex], [ICVertex]))]
+pruneStep clustering graph = filter prune graph
+  where
+    unclustered = clusterStateUnclustered clustering
+    prune (Clustered {}, _) = True
+    prune (Unclustered v, _) = v `elem` unclustered
 
 replaceStep ::
   ClusterState ->
@@ -84,16 +94,17 @@ replaceStep clustering graph = fmap replace graph
             Nothing -> Unclustered v
             (Just cls) -> Clustered cls
     replace (v, (os, is)) =
-      let os' = fmap (replaceEach clustering) os
-          is' = fmap (replaceEach clustering) is
+      let os' = L.nub $ L.sort $ fmap (replaceEach clustering) os
+          is' = L.nub $ L.sort $ fmap (replaceEach clustering) is
           v' = replaceEach clustering v
        in (v', (os', is'))
 
 fullStep :: (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) -> (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
-fullStep (clustering, graph) = (clustering', graph')
+fullStep (clustering, graph) = (clustering', graph'')
   where
     graph' = replaceStep clustering graph
     clustering' = clusterStep graph' clustering
+    graph'' = pruneStep clustering' graph'
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
@@ -217,11 +228,18 @@ main =
             r1 = fullStep r0
             r2 = fullStep r1
             r3 = fullStep r2
+            r4 = fullStep r3
 
+        mapM_ print gr
+        putStrLn "=============="
         let getRemaining = length . clusterStateUnclustered . fst
         print (getRemaining r0)
         print (getRemaining r1)
         print (getRemaining r2)
         print (getRemaining r3)
+        print (getRemaining r4)
 
-        print (snd r3)
+        mapM_ print (snd r4)
+        putStrLn "======="
+        mapM_ print (clusterStateClustered (fst r4))
+        print (clusterStateUnclustered (fst r4))
