@@ -131,6 +131,7 @@ executables:
       - discrimination
       - extra
       - ghc-build-analyzer
+      - transformers
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs

@@ -1,8 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Main where
 
 import Control.Monad.Extra (loop)
+import Control.Monad.Trans.State (execState, get, modify')
 import Data.Aeson (eitherDecode)
 import qualified Data.ByteString.Lazy as BL
 import Data.Discrimination (inner)
@@ -10,7 +12,7 @@ import Data.Discrimination.Grouping (grouping)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid (First (..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -19,8 +21,8 @@ import System.IO (IOMode (..), withFile)
 import Toolbox.Channel (ModuleGraphInfo (..))
 
 -- | representative vertex, other vertices that belong to this cluster
-newtype ClusterVertex = Cluster Int --  [Int]
-  deriving (Show)
+newtype ClusterVertex = Cluster Int
+  deriving (Show, Eq)
 
 repCluster :: ClusterVertex -> Int
 repCluster (Cluster v) = v
@@ -29,27 +31,56 @@ repCluster (Cluster v) = v
 data ICVertex
   = Unclustered Int
   | Clustered ClusterVertex
-  deriving (Show)
+  deriving (Show, Eq)
 
 initICVertex :: Int -> ICVertex
 initICVertex i = Unclustered i
 
+getUnclustered :: [ICVertex] -> [Int]
+getUnclustered =
+  mapMaybe (\case Unclustered i -> Just i; _ -> Nothing)
+
 -- cluster and elements
-type ClusterState = [(ClusterVertex, [Int])]
+data ClusterState = ClusterState
+  { clusterStateClustered :: [(ClusterVertex, [Int])]
+  , clusterStateUnclustered :: [Int]
+  }
+  deriving (Show)
+
+clusterStep ::
+  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  ClusterState ->
+  ClusterState
+clusterStep graph clustering = flip execState clustering $ do
+  clustered' <- traverse go clustered
+  modify' (\s -> s {clusterStateClustered = clustered'})
+  where
+    clustered = clusterStateClustered clustering
+    go (cls, vs) = do
+      unclustered <- clusterStateUnclustered <$> get
+      let (os, is) = fromMaybe ([], []) $ L.lookup (Clustered cls) graph
+          os' = getUnclustered os
+          is' = getUnclustered is
+          added = (os' ++ is') L.\\ vs `L.intersect` unclustered
+          vs' = vs ++ added
+          unclustered' = unclustered L.\\ added
+      modify' (\s -> s {clusterStateUnclustered = unclustered'})
+      pure (cls, vs')
 
 replaceStep ::
   ClusterState ->
   [(ICVertex, ([ICVertex], [ICVertex]))] ->
   [(ICVertex, ([ICVertex], [ICVertex]))]
-replaceStep clustering gr = fmap replace gr
+replaceStep clustering graph = fmap replace graph
   where
     replaceEach :: ClusterState -> ICVertex -> ICVertex
     replaceEach clustering c@(Clustered {}) = c
     replaceEach clustering (Unclustered v) =
-      let match v (cls, vs)
+      let clustered = clusterStateClustered clustering
+          match v (cls, vs)
             | v `elem` vs = First (Just cls)
             | otherwise = First Nothing
-       in case getFirst (foldMap (match v) clustering) of
+       in case getFirst (foldMap (match v) clustered) of
             Nothing -> Unclustered v
             (Just cls) -> Clustered cls
     replace (v, (os, is)) =
@@ -57,6 +88,12 @@ replaceStep clustering gr = fmap replace gr
           is' = fmap (replaceEach clustering) is
           v' = replaceEach clustering v
        in (v', (os', is'))
+
+fullStep :: (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) -> (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
+fullStep (clustering, graph) = (clustering', graph')
+  where
+    graph' = replaceStep clustering graph
+    clustering' = clusterStep graph' clustering
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
@@ -168,9 +205,23 @@ main =
               fmap (\(v, (os, is)) -> (initICVertex v, (fmap initICVertex os, fmap initICVertex is))) $
                 getBiDepGraph mgi
             seeds =
-              fmap (\i -> (Cluster i, [i])) $ filterOutSmallNodes mgi
-            clustered = replaceStep seeds bgr
-        print seeds
-        print clustered
-        --
-        print (fmap fst clustered)
+              let allNodes = fmap fst $ mginfoModuleNameMap mgi
+                  largeNodes = filterOutSmallNodes mgi
+                  smallNodes = allNodes L.\\ largeNodes
+               in ClusterState
+                    { clusterStateClustered =
+                        fmap (\i -> (Cluster i, [i])) largeNodes
+                    , clusterStateUnclustered = smallNodes
+                    }
+            r0 = (seeds, bgr)
+            r1 = fullStep r0
+            r2 = fullStep r1
+            r3 = fullStep r2
+
+        let getRemaining = length . clusterStateUnclustered . fst
+        print (getRemaining r0)
+        print (getRemaining r1)
+        print (getRemaining r2)
+        print (getRemaining r3)
+
+        print (snd r3)
