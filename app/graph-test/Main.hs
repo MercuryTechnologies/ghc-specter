@@ -56,6 +56,11 @@ matchCluster clustering v =
         | otherwise = First Nothing
    in getFirst (foldMap (match v) clustered)
 
+calcInvariant :: [(a, ([ICVertex], [ICVertex]))] -> Int
+calcInvariant graph = sum $ fmap reldeg graph
+  where
+    reldeg (_, (os, is)) = length os - length is
+
 splitStep ::
   ClusterState ->
   [(ICVertex, ([ICVertex], [ICVertex]))] ->
@@ -81,15 +86,7 @@ replaceStep clustering graph = fmap replace graph
       case matchCluster clustering v of
         Nothing -> Unclustered v
         Just cls -> Clustered cls
-    {-      let match v (cls, vs)
-                | v `elem` vs = First (Just cls)
-                | otherwise = First Nothing
-           in case getFirst (foldMap (match v) clustered) of
-                Nothing -> Unclustered v
-                (Just cls) -> Clustered cls -}
     --
-    -- Left: Out, Right: In
-
     replaceE _ograph (isOut, x@(Clustered {})) = [(isOut, x)]
     replaceE ograph (isOut, x@(Unclustered v)) =
       let match v (cls, vs)
@@ -103,7 +100,6 @@ replaceStep clustering graph = fmap replace graph
                   is' = fmap ((False,) . replaceV) is
                in [(isOut, Clustered cls)]
                     ++ (if isOut then os' else is') -- (os' ++ is') --
-                    -- os' ++ is'
                     --
     replace (v, (os, is)) =
       let v' = case v of
@@ -118,7 +114,7 @@ replaceStep clustering graph = fmap replace graph
                 (fmap (True,) os ++ fmap (False,) is)
           os' = filter (/= v) $ L.nub $ L.sort $ fmap snd os1
           is' = filter (/= v) $ L.nub $ L.sort $ fmap snd is1
-       in (v', (os', is'))
+       in (v, (os', is'))
 
 pruneStep ::
   ClusterState ->
@@ -280,6 +276,8 @@ main =
         mapM_ print clustered
 
         print (length clustered)
+        print (calcInvariant bgr)
+        print (calcInvariant clustered, calcInvariant unclustered)
 
 {-            r1 = fullStep r0
             r2 = fullStep r1
