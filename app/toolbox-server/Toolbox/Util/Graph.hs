@@ -125,8 +125,7 @@ replaceStep ::
   ClusterState ->
   GraphState ->
   GraphState
-replaceStep clustering (GraphState clusteredGraph unclusteredGraph) =
-  GraphState (fmap replace clusteredGraph) unclusteredGraph
+replaceStep clustering (GraphState clusteredGraph unclusteredGraph) = GraphState clusteredGraph' unclusteredGraph'
   where
     replaceV c@(Clustered {}) = c
     replaceV (Unclustered v) =
@@ -134,10 +133,14 @@ replaceStep clustering (GraphState clusteredGraph unclusteredGraph) =
         Nothing -> Unclustered v
         Just cls -> Clustered cls
     --
-    replace (v, (os, is)) =
-      let os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV os
-          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV is
+    replace :: (a -> ICVertex -> Bool) -> (a, ([ICVertex], [ICVertex])) -> (a, ([ICVertex], [ICVertex]))
+    replace eq (v, (os, is)) =
+      let os' = filter (not . eq v) $ L.nub $ L.sort $ fmap replaceV os
+          is' = filter (not . eq v) $ L.nub $ L.sort $ fmap replaceV is
        in (v, (os', is'))
+    --
+    clusteredGraph' = fmap (replace ((==) . Clustered)) clusteredGraph
+    unclusteredGraph' = fmap (replace (\_ _ -> False)) unclusteredGraph
 
 clusterStep ::
   GraphState ->
@@ -196,45 +199,30 @@ filterOutSmallNodes graphInfo =
         filter
           (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit)
           modBiDep
+reduceGraph :: [Int] -> ModuleGraphInfo -> [(Int, [Int])]
+reduceGraph seeds graphInfo =
+  let bgr = getBiDepGraph graphInfo
+      allNodes = fmap fst $ mginfoModuleNameMap graphInfo
+      smallNodes = allNodes L.\\ seeds
+      seedClustering =
+        ClusterState
+          { clusterStateClustered =
+              fmap (\i -> (Cluster i, [i])) seeds
+          , clusterStateUnclustered = smallNodes
+          }
+      r0 = (seedClustering, makeSeedState seeds bgr)
+      r1@(clustering1, graph1) = fullStep r0
+      r2@(clustering2, graph2) = fullStep r1
+      r3 = fullStep r2
+      r4 = fullStep r3
+      final = r2
+      strip (Clustered (Cluster c)) = c
+      strip (Unclustered i) = i
+      finalGraphClustered = fmap (\(Cluster c, (os, is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
+      finalGraphUnclustered = fmap (\(v, (os, is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
+   in finalGraphClustered ++ finalGraphUnclustered
 
-analyze :: ModuleGraphInfo -> Text
-analyze graphInfo =
-  let modDep = mginfoModuleDep graphInfo
-      modRevDepMap = mkRevDep modDep
-      modRevDep = IM.toList modRevDepMap
-      initials = fmap fst $ filter (\(_, js) -> null js) modDep
-      terminals = fmap fst $ filter (\(_, js) -> null js) modRevDep
-      orphans = initials `L.intersect` terminals
-      singles = mapMaybe (\(i, js) -> case js of j : [] -> Just (i, j); _ -> Nothing) modDep
-      leg i = loop go ([i], i)
-        where
-          go (acc', i') =
-            case L.lookup i' singles of
-              Nothing -> Right acc'
-              Just j' -> Left (acc' ++ [j'], j')
-      legs = fmap leg (initials L.\\ orphans)
-      larges = filterOutSmallNodes graphInfo
-      largeNames = mapMaybe (\i -> L.lookup i (mginfoModuleNameMap graphInfo)) larges
-   in "intials: " <> (T.pack $ show initials) <> ",\n"
-        <> "terminals: "
-        <> (T.pack $ show terminals)
-        <> ",\n"
-        <> "orphans: "
-        <> (T.pack $ show orphans)
-        <> ",\n"
-        <> "singles: "
-        <> (T.pack $ show singles)
-        <> ",\n"
-        <> "legs: "
-        <> (T.pack $ show legs)
-        <> "\n=============\n"
-        <> "larges: "
-        <> (T.pack $ show largeNames)
-        <> "\n-------------\n"
-        <> "# of larges: "
-        <> (T.pack $ show (length larges))
-
-testGraph:: [(Int, [Int])]
+testGraph :: [(Int, [Int])]
 testGraph =
   [ (1, [])
   , (2, [1, 4, 5, 6])
