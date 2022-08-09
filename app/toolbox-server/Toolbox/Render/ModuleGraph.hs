@@ -48,13 +48,14 @@ import OGDF.OptimalHierarchyLayout
 import OGDF.OptimalRanking (newOptimalRanking)
 import OGDF.SugiyamaLayout
   ( newSugiyamaLayout,
+    sugiyamaLayout_pageRatio,
     sugiyamaLayout_setCrossMin,
     sugiyamaLayout_setLayout,
     sugiyamaLayout_setRanking,
   )
+import Replica.VDOM.Types (HTML)
 import STD.CppString (newCppString)
 import STD.Deletable (delete)
-import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     SessionInfo (..),
@@ -79,7 +80,20 @@ mkRevDep deps = L.foldl' step emptyMap deps
     step !acc (i, js) =
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
-analyze :: ModuleGraphInfo -> [Int] -- Text
+nodeSizeLimit :: Int
+nodeSizeLimit = 30
+
+filterOutSmallNodes :: ModuleGraphInfo -> [Int]
+filterOutSmallNodes graphInfo =
+  let modDep = mginfoModuleDep graphInfo
+      modRevDepMap = mkRevDep modDep
+      modRevDep = IM.toList modRevDepMap
+      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
+        where
+          joiner (i, js) (_, ks) = (i, (js, ks))
+   in fmap fst $ filter (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit) modBiDep
+
+analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDepMap = mkRevDep modDep
@@ -95,15 +109,8 @@ analyze graphInfo =
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
-
-      smallLimit = 20
-      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
-        where
-          joiner (i, js) (_, ks) = (i, (js, ks))
-      larges = fmap fst $ filter (\(_, (js, ks)) -> length js + length ks > smallLimit) modBiDep
-   in larges
-{-
-  in "intials: " <> (T.pack $ show initials) <> ",\n"
+      larges = filterOutSmallNodes graphInfo
+   in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
         <> ",\n"
@@ -118,7 +125,6 @@ analyze graphInfo =
         <> "\n=============\n"
         <> "# of larges: "
         <> (T.pack $ show (length larges))
--}
 
 -- | (number of vertices, number of edges)
 stat :: ModuleGraphInfo -> (Int, Int)
@@ -145,7 +151,9 @@ formatModuleGraphInfo mgi =
         <> "top sorted:\n"
         <> txt3
         <> "\n=================\n"
-        <> "# of vertices: "
+        <> analyze mgi
+        <> "\n=================\n"
+        <> "# of vertices: "        
         <> T.pack (show nVtx)
         <> ", # of edges: "
         <> T.pack (show nEdg)
@@ -165,30 +173,26 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel)
 
-sizeLimit :: Int
-sizeLimit = 300
-
 ogdfTest :: ModuleGraphInfo -> IO ()
 ogdfTest graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       let modDep = mginfoModuleDep graphInfo
-          larges = analyze graphInfo
+          larges = filterOutSmallNodes graphInfo
           reducedGraph =
             fmap (\(i, js) -> (i, filter (`elem` larges) js)) $
               filter (\(i, _) -> i `elem` larges) modDep
       moduleNodeMap <-
-        IM.fromList . filter (\(i,_) -> i < sizeLimit)
+        IM.fromList
           <$> ( forM reducedGraph $ \(i, _) -> do
                   node <- newGraphNodeWithSize (g, ga) (10, 10)
                   pure (i, node)
               )
 
-      for_ (mginfoModuleDep graphInfo) $ \(i, js) -> do
-        let js' = filter (\j -> j < sizeLimit) js
+      for_ reducedGraph $ \(i, js) ->
         for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
-          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js'
+          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
           for_ node_js $ \node_j ->
             graph_newEdge g node_i node_j
 
