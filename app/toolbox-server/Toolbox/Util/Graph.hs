@@ -25,7 +25,7 @@ import Data.Either (partitionEithers)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -102,11 +102,30 @@ makeSeedState seeds graph = GraphState clusteredGraph unclusteredGraph
             else Right (v, (os', is'))
     (clusteredGraph, unclusteredGraph) = partitionEithers $ fmap convert graph
 
-replaceStepA ::
+mergeStep ::
   ClusterState ->
   GraphState ->
   GraphState
-replaceStepA clustering (GraphState clusteredGraph unclusteredGraph) =
+mergeStep clustering (GraphState clusteredGraph unclusteredGraph) = GraphState clusteredGraph' unclusteredGraph'
+  where
+    merge (c, (os, is)) =
+      let newdeps = do
+            members <- maybeToList $ L.lookup c (clusterStateClustered clustering)
+            member <- members
+            (os', is') <- maybeToList $ L.lookup member unclusteredGraph
+            pure (os', is')
+          os' = L.nub $ L.sort $ (os ++ concatMap fst newdeps)
+          is' = L.nub $ L.sort $ (is ++ concatMap snd newdeps)
+       in (c, (os', is'))
+    clusteredGraph' = fmap merge clusteredGraph
+    unclustered = clusterStateUnclustered clustering
+    unclusteredGraph' = filter (\(v, _) -> v `elem` unclustered) unclusteredGraph
+
+replaceStep ::
+  ClusterState ->
+  GraphState ->
+  GraphState
+replaceStep clustering (GraphState clusteredGraph unclusteredGraph) =
   GraphState (fmap replace clusteredGraph) unclusteredGraph
   where
     replaceV c@(Clustered {}) = c
@@ -115,34 +134,13 @@ replaceStepA clustering (GraphState clusteredGraph unclusteredGraph) =
         Nothing -> Unclustered v
         Just cls -> Clustered cls
     --
-    replaceE _ograph (isOut, x@(Clustered {})) = [(isOut, x)]
-    replaceE ograph (isOut, x@(Unclustered v)) =
-      case matchCluster clustering v of
-        Nothing -> [(isOut, x)]
-        Just cls ->
-          let (os, is) = fromMaybe ([], []) $ L.lookup v unclusteredGraph
-              os' = fmap ((True,) . replaceV) os
-              is' = fmap ((False,) . replaceV) is
-           in [(isOut, Clustered cls)] ++ os' ++ is'
     --
     replace (v, (os, is)) =
-      let (os1, is1) =
-            L.partition fst $
-              concatMap (replaceE clusteredGraph) $
-                (fmap (True,) os ++ fmap (False,) is)
-          os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd os1
-          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd is1
+      let os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV os
+          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV is
        in (v, (os', is'))
 
-pruneStepB ::
-  ClusterState ->
-  GraphState ->
-  GraphState
-pruneStepB clustering (GraphState clusteredGraph unclusteredGraph) = GraphState clusteredGraph unclusteredGraph'
-  where
-    unclustered = clusterStateUnclustered clustering
-    unclusteredGraph' = filter (\(v, _) -> v `elem` unclustered) unclusteredGraph
-
+{-
 replaceStepC ::
   ClusterState ->
   GraphState ->
@@ -160,6 +158,7 @@ replaceStepC clustering (GraphState clusteredGraph unclusteredGraph) =
       let os' = L.nub $ L.sort $ fmap replaceV os
           is' = L.nub $ L.sort $ fmap replaceV is
        in (v, (os', is'))
+-}
 
 clusterStep ::
   GraphState ->
@@ -173,9 +172,9 @@ clusterStep (GraphState clusteredGraph _) clustering = flip execState clustering
     go (cls, vs) = do
       unclustered <- clusterStateUnclustered <$> get
       let (os, is) = fromMaybe ([], []) $ L.lookup cls clusteredGraph
-          -- os' = getUnclustered os
+          -- NOTE: only cluster towards upper dependency.
           is' = getUnclustered is
-          added = (({- os' ++ -} is') L.\\ vs) `L.intersect` unclustered
+          added = (is' L.\\ vs) `L.intersect` unclustered
           vs' = L.nub $ L.sort (vs ++ added)
           unclustered' = L.nub $ L.sort (unclustered L.\\ added)
       modify' (\s -> s {clusterStateUnclustered = unclustered'})
@@ -185,11 +184,11 @@ fullStep ::
   (ClusterState, GraphState) ->
   (ClusterState, GraphState)
 fullStep (clustering, graphState) =
-  let graphState1 = trace ("graphState: " ++ show (degreeInvariant graphState)) $ replaceStepA clustering graphState
-      graphState2 = trace ("graphState1: " ++ show (degreeInvariant graphState1)) $ pruneStepB clustering graphState1
-      graphState3 = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ replaceStepC clustering graphState2
-      clustering' = trace ("graphState3: " ++ show (degreeInvariant graphState3)) $ clusterStep graphState3 clustering
-   in clustering' `seq` graphState3 `seq` (clustering', graphState3)
+  let graphState1 = trace ("graphState: " ++ show (degreeInvariant graphState)) $ mergeStep clustering graphState
+      graphState2 = trace ("graphState1: " ++ show (degreeInvariant graphState1)) $ replaceStep clustering graphState1
+      -- graphState3 = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ replaceStepC clustering graphState2
+      clustering' = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ clusterStep graphState2 clustering
+   in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
