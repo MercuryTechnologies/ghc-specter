@@ -69,6 +69,13 @@ analyze graphInfo =
         <> "# of larges: "
         <> (T.pack $ show (length larges))
 
+-- | (number of vertices, number of edges)
+stat :: ModuleGraphInfo -> (Int, Int)
+stat mgi =
+  let nVtx = length $ mginfoModuleNameMap mgi
+      nEdg = sum $ fmap (length . snd) $ mginfoModuleDep mgi
+   in (nVtx, nEdg)
+
 formatModuleGraphInfo :: ModuleGraphInfo -> Text
 formatModuleGraphInfo mgi =
   let txt1 =
@@ -77,6 +84,7 @@ formatModuleGraphInfo mgi =
         T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleDep mgi
       txt3 =
         T.pack . show $ mginfoModuleTopSorted mgi
+      (nVtx, nEdg) = stat mgi
    in "(key, module):\n"
         <> txt1
         <> "\n-----------------\n"
@@ -87,6 +95,11 @@ formatModuleGraphInfo mgi =
         <> txt3
         <> "\n=================\n"
         <> analyze mgi
+        <> "\n=================\n"
+        <> "# of vertices: "
+        <> T.pack (show nVtx)
+        <> ", # of edges: "
+        <> T.pack (show nEdg)
 
 renderModuleGraph :: ServerState -> Widget HTML a
 renderModuleGraph ss =

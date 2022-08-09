@@ -20,16 +20,15 @@ import Toolbox.Util.Graph
 
 main :: IO ()
 main = do
-{-  withFile "./modulegraph.dat" ReadMode $ \h -> do
+  withFile "./modulegraph.dat" ReadMode $ \h -> do
     lbs <- BL.hGetContents h
     case eitherDecode @ModuleGraphInfo lbs of
       Left e -> print e
-      Right mgi -> do -}
-        let mgi = testGraphInfo
+      Right mgi -> do
         let gr = mginfoModuleDep mgi
             bgr = getBiDepGraph mgi
             allNodes = fmap fst $ mginfoModuleNameMap mgi
-            largeNodes = [2, 5, 8] -- filterOutSmallNodes mgi
+            largeNodes = filterOutSmallNodes mgi
             smallNodes = allNodes L.\\ largeNodes
             seeds =
               ClusterState

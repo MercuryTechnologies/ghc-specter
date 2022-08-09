@@ -134,31 +134,10 @@ replaceStep clustering (GraphState clusteredGraph unclusteredGraph) =
         Nothing -> Unclustered v
         Just cls -> Clustered cls
     --
-    --
     replace (v, (os, is)) =
       let os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV os
           is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap replaceV is
        in (v, (os', is'))
-
-{-
-replaceStepC ::
-  ClusterState ->
-  GraphState ->
-  GraphState
-replaceStepC clustering (GraphState clusteredGraph unclusteredGraph) =
-  (GraphState clusteredGraph (fmap replace unclusteredGraph))
-  where
-    replaceV c@(Clustered {}) = c
-    replaceV (Unclustered v) =
-      case matchCluster clustering v of
-        Nothing -> Unclustered v
-        Just cls -> Clustered cls
-    --
-    replace (v, (os, is)) =
-      let os' = L.nub $ L.sort $ fmap replaceV os
-          is' = L.nub $ L.sort $ fmap replaceV is
-       in (v, (os', is'))
--}
 
 clusterStep ::
   GraphState ->
@@ -184,10 +163,9 @@ fullStep ::
   (ClusterState, GraphState) ->
   (ClusterState, GraphState)
 fullStep (clustering, graphState) =
-  let graphState1 = trace ("graphState: " ++ show (degreeInvariant graphState)) $ mergeStep clustering graphState
-      graphState2 = trace ("graphState1: " ++ show (degreeInvariant graphState1)) $ replaceStep clustering graphState1
-      -- graphState3 = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ replaceStepC clustering graphState2
-      clustering' = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ clusterStep graphState2 clustering
+  let graphState1 = mergeStep clustering graphState
+      graphState2 = replaceStep clustering graphState1
+      clustering' = clusterStep graphState2 clustering
    in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
@@ -256,38 +234,7 @@ analyze graphInfo =
         <> "# of larges: "
         <> (T.pack $ show (length larges))
 
--- | (number of vertices, number of edges)
-stat :: ModuleGraphInfo -> (Int, Int)
-stat mgi =
-  let nVtx = length $ mginfoModuleNameMap mgi
-      nEdg = sum $ fmap (length . snd) $ mginfoModuleDep mgi
-   in (nVtx, nEdg)
-
-formatModuleGraphInfo :: ModuleGraphInfo -> Text
-formatModuleGraphInfo mgi =
-  let txt1 =
-        T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleNameMap mgi
-      txt2 =
-        T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleDep mgi
-      txt3 =
-        T.pack . show $ mginfoModuleTopSorted mgi
-      (nVtx, nEdg) = stat mgi
-   in "(key, module):\n"
-        <> txt1
-        <> "\n-----------------\n"
-        <> "dependencies:\n"
-        <> txt2
-        <> "\n-----------------\n"
-        <> "top sorted:\n"
-        <> txt3
-        <> "\n=================\n"
-        <> analyze mgi
-        <> "\n=================\n"
-        <> "# of vertices: "
-        <> T.pack (show nVtx)
-        <> ", # of edges: "
-        <> T.pack (show nEdg)
-
+testGraph:: [(Int, [Int])]
 testGraph =
   [ (1, [])
   , (2, [1, 4, 5, 6])
@@ -301,6 +248,7 @@ testGraph =
   , (10, [])
   ]
 
+testGraphInfo :: ModuleGraphInfo
 testGraphInfo =
   ModuleGraphInfo
     { mginfoModuleNameMap =
