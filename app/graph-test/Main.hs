@@ -18,6 +18,7 @@ import Data.Monoid (First (..))
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Debug.Trace (trace)
 import System.IO (IOMode (..), withFile)
 import Toolbox.Channel (ModuleGraphInfo (..))
 
@@ -62,10 +63,12 @@ matchCluster clustering v =
         | otherwise = First Nothing
    in getFirst (foldMap (match v) clustered)
 
-degreeInvariant :: [(a, ([ICVertex], [ICVertex]))] -> Int
-degreeInvariant graph = sum $ fmap reldeg graph
+degreeInvariant :: GraphState -> (Int, Int)
+degreeInvariant graphState =
+  (sumRelDeg (graphStateClustered graphState), sumRelDeg (graphStateUnclustered graphState))
   where
     reldeg (_, (os, is)) = length os - length is
+    sumRelDeg = sum . fmap reldeg
 
 totalNumberInvariant :: ClusterState -> Int
 totalNumberInvariant clustering =
@@ -115,8 +118,8 @@ replaceStepA clustering (GraphState clusteredGraph unclusteredGraph) =
             L.partition fst $
               concatMap (replaceE clusteredGraph) $
                 (fmap (True,) os ++ fmap (False,) is)
-          os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd os1
-          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd is1
+          os' = {- filter (/= Clustered v) $ -} L.nub $ L.sort $ fmap snd os1
+          is' = {- filter (/= Clustered v) $ -} L.nub $ L.sort $ fmap snd is1
        in (v, (os', is'))
 
 pruneStepB ::
@@ -170,10 +173,11 @@ fullStep ::
   (ClusterState, GraphState) ->
   (ClusterState, GraphState)
 fullStep (clustering, graphState) =
-  let graphState' = replaceStepA clustering graphState
-      graphState'' = replaceStepC clustering $ pruneStepB clustering graphState'
-      clustering' = clusterStep graphState'' clustering
-   in (clustering', graphState'')
+  let graphState1 = trace ("graphState: " ++ show (degreeInvariant graphState)) $ replaceStepA clustering graphState
+      graphState2 = trace ("graphState1: " ++ show (degreeInvariant graphState1)) $ pruneStepB clustering graphState1
+      graphState3 = trace ("graphState2: " ++ show (degreeInvariant graphState2)) $ replaceStepC clustering graphState2
+      clustering' = trace ("graphState3: " ++ show (degreeInvariant graphState3)) $ clusterStep graphState3 clustering
+   in clustering' `seq` graphState3 `seq` (clustering', graphState3)
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
@@ -273,48 +277,87 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
+testGraph =
+  [ (1, [])
+  , (2, [1, 4, 5, 6])
+  , (3, [6])
+  , (4, [])
+  , (5, [4, 7, 8])
+  , (6, [8])
+  , (7, [9, 10])
+  , (8, [9])
+  , (9, [])
+  , (10, [])
+  ]
+
+testGraphInfo =
+  ModuleGraphInfo
+    { mginfoModuleNameMap =
+        [ (1, "A")
+        , (2, "B")
+        , (3, "C")
+        , (4, "D")
+        , (5, "E")
+        , (6, "F")
+        , (7, "G")
+        , (8, "H")
+        , (9, "I")
+        , (10, "J")
+        ]
+    , mginfoModuleDep = testGraph
+    , mginfoModuleTopSorted = []
+    }
+
 main :: IO ()
-main =
-  withFile "./modulegraph.dat" ReadMode $ \h -> do
+main = do
+  {-withFile "./modulegraph.dat" ReadMode $ \h -> do
     lbs <- BL.hGetContents h
     case eitherDecode @ModuleGraphInfo lbs of
       Left e -> print e
-      Right mgi -> do
-        let gr = mginfoModuleDep mgi
-            bgr = getBiDepGraph mgi
-            allNodes = fmap fst $ mginfoModuleNameMap mgi
-            largeNodes = filterOutSmallNodes mgi
-            smallNodes = allNodes L.\\ largeNodes
-            seeds =
-              ClusterState
-                { clusterStateClustered =
-                    fmap (\i -> (Cluster i, [i])) largeNodes
-                , clusterStateUnclustered = smallNodes
-                }
-        let r0 = (seeds, makeSeedState largeNodes bgr)
-            r1@(clustering1, graph1) = fullStep r0
-            r2@(clustering2, graph2) = fullStep r1
-            printFunc r = do
-              mapM_ (\x -> print x >> putStrLn "") (graphStateClustered $ snd r)
-              mapM_ (\x -> print x >> putStrLn "") (graphStateUnclustered $ snd r)
-              putStrLn "---------"
-              mapM_ print (clusterStateClustered (fst r))
-              putStrLn "---------"
-              print (clusterStateUnclustered (fst r))
-              putStrLn "---------"
+      Right mgi -> do -}
+  let mgi = testGraphInfo
+  let gr = mginfoModuleDep mgi
+      bgr = getBiDepGraph mgi
+      allNodes = fmap fst $ mginfoModuleNameMap mgi
+      largeNodes = [2, 5, 8] -- filterOutSmallNodes mgi
+      smallNodes = allNodes L.\\ largeNodes
+      seeds =
+        ClusterState
+          { clusterStateClustered =
+              fmap (\i -> (Cluster i, [i])) largeNodes
+          , clusterStateUnclustered = smallNodes
+          }
+  let r0 = (seeds, makeSeedState largeNodes bgr)
+      r1@(clustering1, graph1) = fullStep r0
+      r2@(clustering2, graph2) = fullStep r1
+      r3 = fullStep r2
+      printFunc r = do
+        mapM_ (\x -> print x >> putStrLn "") (graphStateClustered $ snd r)
+        mapM_ (\x -> print x >> putStrLn "") (graphStateUnclustered $ snd r)
+        putStrLn "---------"
+        mapM_ print (clusterStateClustered (fst r))
+        putStrLn "---------"
+        print (clusterStateUnclustered (fst r))
+        putStrLn "---------"
 
-              print (totalNumberInvariant (fst r))
-              print (degreeInvariant (graphStateClustered $ snd r), degreeInvariant (graphStateUnclustered $ snd r))
+        print (totalNumberInvariant (fst r))
+        print (degreeInvariant (snd r))
+  putStrLn "###############################"
+  putStrLn "############# r0 ##############"
+  putStrLn "###############################"
+  printFunc r0
 
-        putStrLn "###############################"
-        putStrLn "############# r1 ##############"
-        putStrLn "###############################"
-        printFunc r1
-        putStrLn "###############################"
-        putStrLn "############# r2 ##############"
-        putStrLn "###############################"
-        printFunc r2
+  putStrLn "###############################"
+  putStrLn "############# r1 ##############"
+  putStrLn "###############################"
+  printFunc r1
+  putStrLn "###############################"
+  putStrLn "############# r2 ##############"
+  putStrLn "###############################"
+  printFunc r2
+  putStrLn "###############################"
+  putStrLn "############# r3 ##############"
+  putStrLn "###############################"
+  printFunc r3
 
-        let r0 = (seeds, bgr)
-            (clustering0, graph0) = r0
-        pure ()
+-- -}
