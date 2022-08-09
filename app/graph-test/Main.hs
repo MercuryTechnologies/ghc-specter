@@ -9,6 +9,7 @@ import Data.Aeson (eitherDecode)
 import qualified Data.ByteString.Lazy as BL
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
+import Data.Either (partitionEithers)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -47,6 +48,88 @@ data ClusterState = ClusterState
   }
   deriving (Show)
 
+matchCluster :: ClusterState -> Int -> Maybe ClusterVertex
+matchCluster clustering v =
+  let clustered = clusterStateClustered clustering
+      match v (cls, vs)
+        | v `elem` vs = First (Just cls)
+        | otherwise = First Nothing
+   in getFirst (foldMap (match v) clustered)
+
+splitStep ::
+  ClusterState ->
+  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  ([(ClusterVertex, ([ICVertex], [ICVertex]))], [(Int, ([ICVertex], [ICVertex]))])
+splitStep clustering graph = partitionEithers $ fmap classify graph
+  where
+    classify (Clustered c, (os, is)) = Left (c, (os, is))
+    classify (Unclustered v, (os, is)) =
+      case matchCluster clustering v of
+        Nothing -> Right (v, (os, is))
+        Just c -> Left (c, (os, is))
+
+replaceStep ::
+  ClusterState ->
+  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  [(ICVertex, ([ICVertex], [ICVertex]))]
+replaceStep clustering graph = fmap replace graph
+  where
+    clustered = clusterStateClustered clustering
+    --
+    replaceV c@(Clustered {}) = c
+    replaceV (Unclustered v) =
+      case matchCluster clustering v of
+        Nothing -> Unclustered v
+        Just cls -> Clustered cls
+    {-      let match v (cls, vs)
+                | v `elem` vs = First (Just cls)
+                | otherwise = First Nothing
+           in case getFirst (foldMap (match v) clustered) of
+                Nothing -> Unclustered v
+                (Just cls) -> Clustered cls -}
+    --
+    -- Left: Out, Right: In
+
+    replaceE _ograph (isOut, x@(Clustered {})) = [(isOut, x)]
+    replaceE ograph (isOut, x@(Unclustered v)) =
+      let match v (cls, vs)
+            | v `elem` vs = First (Just cls)
+            | otherwise = First Nothing
+       in case getFirst (foldMap (match v) clustered) of
+            Nothing -> [(isOut, x)]
+            Just cls ->
+              let (os, is) = fromMaybe ([], []) $ L.lookup x ograph
+                  os' = fmap ((True,) . replaceV) os
+                  is' = fmap ((False,) . replaceV) is
+               in [(isOut, Clustered cls)]
+                    ++ (if isOut then os' else is') -- (os' ++ is') --
+                    -- os' ++ is'
+                    --
+    replace (v, (os, is)) =
+      let v' = case v of
+            Clustered {} -> v
+            Unclustered v_ ->
+              if v_ `elem` fmap (repCluster . fst) clustered
+                then Clustered (Cluster v_)
+                else v
+          (os1, is1) =
+            L.partition fst $
+              concatMap (replaceE graph) $
+                (fmap (True,) os ++ fmap (False,) is)
+          os' = filter (/= v) $ L.nub $ L.sort $ fmap snd os1
+          is' = filter (/= v) $ L.nub $ L.sort $ fmap snd is1
+       in (v', (os', is'))
+
+pruneStep ::
+  ClusterState ->
+  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  [(ICVertex, ([ICVertex], [ICVertex]))]
+pruneStep clustering graph = filter prune graph
+  where
+    unclustered = clusterStateUnclustered clustering
+    prune (Clustered {}, _) = True
+    prune (Unclustered v, _) = v `elem` unclustered
+
 clusterStep ::
   [(ICVertex, ([ICVertex], [ICVertex]))] ->
   ClusterState ->
@@ -66,56 +149,6 @@ clusterStep graph clustering = flip execState clustering $ do
           unclustered' = L.nub $ L.sort (unclustered L.\\ added)
       modify' (\s -> s {clusterStateUnclustered = unclustered'})
       pure (cls, vs')
-
-pruneStep ::
-  ClusterState ->
-  [(ICVertex, ([ICVertex], [ICVertex]))] ->
-  [(ICVertex, ([ICVertex], [ICVertex]))]
-pruneStep clustering graph = filter prune graph
-  where
-    unclustered = clusterStateUnclustered clustering
-    prune (Clustered {}, _) = True
-    prune (Unclustered v, _) = v `elem` unclustered
-
-replaceStep ::
-  ClusterState ->
-  [(ICVertex, ([ICVertex], [ICVertex]))] ->
-  [(ICVertex, ([ICVertex], [ICVertex]))]
-replaceStep clustering graph = fmap replace graph
-  where
-    clustered = clusterStateClustered clustering
-    --
-    replaceV c@(Clustered {}) = c
-    replaceV (Unclustered v) =
-      let match v (cls, vs)
-            | v `elem` vs = First (Just cls)
-            | otherwise = First Nothing
-       in case getFirst (foldMap (match v) clustered) of
-            Nothing -> Unclustered v
-            (Just cls) -> Clustered cls
-    --
-    replaceE _isOut _ograph x@(Clustered {}) = [x]
-    replaceE isOut ograph x@(Unclustered v) =
-      let match v (cls, vs)
-            | v `elem` vs = First (Just cls)
-            | otherwise = First Nothing
-       in case getFirst (foldMap (match v) clustered) of
-            Nothing -> [Unclustered v]
-            Just cls ->
-              let vs = maybe [] (if isOut then fst else snd) $ L.lookup x ograph
-                  vs' = fmap replaceV vs
-               in Clustered cls : vs'
-    --
-    replace (v, (os, is)) =
-      let os' = L.nub $ L.sort $ concatMap (replaceE True graph) os
-          is' = L.nub $ L.sort $ concatMap (replaceE False graph) is
-          v' = case v of
-            Clustered {} -> v
-            Unclustered v_ ->
-              if v_ `elem` fmap (repCluster . fst) clustered
-                then Clustered (Cluster v_)
-                else v
-       in (v', (os', is'))
 
 fullStep :: (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) -> (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
 fullStep (clustering, graph) = (clustering', graph')
@@ -228,6 +261,7 @@ main =
     case eitherDecode @ModuleGraphInfo lbs of
       Left e -> print e
       Right mgi -> do
+        -- TIO.putStrLn (formatModuleGraphInfo mgi)
         let gr = mginfoModuleDep mgi
             bgr =
               fmap (\(v, (os, is)) -> (initICVertex v, (fmap initICVertex $ L.nub $ L.sort os, fmap initICVertex $ L.nub $ L.sort is))) $
@@ -242,7 +276,12 @@ main =
                     , clusterStateUnclustered = smallNodes
                     }
             r0 = (seeds, bgr)
-            r1 = fullStep r0
+        let (clustered, unclustered) = splitStep seeds bgr
+        mapM_ print clustered
+
+        print (length clustered)
+
+{-            r1 = fullStep r0
             r2 = fullStep r1
             r3 = fullStep r2
             r4 = fullStep r3
@@ -260,7 +299,7 @@ main =
         print (getRemaining r5)
 
         let printFunc r = do
-              mapM_ print (snd r)
+              mapM_ (\x -> print x >> putStrLn "") (snd r)
               putStrLn "---------"
               mapM_ print (clusterStateClustered (fst r))
               putStrLn "---------"
@@ -268,6 +307,7 @@ main =
               putStrLn "---------"
 
         putStrLn "###############################"
-        putStrLn "############# r6 ##############"
+        putStrLn "############# r1 ##############"
         putStrLn "###############################"
-        printFunc r6
+        -- printFunc r1
+-}
