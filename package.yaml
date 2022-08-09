@@ -119,6 +119,7 @@ executables:
       - replica
       - stm
       - time
+      - transformers
   graph-test:
     main: graph-test.hs
     source-dirs: app/toolbox-server
