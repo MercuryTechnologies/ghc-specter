@@ -120,17 +120,23 @@ executables:
       - stm
       - time
   graph-test:
-    main: Main.hs
-    source-dirs: app/graph-test
+    main: graph-test.hs
+    source-dirs: app/toolbox-server
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - concur-core
+      - concur-replica
       - containers
       - discrimination
       - extra
       - ghc-build-analyzer
+      - optparse-applicative
+      - replica
+      - stm
+      - time
       - transformers
 tests:
   ghc-build-analyzer-test:

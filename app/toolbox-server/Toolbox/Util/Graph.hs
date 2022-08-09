@@ -1,7 +1,19 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main where
+module Toolbox.Util.Graph
+  ( ClusterState (..),
+    ClusterVertex (..),
+    GraphState (..),
+    degreeInvariant,
+    filterOutSmallNodes,
+    getBiDepGraph,
+    fullStep,
+    makeSeedState,
+    testGraphInfo,
+    totalNumberInvariant,
+  )
+where
 
 import Control.Monad.Extra (loop)
 import Control.Monad.Trans.State (execState, get, modify')
@@ -118,8 +130,8 @@ replaceStepA clustering (GraphState clusteredGraph unclusteredGraph) =
             L.partition fst $
               concatMap (replaceE clusteredGraph) $
                 (fmap (True,) os ++ fmap (False,) is)
-          os' = {- filter (/= Clustered v) $ -} L.nub $ L.sort $ fmap snd os1
-          is' = {- filter (/= Clustered v) $ -} L.nub $ L.sort $ fmap snd is1
+          os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd os1
+          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd is1
        in (v, (os', is'))
 
 pruneStepB ::
@@ -161,9 +173,9 @@ clusterStep (GraphState clusteredGraph _) clustering = flip execState clustering
     go (cls, vs) = do
       unclustered <- clusterStateUnclustered <$> get
       let (os, is) = fromMaybe ([], []) $ L.lookup cls clusteredGraph
-          os' = getUnclustered os
+          -- os' = getUnclustered os
           is' = getUnclustered is
-          added = ((os' ++ is') L.\\ vs) `L.intersect` unclustered
+          added = (({- os' ++ -} is') L.\\ vs) `L.intersect` unclustered
           vs' = L.nub $ L.sort (vs ++ added)
           unclustered' = L.nub $ L.sort (unclustered L.\\ added)
       modify' (\s -> s {clusterStateUnclustered = unclustered'})
@@ -307,57 +319,3 @@ testGraphInfo =
     , mginfoModuleDep = testGraph
     , mginfoModuleTopSorted = []
     }
-
-main :: IO ()
-main = do
-  {-withFile "./modulegraph.dat" ReadMode $ \h -> do
-    lbs <- BL.hGetContents h
-    case eitherDecode @ModuleGraphInfo lbs of
-      Left e -> print e
-      Right mgi -> do -}
-  let mgi = testGraphInfo
-  let gr = mginfoModuleDep mgi
-      bgr = getBiDepGraph mgi
-      allNodes = fmap fst $ mginfoModuleNameMap mgi
-      largeNodes = [2, 5, 8] -- filterOutSmallNodes mgi
-      smallNodes = allNodes L.\\ largeNodes
-      seeds =
-        ClusterState
-          { clusterStateClustered =
-              fmap (\i -> (Cluster i, [i])) largeNodes
-          , clusterStateUnclustered = smallNodes
-          }
-  let r0 = (seeds, makeSeedState largeNodes bgr)
-      r1@(clustering1, graph1) = fullStep r0
-      r2@(clustering2, graph2) = fullStep r1
-      r3 = fullStep r2
-      printFunc r = do
-        mapM_ (\x -> print x >> putStrLn "") (graphStateClustered $ snd r)
-        mapM_ (\x -> print x >> putStrLn "") (graphStateUnclustered $ snd r)
-        putStrLn "---------"
-        mapM_ print (clusterStateClustered (fst r))
-        putStrLn "---------"
-        print (clusterStateUnclustered (fst r))
-        putStrLn "---------"
-
-        print (totalNumberInvariant (fst r))
-        print (degreeInvariant (snd r))
-  putStrLn "###############################"
-  putStrLn "############# r0 ##############"
-  putStrLn "###############################"
-  printFunc r0
-
-  putStrLn "###############################"
-  putStrLn "############# r1 ##############"
-  putStrLn "###############################"
-  printFunc r1
-  putStrLn "###############################"
-  putStrLn "############# r2 ##############"
-  putStrLn "###############################"
-  printFunc r2
-  putStrLn "###############################"
-  putStrLn "############# r3 ##############"
-  putStrLn "###############################"
-  printFunc r3
-
--- -}
