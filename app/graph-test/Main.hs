@@ -86,8 +86,6 @@ replaceStepA ::
   [(ClusterVertex, ([ICVertex], [ICVertex]))]
 replaceStepA clustering unclusteredGraph clusteredGraph = fmap replace clusteredGraph
   where
-    clustered = clusterStateClustered clustering
-    --
     replaceV c@(Clustered {}) = c
     replaceV (Unclustered v) =
       case matchCluster clustering v of
@@ -127,8 +125,6 @@ replaceStepC ::
   [(Int, ([ICVertex], [ICVertex]))]
 replaceStepC clustering unclusteredGraph = fmap replace unclusteredGraph
   where
-    clustered = clusterStateClustered clustering
-    --
     replaceV c@(Clustered {}) = c
     replaceV (Unclustered v) =
       case matchCluster clustering v of
@@ -141,17 +137,17 @@ replaceStepC clustering unclusteredGraph = fmap replace unclusteredGraph
        in (v, (os', is'))
 
 clusterStep ::
-  [(ICVertex, ([ICVertex], [ICVertex]))] ->
+  [(ClusterVertex, ([ICVertex], [ICVertex]))] ->
   ClusterState ->
   ClusterState
-clusterStep graph clustering = flip execState clustering $ do
+clusterStep clusteredGraph clustering = flip execState clustering $ do
   clustered' <- traverse go clustered
   modify' (\s -> s {clusterStateClustered = clustered'})
   where
     clustered = clusterStateClustered clustering
     go (cls, vs) = do
       unclustered <- clusterStateUnclustered <$> get
-      let (os, is) = fromMaybe ([], []) $ L.lookup (Clustered cls) graph
+      let (os, is) = fromMaybe ([], []) $ L.lookup cls clusteredGraph
           os' = getUnclustered os
           is' = getUnclustered is
           added = ((os' ++ is') L.\\ vs) `L.intersect` unclustered
@@ -161,15 +157,13 @@ clusterStep graph clustering = flip execState clustering $ do
       pure (cls, vs')
 
 fullStep ::
-  (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) ->
-  (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
-fullStep (clustering, graph) =
-  let (clusteredGraph, unclusteredGraph) = splitStep clustering graph
-      clusteredGraph' = replaceStepA clustering unclusteredGraph clusteredGraph
+  (ClusterState, ([(ClusterVertex, ([ICVertex], [ICVertex]))], [(Int, ([ICVertex], [ICVertex]))])) ->
+  (ClusterState, ([(ClusterVertex, ([ICVertex], [ICVertex]))], [(Int, ([ICVertex], [ICVertex]))]))
+fullStep (clustering, (clusteredGraph, unclusteredGraph)) =
+  let clusteredGraph' = replaceStepA clustering unclusteredGraph clusteredGraph
       unclusteredGraph' = replaceStepC clustering $ pruneStepB clustering unclusteredGraph
-      graph' = fmap (\(v, es) -> (Clustered v, es)) clusteredGraph' ++ fmap (\(v, es) -> (Unclustered v, es)) unclusteredGraph'
-      clustering' = clusterStep graph' clustering
-   in (clustering', graph')
+      clustering' = clusterStep clusteredGraph' clustering
+   in (clustering', (clusteredGraph', unclusteredGraph'))
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
@@ -291,19 +285,26 @@ main =
                     , clusterStateUnclustered = smallNodes
                     }
             r0 = (seeds, bgr)
-        let (clustered, unclustered) = splitStep seeds bgr
-        mapM_ print clustered
+        -- let (clustered, unclustered) = splitStep seeds bgr
+        -- mapM_ print clustered
 
-        print (length clustered)
-        print (totalNumberInvariant seeds)
-        print (degreeInvariant bgr)
-        print (degreeInvariant clustered, degreeInvariant unclustered)
+        {- print (length clustered)
+         print (totalNumberInvariant seeds)
+         print (degreeInvariant bgr)
+         print (degreeInvariant clustered, degreeInvariant unclustered)
+        -}
+        let clustering0 = seeds
+            graph0 = bgr
+            r0 = (seeds, splitStep seeds bgr)
+            r1@(clustering1, graph1) = fullStep r0
+            -- clustering1 = clusterStep graph1 clustering0
+            r2@(clustering2, graph2) = fullStep r1
+            -- clustering2 = clusterStep graph2 clustering1
 
-        let r0 = (seeds, bgr)
-            r1 = fullStep r0
-            r2 = fullStep r1
+            -- r2 = fullStep r1
             printFunc r = do
-              mapM_ (\x -> print x >> putStrLn "") (snd r)
+              mapM_ (\x -> print x >> putStrLn "") (fst $ snd r)
+              mapM_ (\x -> print x >> putStrLn "") (snd $ snd r)
               putStrLn "---------"
               mapM_ print (clusterStateClustered (fst r))
               putStrLn "---------"
@@ -311,28 +312,54 @@ main =
               putStrLn "---------"
 
               print (totalNumberInvariant (fst r))
-              print (degreeInvariant (snd r))
+              print (degreeInvariant (fst $ snd r), degreeInvariant (snd $ snd r))
 
+        putStrLn "###############################"
+        putStrLn "############# r1 ##############"
+        putStrLn "###############################"
+        printFunc r1
         putStrLn "###############################"
         putStrLn "############# r2 ##############"
         putStrLn "###############################"
         printFunc r2
 
-        putStrLn "=============="
-        let getRemaining = length . clusterStateUnclustered . fst
-        print (getRemaining r0)
-        print (getRemaining r1)
-        print (getRemaining r2)
+        {-
+                putStrLn "=============="
+                let getRemaining = length . clusterStateUnclustered . fst
 
--- print (getRemaining r3)
+                print (getRemaining r0, totalNumberInvariant clustering0, degreeInvariant (fst graph0), degreeInvariant (snd graph0))
+                print (getRemaining r1, totalNumberInvariant clustering1, degreeInvariant (fst graph1), degreeInvariant (snd graph1))
+                print (getRemaining r2, totalNumberInvariant clustering2, degreeInvariant (fst graph2), degreeInvariant (snd graph2))
+        -}
 
-{-
-        let (cs, us) = splitStep seeds bgr
-            cs' = replaceStepA seeds us cs
-            us' = pruneStepB seeds us
-            us'' = replaceStepC seeds us'
-        mapM_ print cs'
-        putStrLn "*********"
+        let r0 = (seeds, bgr)
+            (clustering0, graph0) = r0
+        {-    (clustering1, graph1) = fullStep r0
+            (cs, us) = splitStep clustering1 graph1
+            cs' = replaceStepA clustering1 us cs
+            us' = pruneStepB clustering1 us
+            us'' = replaceStepC clustering1 us'
+            graph' = fmap (\(v, es) -> (Clustered v, es)) cs' ++ fmap (\(v, es) -> (Unclustered v, es)) us''
+            clustering2 = clusterStep graph' clustering1
+        -}
+
+        -- mapM_ print cs
+        -- pure ()
+        {-        let -- clustering1 = clusterStep graph0 clustering0
+
+                    (cs, us) = splitStep clustering1 graph0
+                    cs' = replaceStepA clustering1 us cs
+                    us' = pruneStepB clustering1 us
+                    us'' = replaceStepC clustering1 us'
+                    graph1 = fmap (\(v, es) -> (Clustered v, es)) cs' ++ fmap (\(v, es) -> (Unclustered v, es)) us''
+
+                    clustering2 = clusterStep graph1 clustering1
+                    (ncs, nus) = splitStep clustering2 graph1
+                mapM_ print ncs
+                pure () -}
+        pure ()
+
+{- putStrLn "*********"
         mapM_ print us''
         putStrLn "*********"
         print (degreeInvariant cs', degreeInvariant us'')
