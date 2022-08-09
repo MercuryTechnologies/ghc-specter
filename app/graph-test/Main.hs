@@ -56,10 +56,16 @@ matchCluster clustering v =
         | otherwise = First Nothing
    in getFirst (foldMap (match v) clustered)
 
-calcInvariant :: [(a, ([ICVertex], [ICVertex]))] -> Int
-calcInvariant graph = sum $ fmap reldeg graph
+degreeInvariant :: [(a, ([ICVertex], [ICVertex]))] -> Int
+degreeInvariant graph = sum $ fmap reldeg graph
   where
     reldeg (_, (os, is)) = length os - length is
+
+totalNumberInvariant :: ClusterState -> Int
+totalNumberInvariant clustering =
+  let clustered = clusterStateClustered clustering
+      unclustered = clusterStateUnclustered clustering
+   in sum (fmap (length . snd) clustered) + length unclustered
 
 splitStep ::
   ClusterState ->
@@ -73,11 +79,12 @@ splitStep clustering graph = partitionEithers $ fmap classify graph
         Nothing -> Right (v, (os, is))
         Just c -> Left (c, (os, is))
 
-replaceStep ::
+replaceStepA ::
   ClusterState ->
-  [(ICVertex, ([ICVertex], [ICVertex]))] ->
-  [(ICVertex, ([ICVertex], [ICVertex]))]
-replaceStep clustering graph = fmap replace graph
+  [(Int, ([ICVertex], [ICVertex]))] ->
+  [(ClusterVertex, ([ICVertex], [ICVertex]))] ->
+  [(ClusterVertex, ([ICVertex], [ICVertex]))]
+replaceStepA clustering unclusteredGraph clusteredGraph = fmap replace clusteredGraph
   where
     clustered = clusterStateClustered clustering
     --
@@ -89,42 +96,49 @@ replaceStep clustering graph = fmap replace graph
     --
     replaceE _ograph (isOut, x@(Clustered {})) = [(isOut, x)]
     replaceE ograph (isOut, x@(Unclustered v)) =
-      let match v (cls, vs)
-            | v `elem` vs = First (Just cls)
-            | otherwise = First Nothing
-       in case getFirst (foldMap (match v) clustered) of
-            Nothing -> [(isOut, x)]
-            Just cls ->
-              let (os, is) = fromMaybe ([], []) $ L.lookup x ograph
-                  os' = fmap ((True,) . replaceV) os
-                  is' = fmap ((False,) . replaceV) is
-               in [(isOut, Clustered cls)]
-                    ++ (if isOut then os' else is') -- (os' ++ is') --
-                    --
+      case matchCluster clustering v of
+        Nothing -> [(isOut, x)]
+        Just cls ->
+          let (os, is) = fromMaybe ([], []) $ L.lookup v unclusteredGraph
+              os' = fmap ((True,) . replaceV) os
+              is' = fmap ((False,) . replaceV) is
+           in [(isOut, Clustered cls)] ++ os' ++ is'
+    --
     replace (v, (os, is)) =
-      let v' = case v of
-            Clustered {} -> v
-            Unclustered v_ ->
-              if v_ `elem` fmap (repCluster . fst) clustered
-                then Clustered (Cluster v_)
-                else v
-          (os1, is1) =
+      let (os1, is1) =
             L.partition fst $
-              concatMap (replaceE graph) $
+              concatMap (replaceE clusteredGraph) $
                 (fmap (True,) os ++ fmap (False,) is)
-          os' = filter (/= v) $ L.nub $ L.sort $ fmap snd os1
-          is' = filter (/= v) $ L.nub $ L.sort $ fmap snd is1
+          os' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd os1
+          is' = filter (/= Clustered v) $ L.nub $ L.sort $ fmap snd is1
        in (v, (os', is'))
 
-pruneStep ::
+pruneStepB ::
   ClusterState ->
-  [(ICVertex, ([ICVertex], [ICVertex]))] ->
-  [(ICVertex, ([ICVertex], [ICVertex]))]
-pruneStep clustering graph = filter prune graph
+  [(Int, ([ICVertex], [ICVertex]))] ->
+  [(Int, ([ICVertex], [ICVertex]))]
+pruneStepB clustering unclusteredGraph = filter (\(v, _) -> v `elem` unclustered) unclusteredGraph
   where
     unclustered = clusterStateUnclustered clustering
-    prune (Clustered {}, _) = True
-    prune (Unclustered v, _) = v `elem` unclustered
+
+replaceStepC ::
+  ClusterState ->
+  [(Int, ([ICVertex], [ICVertex]))] ->
+  [(Int, ([ICVertex], [ICVertex]))]
+replaceStepC clustering unclusteredGraph = fmap replace unclusteredGraph
+  where
+    clustered = clusterStateClustered clustering
+    --
+    replaceV c@(Clustered {}) = c
+    replaceV (Unclustered v) =
+      case matchCluster clustering v of
+        Nothing -> Unclustered v
+        Just cls -> Clustered cls
+    --
+    replace (v, (os, is)) =
+      let os' = L.nub $ L.sort $ fmap replaceV os
+          is' = L.nub $ L.sort $ fmap replaceV is
+       in (v, (os', is'))
 
 clusterStep ::
   [(ICVertex, ([ICVertex], [ICVertex]))] ->
@@ -146,11 +160,16 @@ clusterStep graph clustering = flip execState clustering $ do
       modify' (\s -> s {clusterStateUnclustered = unclustered'})
       pure (cls, vs')
 
-fullStep :: (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) -> (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
-fullStep (clustering, graph) = (clustering', graph')
-  where
-    graph' = pruneStep clustering $ replaceStep clustering graph
-    clustering' = clusterStep graph' clustering
+fullStep ::
+  (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))]) ->
+  (ClusterState, [(ICVertex, ([ICVertex], [ICVertex]))])
+fullStep (clustering, graph) =
+  let (clusteredGraph, unclusteredGraph) = splitStep clustering graph
+      clusteredGraph' = replaceStepA clustering unclusteredGraph clusteredGraph
+      unclusteredGraph' = replaceStepC clustering $ pruneStepB clustering unclusteredGraph
+      graph' = fmap (\(v, es) -> (Clustered v, es)) clusteredGraph' ++ fmap (\(v, es) -> (Unclustered v, es)) unclusteredGraph'
+      clustering' = clusterStep graph' clustering
+   in (clustering', graph')
 
 mkRevDep :: [(Int, [Int])] -> IntMap [Int]
 mkRevDep deps = L.foldl' step emptyMap deps
@@ -276,11 +295,54 @@ main =
         mapM_ print clustered
 
         print (length clustered)
-        print (calcInvariant bgr)
-        print (calcInvariant clustered, calcInvariant unclustered)
+        print (totalNumberInvariant seeds)
+        print (degreeInvariant bgr)
+        print (degreeInvariant clustered, degreeInvariant unclustered)
 
-{-            r1 = fullStep r0
+        let r0 = (seeds, bgr)
+            r1 = fullStep r0
             r2 = fullStep r1
+            printFunc r = do
+              mapM_ (\x -> print x >> putStrLn "") (snd r)
+              putStrLn "---------"
+              mapM_ print (clusterStateClustered (fst r))
+              putStrLn "---------"
+              print (clusterStateUnclustered (fst r))
+              putStrLn "---------"
+
+              print (totalNumberInvariant (fst r))
+              print (degreeInvariant (snd r))
+
+        putStrLn "###############################"
+        putStrLn "############# r2 ##############"
+        putStrLn "###############################"
+        printFunc r2
+
+        putStrLn "=============="
+        let getRemaining = length . clusterStateUnclustered . fst
+        print (getRemaining r0)
+        print (getRemaining r1)
+        print (getRemaining r2)
+
+-- print (getRemaining r3)
+
+{-
+        let (cs, us) = splitStep seeds bgr
+            cs' = replaceStepA seeds us cs
+            us' = pruneStepB seeds us
+            us'' = replaceStepC seeds us'
+        mapM_ print cs'
+        putStrLn "*********"
+        mapM_ print us''
+        putStrLn "*********"
+        print (degreeInvariant cs', degreeInvariant us'')
+-}
+
+{-
+let r1 = fullStep r0
+print (totalNumberInvariant (fst r1))
+print (degreeInvariant (snd r1)) -}
+{-    r2 = fullStep r1
             r3 = fullStep r2
             r4 = fullStep r3
             r5 = fullStep r4
