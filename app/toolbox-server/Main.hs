@@ -81,7 +81,7 @@ listener socketFile var =
           CMBox (CMSession s') -> do
             let graphInfo = sessionModuleGraph s'
                 largeNodes = filterOutSmallNodes graphInfo
-            ogdfTest "current_modgraph.svg" largeNodes graphInfo
+            ogdfTest False "current_modgraph.svg" largeNodes graphInfo
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )
