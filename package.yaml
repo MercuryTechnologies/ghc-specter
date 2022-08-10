@@ -111,6 +111,7 @@ executables:
       - concur-core
       - concur-replica
       - containers
+      - discrimination
       - extra
       - ghc-build-analyzer
       - optparse-applicative

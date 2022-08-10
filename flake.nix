@@ -39,6 +39,7 @@
           p.cabal-install
           p.concur-core
           p.concur-replica
+          p.discrimination
           p.extra
           p.fourmolu
           p.hpack

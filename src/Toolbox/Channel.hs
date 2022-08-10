@@ -9,6 +9,8 @@ module Toolbox.Channel
     SessionInfo (..),
     Timer (..),
     resetTimer,
+    ModuleGraphInfo (..),
+    emptyModuleGraphInfo,
   )
 where
 
@@ -22,9 +24,29 @@ data Channel = CheckImports | Timing | Session
 
 type ModuleName = Text
 
-newtype SessionInfo = SessionInfo
-  {sessionStartTime :: Maybe UTCTime}
-  deriving (Show, Binary)
+data ModuleGraphInfo = ModuleGraphInfo
+  { mginfoModuleNameMap :: [(Int, ModuleName)]
+  , mginfoModuleDep :: [(Int, [Int])]
+  , mginfoModuleTopSorted :: [Int]
+  }
+  deriving (Show)
+
+instance Binary ModuleGraphInfo where
+  put (ModuleGraphInfo m d s) = put (m, d, s)
+  get = (\(m, d, s) -> ModuleGraphInfo m d s) <$> get
+
+emptyModuleGraphInfo :: ModuleGraphInfo
+emptyModuleGraphInfo = ModuleGraphInfo [] [] []
+
+data SessionInfo = SessionInfo
+  { sessionStartTime :: Maybe UTCTime
+  , sessionModuleGraph :: ModuleGraphInfo
+  }
+  deriving (Show)
+
+instance Binary SessionInfo where
+  put (SessionInfo mtime modGraph) = put (mtime, modGraph)
+  get = uncurry SessionInfo <$> get
 
 data Timer = Timer
   { timerStart :: Maybe UTCTime

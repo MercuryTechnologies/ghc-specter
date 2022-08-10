@@ -31,6 +31,7 @@ import Toolbox.Channel
     ChanMessageBox (..),
     Channel (..),
     SessionInfo (..),
+    emptyModuleGraphInfo,
   )
 import Toolbox.Comm
   ( receiveObject,
@@ -39,6 +40,7 @@ import Toolbox.Comm
 import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
+    Tab (TabCheckImports),
     UIState (..),
     incrementSN,
   )
@@ -56,7 +58,9 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <- atomically $ newTVar (ServerState 0 mempty (SessionInfo Nothing) mempty)
+  var <-
+    atomically $
+      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty)
   _ <- forkIO $ listener socketFile var
   webServer var
 
@@ -86,7 +90,7 @@ webServer :: TVar ServerState -> IO ()
 webServer var = do
   initServerState <- atomically (readTVar var)
   initTime <- getCurrentTime
-  let initUIState = UIState CheckImports Nothing
+  let initUIState = UIState TabCheckImports Nothing
   runDefault 8080 "test" $
     \_ -> loopM step (initUIState, initServerState, initTime)
   where
