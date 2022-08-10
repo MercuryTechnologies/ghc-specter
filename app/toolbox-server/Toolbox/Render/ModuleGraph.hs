@@ -218,8 +218,8 @@ drawGraph file nameMap graph = do
         sugiyamaLayout_setCrossMin sl mh
         ohl <- newOptimalHierarchyLayout
         optimalHierarchyLayout_layerDistance ohl 5.0
-        optimalHierarchyLayout_nodeDistance ohl 25.0
-        optimalHierarchyLayout_weightBalancing ohl 0.8
+        optimalHierarchyLayout_nodeDistance ohl 1.0
+        optimalHierarchyLayout_weightBalancing ohl 0.5
         sugiyamaLayout_setLayout sl ohl
         call sl ga
 

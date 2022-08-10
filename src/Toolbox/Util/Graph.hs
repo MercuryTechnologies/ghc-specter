@@ -12,6 +12,7 @@ module Toolbox.Util.Graph
     getBiDepGraph,
     fullStep,
     makeSeedState,
+    mkRevDep,
     reduceGraph,
     totalNumberInvariant,
   )
