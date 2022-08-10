@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- This module provides the current module under compilation.
 module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
@@ -6,9 +8,10 @@ module Plugin.Timing
   )
 where
 
+import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Foldable (for_)
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
@@ -65,9 +68,9 @@ plugin =
   defaultPlugin {driverPlugin = driver}
 
 -- shared across the session
-sessionRef :: IORef SessionInfo
+sessionRef :: TVar SessionInfo
 {-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newIORef (SessionInfo Nothing emptyModuleGraphInfo))
+sessionRef = unsafePerformIO (newTVarIO (SessionInfo Nothing emptyModuleGraphInfo))
 
 getModuleNameText :: ModSummary -> T.Text
 getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
@@ -105,22 +108,26 @@ driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
   startTime <- getCurrentTime
-  SessionInfo msessionStart _ <- readIORef sessionRef
-  case msessionStart of
-    Nothing -> do
-      let modGraph = hsc_mod_graph env
-          modGraphInfo = extractModuleGraphInfo modGraph
-          startedSession = SessionInfo (Just startTime) modGraphInfo
-      -- this is dangerous. should use atomic transaction
-      writeIORef sessionRef startedSession
-      case opts of
-        ipcfile : _ -> liftIO $ do
-          socketExists <- doesFileExist ipcfile
-          when socketExists $
-            runClient ipcfile $ \sock ->
-              sendObject sock $ CMBox (CMSession startedSession)
-        _ -> pure ()
-    _ -> pure ()
+  let modGraph = hsc_mod_graph env
+      modGraphInfo = extractModuleGraphInfo modGraph
+      startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
+  -- NOTE: return Nothing if session info is already initiated
+  mNewStartedSession <-
+    startedSession `seq` atomically $ do
+      SessionInfo msessionStart _ <- readTVar sessionRef
+      case msessionStart of
+        Nothing -> do
+          writeTVar sessionRef startedSession
+          pure (Just startedSession)
+        Just _ -> pure Nothing
+  for_ mNewStartedSession $ \(!newStartedSession) ->
+    case opts of
+      ipcfile : _ -> liftIO $ do
+        socketExists <- doesFileExist ipcfile
+        when socketExists $
+          runClient ipcfile $ \sock ->
+            sendObject sock $ CMBox (CMSession newStartedSession)
+      _ -> pure ()
   let timer0 = resetTimer {timerStart = Just startTime}
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
