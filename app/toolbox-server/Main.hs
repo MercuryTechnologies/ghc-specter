@@ -30,6 +30,7 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    ModuleGraphInfo (..),
     SessionInfo (..),
     emptyModuleGraphInfo,
   )
@@ -39,8 +40,8 @@ import Toolbox.Comm
   )
 import Toolbox.Render (render)
 import Toolbox.Render.ModuleGraph
-  ( filterOutSmallNodes,
-    ogdfTest,
+  ( drawGraph,
+    makeReducedGraphReversedFromModuleGraph,
   )
 import Toolbox.Server.Types
   ( ServerState (..),
@@ -80,9 +81,11 @@ listener socketFile var =
         case o of
           CMBox (CMSession s') -> do
             let graphInfo = sessionModuleGraph s'
-                largeNodes = filterOutSmallNodes graphInfo
-            ogdfTest False "current_modgraph.svg" largeNodes graphInfo
-            pure ()
+                modNameMap = mginfoModuleNameMap graphInfo
+                reducedGraphReversed =
+                  makeReducedGraphReversedFromModuleGraph graphInfo
+            test <- drawGraph modNameMap reducedGraphReversed
+            print test
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )

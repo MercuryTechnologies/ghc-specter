@@ -3,7 +3,7 @@
 module Toolbox.Render.ModuleGraph
   ( drawGraph,
     filterOutSmallNodes,
-    ogdfTest,
+    makeReducedGraphReversedFromModuleGraph,
     renderModuleGraph,
   )
 where
@@ -17,6 +17,7 @@ import Data.Bits ((.|.))
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Foldable (for_)
+import Data.Graph (buildG, topSort)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -64,7 +65,12 @@ import Toolbox.Channel
     SessionInfo (..),
   )
 import Toolbox.Server.Types (ServerState (..))
-import Toolbox.Util.Graph (mkRevDep, reduceGraph)
+import Toolbox.Util.Graph
+  ( makeEdges,
+    makeReducedGraph,
+    mkRevDep,
+    reduceGraph,
+  )
 import Toolbox.Util.OGDF
   ( appendText,
     edgeGraphics,
@@ -184,15 +190,19 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-ogdfTest :: Bool -> FilePath -> [Int] -> ModuleGraphInfo -> IO GraphVisInfo
-ogdfTest showUnclustered file seeds graphInfo = do
-  print graphInfo
-  let modNameMap = mginfoModuleNameMap graphInfo
-      reducedGraph = reduceGraph (not showUnclustered) seeds graphInfo
-  drawGraph file modNameMap reducedGraph
+makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> [(Int, [Int])]
+makeReducedGraphReversedFromModuleGraph mgi =
+  let nVtx = length $ mginfoModuleNameMap mgi
+      es = makeEdges $ mginfoModuleDep mgi
+      g = buildG (1, nVtx) es
+      seeds = filterOutSmallNodes mgi
+      tordVtxs = topSort g
+      tordSeeds = filter (`elem` seeds) tordVtxs
+      reducedGraph = makeReducedGraph g tordSeeds
+  in IM.toList $ mkRevDep reducedGraph
 
-drawGraph :: FilePath -> [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
-drawGraph file nameMap graph = do
+drawGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
+drawGraph nameMap graph = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       moduleNodeMap <-
