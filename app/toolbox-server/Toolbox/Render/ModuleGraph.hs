@@ -1,7 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 
 module Toolbox.Render.ModuleGraph
-  ( filterOutSmallNodes,
+  ( drawGraph,
+    filterOutSmallNodes,
     ogdfTest,
     renderModuleGraph,
   )
@@ -183,14 +184,18 @@ newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. 
 ogdfTest :: Bool -> FilePath -> [Int] -> ModuleGraphInfo -> IO ()
 ogdfTest showUnclustered file seeds graphInfo = do
   print graphInfo
+  let modNameMap = mginfoModuleNameMap graphInfo
+      reducedGraph = reduceGraph (not showUnclustered) seeds graphInfo
+  drawGraph file modNameMap reducedGraph
+
+drawGraph :: FilePath -> [(Int, Text)] -> [(Int, [Int])] -> IO ()
+drawGraph file nameMap graph = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
-      let modNameMap = mginfoModuleNameMap graphInfo
-          reducedGraph = reduceGraph (not showUnclustered) seeds graphInfo
       moduleNodeMap <-
         IM.fromList . concat
-          <$> ( forM reducedGraph $ \(i, _) -> do
-                  case L.lookup i modNameMap of
+          <$> ( forM graph $ \(i, _) -> do
+                  case L.lookup i nameMap of
                     Nothing -> pure []
                     Just name -> do
                       let width = 8 * T.length name
@@ -200,7 +205,7 @@ ogdfTest showUnclustered file seeds graphInfo = do
                       pure [(i, node)]
               )
 
-      for_ reducedGraph $ \(i, js) ->
+      for_ graph $ \(i, js) ->
         for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
           let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
           for_ node_js $ \node_j ->
