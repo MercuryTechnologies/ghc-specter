@@ -15,23 +15,44 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
+    fficxx = {
+      url = "github:wavewave/fficxx/aarch64-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+    hs-ogdf = {
+      url = "github:wavewave/hs-ogdf/aarch64-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.fficxx.follows = "fficxx";
+    };
   };
-  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica }:
+  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
+    , fficxx, hs-ogdf }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        overlayGHC = final: prev: {
+          haskellPackages = prev.haskell.packages.ghc923;
+        };
         pkgs = import nixpkgs {
+          overlays = [
+            overlayGHC
+            (fficxx.overlay.${system})
+            (hs-ogdf.overlay.${system})
+          ];
           inherit system;
           config.allowBroken = true;
         };
-        hspkgs = pkgs.haskell.packages.ghc923.override (old: {
-          overrides = self: super: {
-            "concur-core" =
-              self.callCabal2nix "concur-core" (concur + "/concur-core") { };
-            "concur-replica" =
-              self.callCabal2nix "concur-replica" concur-replica { };
-            "replica" = self.callCabal2nix "replica" replica { };
-            "retry" = pkgs.haskell.lib.dontCheck super.retry;
-          };
+        hspkgs = pkgs.haskellPackages.override (old: {
+          overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: { }))
+            (self: super: {
+              "concur-core" =
+                self.callCabal2nix "concur-core" (concur + "/concur-core") { };
+              "concur-replica" =
+                self.callCabal2nix "concur-replica" concur-replica { };
+              "replica" = self.callCabal2nix "replica" replica { };
+              "retry" = pkgs.haskell.lib.dontCheck super.retry;
+            });
         });
         hsenv = hspkgs.ghcWithPackages (p: [
           p.aeson
@@ -44,6 +65,7 @@
           p.fourmolu
           p.hpack
           p.hspec
+          p.OGDF
           p.optparse-applicative
           p.replica
           p.socket
