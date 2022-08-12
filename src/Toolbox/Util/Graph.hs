@@ -5,6 +5,7 @@ module Toolbox.Util.Graph
   ( ClusterState (..),
     ClusterVertex (..),
     GraphState (..),
+    ICVertex (..),
     degreeInvariant,
     filterOutSmallNodes,
     getBiDepGraph,

@@ -8,7 +8,14 @@ module Plugin.Timing
   )
 where
 
-import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar, writeTVar)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.STM
+  ( TVar,
+    atomically,
+    newTVarIO,
+    readTVar,
+    writeTVar,
+  )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -97,10 +104,10 @@ extractModuleGraphInfo modGraph = do
           (\v -> (G.node_key v,) <$> modNameFromVertex v)
           vtxs
       modNameRevMap = fmap swap modNameMap
-      topSorted =
-        mapMaybe
+      topSorted = []  -- FOR NOW!
+{-        mapMaybe
           (\n -> L.lookup n modNameRevMap)
-          $ getTopSortedModules modGraph
+          $ getTopSortedModules modGraph -}
       modDeps = fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
 

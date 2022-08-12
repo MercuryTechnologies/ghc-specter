@@ -60,6 +60,7 @@ import Toolbox.Channel
     SessionInfo (..),
   )
 import Toolbox.Server.Types (ServerState (..))
+import Toolbox.Util.Graph (reduceGraph)
 import Toolbox.Util.OGDF
   ( appendText,
     edgeGraphics,
@@ -183,12 +184,9 @@ ogdfTest graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
-      let modDep = mginfoModuleDep graphInfo
-          modNameMap = mginfoModuleNameMap graphInfo
-          larges = filterOutSmallNodes graphInfo
-          reducedGraph =
-            fmap (\(i, js) -> (i, filter (`elem` larges) js)) $
-              filter (\(i, _) -> i `elem` larges) modDep
+      let modNameMap = mginfoModuleNameMap graphInfo
+          largeNodes = filterOutSmallNodes graphInfo
+          reducedGraph = reduceGraph largeNodes graphInfo
       moduleNodeMap <-
         IM.fromList . concat
           <$> ( forM reducedGraph $ \(i, _) -> do

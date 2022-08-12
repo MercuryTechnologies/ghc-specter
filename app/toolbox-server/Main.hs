@@ -75,7 +75,7 @@ listener socketFile var =
     (\sock -> do
         o <- receiveObject sock
         case o of
-          CMBox (CMSession s') -> do
+          CMBox (CMSession s') ->
             ogdfTest (sessionModuleGraph s')
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
