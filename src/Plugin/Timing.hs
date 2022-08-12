@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
--- This module provides the current module under compilation..
+-- This module provides the current module under compilation.
 module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,

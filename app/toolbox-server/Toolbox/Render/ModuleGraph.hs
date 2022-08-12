@@ -176,8 +176,8 @@ renderModuleGraphSVG timing clustering grVisInfo =
           , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
           , width (T.pack $ show (w * aFactor))
           , height "20"
-          , SP.stroke "gray"
-          , SP.fill "white"
+          , SP.stroke "dimgray"
+          , SP.fill "ivory"
           ]
           []
       box1 (_, x, y, w, h) =
@@ -206,7 +206,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
               , height "5"
-              , SP.fill "green"
+              , SP.fill "blue"
               ]
               []
       moduleText (name, x, y, w, h) =
