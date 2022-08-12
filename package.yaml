@@ -111,13 +111,14 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - OGDF
+      - PyF
       - concur-core
       - concur-replica
       - containers
       - discrimination
       - extra
+      - fficxx-runtime
       - ghc-build-analyzer
-      - monad-loops
       - optparse-applicative
       - replica
       - stdcxx

@@ -52,6 +52,7 @@
                 self.callCabal2nix "concur-replica" concur-replica { };
               "replica" = self.callCabal2nix "replica" replica { };
               "retry" = pkgs.haskell.lib.dontCheck super.retry;
+              "PyF" = pkgs.haskell.lib.dontCheck super.PyF;
             });
         });
         hsenv = hspkgs.ghcWithPackages (p: [
@@ -66,6 +67,7 @@
           p.hpack
           p.hspec
           p.OGDF
+          p.PyF
           p.optparse-applicative
           p.replica
           p.socket

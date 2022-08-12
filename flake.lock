@@ -86,11 +86,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1660172481,
-        "narHash": "sha256-XMKH9U2F03J8e9s4/8mZ1oQfSlftPFxXeSMWAOzoPkU=",
+        "lastModified": 1660285184,
+        "narHash": "sha256-D9kMhQMptae5n9pS+0PD6cRf2ZLTxLn1ezmNL4H7yS8=",
         "owner": "wavewave",
         "repo": "hs-ogdf",
-        "rev": "36b9262d711bf9af783ad3fde3e9f9c15185c1c0",
+        "rev": "6bb670042127e2a7f24599d313ebaf248c4d2221",
         "type": "github"
       },
       "original": {

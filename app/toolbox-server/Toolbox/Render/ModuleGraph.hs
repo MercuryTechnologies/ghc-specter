@@ -11,11 +11,10 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
 import Control.Exception (bracket)
-import Control.Monad.Extra (loop, loopM)
+import Control.Monad.Extra (loop)
 import Data.Bits ((.|.))
-import Data.Discrimination (inner)
-import Data.Discrimination.Grouping (grouping)
 import Data.Foldable (for_)
+import qualified Data.Foldable as F (toList)
 import Data.Graph (buildG, topSort)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -23,11 +22,10 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Traversable (forM)
-import Foreign.Ptr (nullPtr)
+import Data.Tuple (swap)
 import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.Graph
   ( Graph,
-    graph_firstNode,
     graph_newEdge,
     newGraph,
   )
@@ -38,7 +36,7 @@ import OGDF.GraphAttributes
   )
 import OGDF.LayoutModule (ILayoutModule (call))
 import OGDF.MedianHeuristic (newMedianHeuristic)
-import OGDF.NodeElement (NodeElement (..), nodeElement_index, nodeElement_succ)
+import OGDF.NodeElement (nodeElement_index)
 import OGDF.OptimalHierarchyLayout
   ( newOptimalHierarchyLayout,
     optimalHierarchyLayout_layerDistance,
@@ -58,47 +56,27 @@ import Toolbox.Channel
   ( ModuleGraphInfo (..),
     SessionInfo (..),
   )
-import Toolbox.Server.Types (ServerState (..))
+import Toolbox.Server.Types
+  ( GraphVisInfo (..),
+    ServerState (..),
+  )
 import Toolbox.Util.Graph
-  ( makeEdges,
+  ( filterOutSmallNodes,
+    makeEdges,
     makeReducedGraph,
     mkRevDep,
   )
 import Toolbox.Util.OGDF
   ( appendText,
     edgeGraphics,
-    getHeight,
-    getWidth,
-    getX,
-    getY,
+    getAllEdgeLayout,
+    getAllNodeLayout,
     newGraphNodeWithSize,
     nodeGraphics,
     nodeLabel,
     nodeStyle,
-    setFillColor,
   )
 import Prelude hiding (div)
-
-data GraphVisInfo = GraphVisInfo
-  { -- | (width, height)
-    gviRect :: (Double, Double)
-    -- | (id, x, y, w, h)
-  , gviNodes :: [(Int, Double, Double, Double, Double)]
-  }
-  deriving (Show)
-
-nodeSizeLimit :: Int
-nodeSizeLimit = 150
-
-filterOutSmallNodes :: ModuleGraphInfo -> [Int]
-filterOutSmallNodes graphInfo =
-  let modDep = mginfoModuleDep graphInfo
-      modRevDepMap = mkRevDep modDep
-      modRevDep = IM.toList modRevDepMap
-      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
-        where
-          joiner (i, js) (_, ks) = (i, (js, ks))
-   in fmap fst $ filter (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit) modBiDep
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
@@ -192,7 +170,7 @@ makeReducedGraphReversedFromModuleGraph mgi =
       tordVtxs = topSort g
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
-  in IM.toList $ mkRevDep reducedGraph
+   in IM.toList $ mkRevDep reducedGraph
 
 drawGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
 drawGraph nameMap graph = do
@@ -206,11 +184,15 @@ drawGraph nameMap graph = do
                     Just name -> do
                       let width = 8 * T.length name
                       node <- newGraphNodeWithSize (g, ga) (width, 15)
-                      setFillColor ga node "White"
                       appendText ga node name
                       pure [(i, node)]
               )
-
+      moduleNodeIndexList <-
+        F.toList
+          <$> IM.traverseWithKey
+            (\i node -> (i,) . fromIntegral @_ @Int <$> nodeElement_index node)
+            moduleNodeMap
+      let moduleNodeIndexRevList = fmap swap moduleNodeIndexList
       for_ graph $ \(i, js) ->
         for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
           let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
@@ -233,15 +215,15 @@ drawGraph nameMap graph = do
         canvasWidth :: Double <- realToFrac <$> dRect_width drect
         canvasHeight :: Double <- realToFrac <$> dRect_height drect
 
-        n0 <- graph_firstNode g
-        flip loopM ([], n0) $ \(acc, n@(NodeElement n'')) ->
-          if n'' == nullPtr
-            then pure (Right (GraphVisInfo (canvasWidth, canvasHeight) acc))
-            else do
-              i <- fromIntegral <$> nodeElement_index n
-              x <- getX ga n
-              y <- getY ga n
-              w <- getWidth ga n
-              h <- getHeight ga n
-              let acc' = acc ++ [(i, x, y, w, h)]
-              Left . (acc',) <$> nodeElement_succ n
+        nodeLayout0 <- getAllNodeLayout g ga
+        let nodeLayout = mapMaybe replace nodeLayout0
+              where
+                replace (j, x, y, w, h) = do
+                  i <- L.lookup j moduleNodeIndexRevList
+                  name <- L.lookup i nameMap
+                  pure (name, x, y, w, h)
+
+        edgeLayout <- getAllEdgeLayout g ga
+        print edgeLayout
+
+        pure $ GraphVisInfo (canvasWidth, canvasHeight) nodeLayout edgeLayout
