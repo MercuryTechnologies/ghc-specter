@@ -6,11 +6,14 @@ module Toolbox.Util.Graph
     ClusterVertex (..),
     GraphState (..),
     ICVertex (..),
+    annotateLevel,
     degreeInvariant,
     diffCluster,
     filterOutSmallNodes,
     getBiDepGraph,
     fullStep,
+    makeEdges,
+    makeReducedGraph,
     makeSeedState,
     mkRevDep,
     reduceGraph,
@@ -22,6 +25,7 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
+import Data.Graph (Graph, Tree (..), path)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -175,6 +179,23 @@ mkRevDep deps = L.foldl' step emptyMap deps
 
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
+
+-- | graph to edge list
+makeEdges :: [(Int, [Int])] -> [(Int, Int)]
+makeEdges = concatMap (\(i, js) -> fmap (i,) js)
+
+-- | tree level annotation
+annotateLevel :: Int -> Tree a -> Tree (Int, a)
+annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
+
+-- | strip down graph to a given topologically ordered subset
+makeReducedGraph :: Graph -> [Int] -> [(Int, [Int])]
+makeReducedGraph g tordList =
+  case tordList of
+    [] -> []
+    x : [] -> [(x, [])]
+    x : xs ->
+      (x, concatMap (\y -> if path g x y then [y] else []) xs) : makeReducedGraph g xs
 
 -- ( vertex, (dep, revdep)) per each item
 getBiDepGraph :: ModuleGraphInfo -> [(Int, ([Int], [Int]))]
