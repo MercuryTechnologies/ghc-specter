@@ -5,10 +5,11 @@ module Plugin.Timing
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
     sessionRef,
+    --
+    getTopSortedModules,
   )
 where
 
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -19,11 +20,9 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
-import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
-import Data.Tuple (swap)
 import qualified GHC.Data.Graph.Directed as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
@@ -103,11 +102,7 @@ extractModuleGraphInfo modGraph = do
         mapMaybe
           (\v -> (G.node_key v,) <$> modNameFromVertex v)
           vtxs
-      modNameRevMap = fmap swap modNameMap
       topSorted = []  -- FOR NOW!
-{-        mapMaybe
-          (\n -> L.lookup n modNameRevMap)
-          $ getTopSortedModules modGraph -}
       modDeps = fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
 

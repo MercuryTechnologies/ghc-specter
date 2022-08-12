@@ -7,6 +7,7 @@ module Toolbox.Util.Graph
     GraphState (..),
     ICVertex (..),
     degreeInvariant,
+    diffCluster,
     filterOutSmallNodes,
     getBiDepGraph,
     fullStep,
@@ -28,7 +29,7 @@ import Data.Monoid (First (..))
 import Toolbox.Channel (ModuleGraphInfo (..))
 
 -- | representative vertex, other vertices that belong to this cluster
-newtype ClusterVertex = Cluster Int
+newtype ClusterVertex = Cluster {unCluster :: Int}
   deriving (Show, Eq, Ord)
 
 -- | intermediate cluster vertex
@@ -61,6 +62,13 @@ matchCluster clustering vtx =
         | v `elem` vs = First (Just cls)
         | otherwise = First Nothing
    in getFirst (foldMap (match vtx) clustered)
+
+diffCluster :: ClusterState -> ClusterState -> [(ClusterVertex, [Int])]
+diffCluster c1 c2 =
+  let c1cluster = clusterStateClustered c1
+      c2cluster = clusterStateClustered c2
+      joiner (i, js) (_, ks) = (i, js L.\\ ks)
+   in concat $ inner grouping joiner (unCluster . fst) (unCluster . fst) c1cluster c2cluster
 
 degreeInvariant :: GraphState -> (Int, Int)
 degreeInvariant graphState =
@@ -186,8 +194,8 @@ filterOutSmallNodes graphInfo =
           (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit)
           modBiDep
 
-reduceGraph :: [Int] -> ModuleGraphInfo -> [(Int, [Int])]
-reduceGraph seeds graphInfo =
+reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> [(Int, [Int])]
+reduceGraph onlyClustered seeds graphInfo =
   let bgr = getBiDepGraph graphInfo
       allNodes = fmap fst $ mginfoModuleNameMap graphInfo
       smallNodes = allNodes L.\\ seeds
@@ -198,11 +206,16 @@ reduceGraph seeds graphInfo =
           , clusterStateUnclustered = smallNodes
           }
       r0 = (seedClustering, makeSeedState seeds bgr)
-      r1 = fullStep r0
-      r2 = fullStep r1
-      final = r2
+      -- r1@(clustering1, graph1) = fullStep r0
+      -- r2@(clustering2, graph2) = fullStep r1
+      -- r3 = fullStep r2
+      -- r4 = fullStep r3
+      final = r0
       strip (Clustered (Cluster c)) = c
       strip (Unclustered i) = i
-      finalGraphClustered = fmap (\(Cluster c, (os, _)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
-      finalGraphUnclustered = fmap (\(v, (os, _)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
-   in finalGraphClustered ++ finalGraphUnclustered
+      finalGraphClustered = fmap (\(Cluster c, (os, _is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
+      finalGraphUnclustered = fmap (\(v, (os, _is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
+      finalGraph
+        | onlyClustered = finalGraphClustered
+        | otherwise = finalGraphClustered ++ finalGraphUnclustered
+   in finalGraph

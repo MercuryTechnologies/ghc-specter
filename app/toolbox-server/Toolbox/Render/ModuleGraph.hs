@@ -180,13 +180,13 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-ogdfTest :: FilePath -> [Int] -> ModuleGraphInfo -> IO ()
-ogdfTest file seeds graphInfo = do
+ogdfTest :: Bool -> FilePath -> [Int] -> ModuleGraphInfo -> IO ()
+ogdfTest showUnclustered file seeds graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       let modNameMap = mginfoModuleNameMap graphInfo
-          reducedGraph = reduceGraph seeds graphInfo
+          reducedGraph = reduceGraph (not showUnclustered) seeds graphInfo
       moduleNodeMap <-
         IM.fromList . concat
           <$> ( forM reducedGraph $ \(i, _) -> do
