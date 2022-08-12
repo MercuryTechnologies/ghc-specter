@@ -203,6 +203,7 @@ getBiDepGraph graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDepMap = mkRevDep modDep
       modRevDep = IM.toList modRevDepMap
+      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
       modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
