@@ -27,6 +27,7 @@ import qualified Data.Text.IO as TIO
 import Data.Traversable (forM)
 import Foreign.C.String (withCString)
 import Foreign.Ptr (nullPtr)
+import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.Graph
   ( Graph,
     graph_firstNode,
@@ -35,6 +36,7 @@ import OGDF.Graph
   )
 import OGDF.GraphAttributes
   ( GraphAttributes,
+    boundingBox,
     newGraphAttributes,
   )
 import OGDF.GraphIO (graphIO_drawSVG)
@@ -62,7 +64,7 @@ import Toolbox.Channel
     SessionInfo (..),
   )
 import Toolbox.Server.Types (ServerState (..))
-import Toolbox.Util.Graph (reduceGraph)
+import Toolbox.Util.Graph (mkRevDep, reduceGraph)
 import Toolbox.Util.OGDF
   ( appendText,
     edgeGraphics,
@@ -78,12 +80,13 @@ import Toolbox.Util.OGDF
   )
 import Prelude hiding (div)
 
-mkRevDep :: [(Int, [Int])] -> IntMap [Int]
-mkRevDep deps = L.foldl' step emptyMap deps
-  where
-    emptyMap = L.foldl' (\(!acc) (i, _) -> IM.insert i [] acc) IM.empty deps
-    step !acc (i, js) =
-      L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
+data GraphVisInfo = GraphVisInfo
+  { -- | (width, height)
+    gviRect :: (Double, Double)
+    -- | (id, x, y, w, h)
+  , gviNodes :: [(Int, Double, Double, Double, Double)]
+  }
+  deriving (Show)
 
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
@@ -181,14 +184,14 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-ogdfTest :: Bool -> FilePath -> [Int] -> ModuleGraphInfo -> IO ()
+ogdfTest :: Bool -> FilePath -> [Int] -> ModuleGraphInfo -> IO GraphVisInfo
 ogdfTest showUnclustered file seeds graphInfo = do
   print graphInfo
   let modNameMap = mginfoModuleNameMap graphInfo
       reducedGraph = reduceGraph (not showUnclustered) seeds graphInfo
   drawGraph file modNameMap reducedGraph
 
-drawGraph :: FilePath -> [(Int, Text)] -> [(Int, [Int])] -> IO ()
+drawGraph :: FilePath -> [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
 drawGraph file nameMap graph = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
@@ -223,33 +226,19 @@ drawGraph file nameMap graph = do
         sugiyamaLayout_setLayout sl ohl
         call sl ga
 
-        -- temporary
-        withCString file $ \cstr -> do
-          str <- newCppString cstr
-          _ <- graphIO_drawSVG ga str
-          delete str
+        drect <- boundingBox ga
+        canvasWidth :: Double <- realToFrac <$> dRect_width drect
+        canvasHeight :: Double <- realToFrac <$> dRect_height drect
 
         n0@(NodeElement n0') <- graph_firstNode g
-        when (n0' /= nullPtr) $
-          void $
-            flip loopM n0 $ \n@(NodeElement n'') ->
-              if n'' == nullPtr
-                then pure (Right ())
-                else do
-                  i <- nodeElement_index n
-                  x <- getX ga n
-                  y <- getY ga n
-                  w <- getWidth ga n
-                  h <- getHeight ga n
-                  let txt =
-                        T.pack (show (fromIntegral i :: Int))
-                          <> " "
-                          <> T.pack (show (realToFrac x :: Double))
-                          <> " "
-                          <> T.pack (show (realToFrac y :: Double))
-                          <> " "
-                          <> T.pack (show (realToFrac w :: Double))
-                          <> " "
-                          <> T.pack (show (realToFrac h :: Double))
-                  TIO.putStrLn txt
-                  Left <$> nodeElement_succ n
+        flip loopM ([], n0) $ \(acc, n@(NodeElement n'')) ->
+          if n'' == nullPtr
+            then pure (Right (GraphVisInfo (canvasWidth, canvasHeight) acc))
+            else do
+              i <- fromIntegral <$> nodeElement_index n
+              x <- getX ga n
+              y <- getY ga n
+              w <- getWidth ga n
+              h <- getHeight ga n
+              let acc' = acc ++ [(i, x, y, w, h)]
+              Left . (acc',) <$> nodeElement_succ n

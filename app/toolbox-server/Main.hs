@@ -82,6 +82,7 @@ listener socketFile var =
             let graphInfo = sessionModuleGraph s'
                 largeNodes = filterOutSmallNodes graphInfo
             ogdfTest False "current_modgraph.svg" largeNodes graphInfo
+            pure ()
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )

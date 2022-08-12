@@ -93,7 +93,7 @@ main' = do
             seeds = filterOutSmallNodes mgi
         -- print $ reduceGraph seeds mgi
         ogdfTest False "test2.svg" seeds mgi
-
+        pure ()
 -- testPrint seeds mgi
 
 main :: IO ()
@@ -119,4 +119,5 @@ main = do
 
         let reducedGraphReversed = IM.toList $ mkRevDep reducedGraph
 
-        drawGraph "newdep.svg" (mginfoModuleNameMap mgi) reducedGraphReversed
+        v <- drawGraph "newdep.svg" (mginfoModuleNameMap mgi) reducedGraphReversed
+        print v
