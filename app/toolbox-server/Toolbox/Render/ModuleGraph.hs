@@ -11,22 +11,18 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
 import Control.Exception (bracket)
-import Control.Monad (void, when)
 import Control.Monad.Extra (loop, loopM)
 import Data.Bits ((.|.))
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Foldable (for_)
 import Data.Graph (buildG, topSort)
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import Data.Traversable (forM)
-import Foreign.C.String (withCString)
 import Foreign.Ptr (nullPtr)
 import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.Graph
@@ -40,7 +36,6 @@ import OGDF.GraphAttributes
     boundingBox,
     newGraphAttributes,
   )
-import OGDF.GraphIO (graphIO_drawSVG)
 import OGDF.LayoutModule (ILayoutModule (call))
 import OGDF.MedianHeuristic (newMedianHeuristic)
 import OGDF.NodeElement (NodeElement (..), nodeElement_index, nodeElement_succ)
@@ -58,7 +53,6 @@ import OGDF.SugiyamaLayout
     sugiyamaLayout_setRanking,
   )
 import Replica.VDOM.Types (HTML)
-import STD.CppString (newCppString)
 import STD.Deletable (delete)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -69,7 +63,6 @@ import Toolbox.Util.Graph
   ( makeEdges,
     makeReducedGraph,
     mkRevDep,
-    reduceGraph,
   )
 import Toolbox.Util.OGDF
   ( appendText,
@@ -240,7 +233,7 @@ drawGraph nameMap graph = do
         canvasWidth :: Double <- realToFrac <$> dRect_width drect
         canvasHeight :: Double <- realToFrac <$> dRect_height drect
 
-        n0@(NodeElement n0') <- graph_firstNode g
+        n0 <- graph_firstNode g
         flip loopM ([], n0) $ \(acc, n@(NodeElement n'')) ->
           if n'' == nullPtr
             then pure (Right (GraphVisInfo (canvasWidth, canvasHeight) acc))
