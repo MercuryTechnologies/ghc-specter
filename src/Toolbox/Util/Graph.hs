@@ -10,15 +10,12 @@ module Toolbox.Util.Graph
     getBiDepGraph,
     fullStep,
     makeSeedState,
-    testGraphInfo,
+    reduceGraph,
     totalNumberInvariant,
   )
 where
 
-import Control.Monad.Extra (loop)
 import Control.Monad.Trans.State (execState, get, modify')
-import Data.Aeson (eitherDecode)
-import qualified Data.ByteString.Lazy as BL
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
@@ -27,28 +24,17 @@ import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
-import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import Debug.Trace (trace)
-import System.IO (IOMode (..), withFile)
 import Toolbox.Channel (ModuleGraphInfo (..))
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster Int
   deriving (Show, Eq, Ord)
 
-repCluster :: ClusterVertex -> Int
-repCluster (Cluster v) = v
-
 -- | intermediate cluster vertex
 data ICVertex
   = Unclustered Int
   | Clustered ClusterVertex
   deriving (Show, Eq, Ord)
-
-initICVertex :: Int -> ICVertex
-initICVertex i = Unclustered i
 
 getUnclustered :: [ICVertex] -> [Int]
 getUnclustered =
@@ -68,12 +54,12 @@ data GraphState = GraphState
   deriving (Show)
 
 matchCluster :: ClusterState -> Int -> Maybe ClusterVertex
-matchCluster clustering v =
+matchCluster clustering vtx =
   let clustered = clusterStateClustered clustering
       match v (cls, vs)
         | v `elem` vs = First (Just cls)
         | otherwise = First Nothing
-   in getFirst (foldMap (match v) clustered)
+   in getFirst (foldMap (match vtx) clustered)
 
 degreeInvariant :: GraphState -> (Int, Int)
 degreeInvariant graphState =
@@ -112,8 +98,7 @@ mergeStep clustering (GraphState clusteredGraph unclusteredGraph) = GraphState c
       let newdeps = do
             members <- maybeToList $ L.lookup c (clusterStateClustered clustering)
             member <- members
-            (os', is') <- maybeToList $ L.lookup member unclusteredGraph
-            pure (os', is')
+            maybeToList $ L.lookup member unclusteredGraph
           os' = L.nub $ L.sort $ (os ++ concatMap fst newdeps)
           is' = L.nub $ L.sort $ (is ++ concatMap snd newdeps)
        in (c, (os', is'))
@@ -153,7 +138,7 @@ clusterStep (GraphState clusteredGraph _) clustering = flip execState clustering
     clustered = clusterStateClustered clustering
     go (cls, vs) = do
       unclustered <- clusterStateUnclustered <$> get
-      let (os, is) = fromMaybe ([], []) $ L.lookup cls clusteredGraph
+      let (_os, is) = fromMaybe ([], []) $ L.lookup cls clusteredGraph
           -- NOTE: only cluster towards upper dependency.
           is' = getUnclustered is
           added = (is' L.\\ vs) `L.intersect` unclustered
@@ -199,6 +184,7 @@ filterOutSmallNodes graphInfo =
         filter
           (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit)
           modBiDep
+
 reduceGraph :: [Int] -> ModuleGraphInfo -> [(Int, [Int])]
 reduceGraph seeds graphInfo =
   let bgr = getBiDepGraph graphInfo
@@ -211,46 +197,11 @@ reduceGraph seeds graphInfo =
           , clusterStateUnclustered = smallNodes
           }
       r0 = (seedClustering, makeSeedState seeds bgr)
-      r1@(clustering1, graph1) = fullStep r0
-      r2@(clustering2, graph2) = fullStep r1
-      r3 = fullStep r2
-      r4 = fullStep r3
+      r1 = fullStep r0
+      r2 = fullStep r1
       final = r2
       strip (Clustered (Cluster c)) = c
       strip (Unclustered i) = i
-      finalGraphClustered = fmap (\(Cluster c, (os, is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
-      finalGraphUnclustered = fmap (\(v, (os, is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
+      finalGraphClustered = fmap (\(Cluster c, (os, _)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
+      finalGraphUnclustered = fmap (\(v, (os, _)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
    in finalGraphClustered ++ finalGraphUnclustered
-
-testGraph :: [(Int, [Int])]
-testGraph =
-  [ (1, [])
-  , (2, [1, 4, 5, 6])
-  , (3, [6])
-  , (4, [])
-  , (5, [4, 7, 8])
-  , (6, [8])
-  , (7, [9, 10])
-  , (8, [9])
-  , (9, [])
-  , (10, [])
-  ]
-
-testGraphInfo :: ModuleGraphInfo
-testGraphInfo =
-  ModuleGraphInfo
-    { mginfoModuleNameMap =
-        [ (1, "A")
-        , (2, "B")
-        , (3, "C")
-        , (4, "D")
-        , (5, "E")
-        , (6, "F")
-        , (7, "G")
-        , (8, "H")
-        , (9, "I")
-        , (10, "J")
-        ]
-    , mginfoModuleDep = testGraph
-    , mginfoModuleTopSorted = []
-    }
