@@ -72,6 +72,7 @@ dependencies:
 
 ghc-options:
   - -Wall
+  - -Werror
 
 extra-source-files:
   - README.md
@@ -83,6 +84,7 @@ library:
     - binary-instances
     - containers
     - directory
+    - discrimination
     - extra
     - ghc == 9.2.*
     - network
@@ -119,6 +121,7 @@ executables:
       - replica
       - stm
       - time
+      - transformers
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
@@ -129,3 +132,4 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - ghc-build-analyzer
+      - hspec

@@ -43,6 +43,7 @@
           p.extra
           p.fourmolu
           p.hpack
+          p.hspec
           p.optparse-applicative
           p.replica
           p.socket

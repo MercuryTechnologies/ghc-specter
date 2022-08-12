@@ -14,10 +14,12 @@ module Toolbox.Channel
   )
 where
 
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import GHC.Generics (Generic)
 
 data Channel = CheckImports | Timing | Session
   deriving (Enum, Eq, Ord, Show)
@@ -29,7 +31,11 @@ data ModuleGraphInfo = ModuleGraphInfo
   , mginfoModuleDep :: [(Int, [Int])]
   , mginfoModuleTopSorted :: [Int]
   }
-  deriving (Show)
+  deriving (Show, Read, Generic)
+
+instance FromJSON ModuleGraphInfo
+
+instance ToJSON ModuleGraphInfo
 
 instance Binary ModuleGraphInfo where
   put (ModuleGraphInfo m d s) = put (m, d, s)
