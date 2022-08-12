@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Toolbox.Render
   ( ChanModule,
     Inbox,
@@ -32,7 +34,8 @@ import Toolbox.Render.ModuleGraph (renderModuleGraph)
 import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
-  ( ServerState (..),
+  ( Event (..),
+    ServerState (..),
     Tab (..),
     UIState (..),
     type ChanModule,
@@ -53,7 +56,7 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderInbox :: UIState -> Inbox -> Widget HTML (Maybe Text)
+renderInbox :: UIState -> Inbox -> Widget HTML Event -- (Maybe Text)
 renderInbox (UIState tab mexpandedModu) m =
   ul [] $ map eachRender filtered
   where
@@ -64,21 +67,21 @@ renderInbox (UIState tab mexpandedModu) m =
       TabTiming -> Timing
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
 
-    eachRender :: (ChanModule, Text) -> Widget HTML (Maybe Text)
+    eachRender :: (ChanModule, Text) -> Widget HTML Event -- (Maybe Text)
     eachRender ((_, modu), v) =
       let modinfo
             | mexpandedModu == Just modu =
-                [ Nothing <$ iconText "fa-minus" modu
+                [ ExpandModuleEv Nothing <$ iconText "fa-minus" modu
                 , pre [] [text v]
                 ]
             | otherwise =
-                [Just modu <$ iconText "fa-plus" modu]
+                [ ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
        in li [] modinfo
 
 renderMainPanel ::
   UIState ->
   ServerState ->
-  Widget HTML (Maybe Text)
+  Widget HTML Event -- (Maybe Text)
 renderMainPanel ui@(UIState tab _) ss =
   case tab of
     TabSession -> renderSession ss
@@ -95,16 +98,16 @@ cssLink url =
     ]
     []
 
-renderNavbar :: Tab -> Widget HTML Tab
+renderNavbar :: Tab -> Widget HTML Event
 renderNavbar tab =
   nav
     [classList [("navbar", True)]]
     [ navbarMenu
         [ navbarStart
-            [ TabSession <$ navItem (tab == TabSession) [text "Session"]
-            , TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
-            , TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
+            [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
+            , TabEv TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
+            , TabEv TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
+            , TabEv TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
     ]
@@ -140,8 +143,8 @@ render (ui@(UIState tab mexpandedModu), ss) = do
       [classList [("container is-fullheight", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , (\tab' -> UIState tab' mexpandedModu) <$> renderNavbar tab
-      , (\mexpandedModu' -> UIState tab mexpandedModu') <$> mainPanel
+      , (\case TabEv tab' -> UIState tab' mexpandedModu; _ -> ui) <$> renderNavbar tab
+      , (\case ExpandModuleEv mexpandedModu' -> UIState tab mexpandedModu'; _ -> ui) <$> mainPanel
       , bottomPanel
       ]
   pure ui'
