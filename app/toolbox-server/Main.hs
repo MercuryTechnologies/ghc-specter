@@ -38,7 +38,10 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
-import Toolbox.Render.ModuleGraph (ogdfTest)
+import Toolbox.Render.ModuleGraph
+  ( filterOutSmallNodes,
+    ogdfTest,
+  )
 import Toolbox.Server.Types
   ( ServerState (..),
     Tab (TabCheckImports),
@@ -72,11 +75,13 @@ listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    (\sock -> do
+    ( \sock -> do
         o <- receiveObject sock
         case o of
-          CMBox (CMSession s') ->
-            ogdfTest (sessionModuleGraph s')
+          CMBox (CMSession s') -> do
+            let graphInfo = sessionModuleGraph s'
+                largeNodes = filterOutSmallNodes graphInfo
+            ogdfTest "current_modgraph.svg" largeNodes graphInfo
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )

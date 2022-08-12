@@ -1,7 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 
 module Toolbox.Render.ModuleGraph
-  ( ogdfTest,
+  ( filterOutSmallNodes,
+    ogdfTest,
     renderModuleGraph,
   )
 where
@@ -159,7 +160,7 @@ formatModuleGraphInfo mgi =
         <> "\n=================\n"
         <> analyze mgi
         <> "\n=================\n"
-        <> "# of vertices: "        
+        <> "# of vertices: "
         <> T.pack (show nVtx)
         <> ", # of edges: "
         <> T.pack (show nEdg)
@@ -179,14 +180,13 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-ogdfTest :: ModuleGraphInfo -> IO ()
-ogdfTest graphInfo = do
+ogdfTest :: FilePath -> [Int] -> ModuleGraphInfo -> IO ()
+ogdfTest file seeds graphInfo = do
   print graphInfo
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       let modNameMap = mginfoModuleNameMap graphInfo
-          largeNodes = filterOutSmallNodes graphInfo
-          reducedGraph = reduceGraph largeNodes graphInfo
+          reducedGraph = reduceGraph seeds graphInfo
       moduleNodeMap <-
         IM.fromList . concat
           <$> ( forM reducedGraph $ \(i, _) -> do
@@ -219,7 +219,7 @@ ogdfTest graphInfo = do
         call sl ga
 
         -- temporary
-        withCString "current_graph.svg" $ \cstr -> do
+        withCString file $ \cstr -> do
           str <- newCppString cstr
           _ <- graphIO_drawSVG ga str
           delete str
