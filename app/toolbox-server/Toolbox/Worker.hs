@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Toolbox.Worker
   ( moduleGraphWorker,
   )
