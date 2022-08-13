@@ -32,6 +32,8 @@ import Data.Graph (buildG, topSort)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -52,6 +54,7 @@ import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
+    Timer,
   )
 import Toolbox.Server.Types
   ( GraphVisInfo (..),
@@ -149,19 +152,26 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
-renderGraphVisInfo :: GraphVisInfo -> Widget HTML a
-renderGraphVisInfo grVisInfo =
+renderModuleGraphSVG ::
+  Map Text Timer ->
+  GraphVisInfo ->
+  Widget HTML a
+renderModuleGraphSVG timing grVisInfo =
   let (canvasWidth, canvasHeight) = gviCanvasDim grVisInfo
-      box (_, x, y, w, h) =
-        S.rect
-          [ SP.x (T.pack $ show x)
-          , SP.y (T.pack $ show (y + h + 3))
-          , width (T.pack $ show (w * 0.7))
-          , height "5"
-          , SP.stroke "black"
-          , SP.fill "none"
-          ]
-          []
+      box (name, x, y, w, h) =
+        let displayProps =
+              if M.member name timing
+                then [SP.stroke "black", SP.fill "red"]
+                else [SP.stroke "black", SP.fill "none"]
+         in S.rect
+              ( [ SP.x (T.pack $ show x)
+                , SP.y (T.pack $ show (y + h + 3))
+                , width (T.pack $ show (w * 0.7))
+                , height "5"
+                ]
+                  ++ displayProps
+              )
+              []
       moduleText (name, x, y, _, h) =
         S.text
           [ SP.x (T.pack $ show x)
@@ -190,6 +200,7 @@ renderGraphVisInfo grVisInfo =
 renderModuleGraph :: ServerState -> Widget HTML a
 renderModuleGraph ss =
   let sessionInfo = serverSessionInfo ss
+      timing = serverTiming ss
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -198,7 +209,8 @@ renderModuleGraph ss =
             []
             ( ( case serverModuleGraph ss of
                   Nothing -> []
-                  Just grVisInfo -> [renderGraphVisInfo grVisInfo]
+                  Just grVisInfo ->
+                    [renderModuleGraphSVG timing grVisInfo]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
             )
