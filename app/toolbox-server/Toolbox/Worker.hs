@@ -46,7 +46,7 @@ moduleGraphWorker var mgi = do
           , clusterStateUnclustered = smallNodes
           }
       bgr = getBiDepGraph mgi
-      (clustering_, _) = fullStep (seedClustering, makeSeedState largeNodes bgr)
+      (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
       clustering = mapMaybe convert (clusterStateClustered clustering_)
         where
           convert (Cluster i, js) = do
