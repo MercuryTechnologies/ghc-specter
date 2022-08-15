@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
@@ -19,8 +21,10 @@ module Toolbox.Server.Types
   )
 where
 
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import GHC.Generics (Generic)
 import Toolbox.Channel
   ( Channel,
     SessionInfo (..),
@@ -41,6 +45,7 @@ data Event
   | ExpandModuleEv (Maybe Text)
   | HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
+  | SaveSessionEv
 
 data UIState = UIState
   { uiTab :: Tab
@@ -99,7 +104,11 @@ data GraphVisInfo = GraphVisInfo
   , gviNodes :: [NodeLayout Text]
   , gviEdges :: [EdgeLayout]
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON GraphVisInfo
+
+instance ToJSON GraphVisInfo
 
 data ServerState = ServerState
   { serverMessageSN :: Int
@@ -110,6 +119,11 @@ data ServerState = ServerState
   , serverModuleClustering :: [(ModuleName, [ModuleName])]
   , serverModuleSubgraph :: [(ModuleName, GraphVisInfo)]
   }
+  deriving (Show, Generic)
+
+instance FromJSON ServerState
+
+instance ToJSON ServerState
 
 initServerState :: ServerState
 initServerState =

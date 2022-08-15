@@ -6,15 +6,25 @@ module Toolbox.Render.Session
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (div, pre, text)
+import Concur.Replica
+  ( button,
+    classList,
+    div,
+    onClick,
+    pre,
+    text,
+  )
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (SessionInfo (..))
-import Toolbox.Server.Types (ServerState (..))
+import Toolbox.Server.Types
+  ( Event (SaveSessionEv),
+    ServerState (..),
+  )
 import Prelude hiding (div)
 
-renderSession :: ServerState -> Widget HTML a
+renderSession :: ServerState -> Widget HTML Event
 renderSession ss =
   let sessionInfo = serverSessionInfo ss
       timing = serverTiming ss
@@ -27,4 +37,9 @@ renderSession ss =
             []
             [ pre [] [text $ T.pack $ show sessionStartTime]
             , pre [] [text msg]
+            , button
+                [ SaveSessionEv <$ onClick
+                , classList [("button is-primary is-size-7 m-1 p-1",True)]
+                ]
+                [text "Save Session"]
             ]
