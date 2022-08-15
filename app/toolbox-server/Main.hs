@@ -40,7 +40,7 @@ import Toolbox.Comm
   )
 import Toolbox.Render (render)
 import Toolbox.Render.ModuleGraph
-  ( drawGraph,
+  ( layOutGraph,
     makeReducedGraphReversedFromModuleGraph,
   )
 import Toolbox.Server.Types
@@ -84,7 +84,7 @@ listener socketFile var =
                 modNameMap = mginfoModuleNameMap graphInfo
                 reducedGraphReversed =
                   makeReducedGraphReversedFromModuleGraph graphInfo
-            test <- drawGraph modNameMap reducedGraphReversed
+            test <- layOutGraph modNameMap reducedGraphReversed
             print test
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o

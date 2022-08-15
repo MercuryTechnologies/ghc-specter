@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
 module Toolbox.Render.ModuleGraph
-  ( drawGraph,
+  ( layOutGraph,
     filterOutSmallNodes,
     makeReducedGraphReversedFromModuleGraph,
     renderModuleGraph,
@@ -172,8 +172,8 @@ makeReducedGraphReversedFromModuleGraph mgi =
       reducedGraph = makeReducedGraph g tordSeeds
    in IM.toList $ mkRevDep reducedGraph
 
-drawGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
-drawGraph nameMap graph = do
+layOutGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
+layOutGraph nameMap graph = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       moduleNodeMap <-
