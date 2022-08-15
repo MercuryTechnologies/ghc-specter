@@ -17,6 +17,8 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (eitherDecode')
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
 import Data.Time.Clock
   ( NominalDiffTime,
@@ -81,7 +83,12 @@ main = do
       _ <- forkIO $ listener socketFile var
       webServer var
     View sessionFile -> do
-      print sessionFile
+      lbs <- BL.readFile sessionFile
+      case eitherDecode' lbs of
+        Left err -> print err
+        Right ss -> do
+          var <- atomically $ newTVar ss
+          webServer var
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
