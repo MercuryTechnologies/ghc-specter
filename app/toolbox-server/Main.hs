@@ -46,21 +46,42 @@ import Toolbox.Server.Types
 import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
 
-newtype Options = Options {optSocketFile :: FilePath}
+data CLIMode
+  = Online FilePath
+  | View FilePath
 
-optsParser :: OA.ParserInfo Options
+onlineMode :: OA.Mod OA.CommandFields CLIMode
+onlineMode =
+  OA.command
+    "online"
+    ( OA.info
+        (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
+        (OA.progDesc "GHC inspection on the fly")
+    )
+
+viewMode :: OA.Mod OA.CommandFields CLIMode
+viewMode =
+  OA.command
+    "view"
+    ( OA.info
+        (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
+        (OA.progDesc "viewing saved session")
+    )
+
+optsParser :: OA.ParserInfo CLIMode
 optsParser =
-  OA.info
-    (Options <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
-    OA.fullDesc
+  OA.info (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper) OA.fullDesc
 
 main :: IO ()
 main = do
-  opts <- OA.execParser optsParser
-  let socketFile = optSocketFile opts
-  var <- atomically $ newTVar initServerState
-  _ <- forkIO $ listener socketFile var
-  webServer var
+  mode <- OA.execParser optsParser
+  case mode of
+    Online socketFile -> do
+      var <- atomically $ newTVar initServerState
+      _ <- forkIO $ listener socketFile var
+      webServer var
+    View sessionFile -> do
+      print sessionFile
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
