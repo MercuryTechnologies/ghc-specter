@@ -228,12 +228,7 @@ reduceGraph onlyClustered seeds graphInfo =
               fmap (\i -> (Cluster i, [i])) seeds
           , clusterStateUnclustered = smallNodes
           }
-      r0 = (seedClustering, makeSeedState seeds bgr)
-      -- r1@(clustering1, graph1) = fullStep r0
-      -- r2@(clustering2, graph2) = fullStep r1
-      -- r3 = fullStep r2
-      -- r4 = fullStep r3
-      final = r0
+      final = fullStep $ fullStep (seedClustering, makeSeedState seeds bgr)
       strip (Clustered (Cluster c)) = c
       strip (Unclustered i) = i
       finalGraphClustered = fmap (\(Cluster c, (os, _is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
