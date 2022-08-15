@@ -14,7 +14,7 @@ import Control.Exception (bracket)
 import Control.Monad.Extra (loop)
 import Data.Bits ((.|.))
 import Data.Foldable (for_)
-import qualified Data.Foldable as F (toList)
+import qualified Data.Foldable as F
 import Data.Graph (buildG, topSort)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -81,21 +81,20 @@ import Prelude hiding (div)
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
   let modDep = mginfoModuleDep graphInfo
-      modRevDepMap = mkRevDep modDep
-      modRevDep = IM.toList modRevDepMap
-      initials = fmap fst $ filter (\(_, js) -> null js) modDep
-      terminals = fmap fst $ filter (\(_, js) -> null js) modRevDep
+      modRevDep = mkRevDep modDep
+      initials = IM.keys $ IM.filter (\js -> null js) modDep
+      terminals = IM.keys $ IM.filter (\js -> null js) modRevDep
       orphans = initials `L.intersect` terminals
-      singles = mapMaybe (\(i, js) -> case js of j : [] -> Just (i, j); _ -> Nothing) modDep
+      singles = IM.mapMaybe (\js -> case js of j : [] -> Just j; _ -> Nothing) modDep
       leg i = loop go ([i], i)
         where
           go (acc', i') =
-            case L.lookup i' singles of
+            case IM.lookup i' singles of
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
       larges = filterOutSmallNodes graphInfo
-      largeNames = mapMaybe (\i -> L.lookup i (mginfoModuleNameMap graphInfo)) larges
+      largeNames = mapMaybe (\i -> IM.lookup i (mginfoModuleNameMap graphInfo)) larges
    in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
@@ -117,16 +116,16 @@ analyze graphInfo =
 -- | (number of vertices, number of edges)
 stat :: ModuleGraphInfo -> (Int, Int)
 stat mgi =
-  let nVtx = length $ mginfoModuleNameMap mgi
-      nEdg = sum $ fmap (length . snd) $ mginfoModuleDep mgi
+  let nVtx = F.length $ mginfoModuleNameMap mgi
+      nEdg = F.sum $ fmap length $ mginfoModuleDep mgi
    in (nVtx, nEdg)
 
 formatModuleGraphInfo :: ModuleGraphInfo -> Text
 formatModuleGraphInfo mgi =
   let txt1 =
-        T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleNameMap mgi
+        T.intercalate "\n" . fmap (T.pack . show) $ IM.toList $ mginfoModuleNameMap mgi
       txt2 =
-        T.intercalate "\n" . fmap (T.pack . show) $ mginfoModuleDep mgi
+        T.intercalate "\n" . fmap (T.pack . show) $ IM.toList $ mginfoModuleDep mgi
       txt3 =
         T.pack . show $ mginfoModuleTopSorted mgi
       (nVtx, nEdg) = stat mgi
@@ -163,14 +162,14 @@ newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. 
 
 makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> [(Int, [Int])]
 makeReducedGraphReversedFromModuleGraph mgi =
-  let nVtx = length $ mginfoModuleNameMap mgi
-      es = makeEdges $ mginfoModuleDep mgi
+  let nVtx = F.length $ mginfoModuleNameMap mgi
+      es = makeEdges $ IM.toList $ mginfoModuleDep mgi
       g = buildG (1, nVtx) es
       seeds = filterOutSmallNodes mgi
       tordVtxs = topSort g
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
-   in IM.toList $ mkRevDep reducedGraph
+   in IM.toList $ mkRevDep $ IM.fromList reducedGraph
 
 layOutGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
 layOutGraph nameMap graph = do

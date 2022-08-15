@@ -170,11 +170,11 @@ fullStep (clustering, graphState) =
       clustering' = clusterStep graphState2 clustering
    in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
-mkRevDep :: [(Int, [Int])] -> IntMap [Int]
-mkRevDep deps = L.foldl' step emptyMap deps
+mkRevDep :: IntMap [Int] -> IntMap [Int]
+mkRevDep deps = IM.foldlWithKey step emptyMap deps
   where
-    emptyMap = L.foldl' (\(!acc) (i, _) -> IM.insert i [] acc) IM.empty deps
-    step !acc (i, js) =
+    emptyMap = fmap (const []) deps
+    step !acc i js =
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
 nodeSizeLimit :: Int
@@ -201,10 +201,9 @@ makeReducedGraph g tordList =
 getBiDepGraph :: ModuleGraphInfo -> [(Int, ([Int], [Int]))]
 getBiDepGraph graphInfo =
   let modDep = mginfoModuleDep graphInfo
-      modRevDepMap = mkRevDep modDep
-      modRevDep = IM.toList modRevDepMap
+      modRevDep = mkRevDep modDep
       -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
-      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
+      modBiDep = concat $ inner grouping joiner fst fst (IM.toList modDep) (IM.toList modRevDep)
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
    in modBiDep
@@ -220,7 +219,7 @@ filterOutSmallNodes graphInfo =
 reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> [(Int, [Int])]
 reduceGraph onlyClustered seeds graphInfo =
   let bgr = getBiDepGraph graphInfo
-      allNodes = fmap fst $ mginfoModuleNameMap graphInfo
+      allNodes = IM.keys $ mginfoModuleNameMap graphInfo
       smallNodes = allNodes L.\\ seeds
       seedClustering =
         ClusterState

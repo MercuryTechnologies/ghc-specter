@@ -17,6 +17,7 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
+import Data.IntMap (IntMap)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
@@ -27,8 +28,8 @@ data Channel = CheckImports | Timing | Session
 type ModuleName = Text
 
 data ModuleGraphInfo = ModuleGraphInfo
-  { mginfoModuleNameMap :: [(Int, ModuleName)]
-  , mginfoModuleDep :: [(Int, [Int])]
+  { mginfoModuleNameMap :: IntMap ModuleName
+  , mginfoModuleDep :: IntMap [Int]
   , mginfoModuleTopSorted :: [Int]
   }
   deriving (Show, Read, Generic)
@@ -42,7 +43,7 @@ instance Binary ModuleGraphInfo where
   get = (\(m, d, s) -> ModuleGraphInfo m d s) <$> get
 
 emptyModuleGraphInfo :: ModuleGraphInfo
-emptyModuleGraphInfo = ModuleGraphInfo [] [] []
+emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 
 data SessionInfo = SessionInfo
   { sessionStartTime :: Maybe UTCTime
