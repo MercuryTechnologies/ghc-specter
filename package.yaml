@@ -121,6 +121,7 @@ executables:
       - ghc-build-analyzer
       - optparse-applicative
       - replica
+      - resourcet
       - stdcxx
       - stm
       - time
