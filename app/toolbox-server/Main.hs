@@ -111,9 +111,9 @@ updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg ss =
   incrementSN $
     case chanMsg of
-      CMBox (CMCheckImports modu msg) ->
+      CMBox (CMTypeCheck modu msg) ->
         let m = serverInbox ss
-         in ss {serverInbox = M.insert (CheckImports, modu) msg m}
+         in ss {serverInbox = M.insert (TypeCheck, modu) msg m}
       CMBox (CMTiming modu timer') ->
         let m = serverTiming ss
          in ss {serverTiming = M.insert modu timer' m}

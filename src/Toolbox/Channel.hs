@@ -22,7 +22,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 
-data Channel = CheckImports | Timing | Session
+data Channel = TypeCheck | Timing | Session
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -81,20 +81,20 @@ resetTimer :: Timer
 resetTimer = Timer Nothing Nothing
 
 data ChanMessage (a :: Channel) where
-  CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
+  CMTypeCheck :: ModuleName -> Text -> ChanMessage 'TypeCheck
   CMTiming :: ModuleName -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
 instance Show ChanMessageBox where
-  show (CMBox (CMCheckImports _ _)) = "CMCheckImports"
+  show (CMBox (CMTypeCheck _ _)) = "CMTypeCheck"
   show (CMBox (CMTiming _ _)) = "CMTiming"
   show (CMBox (CMSession _)) = "CMSession"
 
 instance Binary ChanMessageBox where
-  put (CMBox (CMCheckImports m t)) = do
-    put (fromEnum CheckImports)
+  put (CMBox (CMTypeCheck m t)) = do
+    put (fromEnum TypeCheck)
     put (m, t)
   put (CMBox (CMTiming m t)) = do
     put (fromEnum Timing)
@@ -106,6 +106,6 @@ instance Binary ChanMessageBox where
   get = do
     tag <- get
     case toEnum tag of
-      CheckImports -> CMBox . uncurry CMCheckImports <$> get
+      TypeCheck -> CMBox . uncurry CMTypeCheck <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get

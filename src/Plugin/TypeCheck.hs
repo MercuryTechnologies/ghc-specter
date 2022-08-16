@@ -1,9 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 
--- | CheckImport plugin:
---   This plugin checks if imported identifiers as unqualified
---   exist and lists them.
-module Plugin.CheckImports
+-- | TypeCheck plugin:
+--   This plugin runs at type checker time.
+module Plugin.TypeCheck
   ( -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
   )
@@ -42,7 +41,7 @@ import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import System.Directory (doesFileExist)
 import Toolbox.Channel
-  ( ChanMessage (CMCheckImports),
+  ( ChanMessage (CMTypeCheck),
     ChanMessageBox (..),
   )
 import Toolbox.Comm (runClient, sendObject)
@@ -117,6 +116,6 @@ typecheckPlugin opts modsummary tc = do
       socketExists <- doesFileExist ipcfile
       when socketExists $
         runClient ipcfile $ \sock ->
-          sendObject sock (CMBox (CMCheckImports modName (T.pack rendered)))
+          sendObject sock (CMBox (CMTypeCheck modName (T.pack rendered)))
     _ -> pure ()
   pure tc

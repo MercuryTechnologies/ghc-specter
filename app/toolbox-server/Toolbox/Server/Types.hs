@@ -37,7 +37,7 @@ type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
 
-data Tab = TabSession | TabModuleGraph | TabCheckImports | TabTiming
+data Tab = TabSession | TabModuleGraph | TabTypeCheck | TabTiming
   deriving (Eq)
 
 data Event
@@ -51,7 +51,7 @@ data UIState = UIState
   { uiTab :: Tab
   -- ^ current tab
   , uiModuleExpanded :: Maybe Text
-  -- ^ expanded module in CheckImports
+  -- ^ expanded module in TypeCheck
   , uiModuleHover :: Maybe Text
   -- ^ module under mouse cursor in Module Graph
   , uiModuleClick :: Maybe Text

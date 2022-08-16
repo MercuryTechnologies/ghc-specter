@@ -69,7 +69,7 @@ renderInbox ui m =
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
-      TabCheckImports -> CheckImports
+      TabTypeCheck -> TypeCheck
       TabTiming -> Timing
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
 
@@ -92,7 +92,7 @@ renderMainPanel ui ss =
   case uiTab ui of
     TabSession -> renderSession ss
     TabModuleGraph -> renderModuleGraph ui ss
-    TabCheckImports -> renderInbox ui (serverInbox ss)
+    TabTypeCheck -> renderInbox ui (serverInbox ss)
     TabTiming -> renderTiming ss
 
 cssLink :: Text -> Widget HTML a
@@ -112,7 +112,7 @@ renderNavbar tab =
         [ navbarStart
             [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
             , TabEv TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , TabEv TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
+            , TabEv TabTypeCheck <$ navItem (tab == TabTypeCheck) [text "Type Check"]
             , TabEv TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
