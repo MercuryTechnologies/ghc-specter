@@ -6,6 +6,7 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Data.Function (on)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
@@ -78,10 +79,15 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
       modBiDep = getBiDepGraph mgi
-      largeNodes = IM.keys $ IM.filterWithKey isLargeMember modBiDep
+      largeNodes =
+          take maxSubGraphSize
+            . fmap fst
+            . L.sortBy (flip compare `on` (countEdges . snd))
+            . filter (\(m, _) -> m `elem` members)
+            . IM.toList
+            $ modBiDep
         where
-          isLargeMember m (os, is) =
-            (m `elem` members) && (length os + length is < maxSubGraphSize)
+          countEdges (os, is) = length os + length is
       subModDep =
         fmap (\ns -> filter (\n -> n `elem` largeNodes) ns) $
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep

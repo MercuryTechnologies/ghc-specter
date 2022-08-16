@@ -249,11 +249,11 @@ renderModuleGraphSVG timing clustering grVisInfo mhovered =
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderSubgraph ::
+  Map ModuleName Timer ->
   [(ModuleName, GraphVisInfo)] ->
-  [(Text, [Text])] ->
   Maybe Text ->
   Widget HTML Event
-renderSubgraph subgraphs clustering mselected =
+renderSubgraph timing subgraphs mselected =
   case mselected of
     Nothing -> text "no module cluster is selected"
     Just selected ->
@@ -261,9 +261,8 @@ renderSubgraph subgraphs clustering mselected =
         Nothing ->
           text [fmt|cannot find the subgraph for the module cluster {selected}|]
         Just subgraph ->
-          renderModuleGraphSVG mempty [] subgraph Nothing
-
--- text [fmt|The module cluster {selected}: \n{show subgraph}|]
+          let tempclustering = fmap (\(name,_,_,_,_) -> (name, [name])) $ gviNodes subgraph
+          in renderModuleGraphSVG timing tempclustering subgraph Nothing
 
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraph ui ss =
@@ -280,7 +279,7 @@ renderModuleGraph ui ss =
                   Nothing -> []
                   Just grVisInfo ->
                     [ renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)
-                    , renderSubgraph (serverModuleSubgraph ss) clustering (uiModuleClick ui)
+                    , renderSubgraph timing (serverModuleSubgraph ss) (uiModuleClick ui)
                     ]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
