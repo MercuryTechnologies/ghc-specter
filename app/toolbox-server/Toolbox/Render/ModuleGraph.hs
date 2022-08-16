@@ -2,8 +2,6 @@
 
 module Toolbox.Render.ModuleGraph
   ( layOutGraph,
-    filterOutSmallNodes,
-    makeReducedGraphReversedFromModuleGraph,
     renderModuleGraph,
   )
 where
@@ -26,9 +24,7 @@ import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (allocate)
 import Data.Bits ((.|.))
-import Data.Foldable (for_)
 import qualified Data.Foldable as F
-import Data.Graph (buildG, topSort)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -63,8 +59,6 @@ import Toolbox.Server.Types
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
-    makeEdges,
-    makeReducedGraph,
     mkRevDep,
   )
 import Toolbox.Util.OGDF
@@ -218,17 +212,6 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
-makeReducedGraphReversedFromModuleGraph mgi =
-  let nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges $ mginfoModuleDep mgi
-      g = buildG (1, nVtx) es
-      seeds = filterOutSmallNodes mgi
-      tordVtxs = topSort g
-      tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = makeReducedGraph g tordSeeds
-   in mkRevDep reducedGraph
-
 layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
 layOutGraph nameMap graph = runGraphLayouter $ do
   (_, g) <- allocate newGraph delete
@@ -248,9 +231,9 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
   void $
     flip IM.traverseWithKey graph $ \i js ->
-      for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
+      F.for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
         let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
-        for_ node_js $ \node_j ->
+        F.for_ node_js $ \node_j ->
           liftIO (graph_newEdge g node_i node_j)
 
   doSugiyamaLayout ga
