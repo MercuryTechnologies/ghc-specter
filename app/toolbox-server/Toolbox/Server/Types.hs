@@ -8,6 +8,7 @@ module Toolbox.Server.Types
     initUIState,
     -- * Server state
     ServerState (..),
+    initServerState,
     incrementSN,
     -- * graph visualization information
     Point (..),
@@ -22,9 +23,10 @@ import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Toolbox.Channel
   ( Channel,
-    SessionInfo,
+    SessionInfo (..),
     Timer,
     type ModuleName,
+    emptyModuleGraphInfo,
   )
 
 type ChanModule = (Channel, Text)
@@ -106,7 +108,20 @@ data ServerState = ServerState
   , serverTiming :: Map ModuleName Timer
   , serverModuleGraph :: Maybe GraphVisInfo
   , serverModuleClustering :: [(ModuleName, [ModuleName])]
+  , serverModuleSubgraph :: [(ModuleName, GraphVisInfo)]
   }
+
+initServerState :: ServerState
+initServerState =
+  ServerState
+    { serverMessageSN = 0
+    , serverInbox = mempty
+    , serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
+    , serverTiming = mempty
+    , serverModuleGraph = Nothing
+    , serverModuleClustering = []
+    , serverModuleSubgraph = []
+    }
 
 incrementSN :: ServerState -> ServerState
 incrementSN ss =

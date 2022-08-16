@@ -34,7 +34,7 @@ import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
@@ -248,6 +248,23 @@ renderModuleGraphSVG timing clustering grVisInfo mhovered =
           (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
+renderSubgraph ::
+  [(ModuleName, GraphVisInfo)] ->
+  [(Text, [Text])] ->
+  Maybe Text ->
+  Widget HTML Event
+renderSubgraph subgraphs clustering mselected =
+  case mselected of
+    Nothing -> text "no module cluster is selected"
+    Just selected ->
+      case L.lookup selected subgraphs of
+        Nothing ->
+          text [fmt|cannot find the subgraph for the module cluster {selected}|]
+        Just subgraph ->
+          renderModuleGraphSVG mempty [] subgraph Nothing
+
+-- text [fmt|The module cluster {selected}: \n{show subgraph}|]
+
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraph ui ss =
   let sessionInfo = serverSessionInfo ss
@@ -263,7 +280,7 @@ renderModuleGraph ui ss =
                   Nothing -> []
                   Just grVisInfo ->
                     [ renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)
-                    , text (T.pack $ show (uiModuleClick ui))
+                    , renderSubgraph (serverModuleSubgraph ss) clustering (uiModuleClick ui)
                     ]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
