@@ -20,7 +20,10 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
-import qualified Data.List as L
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IM
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
@@ -100,16 +103,19 @@ extractModuleGraphInfo modGraph = do
       vtxs = G.verticesG graph
       modNameFromVertex =
         fmap getModuleNameText . gnode2ModSummary . G.node_payload
-      modNameMap =
+      modNameMapLst =
         mapMaybe
           (\v -> (G.node_key v,) <$> modNameFromVertex v)
           vtxs
-      modNameRevMap = fmap swap modNameMap
+      modNameMap :: IntMap ModuleName
+      modNameMap = IM.fromList modNameMapLst
+      modNameRevMap :: Map ModuleName Int
+      modNameRevMap = M.fromList $ fmap swap modNameMapLst
       topSorted =
         mapMaybe
-          (\n -> L.lookup n modNameRevMap)
+          (\n -> M.lookup n modNameRevMap)
           $ getTopSortedModules modGraph
-      modDeps = fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
+      modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
