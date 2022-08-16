@@ -64,6 +64,8 @@
           p.discrimination
           p.extra
           p.fourmolu
+          p.haskell-language-server
+          p.hie-compat
           p.hpack
           p.hspec
           p.OGDF
