@@ -17,7 +17,12 @@ where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Toolbox.Channel (Channel, SessionInfo, Timer)
+import Toolbox.Channel
+  ( Channel,
+    SessionInfo,
+    Timer,
+    type ModuleName,
+  )
 
 type ChanModule = (Channel, Text)
 
@@ -72,8 +77,9 @@ data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
-  , serverTiming :: Map Text Timer
+  , serverTiming :: Map ModuleName Timer
   , serverModuleGraph :: Maybe GraphVisInfo
+  , serverModuleClustering :: [(ModuleName, [ModuleName])]
   }
 
 incrementSN :: ServerState -> ServerState

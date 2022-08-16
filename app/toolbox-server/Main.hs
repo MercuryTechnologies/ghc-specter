@@ -61,7 +61,7 @@ main = do
   let socketFile = optSocketFile opts
   var <-
     atomically $
-      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty Nothing)
+      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty Nothing [])
   _ <- forkIO $ listener socketFile var
   webServer var
 

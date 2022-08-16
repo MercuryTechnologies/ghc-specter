@@ -30,7 +30,7 @@ import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
@@ -148,23 +148,39 @@ formatModuleGraphInfo mgi =
 
 renderModuleGraphSVG ::
   Map Text Timer ->
+  [(Text, [Text])] ->
   GraphVisInfo ->
   Widget HTML a
-renderModuleGraphSVG timing grVisInfo =
+renderModuleGraphSVG timing clustering grVisInfo =
   let (canvasWidth, canvasHeight) = gviCanvasDim grVisInfo
-      box (name, x, y, w, h) =
-        let displayProps =
-              if M.member name timing
-                then [SP.stroke "black", SP.fill "red"]
-                else [SP.stroke "black", SP.fill "none"]
+      box1 (_name, x, y, w, h) =
+        S.rect
+          [ SP.x (T.pack $ show x)
+          , SP.y (T.pack $ show (y + h + 3))
+          , width (T.pack $ show (w * 0.7))
+          , height "5"
+          , SP.stroke "black"
+          , SP.fill "none"
+          ]
+          []
+      box2 (name, x, y, w, h) =
+        let ratio = fromMaybe 0 $ do
+              cluster <- L.lookup name clustering
+              let nTot = length cluster
+              if nTot == 0
+                then Nothing
+                else do
+                  let compiled = filter (\j -> j `M.member` timing) cluster
+                      nCompiled = length compiled
+                  pure (fromIntegral nCompiled / fromIntegral nTot)
+            w' = ratio * w
          in S.rect
-              ( [ SP.x (T.pack $ show x)
-                , SP.y (T.pack $ show (y + h + 3))
-                , width (T.pack $ show (w * 0.7))
-                , height "5"
-                ]
-                  ++ displayProps
-              )
+              [ SP.x (T.pack $ show x)
+              , SP.y (T.pack $ show (y + h + 3))
+              , width (T.pack $ show (w' * 0.7))
+              , height "5"
+              , SP.fill "green"
+              ]
               []
       moduleText (name, x, y, _, h) =
         S.text
@@ -187,7 +203,7 @@ renderModuleGraphSVG timing grVisInfo =
           , xmlns
           ]
           ( S.style [] [text ".small { font: 12px sans-serif; }"] :
-            concatMap (\x -> [box x, moduleText x]) (gviNodes grVisInfo)
+            concatMap (\x -> [box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
           )
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
@@ -195,6 +211,7 @@ renderModuleGraph :: ServerState -> Widget HTML a
 renderModuleGraph ss =
   let sessionInfo = serverSessionInfo ss
       timing = serverTiming ss
+      clustering = serverModuleClustering ss
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -204,7 +221,7 @@ renderModuleGraph ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [renderModuleGraphSVG timing grVisInfo]
+                    [renderModuleGraphSVG timing clustering grVisInfo]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
             )
