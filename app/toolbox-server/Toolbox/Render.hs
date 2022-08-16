@@ -103,7 +103,7 @@ cssLink url =
 renderNavbar :: Tab -> Widget HTML Event
 renderNavbar tab =
   nav
-    [classList [("navbar", True)]]
+    [classList [("navbar m-0 p-0", True)]]
     [ navbarMenu
         [ navbarStart
             [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
@@ -118,8 +118,8 @@ renderNavbar tab =
     navbarStart = divClass "navbar-start" []
     navItem isActive =
       let clss
-            | isActive = ["navbar-item", "is-tab", "is-active"]
-            | otherwise = ["navbar-item", "is-tab"]
+            | isActive = ["navbar-item", "is-tab", "is-active", "m-0", "p-1"]
+            | otherwise = ["navbar-item", "is-tab", "m-0", "p-1"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
@@ -153,7 +153,7 @@ render (ui, ss) = do
 
   ui' <-
     div
-      [classList [("container is-fullheight", True)]]
+      [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
       , handleNavbar ui <$> renderNavbar (uiTab ui)
