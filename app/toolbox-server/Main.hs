@@ -30,7 +30,6 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
-    ModuleGraphInfo (..),
     SessionInfo (..),
     emptyModuleGraphInfo,
   )
@@ -39,17 +38,13 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
-import Toolbox.Render.ModuleGraph
-  ( layOutGraph,
-    makeReducedGraphReversedFromModuleGraph,
-  )
 import Toolbox.Server.Types
-  ( GraphVisInfo (..),
-    ServerState (..),
+  ( ServerState (..),
     Tab (TabCheckImports),
     UIState (..),
     incrementSN,
   )
+import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -72,17 +67,6 @@ main = do
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
-
-moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
-moduleGraphWorker var graphInfo = do
-  let modNameMap = mginfoModuleNameMap graphInfo
-      reducedGraphReversed =
-        makeReducedGraphReversedFromModuleGraph graphInfo
-  grVisInfo <- layOutGraph modNameMap reducedGraphReversed
-  putStrLn $ "number of boxes : " ++ show (length (gviNodes grVisInfo))
-  print grVisInfo
-  atomically $
-    modifyTVar' var (\ss -> incrementSN (ss {serverModuleGraph = Just grVisInfo}))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
