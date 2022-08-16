@@ -14,7 +14,7 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as M
@@ -72,6 +72,14 @@ main = do
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
+moduleGraphWorker :: ModuleGraphInfo -> IO ()
+moduleGraphWorker graphInfo = do
+  let modNameMap = mginfoModuleNameMap graphInfo
+      reducedGraphReversed =
+        makeReducedGraphReversedFromModuleGraph graphInfo
+  test <- layOutGraph modNameMap reducedGraphReversed
+  print test
+
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
@@ -81,11 +89,7 @@ listener socketFile var =
         case o of
           CMBox (CMSession s') -> do
             let graphInfo = sessionModuleGraph s'
-                modNameMap = mginfoModuleNameMap graphInfo
-                reducedGraphReversed =
-                  makeReducedGraphReversedFromModuleGraph graphInfo
-            test <- layOutGraph modNameMap reducedGraphReversed
-            print test
+            void $ forkIO (moduleGraphWorker graphInfo)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )
