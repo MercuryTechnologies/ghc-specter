@@ -44,7 +44,8 @@ import Toolbox.Render.ModuleGraph
     makeReducedGraphReversedFromModuleGraph,
   )
 import Toolbox.Server.Types
-  ( ServerState (..),
+  ( GraphVisInfo (..),
+    ServerState (..),
     Tab (TabCheckImports),
     UIState (..),
     incrementSN,
@@ -65,20 +66,23 @@ main = do
   let socketFile = optSocketFile opts
   var <-
     atomically $
-      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty)
+      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty Nothing)
   _ <- forkIO $ listener socketFile var
   webServer var
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
-moduleGraphWorker :: ModuleGraphInfo -> IO ()
-moduleGraphWorker graphInfo = do
+moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
+moduleGraphWorker var graphInfo = do
   let modNameMap = mginfoModuleNameMap graphInfo
       reducedGraphReversed =
         makeReducedGraphReversedFromModuleGraph graphInfo
-  test <- layOutGraph modNameMap reducedGraphReversed
-  print test
+  grVisInfo <- layOutGraph modNameMap reducedGraphReversed
+  putStrLn $ "number of boxes : " ++ show (length (gviNodes grVisInfo))
+  print grVisInfo
+  atomically $
+    modifyTVar' var (\ss -> incrementSN (ss {serverModuleGraph = Just grVisInfo}))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
@@ -88,8 +92,8 @@ listener socketFile var =
         o <- receiveObject sock
         case o of
           CMBox (CMSession s') -> do
-            let graphInfo = sessionModuleGraph s'
-            void $ forkIO (moduleGraphWorker graphInfo)
+            let mgi = sessionModuleGraph s'
+            void $ forkIO (moduleGraphWorker var mgi)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )

@@ -9,7 +9,18 @@ module Toolbox.Render.ModuleGraph
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (div, pre, text)
+import Concur.Replica
+  ( Props,
+    classList,
+    div,
+    height,
+    pre,
+    text,
+    textProp,
+    width,
+  )
+import qualified Concur.Replica.SVG as S
+import qualified Concur.Replica.SVG.Props as SP
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -67,6 +78,9 @@ import Toolbox.Util.OGDF
     runGraphLayouter,
   )
 import Prelude hiding (div)
+
+xmlns :: Props a
+xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
@@ -135,6 +149,44 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
+renderGraphVisInfo :: GraphVisInfo -> Widget HTML a
+renderGraphVisInfo grVisInfo =
+  let (canvasWidth, canvasHeight) = gviCanvasDim grVisInfo
+      box (_, x, y, w, h) =
+        S.rect
+          [ SP.x (T.pack $ show x)
+          , SP.y (T.pack $ show (y + h + 3))
+          , width (T.pack $ show (w * 0.7))
+          , height "5"
+          , SP.stroke "black"
+          , SP.fill "none"
+          ]
+          []
+      moduleText (name, x, y, _, h) =
+        S.text
+          [ SP.x (T.pack $ show x)
+          , SP.y (T.pack $ show (y + h))
+          , classList [("small", True)]
+          ]
+          [text name]
+
+      svgElement =
+        S.svg
+          [ width "100%"
+          , SP.viewBox
+              ( "0 0 "
+                  <> T.pack (show (canvasWidth + 300)) -- i don't understand why it's incorrect
+                  <> " "
+                  <> T.pack (show (canvasHeight + 300))
+              )
+          , SP.version "1.1"
+          , xmlns
+          ]
+          ( S.style [] [text ".small { font: 12px sans-serif; }"] :
+            concatMap (\x -> [box x, moduleText x]) (gviNodes grVisInfo)
+          )
+   in div [classList [("is-fullwidth", True)]] [svgElement]
+
 renderModuleGraph :: ServerState -> Widget HTML a
 renderModuleGraph ss =
   let sessionInfo = serverSessionInfo ss
@@ -144,8 +196,12 @@ renderModuleGraph ss =
         Just _ ->
           div
             []
-            [ pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]
-            ]
+            ( ( case serverModuleGraph ss of
+                  Nothing -> []
+                  Just grVisInfo -> [renderGraphVisInfo grVisInfo]
+              )
+                ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
+            )
 
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
@@ -171,8 +227,8 @@ layOutGraph nameMap graph = runGraphLayouter $ do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
         Just name -> do
-          let width = 8 * T.length name
-          node <- newGraphNodeWithSize (g, ga) (width, 15)
+          let w = 8 * T.length name
+          node <- newGraphNodeWithSize (g, ga) (w, 15)
           appendText ga node name
           pure (Just node)
   moduleNodeIndex <-

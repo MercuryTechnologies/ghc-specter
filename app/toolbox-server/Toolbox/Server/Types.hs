@@ -73,6 +73,7 @@ data ServerState = ServerState
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
   , serverTiming :: Map Text Timer
+  , serverModuleGraph :: Maybe GraphVisInfo
   }
 
 incrementSN :: ServerState -> ServerState
