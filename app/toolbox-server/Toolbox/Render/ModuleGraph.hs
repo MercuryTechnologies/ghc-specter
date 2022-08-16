@@ -10,9 +10,10 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
-import Control.Exception (bracket)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Resource (allocate)
 import Data.Bits ((.|.))
 import Data.Foldable (for_)
 import qualified Data.Foldable as F
@@ -24,7 +25,6 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
-import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.Graph
   ( Graph,
     graph_newEdge,
@@ -32,25 +32,9 @@ import OGDF.Graph
   )
 import OGDF.GraphAttributes
   ( GraphAttributes,
-    boundingBox,
     newGraphAttributes,
   )
-import OGDF.LayoutModule (ILayoutModule (call))
-import OGDF.MedianHeuristic (newMedianHeuristic)
 import OGDF.NodeElement (nodeElement_index)
-import OGDF.OptimalHierarchyLayout
-  ( newOptimalHierarchyLayout,
-    optimalHierarchyLayout_layerDistance,
-    optimalHierarchyLayout_nodeDistance,
-    optimalHierarchyLayout_weightBalancing,
-  )
-import OGDF.OptimalRanking (newOptimalRanking)
-import OGDF.SugiyamaLayout
-  ( newSugiyamaLayout,
-    sugiyamaLayout_setCrossMin,
-    sugiyamaLayout_setLayout,
-    sugiyamaLayout_setRanking,
-  )
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Toolbox.Channel
@@ -70,13 +54,16 @@ import Toolbox.Util.Graph
   )
 import Toolbox.Util.OGDF
   ( appendText,
+    doSugiyamaLayout,
     edgeGraphics,
     getAllEdgeLayout,
     getAllNodeLayout,
+    getCanvasDim,
     newGraphNodeWithSize,
     nodeGraphics,
     nodeLabel,
     nodeStyle,
+    runGraphLayouter,
   )
 import Prelude hiding (div)
 
@@ -174,53 +161,42 @@ makeReducedGraphReversedFromModuleGraph mgi =
    in mkRevDep reducedGraph
 
 layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
-layOutGraph nameMap graph = do
-  bracket newGraph delete $ \g ->
-    bracket (newGA g) delete $ \ga -> do
-      moduleNodeMap <-
-        flip IM.traverseMaybeWithKey graph $ \i _ -> do
-          case IM.lookup i nameMap of
-            Nothing -> pure Nothing
-            Just name -> do
-              let width = 8 * T.length name
-              node <- newGraphNodeWithSize (g, ga) (width, 15)
-              appendText ga node name
-              pure (Just node)
-      moduleNodeIndex <-
-        traverse (\node -> fromIntegral @_ @Int <$> nodeElement_index node) moduleNodeMap
-      let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
-      void $
-        flip IM.traverseWithKey graph $ \i js ->
-          for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
-            let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
-            for_ node_js $ \node_j ->
-              graph_newEdge g node_i node_j
+layOutGraph nameMap graph = runGraphLayouter $ do
+  (_, g) <- allocate newGraph delete
+  (_, ga) <- allocate (newGA g) delete
 
-      bracket newSugiyamaLayout delete $ \sl -> do
-        orank <- newOptimalRanking
-        sugiyamaLayout_setRanking sl orank
-        mh <- newMedianHeuristic
-        sugiyamaLayout_setCrossMin sl mh
-        ohl <- newOptimalHierarchyLayout
-        optimalHierarchyLayout_layerDistance ohl 5.0
-        optimalHierarchyLayout_nodeDistance ohl 1.0
-        optimalHierarchyLayout_weightBalancing ohl 0.5
-        sugiyamaLayout_setLayout sl ohl
-        call sl ga
+  moduleNodeMap <-
+    flip IM.traverseMaybeWithKey graph $ \i _ -> do
+      case IM.lookup i nameMap of
+        Nothing -> pure Nothing
+        Just name -> do
+          let width = 8 * T.length name
+          node <- newGraphNodeWithSize (g, ga) (width, 15)
+          appendText ga node name
+          pure (Just node)
+  moduleNodeIndex <-
+    traverse (\node -> liftIO (fromIntegral @_ @Int <$> nodeElement_index node)) moduleNodeMap
+  let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
+  void $
+    flip IM.traverseWithKey graph $ \i js ->
+      for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
+        let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
+        for_ node_js $ \node_j ->
+          liftIO (graph_newEdge g node_i node_j)
 
-        drect <- boundingBox ga
-        canvasWidth :: Double <- realToFrac <$> dRect_width drect
-        canvasHeight :: Double <- realToFrac <$> dRect_height drect
+  doSugiyamaLayout ga
 
-        nodeLayout0 <- getAllNodeLayout g ga
-        let nodeLayout = mapMaybe replace nodeLayout0
-              where
-                replace (j, x, y, w, h) = do
-                  i <- IM.lookup j moduleNodeRevIndex
-                  name <- IM.lookup i nameMap
-                  pure (name, x, y, w, h)
+  (canvasWidth, canvasHeight) <- getCanvasDim ga
 
-        edgeLayout <- getAllEdgeLayout g ga
-        print edgeLayout
+  nodeLayout0 <- getAllNodeLayout g ga
+  let nodeLayout = mapMaybe replace nodeLayout0
+        where
+          replace (j, x, y, w, h) = do
+            i <- IM.lookup j moduleNodeRevIndex
+            name <- IM.lookup i nameMap
+            pure (name, x, y, w, h)
 
-        pure $ GraphVisInfo (canvasWidth, canvasHeight) nodeLayout edgeLayout
+  edgeLayout <- getAllEdgeLayout g ga
+  liftIO $ print edgeLayout
+
+  pure $ GraphVisInfo (canvasWidth, canvasHeight) nodeLayout edgeLayout

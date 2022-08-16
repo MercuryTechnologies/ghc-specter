@@ -21,6 +21,9 @@ module Toolbox.Util.OGDF
     threeD,
     nodeLabelPosition,
     --
+    GraphLayouter (..),
+    runGraphLayouter,
+    --
     newGraphNodeWithSize,
     appendText,
     setFillColor,
@@ -28,15 +31,24 @@ module Toolbox.Util.OGDF
     getNodeY,
     getNodeWidth,
     getNodeHeight,
+    getCanvasDim,
     --
     getAllNodeLayout,
     getAllEdgeLayout,
+    --
+    doSugiyamaLayout,
   )
 where
 
-import Control.Exception (bracket)
-import Control.Monad (void)
 import Control.Monad.Extra (ifM, loopM)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Resource
+  ( MonadResource (..),
+    ResourceT,
+    allocate,
+    release,
+    runResourceT,
+  )
 import Data.ByteString (useAsCString)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
@@ -47,6 +59,7 @@ import Foreign.Storable (Storable (peek, poke))
 import OGDF.Color (color_fromString)
 import OGDF.DPoint
 import OGDF.DPoint.Implementation (dPoint_m_x_get, dPoint_m_y_get)
+import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.EdgeElement
   ( EdgeElement (..),
     edgeElement_index,
@@ -60,6 +73,7 @@ import OGDF.Graph
   )
 import OGDF.GraphAttributes
   ( GraphAttributes,
+    boundingBox,
     graphAttributes_bends,
     graphAttributes_fillColor,
     graphAttributes_height,
@@ -68,17 +82,33 @@ import OGDF.GraphAttributes
     graphAttributes_x,
     graphAttributes_y,
   )
+import OGDF.LayoutModule (ILayoutModule (call))
 import qualified OGDF.List.TH as TH
 import OGDF.List.Template
 import qualified OGDF.ListIterator.TH as TH
 import OGDF.ListIterator.Template
+import OGDF.MedianHeuristic (newMedianHeuristic)
 import OGDF.NodeElement
   ( NodeElement (..),
     nodeElement_index,
     nodeElement_succ,
   )
+import OGDF.OptimalHierarchyLayout
+  ( newOptimalHierarchyLayout,
+    optimalHierarchyLayout_layerDistance,
+    optimalHierarchyLayout_nodeDistance,
+    optimalHierarchyLayout_weightBalancing,
+  )
+import OGDF.OptimalRanking (newOptimalRanking)
+import OGDF.SugiyamaLayout
+  ( newSugiyamaLayout,
+    sugiyamaLayout_setCrossMin,
+    sugiyamaLayout_setLayout,
+    sugiyamaLayout_setRanking,
+  )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
+import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
   NonCPrim
@@ -153,8 +183,14 @@ threeD = 0x008000
 nodeLabelPosition :: CLong
 nodeLabelPosition = 0x010000
 
-newGraphNodeWithSize :: (Graph, GraphAttributes) -> (Int, Int) -> IO NodeElement
-newGraphNodeWithSize (g, ga) (width, height) = do
+newtype GraphLayouter a = GraphLayouter {unGraphLayouter :: ResourceT IO a}
+  deriving (Applicative, Functor, Monad, MonadIO, MonadResource, MonadUnliftIO)
+
+runGraphLayouter :: GraphLayouter a -> IO a
+runGraphLayouter (GraphLayouter m) = runResourceT m
+
+newGraphNodeWithSize :: (Graph, GraphAttributes) -> (Int, Int) -> GraphLayouter NodeElement
+newGraphNodeWithSize (g, ga) (width, height) = liftIO $ do
   node <- graph_newNode g
   p_width <- graphAttributes_width ga node
   poke p_width (fromIntegral width)
@@ -162,70 +198,106 @@ newGraphNodeWithSize (g, ga) (width, height) = do
   poke p_height (fromIntegral height)
   pure node
 
-appendText :: GraphAttributes -> NodeElement -> Text -> IO ()
-appendText ga node txt = do
-  str <- graphAttributes_label ga node
-  let bs = encodeUtf8 txt
-  useAsCString bs $ \cstr ->
-    bracket (newCppString cstr) delete $ \str' ->
-      void $ cppString_append str str'
+appendText :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
+appendText ga node txt =
+  withRunInIO $ \runInIO -> do
+    str <- graphAttributes_label ga node
+    let bs = encodeUtf8 txt
+    useAsCString bs $ \cstr ->
+      runInIO $ do
+        (k', str') <- allocate (newCppString cstr) delete
+        _ <- liftIO $ cppString_append str str'
+        release k'
 
-setFillColor :: GraphAttributes -> NodeElement -> Text -> IO ()
-setFillColor ga node colorTxt = do
-  color <- graphAttributes_fillColor ga node
-  let bs = encodeUtf8 colorTxt
-  useAsCString bs $ \cstr ->
-    bracket (newCppString cstr) delete $ \str' ->
-      void $ color_fromString color str'
+setFillColor :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
+setFillColor ga node colorTxt =
+  withRunInIO $ \runInIO -> do
+    color <- graphAttributes_fillColor ga node
+    let bs = encodeUtf8 colorTxt
+    useAsCString bs $ \cstr ->
+      runInIO $ do
+        (k', str') <- allocate (newCppString cstr) delete
+        _ <- liftIO $ color_fromString color str'
+        release k'
 
-getNodeX :: GraphAttributes -> NodeElement -> IO Double
-getNodeX ga n = realToFrac <$> (peek =<< graphAttributes_x ga n)
+getNodeX :: GraphAttributes -> NodeElement -> GraphLayouter Double
+getNodeX ga n =
+  liftIO $
+    realToFrac <$> (peek =<< graphAttributes_x ga n)
 
-getNodeY :: GraphAttributes -> NodeElement -> IO Double
-getNodeY ga n = realToFrac <$> (peek =<< graphAttributes_y ga n)
+getNodeY :: GraphAttributes -> NodeElement -> GraphLayouter Double
+getNodeY ga n =
+  liftIO $
+    realToFrac <$> (peek =<< graphAttributes_y ga n)
 
-getNodeWidth :: GraphAttributes -> NodeElement -> IO Double
-getNodeWidth ga n = realToFrac <$> (peek =<< graphAttributes_width ga n)
+getNodeWidth :: GraphAttributes -> NodeElement -> GraphLayouter Double
+getNodeWidth ga n =
+  liftIO $
+    realToFrac <$> (peek =<< graphAttributes_width ga n)
 
-getNodeHeight :: GraphAttributes -> NodeElement -> IO Double
-getNodeHeight ga n = realToFrac <$> (peek =<< graphAttributes_height ga n)
+getNodeHeight :: GraphAttributes -> NodeElement -> GraphLayouter Double
+getNodeHeight ga n =
+  liftIO $
+    realToFrac <$> (peek =<< graphAttributes_height ga n)
 
-getAllNodeLayout :: Graph -> GraphAttributes -> IO [(Int, Double, Double, Double, Double)]
+getCanvasDim :: GraphAttributes -> GraphLayouter (Double, Double)
+getCanvasDim ga = liftIO $ do
+  drect <- boundingBox ga
+  canvasWidth :: Double <- realToFrac <$> dRect_width drect
+  canvasHeight :: Double <- realToFrac <$> dRect_height drect
+  pure (canvasWidth, canvasHeight)
+
+getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Double, Double, Double, Double)]
 getAllNodeLayout g ga = do
-  n0 <- graph_firstNode g
+  n0 <- liftIO $ graph_firstNode g
   flip loopM ([], n0) $ \(acc, n@(NodeElement nPtr)) ->
     if nPtr == nullPtr
       then pure (Right acc)
       else do
-        j <- fromIntegral <$> nodeElement_index n
+        j <- fromIntegral <$> liftIO (nodeElement_index n)
         x <- getNodeX ga n
         y <- getNodeY ga n
         w <- getNodeWidth ga n
         h <- getNodeHeight ga n
         let acc' = acc ++ [(j, x, y, w, h)]
-        Left . (acc',) <$> nodeElement_succ n
+        Left . (acc',) <$> liftIO (nodeElement_succ n)
 
-getAllEdgeLayout :: Graph -> GraphAttributes -> IO [(Int, [(Double, Double)])]
+getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, [(Double, Double)])]
 getAllEdgeLayout g ga = do
-  e0 <- graph_firstEdge g
+  e0 <- liftIO $ graph_firstEdge g
   flip loopM ([], e0) $ \((!acc), e@(EdgeElement ePtr)) ->
     if ePtr == nullPtr
       then pure (Right acc)
       else do
-        j :: Int <- fromIntegral <$> edgeElement_index e
-        dpline <- graphAttributes_bends ga e
-        it0 <- begin dpline
+        j :: Int <- fromIntegral <$> liftIO (edgeElement_index e)
+        dpline <- liftIO (graphAttributes_bends ga e)
+        it0 <- liftIO (begin dpline)
         bendPoints <-
           flip loopM ([], it0) $ \((!bpts), it) -> do
             ifM
-              ((/= 0) <$> valid it)
+              ((/= 0) <$> liftIO (valid it))
               ( do
-                  p <- deRef it
-                  x <- realToFrac <$> dPoint_m_x_get p
-                  y <- realToFrac <$> dPoint_m_y_get p
+                  p <- liftIO (deRef it)
+                  x <- realToFrac <$> liftIO (dPoint_m_x_get p)
+                  y <- realToFrac <$> liftIO (dPoint_m_y_get p)
                   let bpts' = bpts ++ [(x, y)]
-                  (Left . (bpts',) <$> listIteratorSucc it)
+                  (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
         let acc' = acc ++ [(j, bendPoints)]
-        Left . (acc',) <$> edgeElement_succ e
+        Left . (acc',) <$> liftIO (edgeElement_succ e)
+
+doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()
+doSugiyamaLayout ga = do
+  (_, sl) <- allocate newSugiyamaLayout delete
+  liftIO $ do
+    orank <- newOptimalRanking
+    sugiyamaLayout_setRanking sl orank
+    mh <- newMedianHeuristic
+    sugiyamaLayout_setCrossMin sl mh
+    ohl <- newOptimalHierarchyLayout
+    optimalHierarchyLayout_layerDistance ohl 5.0
+    optimalHierarchyLayout_nodeDistance ohl 1.0
+    optimalHierarchyLayout_weightBalancing ohl 0.5
+    sugiyamaLayout_setLayout sl ohl
+    call sl ga

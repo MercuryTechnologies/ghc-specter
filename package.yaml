@@ -121,10 +121,12 @@ executables:
       - ghc-build-analyzer
       - optparse-applicative
       - replica
+      - resourcet
       - stdcxx
       - stm
       - time
       - transformers
+      - unliftio
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
