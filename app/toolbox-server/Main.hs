@@ -85,7 +85,7 @@ listener socketFile var =
                 modNameMap = mginfoModuleNameMap graphInfo
                 reducedGraphReversed =
                   makeReducedGraphReversedFromModuleGraph graphInfo
-            test <- layOutGraph (IM.toList modNameMap) reducedGraphReversed
+            test <- layOutGraph modNameMap reducedGraphReversed
             print test
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o

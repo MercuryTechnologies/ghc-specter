@@ -11,17 +11,18 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (div, pre, text)
 import Control.Exception (bracket)
+import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Data.Bits ((.|.))
 import Data.Foldable (for_)
 import qualified Data.Foldable as F
 import Data.Graph (buildG, topSort)
+import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Traversable (forM)
 import Data.Tuple (swap)
 import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.Graph
@@ -54,6 +55,7 @@ import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
+    ModuleName,
     SessionInfo (..),
   )
 import Toolbox.Server.Types
@@ -160,43 +162,39 @@ renderModuleGraph ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> [(Int, [Int])]
+makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
 makeReducedGraphReversedFromModuleGraph mgi =
   let nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges $ IM.toList $ mginfoModuleDep mgi
+      es = makeEdges $ mginfoModuleDep mgi
       g = buildG (1, nVtx) es
       seeds = filterOutSmallNodes mgi
       tordVtxs = topSort g
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
-   in IM.toList $ mkRevDep $ IM.fromList reducedGraph
+   in mkRevDep reducedGraph
 
-layOutGraph :: [(Int, Text)] -> [(Int, [Int])] -> IO GraphVisInfo
+layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
 layOutGraph nameMap graph = do
   bracket newGraph delete $ \g ->
     bracket (newGA g) delete $ \ga -> do
       moduleNodeMap <-
-        IM.fromList . concat
-          <$> ( forM graph $ \(i, _) -> do
-                  case L.lookup i nameMap of
-                    Nothing -> pure []
-                    Just name -> do
-                      let width = 8 * T.length name
-                      node <- newGraphNodeWithSize (g, ga) (width, 15)
-                      appendText ga node name
-                      pure [(i, node)]
-              )
-      moduleNodeIndexList <-
-        F.toList
-          <$> IM.traverseWithKey
-            (\i node -> (i,) . fromIntegral @_ @Int <$> nodeElement_index node)
-            moduleNodeMap
-      let moduleNodeIndexRevList = fmap swap moduleNodeIndexList
-      for_ graph $ \(i, js) ->
-        for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
-          let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
-          for_ node_js $ \node_j ->
-            graph_newEdge g node_i node_j
+        flip IM.traverseMaybeWithKey graph $ \i _ -> do
+          case IM.lookup i nameMap of
+            Nothing -> pure Nothing
+            Just name -> do
+              let width = 8 * T.length name
+              node <- newGraphNodeWithSize (g, ga) (width, 15)
+              appendText ga node name
+              pure (Just node)
+      moduleNodeIndex <-
+        traverse (\node -> fromIntegral @_ @Int <$> nodeElement_index node) moduleNodeMap
+      let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
+      void $
+        flip IM.traverseWithKey graph $ \i js ->
+          for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
+            let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
+            for_ node_js $ \node_j ->
+              graph_newEdge g node_i node_j
 
       bracket newSugiyamaLayout delete $ \sl -> do
         orank <- newOptimalRanking
@@ -218,8 +216,8 @@ layOutGraph nameMap graph = do
         let nodeLayout = mapMaybe replace nodeLayout0
               where
                 replace (j, x, y, w, h) = do
-                  i <- L.lookup j moduleNodeIndexRevList
-                  name <- L.lookup i nameMap
+                  i <- IM.lookup j moduleNodeRevIndex
+                  name <- IM.lookup i nameMap
                   pure (name, x, y, w, h)
 
         edgeLayout <- getAllEdgeLayout g ga

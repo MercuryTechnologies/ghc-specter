@@ -90,7 +90,7 @@ totalNumberInvariant clustering =
 
 makeSeedState ::
   [Int] ->
-  [(Int, ([Int], [Int]))] ->
+  IntMap ([Int], [Int]) ->
   GraphState
 makeSeedState seeds graph = GraphState clusteredGraph unclusteredGraph
   where
@@ -100,7 +100,7 @@ makeSeedState seeds graph = GraphState clusteredGraph unclusteredGraph
        in if v `elem` seeds
             then Left (Cluster v, (os', is'))
             else Right (v, (os', is'))
-    (clusteredGraph, unclusteredGraph) = partitionEithers $ fmap convert graph
+    (clusteredGraph, unclusteredGraph) = partitionEithers $ fmap convert $ IM.toList graph
 
 mergeStep ::
   ClusterState ->
@@ -181,24 +181,26 @@ nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
 -- | graph to edge list
-makeEdges :: [(Int, [Int])] -> [(Int, Int)]
-makeEdges = concatMap (\(i, js) -> fmap (i,) js)
+makeEdges :: IntMap [Int] -> [(Int, Int)]
+makeEdges = concatMap (\(i, js) -> fmap (i,) js) . IM.toList
 
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
 
 -- | strip down graph to a given topologically ordered subset
-makeReducedGraph :: Graph -> [Int] -> [(Int, [Int])]
-makeReducedGraph g tordList =
-  case tordList of
-    [] -> []
-    x : [] -> [(x, [])]
-    x : xs ->
-      (x, concatMap (\y -> if path g x y then [y] else []) xs) : makeReducedGraph g xs
+makeReducedGraph :: Graph -> [Int] -> IntMap [Int]
+makeReducedGraph g tordList = IM.fromList $ go tordList
+  where
+    go ys =
+      case ys of
+        [] -> []
+        x : [] -> [(x, [])]
+        x : xs ->
+          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
 
--- ( vertex, (dep, revdep)) per each item
-getBiDepGraph :: ModuleGraphInfo -> [(Int, ([Int], [Int]))]
+-- (dep, revdep) per each vertex
+getBiDepGraph :: ModuleGraphInfo -> IntMap ([Int], [Int])
 getBiDepGraph graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDep = mkRevDep modDep
@@ -206,17 +208,17 @@ getBiDepGraph graphInfo =
       modBiDep = concat $ inner grouping joiner fst fst (IM.toList modDep) (IM.toList modRevDep)
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
-   in modBiDep
+   in IM.fromList modBiDep
 
 filterOutSmallNodes :: ModuleGraphInfo -> [Int]
 filterOutSmallNodes graphInfo =
   let modBiDep = getBiDepGraph graphInfo
-   in fmap fst $
-        filter
-          (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit)
+   in IM.keys $
+        IM.filter
+          (\(js, ks) -> length js + length ks > nodeSizeLimit)
           modBiDep
 
-reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> [(Int, [Int])]
+reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> IntMap [Int]
 reduceGraph onlyClustered seeds graphInfo =
   let bgr = getBiDepGraph graphInfo
       allNodes = IM.keys $ mginfoModuleNameMap graphInfo
@@ -235,4 +237,4 @@ reduceGraph onlyClustered seeds graphInfo =
       finalGraph
         | onlyClustered = finalGraphClustered
         | otherwise = finalGraphClustered ++ finalGraphUnclustered
-   in finalGraph
+   in IM.fromList finalGraph
