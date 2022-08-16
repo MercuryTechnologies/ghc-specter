@@ -40,15 +40,13 @@ module Toolbox.Util.OGDF
   )
 where
 
-import Control.Exception (bracket)
-import Control.Monad (void)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Resource
   ( MonadResource (..),
-    ResourceT (..),
+    ResourceT,
     allocate,
+    release,
     runResourceT,
   )
 import Data.ByteString (useAsCString)
@@ -110,6 +108,7 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
+import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
   NonCPrim
@@ -185,7 +184,7 @@ nodeLabelPosition :: CLong
 nodeLabelPosition = 0x010000
 
 newtype GraphLayouter a = GraphLayouter {unGraphLayouter :: ResourceT IO a}
-  deriving (Applicative, Functor, Monad, MonadIO, MonadResource)
+  deriving (Applicative, Functor, Monad, MonadIO, MonadResource, MonadUnliftIO)
 
 runGraphLayouter :: GraphLayouter a -> IO a
 runGraphLayouter (GraphLayouter m) = runResourceT m
@@ -200,20 +199,26 @@ newGraphNodeWithSize (g, ga) (width, height) = liftIO $ do
   pure node
 
 appendText :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
-appendText ga node txt = liftIO $ do
-  str <- graphAttributes_label ga node
-  let bs = encodeUtf8 txt
-  useAsCString bs $ \cstr -> do
-    bracket (newCppString cstr) delete $ \str' ->
-      void $ cppString_append str str'
+appendText ga node txt =
+  withRunInIO $ \runInIO -> do
+    str <- graphAttributes_label ga node
+    let bs = encodeUtf8 txt
+    useAsCString bs $ \cstr ->
+      runInIO $ do
+        (k', str') <- allocate (newCppString cstr) delete
+        _ <- liftIO $ cppString_append str str'
+        release k'
 
 setFillColor :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
-setFillColor ga node colorTxt = liftIO $ do
-  color <- graphAttributes_fillColor ga node
-  let bs = encodeUtf8 colorTxt
-  useAsCString bs $ \cstr ->
-    bracket (newCppString cstr) delete $ \str' ->
-      void $ color_fromString color str'
+setFillColor ga node colorTxt =
+  withRunInIO $ \runInIO -> do
+    color <- graphAttributes_fillColor ga node
+    let bs = encodeUtf8 colorTxt
+    useAsCString bs $ \cstr ->
+      runInIO $ do
+        (k', str') <- allocate (newCppString cstr) delete
+        _ <- liftIO $ color_fromString color str'
+        release k'
 
 getNodeX :: GraphAttributes -> NodeElement -> GraphLayouter Double
 getNodeX ga n =

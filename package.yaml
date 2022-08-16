@@ -126,6 +126,7 @@ executables:
       - stm
       - time
       - transformers
+      - unliftio
 tests:
   ghc-build-analyzer-test:
     main: Spec.hs
