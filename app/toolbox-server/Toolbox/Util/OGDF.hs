@@ -301,8 +301,8 @@ getAllEdgeLayout g ga = do
                   (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
-        let pts = [(srcX, srcY)] ++ bendPoints ++ [(tgtX, tgtY)]
-        let acc' = acc ++ [EdgeLayout j (isrc, itgt) pts)]
+        let pts = [Point srcX srcY] ++ bendPoints ++ [Point tgtX tgtY]
+        let acc' = acc ++ [EdgeLayout j (isrc, itgt) pts]
         Left . (acc',) <$> liftIO (edgeElement_succ e)
 
 doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()

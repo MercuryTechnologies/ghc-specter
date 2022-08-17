@@ -55,7 +55,10 @@ import Toolbox.Channel
     Timer,
   )
 import Toolbox.Server.Types
-  ( GraphVisInfo (..),
+  ( Dimension (..),
+    EdgeLayout (..),
+    GraphVisInfo (..),
+    Point (..),
     NodeLayout (..),
     ServerState (..),
   )
@@ -148,10 +151,10 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
-makePolylineText :: [(Double, Double)] -> Text
+makePolylineText :: [Point] -> Text
 makePolylineText xys = T.intercalate " " (fmap each xys)
   where
-    each (x, y) = [fmt|{x:.2},{y:.2}|]
+    each (Point x y) = [fmt|{x:.2},{y:.2}|]
 
 renderModuleGraphSVG ::
   Map Text Timer ->
@@ -159,8 +162,8 @@ renderModuleGraphSVG ::
   GraphVisInfo ->
   Widget HTML a
 renderModuleGraphSVG timing clustering grVisInfo =
-  let (canvasWidth, canvasHeight) = gviCanvasDim grVisInfo
-      edge (_, _, xys) =
+  let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
+      edge (EdgeLayout _ _ xys) =
         S.polyline
           [ SP.points (makePolylineText xys)
           , SP.stroke "gray"
@@ -170,7 +173,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
       aFactor = 0.8
       offXFactor = -0.4
       offYFactor = -0.6
-      box0 (_, x, y, w, h) =
+      box0 (NodeLayout _ (Point x y) (Dim w h)) =
         S.rect
           [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
@@ -180,7 +183,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
           , SP.fill "ivory"
           ]
           []
-      box1 (_, x, y, w, h) =
+      box1 (NodeLayout _ (Point x y) (Dim w h)) =
         S.rect
           [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
@@ -190,7 +193,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
           , SP.fill "none"
           ]
           []
-      box2 (name, x, y, w, h) =
+      box2 (NodeLayout name (Point x y) (Dim w h)) =
         let ratio = fromMaybe 0 $ do
               cluster <- L.lookup name clustering
               let nTot = length cluster
@@ -209,7 +212,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
               , SP.fill "blue"
               ]
               []
-      moduleText (name, x, y, w, h) =
+      moduleText (NodeLayout name (Point x y) (Dim w h)) =
         S.text
           [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
