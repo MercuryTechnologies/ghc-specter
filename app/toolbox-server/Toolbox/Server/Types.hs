@@ -71,13 +71,21 @@ data Point = Point
   { pointX :: Double
   , pointY :: Double
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON Point
+
+instance ToJSON Point
 
 data Dimension = Dim
   { dimWidth :: Double
   , dimHeight :: Double
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON Dimension
+
+instance ToJSON Dimension
 
 data NodeLayout a = NodeLayout
   { nodePayload :: a
@@ -87,7 +95,11 @@ data NodeLayout a = NodeLayout
   , nodeSize :: Dimension
   -- ^ node width and height
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON a => FromJSON (NodeLayout a)
+
+instance ToJSON a => ToJSON (NodeLayout a)
 
 data EdgeLayout = EdgeLayout
   { edgeId :: Int
@@ -97,7 +109,11 @@ data EdgeLayout = EdgeLayout
   , edgePoints :: [Point]
   -- ^ edge start point, bend points, end point
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON EdgeLayout
+
+instance ToJSON EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
   { gviCanvasDim :: Dimension
