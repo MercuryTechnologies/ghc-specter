@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Render.ModuleGraph
@@ -34,7 +35,7 @@ import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
@@ -162,29 +163,37 @@ makePolylineText xys = T.intercalate " " (fmap each xys)
     each (Point x y) = [fmt|{x:.2},{y:.2}|]
 
 renderModuleGraphSVG ::
+  IntMap ModuleName ->
   Map Text Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
   Maybe Text ->
   Widget HTML Event
-renderModuleGraphSVG timing clustering grVisInfo mhovered =
+renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
-      edge (EdgeLayout _ _ xys) =
-        S.polyline
-          [ SP.points (makePolylineText xys)
-          , SP.stroke "gray"
-          , SP.fill "none"
-          ]
-          []
+      revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
+      edge (EdgeLayout _ (start, end) xys) =
+        let (color, swidth) = fromMaybe ("gray", "1") $ do
+              hovered <- mhovered
+              hoveredIdx_ <- M.lookup hovered revNameMap
+              hoveredIdx <- Just hoveredIdx_
+              if
+                  | start == hoveredIdx -> pure ("black", "2")
+                  | end == hoveredIdx -> pure ("black", "2")
+                  | otherwise -> Nothing
+         in S.polyline
+              [ SP.points (makePolylineText xys)
+              , SP.stroke color
+              , SP.strokeWidth swidth
+              , SP.fill "none"
+              ]
+              []
       aFactor = 0.8
       offXFactor = -0.4
       offYFactor = -0.6
       box0 (NodeLayout name (Point x y) (Dim w h)) =
         S.rect
-          [ HoverOnModuleEv (Just name) <$ onMouseEnter
-          , HoverOnModuleEv Nothing <$ onMouseLeave
-          , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + w * offXFactor))
+          [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
           , width (T.pack $ show (w * aFactor))
           , height "20"
@@ -223,7 +232,10 @@ renderModuleGraphSVG timing clustering grVisInfo mhovered =
               []
       moduleText (NodeLayout name (Point x y) (Dim w h)) =
         S.text
-          [ SP.x (T.pack $ show (x + w * offXFactor))
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
+          , SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
@@ -261,12 +273,13 @@ renderSubgraph timing subgraphs mselected =
         Nothing ->
           text [fmt|cannot find the subgraph for the module cluster {selected}|]
         Just subgraph ->
-          let tempclustering = fmap (\(name,_,_,_,_) -> (name, [name])) $ gviNodes subgraph
-          in renderModuleGraphSVG timing tempclustering subgraph Nothing
+          let tempclustering = fmap (\(NodeLayout name _ _) -> (name, [name])) $ gviNodes subgraph
+           in renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
 
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraph ui ss =
   let sessionInfo = serverSessionInfo ss
+      nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = serverTiming ss
       clustering = serverModuleClustering ss
    in case sessionStartTime sessionInfo of
@@ -278,7 +291,7 @@ renderModuleGraph ui ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [ renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)
+                    [ renderModuleGraphSVG nameMap timing clustering grVisInfo (uiModuleHover ui)
                     , renderSubgraph timing (serverModuleSubgraph ss) (uiModuleClick ui)
                     ]
               )
@@ -324,5 +337,12 @@ layOutGraph nameMap graph = runGraphLayouter $ do
             name <- IM.lookup i nameMap
             pure $ NodeLayout name pt dim
 
-  edgeLayout <- getAllEdgeLayout g ga
+  edgeLayout0 <- getAllEdgeLayout g ga
+  let edgeLayout = mapMaybe replace edgeLayout0
+        where
+          replace (EdgeLayout k (start, end) vertices) = do
+            startIdx <- IM.lookup start moduleNodeRevIndex
+            endIdx <- IM.lookup end moduleNodeRevIndex
+            pure (EdgeLayout k (startIdx, endIdx) vertices)
+
   pure $ GraphVisInfo canvasDim nodeLayout edgeLayout
