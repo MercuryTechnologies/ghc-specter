@@ -108,7 +108,12 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
-import Toolbox.Server.Types (Dimension (..), Point (..))
+import Toolbox.Server.Types
+  ( Dimension (..),
+    EdgeLayout (..),
+    NodeLayout (..),
+    Point (..),
+  )
 import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
@@ -263,7 +268,7 @@ getAllNodeLayout g ga = do
         let acc' = acc ++ [(j, Point x y, Dim w h)]
         Left . (acc',) <$> liftIO (nodeElement_succ n)
 
-getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, [Point])]
+getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [EdgeLayout]
 getAllEdgeLayout g ga = do
   e0 <- liftIO $ graph_firstEdge g
   flip loopM ([], e0) $ \((!acc), e@(EdgeElement ePtr)) ->
@@ -285,7 +290,7 @@ getAllEdgeLayout g ga = do
                   (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
-        let acc' = acc ++ [(j, bendPoints)]
+        let acc' = acc ++ [EdgeLayout j bendPoints]
         Left . (acc',) <$> liftIO (edgeElement_succ e)
 
 doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()

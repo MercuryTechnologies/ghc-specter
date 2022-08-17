@@ -44,6 +44,7 @@ import Toolbox.Channel
   )
 import Toolbox.Server.Types
   ( GraphVisInfo (..),
+    NodeLayout (..),
     ServerState (..),
   )
 import Toolbox.Util.Graph
@@ -194,7 +195,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
           replace (j, pt, dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
-            pure (name, pt, dim)
+            pure $ NodeLayout name pt dim
 
   edgeLayout <- getAllEdgeLayout g ga
   liftIO $ print edgeLayout

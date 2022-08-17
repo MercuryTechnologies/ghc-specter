@@ -3,11 +3,15 @@ module Toolbox.Server.Types
     type Inbox,
     Tab (..),
     UIState (..),
-    Point (..),
-    Dimension (..),
-    GraphVisInfo (..),
     ServerState (..),
     incrementSN,
+
+    -- * graph visualization information
+    Point (..),
+    Dimension (..),
+    NodeLayout (..),
+    EdgeLayout (..),
+    GraphVisInfo (..),
   )
 where
 
@@ -39,12 +43,28 @@ data Dimension = Dim
   }
   deriving (Show)
 
+data NodeLayout = NodeLayout
+  { nodeTitle :: Text
+  -- ^ text in node
+  , nodePosition :: Point
+  -- ^ node center position
+  , nodeSize :: Dimension
+  -- ^ node width and height
+  }
+  deriving (Show)
+
+data EdgeLayout = EdgeLayout
+  { edgeId :: Int
+  -- ^ edge id from the graph layouter
+  , edgePoints :: [Point]
+  -- ^ edge start point, bend points, end point
+  }
+  deriving (Show)
+
 data GraphVisInfo = GraphVisInfo
   { gviCanvasDim :: Dimension
-  , gviNodes :: [(Text, Point, Dimension)]
-  -- ^ (module name, node position, node size)
-  , gviEdges :: [(Int, [Point])]
-  -- ^ (edge id, edge points)
+  , gviNodes :: [NodeLayout]
+  , gviEdges :: [EdgeLayout]
   }
   deriving (Show)
 
