@@ -164,8 +164,9 @@ renderModuleGraphSVG ::
   Map Text Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
+  Maybe Text ->
   Widget HTML Event
-renderModuleGraphSVG timing clustering grVisInfo =
+renderModuleGraphSVG timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       edge (EdgeLayout _ _ xys) =
         S.polyline
@@ -186,7 +187,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
           , width (T.pack $ show (w * aFactor))
           , height "20"
           , SP.stroke "dimgray"
-          , SP.fill "ivory"
+          , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
           ]
           []
       box1 (NodeLayout _ (Point x y) (Dim w h)) =
@@ -259,9 +260,7 @@ renderModuleGraph ui ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [ pre [] [text $ T.pack (show (uiModuleHover ui))]
-                    , renderModuleGraphSVG timing clustering grVisInfo
-                    ]
+                    [renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
             )
