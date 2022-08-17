@@ -43,8 +43,7 @@ import Toolbox.Channel
     SessionInfo (..),
   )
 import Toolbox.Server.Types
-  ( Dimension (..),
-    GraphVisInfo (..),
+  ( GraphVisInfo (..),
     ServerState (..),
   )
 import Toolbox.Util.Graph
@@ -192,10 +191,10 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   nodeLayout0 <- getAllNodeLayout g ga
   let nodeLayout = mapMaybe replace nodeLayout0
         where
-          replace (j, x, y, Dim w h) = do
+          replace (j, pt, dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
-            pure (name, x, y, Dim w h)
+            pure (name, pt, dim)
 
   edgeLayout <- getAllEdgeLayout g ga
   liftIO $ print edgeLayout

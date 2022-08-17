@@ -108,7 +108,7 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
-import Toolbox.Server.Types (Dimension (..))
+import Toolbox.Server.Types (Dimension (..), Point (..))
 import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
@@ -248,7 +248,7 @@ getCanvasDim ga = liftIO $ do
   canvasHeight :: Double <- realToFrac <$> dRect_height drect
   pure $ Dim canvasWidth canvasHeight
 
-getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Double, Double, Dimension)]
+getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Point, Dimension)]
 getAllNodeLayout g ga = do
   n0 <- liftIO $ graph_firstNode g
   flip loopM ([], n0) $ \(acc, n@(NodeElement nPtr)) ->
@@ -260,10 +260,10 @@ getAllNodeLayout g ga = do
         y <- getNodeY ga n
         w <- getNodeWidth ga n
         h <- getNodeHeight ga n
-        let acc' = acc ++ [(j, x, y, Dim w h)]
+        let acc' = acc ++ [(j, Point x y, Dim w h)]
         Left . (acc',) <$> liftIO (nodeElement_succ n)
 
-getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, [(Double, Double)])]
+getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, [Point])]
 getAllEdgeLayout g ga = do
   e0 <- liftIO $ graph_firstEdge g
   flip loopM ([], e0) $ \((!acc), e@(EdgeElement ePtr)) ->
@@ -281,7 +281,7 @@ getAllEdgeLayout g ga = do
                   p <- liftIO (deRef it)
                   x <- realToFrac <$> liftIO (dPoint_m_x_get p)
                   y <- realToFrac <$> liftIO (dPoint_m_y_get p)
-                  let bpts' = bpts ++ [(x, y)]
+                  let bpts' = bpts ++ [Point x y]
                   (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
