@@ -108,6 +108,7 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
+import Toolbox.Server.Types (Dimension (..))
 import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
@@ -240,14 +241,14 @@ getNodeHeight ga n =
   liftIO $
     realToFrac <$> (peek =<< graphAttributes_height ga n)
 
-getCanvasDim :: GraphAttributes -> GraphLayouter (Double, Double)
+getCanvasDim :: GraphAttributes -> GraphLayouter Dimension
 getCanvasDim ga = liftIO $ do
   drect <- boundingBox ga
   canvasWidth :: Double <- realToFrac <$> dRect_width drect
   canvasHeight :: Double <- realToFrac <$> dRect_height drect
-  pure (canvasWidth, canvasHeight)
+  pure $ Dim canvasWidth canvasHeight
 
-getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Double, Double, Double, Double)]
+getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Double, Double, Dimension)]
 getAllNodeLayout g ga = do
   n0 <- liftIO $ graph_firstNode g
   flip loopM ([], n0) $ \(acc, n@(NodeElement nPtr)) ->
@@ -259,7 +260,7 @@ getAllNodeLayout g ga = do
         y <- getNodeY ga n
         w <- getNodeWidth ga n
         h <- getNodeHeight ga n
-        let acc' = acc ++ [(j, x, y, w, h)]
+        let acc' = acc ++ [(j, x, y, Dim w h)]
         Left . (acc',) <$> liftIO (nodeElement_succ n)
 
 getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, [(Double, Double)])]

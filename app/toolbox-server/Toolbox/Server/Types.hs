@@ -3,6 +3,7 @@ module Toolbox.Server.Types
     type Inbox,
     Tab (..),
     UIState (..),
+    Dimension (..),
     GraphVisInfo (..),
     ServerState (..),
     incrementSN,
@@ -25,10 +26,15 @@ data UIState = UIState
   , uiModule :: Maybe Text
   }
 
+data Dimension = Dim
+  { dimWidth :: Double
+  , dimHeight :: Double
+  }
+  deriving (Show)
+
 data GraphVisInfo = GraphVisInfo
-  { gviCanvasDim :: (Double, Double)
-  -- ^ (width, height)
-  , gviNodes :: [(Text, Double, Double, Double, Double)]
+  { gviCanvasDim :: Dimension
+  , gviNodes :: [(Text, Double, Double, Dimension)]
   -- ^ (module name, x, y, w, h)
   , gviEdges :: [(Int, [(Double, Double)])]
   -- ^ (edge id, bend points)
