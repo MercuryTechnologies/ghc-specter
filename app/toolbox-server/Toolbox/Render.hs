@@ -56,12 +56,12 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderInbox :: UIState -> Inbox -> Widget HTML Event -- (Maybe Text)
+renderInbox :: UIState -> Inbox -> Widget HTML Event
 renderInbox ui m =
   ul [] $ map eachRender filtered
   where
     tab = uiTab ui
-    mexpandedModu = uiModule ui
+    mexpandedModu = uiModuleExpanded ui
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -69,7 +69,7 @@ renderInbox ui m =
       TabTiming -> Timing
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
 
-    eachRender :: (ChanModule, Text) -> Widget HTML Event -- (Maybe Text)
+    eachRender :: (ChanModule, Text) -> Widget HTML Event
     eachRender ((_, modu), v) =
       let modinfo
             | mexpandedModu == Just modu =
@@ -146,8 +146,9 @@ render (ui, ss) = do
       handleNavbar oldUI _ = oldUI
 
       handleMainPanel :: UIState -> Event -> UIState
-      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = oldUI {uiModule = mexpandedModu'}
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = oldUI {uiModuleExpanded = mexpandedModu'}
       handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = oldUI {uiModuleHover = mhoverModu'}
+      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = oldUI {uiModuleClick = mclickedModu'}
       handleMainPanel oldUI _ = oldUI
 
   ui' <-

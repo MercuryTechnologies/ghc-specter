@@ -13,6 +13,7 @@ import Concur.Replica
     classList,
     div,
     height,
+    onClick,
     onMouseEnter,
     onMouseLeave,
     pre,
@@ -182,6 +183,7 @@ renderModuleGraphSVG timing clustering grVisInfo mhovered =
         S.rect
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
           , SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
           , width (T.pack $ show (w * aFactor))
@@ -236,9 +238,9 @@ renderModuleGraphSVG timing clustering grVisInfo mhovered =
           [ width "100%"
           , SP.viewBox
               ( "0 0 "
-                  <> T.pack (show (canvasWidth + 300)) -- i don't understand why it's incorrect
+                  <> T.pack (show (canvasWidth + 100)) -- i don't understand why it's incorrect
                   <> " "
-                  <> T.pack (show (canvasHeight + 300))
+                  <> T.pack (show (canvasHeight + 100))
               )
           , SP.version "1.1"
           , xmlns
@@ -260,7 +262,9 @@ renderModuleGraph ui ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)]
+                    [ renderModuleGraphSVG timing clustering grVisInfo (uiModuleHover ui)
+                    , text (T.pack $ show (uiModuleClick ui))
+                    ]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
             )

@@ -40,9 +40,8 @@ import Toolbox.Comm
 import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
-    Tab (TabSession),
-    UIState (..),
     incrementSN,
+    initUIState,
   )
 import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
@@ -99,7 +98,6 @@ webServer :: TVar ServerState -> IO ()
 webServer var = do
   initServerState <- atomically (readTVar var)
   initTime <- getCurrentTime
-  let initUIState = UIState TabSession Nothing Nothing
   runDefault 8080 "test" $
     \_ -> loopM step (initUIState, initServerState, initTime)
   where

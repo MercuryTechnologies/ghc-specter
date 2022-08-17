@@ -3,10 +3,12 @@ module Toolbox.Server.Types
     type Inbox,
     Tab (..),
     Event (..),
+    -- * UI state
     UIState (..),
+    initUIState,
+    -- * Server state
     ServerState (..),
     incrementSN,
-
     -- * graph visualization information
     Point (..),
     Dimension (..),
@@ -36,12 +38,27 @@ data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
   | HoverOnModuleEv (Maybe Text)
+  | ClickOnModuleEv (Maybe Text)
 
 data UIState = UIState
   { uiTab :: Tab
-  , uiModule :: Maybe Text
+  -- ^ current tab
+  , uiModuleExpanded :: Maybe Text
+  -- ^ expanded module in CheckImports
   , uiModuleHover :: Maybe Text
+  -- ^ module under mouse cursor in Module Graph
+  , uiModuleClick :: Maybe Text
+  -- ^ module clicked in Module Graph
   }
+
+initUIState :: UIState
+initUIState =
+  UIState
+    { uiTab = TabSession,
+      uiModuleExpanded = Nothing,
+      uiModuleHover = Nothing,
+      uiModuleClick = Nothing
+    }
 
 data Point = Point
   { pointX :: Double
