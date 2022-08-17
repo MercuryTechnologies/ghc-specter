@@ -43,9 +43,9 @@ data Dimension = Dim
   }
   deriving (Show)
 
-data NodeLayout = NodeLayout
-  { nodeTitle :: Text
-  -- ^ text in node
+data NodeLayout a = NodeLayout
+  { nodePayload :: a
+  -- ^ information in node
   , nodePosition :: Point
   -- ^ node center position
   , nodeSize :: Dimension
@@ -63,7 +63,7 @@ data EdgeLayout = EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
   { gviCanvasDim :: Dimension
-  , gviNodes :: [NodeLayout]
+  , gviNodes :: [NodeLayout Text]
   , gviEdges :: [EdgeLayout]
   }
   deriving (Show)

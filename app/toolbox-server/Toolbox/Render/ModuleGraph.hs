@@ -192,7 +192,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   nodeLayout0 <- getAllNodeLayout g ga
   let nodeLayout = mapMaybe replace nodeLayout0
         where
-          replace (j, pt, dim) = do
+          replace (NodeLayout j pt dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
             pure $ NodeLayout name pt dim

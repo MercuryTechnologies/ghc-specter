@@ -253,7 +253,8 @@ getCanvasDim ga = liftIO $ do
   canvasHeight :: Double <- realToFrac <$> dRect_height drect
   pure $ Dim canvasWidth canvasHeight
 
-getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [(Int, Point, Dimension)]
+-- | retrieve node layout information with bare node index.
+getAllNodeLayout :: Graph -> GraphAttributes -> GraphLayouter [NodeLayout Int]
 getAllNodeLayout g ga = do
   n0 <- liftIO $ graph_firstNode g
   flip loopM ([], n0) $ \(acc, n@(NodeElement nPtr)) ->
@@ -265,7 +266,7 @@ getAllNodeLayout g ga = do
         y <- getNodeY ga n
         w <- getNodeWidth ga n
         h <- getNodeHeight ga n
-        let acc' = acc ++ [(j, Point x y, Dim w h)]
+        let acc' = acc ++ [NodeLayout j (Point x y) (Dim w h)]
         Left . (acc',) <$> liftIO (nodeElement_succ n)
 
 getAllEdgeLayout :: Graph -> GraphAttributes -> GraphLayouter [EdgeLayout]
