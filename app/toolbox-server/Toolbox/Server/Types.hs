@@ -5,6 +5,13 @@ module Toolbox.Server.Types
     UIState (..),
     ServerState (..),
     incrementSN,
+
+    -- * graph visualization information
+    Point (..),
+    Dimension (..),
+    NodeLayout (..),
+    EdgeLayout (..),
+    GraphVisInfo (..),
   )
 where
 
@@ -23,6 +30,43 @@ data UIState = UIState
   { uiTab :: Tab
   , uiModule :: Maybe Text
   }
+
+data Point = Point
+  { pointX :: Double
+  , pointY :: Double
+  }
+  deriving (Show)
+
+data Dimension = Dim
+  { dimWidth :: Double
+  , dimHeight :: Double
+  }
+  deriving (Show)
+
+data NodeLayout a = NodeLayout
+  { nodePayload :: a
+  -- ^ information in node
+  , nodePosition :: Point
+  -- ^ node center position
+  , nodeSize :: Dimension
+  -- ^ node width and height
+  }
+  deriving (Show)
+
+data EdgeLayout = EdgeLayout
+  { edgeId :: Int
+  -- ^ edge id from the graph layouter
+  , edgePoints :: [Point]
+  -- ^ edge start point, bend points, end point
+  }
+  deriving (Show)
+
+data GraphVisInfo = GraphVisInfo
+  { gviCanvasDim :: Dimension
+  , gviNodes :: [NodeLayout Text]
+  , gviEdges :: [EdgeLayout]
+  }
+  deriving (Show)
 
 data ServerState = ServerState
   { serverMessageSN :: Int

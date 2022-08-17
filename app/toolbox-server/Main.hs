@@ -30,6 +30,7 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    ModuleGraphInfo (..),
     SessionInfo (..),
     emptyModuleGraphInfo,
   )
@@ -38,6 +39,10 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
+import Toolbox.Render.ModuleGraph
+  ( layOutGraph,
+    makeReducedGraphReversedFromModuleGraph,
+  )
 import Toolbox.Server.Types
   ( ServerState (..),
     Tab (TabCheckImports),
@@ -71,7 +76,19 @@ listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    (\sock -> receiveObject sock >>= atomically . modifyTVar' var . updateInbox)
+    ( \sock -> do
+        o <- receiveObject sock
+        case o of
+          CMBox (CMSession s') -> do
+            let graphInfo = sessionModuleGraph s'
+                modNameMap = mginfoModuleNameMap graphInfo
+                reducedGraphReversed =
+                  makeReducedGraphReversedFromModuleGraph graphInfo
+            test <- layOutGraph modNameMap reducedGraphReversed
+            print test
+          _ -> pure ()
+        atomically . modifyTVar' var . updateInbox $ o
+    )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg ss =

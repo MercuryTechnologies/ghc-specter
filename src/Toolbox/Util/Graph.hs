@@ -5,11 +5,17 @@ module Toolbox.Util.Graph
   ( ClusterState (..),
     ClusterVertex (..),
     GraphState (..),
+    ICVertex (..),
+    annotateLevel,
     degreeInvariant,
+    diffCluster,
     filterOutSmallNodes,
     getBiDepGraph,
     fullStep,
+    makeEdges,
+    makeReducedGraph,
     makeSeedState,
+    mkRevDep,
     reduceGraph,
     totalNumberInvariant,
   )
@@ -19,6 +25,7 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
+import Data.Graph (Graph, Tree (..), path)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -27,7 +34,7 @@ import Data.Monoid (First (..))
 import Toolbox.Channel (ModuleGraphInfo (..))
 
 -- | representative vertex, other vertices that belong to this cluster
-newtype ClusterVertex = Cluster Int
+newtype ClusterVertex = Cluster {unCluster :: Int}
   deriving (Show, Eq, Ord)
 
 -- | intermediate cluster vertex
@@ -61,6 +68,13 @@ matchCluster clustering vtx =
         | otherwise = First Nothing
    in getFirst (foldMap (match vtx) clustered)
 
+diffCluster :: ClusterState -> ClusterState -> [(ClusterVertex, [Int])]
+diffCluster c1 c2 =
+  let c1cluster = clusterStateClustered c1
+      c2cluster = clusterStateClustered c2
+      joiner (i, js) (_, ks) = (i, js L.\\ ks)
+   in concat $ inner grouping joiner (unCluster . fst) (unCluster . fst) c1cluster c2cluster
+
 degreeInvariant :: GraphState -> (Int, Int)
 degreeInvariant graphState =
   (sumRelDeg (graphStateClustered graphState), sumRelDeg (graphStateUnclustered graphState))
@@ -76,7 +90,7 @@ totalNumberInvariant clustering =
 
 makeSeedState ::
   [Int] ->
-  [(Int, ([Int], [Int]))] ->
+  IntMap ([Int], [Int]) ->
   GraphState
 makeSeedState seeds graph = GraphState clusteredGraph unclusteredGraph
   where
@@ -86,7 +100,7 @@ makeSeedState seeds graph = GraphState clusteredGraph unclusteredGraph
        in if v `elem` seeds
             then Left (Cluster v, (os', is'))
             else Right (v, (os', is'))
-    (clusteredGraph, unclusteredGraph) = partitionEithers $ fmap convert graph
+    (clusteredGraph, unclusteredGraph) = partitionEithers $ fmap convert $ IM.toList graph
 
 mergeStep ::
   ClusterState ->
@@ -156,39 +170,58 @@ fullStep (clustering, graphState) =
       clustering' = clusterStep graphState2 clustering
    in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
-mkRevDep :: [(Int, [Int])] -> IntMap [Int]
-mkRevDep deps = L.foldl' step emptyMap deps
+mkRevDep :: IntMap [Int] -> IntMap [Int]
+mkRevDep deps = IM.foldlWithKey step emptyMap deps
   where
-    emptyMap = L.foldl' (\(!acc) (i, _) -> IM.insert i [] acc) IM.empty deps
-    step !acc (i, js) =
+    emptyMap = fmap (const []) deps
+    step !acc i js =
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
--- ( vertex, (dep, revdep)) per each item
-getBiDepGraph :: ModuleGraphInfo -> [(Int, ([Int], [Int]))]
+-- | graph to edge list
+makeEdges :: IntMap [Int] -> [(Int, Int)]
+makeEdges = concatMap (\(i, js) -> fmap (i,) js) . IM.toList
+
+-- | tree level annotation
+annotateLevel :: Int -> Tree a -> Tree (Int, a)
+annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
+
+-- | strip down graph to a given topologically ordered subset
+makeReducedGraph :: Graph -> [Int] -> IntMap [Int]
+makeReducedGraph g tordList = IM.fromList $ go tordList
+  where
+    go ys =
+      case ys of
+        [] -> []
+        x : [] -> [(x, [])]
+        x : xs ->
+          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
+
+-- (dep, revdep) per each vertex
+getBiDepGraph :: ModuleGraphInfo -> IntMap ([Int], [Int])
 getBiDepGraph graphInfo =
   let modDep = mginfoModuleDep graphInfo
-      modRevDepMap = mkRevDep modDep
-      modRevDep = IM.toList modRevDepMap
-      modBiDep = concat $ inner grouping joiner fst fst modDep modRevDep
+      modRevDep = mkRevDep modDep
+      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
+      modBiDep = concat $ inner grouping joiner fst fst (IM.toList modDep) (IM.toList modRevDep)
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
-   in modBiDep
+   in IM.fromList modBiDep
 
 filterOutSmallNodes :: ModuleGraphInfo -> [Int]
 filterOutSmallNodes graphInfo =
   let modBiDep = getBiDepGraph graphInfo
-   in fmap fst $
-        filter
-          (\(_, (js, ks)) -> length js + length ks > nodeSizeLimit)
+   in IM.keys $
+        IM.filter
+          (\(js, ks) -> length js + length ks > nodeSizeLimit)
           modBiDep
 
-reduceGraph :: [Int] -> ModuleGraphInfo -> [(Int, [Int])]
-reduceGraph seeds graphInfo =
+reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> IntMap [Int]
+reduceGraph onlyClustered seeds graphInfo =
   let bgr = getBiDepGraph graphInfo
-      allNodes = fmap fst $ mginfoModuleNameMap graphInfo
+      allNodes = IM.keys $ mginfoModuleNameMap graphInfo
       smallNodes = allNodes L.\\ seeds
       seedClustering =
         ClusterState
@@ -196,12 +229,12 @@ reduceGraph seeds graphInfo =
               fmap (\i -> (Cluster i, [i])) seeds
           , clusterStateUnclustered = smallNodes
           }
-      r0 = (seedClustering, makeSeedState seeds bgr)
-      r1 = fullStep r0
-      r2 = fullStep r1
-      final = r2
+      final = fullStep $ fullStep (seedClustering, makeSeedState seeds bgr)
       strip (Clustered (Cluster c)) = c
       strip (Unclustered i) = i
-      finalGraphClustered = fmap (\(Cluster c, (os, _)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
-      finalGraphUnclustered = fmap (\(v, (os, _)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
-   in finalGraphClustered ++ finalGraphUnclustered
+      finalGraphClustered = fmap (\(Cluster c, (os, _is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
+      finalGraphUnclustered = fmap (\(v, (os, _is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
+      finalGraph
+        | onlyClustered = finalGraphClustered
+        | otherwise = finalGraphClustered ++ finalGraphUnclustered
+   in IM.fromList finalGraph

@@ -1,5 +1,6 @@
 module Toolbox.Util.GraphSpec (spec) where
 
+import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Test.Hspec
   ( Spec,
@@ -37,18 +38,19 @@ testGraphInfo :: ModuleGraphInfo
 testGraphInfo =
   ModuleGraphInfo
     { mginfoModuleNameMap =
-        [ (1, "A")
-        , (2, "B")
-        , (3, "C")
-        , (4, "D")
-        , (5, "E")
-        , (6, "F")
-        , (7, "G")
-        , (8, "H")
-        , (9, "I")
-        , (10, "J")
-        ]
-    , mginfoModuleDep = testGraph
+        IM.fromList
+          [ (1, "A")
+          , (2, "B")
+          , (3, "C")
+          , (4, "D")
+          , (5, "E")
+          , (6, "F")
+          , (7, "G")
+          , (8, "H")
+          , (9, "I")
+          , (10, "J")
+          ]
+    , mginfoModuleDep = IM.fromList testGraph
     , mginfoModuleTopSorted = []
     }
 
@@ -56,7 +58,7 @@ spec :: Spec
 spec =
   describe "Toolbox.Util.Graph greedy clustering" $ do
     let bgr = getBiDepGraph testGraphInfo
-        allNodes = fmap fst $ mginfoModuleNameMap testGraphInfo
+        allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
         nNodes = length allNodes
         largeNodes = filterOutSmallNodes testGraphInfo
         smallNodes = allNodes L.\\ largeNodes
