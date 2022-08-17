@@ -32,12 +32,15 @@ type Inbox = Map ChanModule Text
 data Tab = TabSession | TabModuleGraph | TabCheckImports | TabTiming
   deriving (Eq)
 
-data Event = TabEv Tab | ExpandModuleEv (Maybe Text)
+data Event
+  = TabEv Tab
+  | ExpandModuleEv (Maybe Text)
+  | HoverOnModuleEv (Maybe Text)
 
 data UIState = UIState
   { uiTab :: Tab
   , uiModule :: Maybe Text
-  -- , uiModuleGraphHover :: Maybe Text
+  , uiModuleHover :: Maybe Text
   }
 
 data Point = Point

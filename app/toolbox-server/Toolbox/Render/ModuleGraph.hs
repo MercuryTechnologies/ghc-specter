@@ -13,6 +13,8 @@ import Concur.Replica
     classList,
     div,
     height,
+    onMouseEnter,
+    onMouseLeave,
     pre,
     text,
     textProp,
@@ -57,10 +59,12 @@ import Toolbox.Channel
 import Toolbox.Server.Types
   ( Dimension (..),
     EdgeLayout (..),
+    Event (..),
     GraphVisInfo (..),
-    Point (..),
     NodeLayout (..),
+    Point (..),
     ServerState (..),
+    UIState (..),
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
@@ -160,7 +164,7 @@ renderModuleGraphSVG ::
   Map Text Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  Widget HTML a
+  Widget HTML Event
 renderModuleGraphSVG timing clustering grVisInfo =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       edge (EdgeLayout _ _ xys) =
@@ -173,9 +177,11 @@ renderModuleGraphSVG timing clustering grVisInfo =
       aFactor = 0.8
       offXFactor = -0.4
       offYFactor = -0.6
-      box0 (NodeLayout _ (Point x y) (Dim w h)) =
+      box0 (NodeLayout name (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + w * offXFactor))
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
           , width (T.pack $ show (w * aFactor))
           , height "20"
@@ -239,8 +245,8 @@ renderModuleGraphSVG timing clustering grVisInfo =
           (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
-renderModuleGraph :: ServerState -> Widget HTML a
-renderModuleGraph ss =
+renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
+renderModuleGraph ui ss =
   let sessionInfo = serverSessionInfo ss
       timing = serverTiming ss
       clustering = serverModuleClustering ss
@@ -253,7 +259,9 @@ renderModuleGraph ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [renderModuleGraphSVG timing clustering grVisInfo]
+                    [ pre [] [text $ T.pack (show (uiModuleHover ui))]
+                    , renderModuleGraphSVG timing clustering grVisInfo
+                    ]
               )
                 ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
             )

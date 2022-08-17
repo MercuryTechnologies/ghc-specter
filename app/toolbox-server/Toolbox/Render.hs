@@ -57,9 +57,11 @@ iconText ico txt =
         ]
 
 renderInbox :: UIState -> Inbox -> Widget HTML Event -- (Maybe Text)
-renderInbox (UIState tab mexpandedModu) m =
+renderInbox ui m =
   ul [] $ map eachRender filtered
   where
+    tab = uiTab ui
+    mexpandedModu = uiModule ui
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -75,17 +77,17 @@ renderInbox (UIState tab mexpandedModu) m =
                 , pre [] [text v]
                 ]
             | otherwise =
-                [ ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
+                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
        in li [] modinfo
 
 renderMainPanel ::
   UIState ->
   ServerState ->
-  Widget HTML Event -- (Maybe Text)
-renderMainPanel ui@(UIState tab _) ss =
-  case tab of
+  Widget HTML Event
+renderMainPanel ui ss =
+  case uiTab ui of
     TabSession -> renderSession ss
-    TabModuleGraph -> renderModuleGraph ss
+    TabModuleGraph -> renderModuleGraph ui ss
     TabCheckImports -> renderInbox ui (serverInbox ss)
     TabTiming -> renderTiming ss
 
@@ -124,7 +126,7 @@ renderNavbar tab =
 render ::
   (UIState, ServerState) ->
   Widget HTML UIState
-render (ui@(UIState tab mexpandedModu), ss) = do
+render (ui, ss) = do
   let (mainPanel, bottomPanel)
         | serverMessageSN ss == 0 =
             ( div [] [text "No GHC process yet"]
@@ -138,13 +140,23 @@ render (ui@(UIState tab mexpandedModu), ss) = do
                 []
                 [divClass "box" [] [text $ "message: " <> T.pack (show (serverMessageSN ss))]]
             )
+
+  let handleNavbar :: UIState -> Event -> UIState
+      handleNavbar oldUI (TabEv tab') = oldUI {uiTab = tab'}
+      handleNavbar oldUI _ = oldUI
+
+      handleMainPanel :: UIState -> Event -> UIState
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = oldUI {uiModule = mexpandedModu'}
+      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = oldUI {uiModuleHover = mhoverModu'}
+      handleMainPanel oldUI _ = oldUI
+
   ui' <-
     div
       [classList [("container is-fullheight", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , (\case TabEv tab' -> UIState tab' mexpandedModu; _ -> ui) <$> renderNavbar tab
-      , (\case ExpandModuleEv mexpandedModu' -> UIState tab mexpandedModu'; _ -> ui) <$> mainPanel
+      , handleNavbar ui <$> renderNavbar (uiTab ui)
+      , handleMainPanel ui <$> mainPanel
       , bottomPanel
       ]
   pure ui'
