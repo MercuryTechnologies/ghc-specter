@@ -63,7 +63,9 @@ import OGDF.DRect (dRect_height, dRect_width)
 import OGDF.EdgeElement
   ( EdgeElement (..),
     edgeElement_index,
+    edgeElement_source,
     edgeElement_succ,
+    edgeElement_target,
   )
 import OGDF.Graph
   ( Graph,
@@ -277,6 +279,14 @@ getAllEdgeLayout g ga = do
       then pure (Right acc)
       else do
         j :: Int <- fromIntegral <$> liftIO (edgeElement_index e)
+        src <- liftIO (edgeElement_source e)
+        isrc <- fromIntegral <$> liftIO (nodeElement_index src)
+        srcX <- getNodeX ga src
+        srcY <- getNodeY ga src
+        tgt <- liftIO (edgeElement_target e)
+        itgt <- fromIntegral <$> liftIO (nodeElement_index tgt)
+        tgtX <- getNodeX ga tgt
+        tgtY <- getNodeY ga tgt
         dpline <- liftIO (graphAttributes_bends ga e)
         it0 <- liftIO (begin dpline)
         bendPoints <-
@@ -291,7 +301,8 @@ getAllEdgeLayout g ga = do
                   (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
-        let acc' = acc ++ [EdgeLayout j bendPoints]
+        let pts = [(srcX, srcY)] ++ bendPoints ++ [(tgtX, tgtY)]
+        let acc' = acc ++ [EdgeLayout j (isrc, itgt) pts)]
         Left . (acc',) <$> liftIO (edgeElement_succ e)
 
 doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()

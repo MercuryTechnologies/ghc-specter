@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Render.ModuleGraph
   ( layOutGraph,
@@ -44,6 +45,7 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
+import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Toolbox.Channel
@@ -146,6 +148,11 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
+makePolylineText :: [(Double, Double)] -> Text
+makePolylineText xys = T.intercalate " " (fmap each xys)
+  where
+    each (x, y) = [fmt|{x:.2},{y:.2}|]
+
 renderModuleGraphSVG ::
   Map Text Timer ->
   [(Text, [Text])] ->
@@ -153,11 +160,31 @@ renderModuleGraphSVG ::
   Widget HTML a
 renderModuleGraphSVG timing clustering grVisInfo =
   let (canvasWidth, canvasHeight) = gviCanvasDim grVisInfo
-      box1 (_name, x, y, w, h) =
+      edge (_, _, xys) =
+        S.polyline
+          [ SP.points (makePolylineText xys)
+          , SP.stroke "gray"
+          , SP.fill "none"
+          ]
+          []
+      aFactor = 0.8
+      offXFactor = -0.4
+      offYFactor = -0.6
+      box0 (_, x, y, w, h) =
         S.rect
-          [ SP.x (T.pack $ show x)
-          , SP.y (T.pack $ show (y + h + 3))
-          , width (T.pack $ show (w * 0.7))
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
+          , width (T.pack $ show (w * aFactor))
+          , height "20"
+          , SP.stroke "gray"
+          , SP.fill "white"
+          ]
+          []
+      box1 (_, x, y, w, h) =
+        S.rect
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
+          , width (T.pack $ show (w * aFactor))
           , height "5"
           , SP.stroke "black"
           , SP.fill "none"
@@ -175,20 +202,24 @@ renderModuleGraphSVG timing clustering grVisInfo =
                   pure (fromIntegral nCompiled / fromIntegral nTot)
             w' = ratio * w
          in S.rect
-              [ SP.x (T.pack $ show x)
-              , SP.y (T.pack $ show (y + h + 3))
-              , width (T.pack $ show (w' * 0.7))
+              [ SP.x (T.pack $ show (x + w * offXFactor))
+              , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
+              , width (T.pack $ show (w' * aFactor))
               , height "5"
               , SP.fill "green"
               ]
               []
-      moduleText (name, x, y, _, h) =
+      moduleText (name, x, y, w, h) =
         S.text
-          [ SP.x (T.pack $ show x)
-          , SP.y (T.pack $ show (y + h))
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
           [text name]
+
+      edges = fmap edge $ gviEdges grVisInfo
+      nodes =
+        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
 
       svgElement =
         S.svg
@@ -202,9 +233,7 @@ renderModuleGraphSVG timing clustering grVisInfo =
           , SP.version "1.1"
           , xmlns
           ]
-          ( S.style [] [text ".small { font: 12px sans-serif; }"] :
-            concatMap (\x -> [box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
-          )
+          (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderModuleGraph :: ServerState -> Widget HTML a
@@ -266,6 +295,4 @@ layOutGraph nameMap graph = runGraphLayouter $ do
             pure $ NodeLayout name pt dim
 
   edgeLayout <- getAllEdgeLayout g ga
-  liftIO $ print edgeLayout
-
   pure $ GraphVisInfo canvasDim nodeLayout edgeLayout

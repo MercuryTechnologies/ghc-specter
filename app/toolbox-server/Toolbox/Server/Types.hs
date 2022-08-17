@@ -61,6 +61,8 @@ data NodeLayout a = NodeLayout
 data EdgeLayout = EdgeLayout
   { edgeId :: Int
   -- ^ edge id from the graph layouter
+  , edgeEndNodes :: (Int, Int)
+  -- ^ (source node, target node)
   , edgePoints :: [Point]
   -- ^ edge start point, bend points, end point
   }
