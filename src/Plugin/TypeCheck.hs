@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 -- | TypeCheck plugin:
 --   This plugin runs at type checker time.
@@ -17,9 +18,12 @@ import Data.List (foldl', sort)
 import qualified Data.List as L
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import qualified Data.Monoid as M ((<>))
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import GHC.Data.Bag (bagToList)
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Doc (LHsDocString)
@@ -41,8 +45,10 @@ import GHC.Types.Name.Reader
     GreName (..),
     ImpDeclSpec (..),
     ImportSpec (..),
+    Parent,
   )
 import GHC.Types.SrcLoc (unLoc)
+import GHC.Types.Var (Id)
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
@@ -52,13 +58,14 @@ import Language.Haskell.Syntax.Binds
     LHsBinds,
   )
 import Language.Haskell.Syntax.Decls (HsGroup)
+import PyF (fmt)
 import System.Directory (doesFileExist)
 import Toolbox.Channel
   ( ChanMessage (CMTypeCheck),
     ChanMessageBox (..),
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (printPpr, showPpr)
+import Toolbox.Util (printPpr, showPpr, showPprDebug)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -105,6 +112,22 @@ type RenamedSource =
 
 type TypecheckedSource = LHsBinds GhcTc
 
+formatId :: DynFlags -> Id -> Text
+formatId dflags i = [fmt|({showPpr dflags i}: {showPprDebug dflags i})|]
+
+getFunctionDeps :: DynFlags -> HsBindLR GhcTc GhcTc -> Text
+getFunctionDeps dflags b =
+  case b of
+    FunBind {fun_id} -> [fmt|fun_id={formatId dflags (unLoc fun_id)}|]
+    PatBind {} -> [fmt|PatBind|]
+    VarBind {var_id} -> [fmt|var_id={formatId dflags var_id}|]
+    AbsBinds {abs_binds} ->
+      -- [fmt|AbsBinds|]
+      [fmt|AbsBinds:\n  |]
+        M.<> T.intercalate "\n, " (fmap (getFunctionDeps dflags . unLoc) (bagToList abs_binds))
+    PatSynBind {} -> [fmt|PatSynBind|]
+    XHsBindsLR {} -> [fmt|XHsBindsLR|]
+
 -- | First argument in -fplugin-opt is interpreted as the socket file path.
 --   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
@@ -116,28 +139,21 @@ typecheckPlugin opts modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
-  let moduleImportMap :: Map ModuleName (Set Name)
+  let modNameMap = concatMap mkModuleNameMap usedGREs
+
+      moduleImportMap :: Map ModuleName (Set Name)
       moduleImportMap =
         foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
-          concatMap mkModuleNameMap usedGREs
+          modNameMap
 
   let tc_binds = bagToList $ tcg_binds tc
       tcs = tcg_tcs tc
 
-      showBind =
-        \case
-          FunBind {fun_id} -> "FunBind: " ++ showPpr dflags fun_id
-          PatBind {} -> "PatBind"
-          VarBind {var_id} -> "VarBind: " ++ showPpr dflags var_id
-          AbsBinds {abs_binds} ->
-            "AbsBinds: " ++ L.intercalate ", " (fmap (showBind . unLoc) $ bagToList abs_binds)
-          PatSynBind {} -> "PatSynBind"
-          XHsBindsLR {} -> "XHsBindsLR"
-      test = fmap (showBind . unLoc) tc_binds
+      debugMsg = T.intercalate "\n" $ fmap (getFunctionDeps dflags . unLoc) tc_binds
 
-  printPpr dflags tc_binds
-  printPpr dflags tcs
-  liftIO $ print test
+  -- printPpr dflags tc_binds
+  -- printPpr dflags tcs
+  liftIO $ TIO.putStrLn debugMsg
 
   let rendered =
         unlines $ do

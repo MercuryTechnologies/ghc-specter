@@ -15,5 +15,23 @@
 
 module A (test) where
 
+data Foo = Foo Int
+  deriving (Show)
+
+data Bar = Bar
+  { barX :: Double
+  , barY :: Double
+  }
+  deriving (Show)
+
+foo :: Foo
+foo = Foo 3
+
+bar :: Bar
+bar = Bar 1 2
+
 test :: IO ()
-test = putStrLn "hello there"
+test = do
+  putStrLn "hello there"
+  print foo
+  print bar
