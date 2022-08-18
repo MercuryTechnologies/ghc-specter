@@ -96,9 +96,7 @@ renderTimingChart timingInfos =
                 ++ (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
             )
           )
-      infoElement =
-        pre [] [text "text"]
-   in div [] [svgElement, infoElement]
+   in div [] [svgElement]
 
 renderTiming :: ServerState -> Widget HTML a
 renderTiming ss =

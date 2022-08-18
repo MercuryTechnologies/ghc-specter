@@ -14,6 +14,7 @@ module Toolbox.Util.Graph
     fullStep,
     makeEdges,
     makeReducedGraph,
+    makeReducedGraphReversedFromModuleGraph,
     makeSeedState,
     mkRevDep,
     reduceGraph,
@@ -25,7 +26,8 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
-import Data.Graph (Graph, Tree (..), path)
+import qualified Data.Foldable as F
+import Data.Graph (Graph, Tree (..), buildG, path, topSort)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -177,6 +179,7 @@ mkRevDep deps = IM.foldlWithKey step emptyMap deps
     step !acc i js =
       L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
 
+-- TODO: Place this to some common module for constants
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
@@ -238,3 +241,14 @@ reduceGraph onlyClustered seeds graphInfo =
         | onlyClustered = finalGraphClustered
         | otherwise = finalGraphClustered ++ finalGraphUnclustered
    in IM.fromList finalGraph
+
+makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
+makeReducedGraphReversedFromModuleGraph mgi =
+  let nVtx = F.length $ mginfoModuleNameMap mgi
+      es = makeEdges $ mginfoModuleDep mgi
+      g = buildG (1, nVtx) es
+      seeds = filterOutSmallNodes mgi
+      tordVtxs = topSort g
+      tordSeeds = filter (`elem` seeds) tordVtxs
+      reducedGraph = makeReducedGraph g tordSeeds
+   in mkRevDep reducedGraph

@@ -17,7 +17,12 @@ where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Toolbox.Channel (Channel, SessionInfo, Timer)
+import Toolbox.Channel
+  ( Channel,
+    SessionInfo,
+    Timer,
+    type ModuleName,
+  )
 
 type ChanModule = (Channel, Text)
 
@@ -56,6 +61,8 @@ data NodeLayout a = NodeLayout
 data EdgeLayout = EdgeLayout
   { edgeId :: Int
   -- ^ edge id from the graph layouter
+  , edgeEndNodes :: (Int, Int)
+  -- ^ (source node, target node)
   , edgePoints :: [Point]
   -- ^ edge start point, bend points, end point
   }
@@ -72,7 +79,9 @@ data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
-  , serverTiming :: Map Text Timer
+  , serverTiming :: Map ModuleName Timer
+  , serverModuleGraph :: Maybe GraphVisInfo
+  , serverModuleClustering :: [(ModuleName, [ModuleName])]
   }
 
 incrementSN :: ServerState -> ServerState

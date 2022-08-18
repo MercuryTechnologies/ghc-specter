@@ -1,27 +1,37 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Render.ModuleGraph
   ( layOutGraph,
-    filterOutSmallNodes,
-    makeReducedGraphReversedFromModuleGraph,
     renderModuleGraph,
   )
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (div, pre, text)
+import Concur.Replica
+  ( Props,
+    classList,
+    div,
+    height,
+    pre,
+    text,
+    textProp,
+    width,
+  )
+import qualified Concur.Replica.SVG as S
+import qualified Concur.Replica.SVG.Props as SP
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (allocate)
 import Data.Bits ((.|.))
-import Data.Foldable (for_)
 import qualified Data.Foldable as F
-import Data.Graph (buildG, topSort)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
-import Data.Maybe (mapMaybe)
+import Data.Map (Map)
+import qualified Data.Map as M
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
@@ -35,22 +45,25 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
+import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
+    Timer,
   )
 import Toolbox.Server.Types
-  ( GraphVisInfo (..),
+  ( Dimension (..),
+    EdgeLayout (..),
+    GraphVisInfo (..),
+    Point (..),
     NodeLayout (..),
     ServerState (..),
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
-    makeEdges,
-    makeReducedGraph,
     mkRevDep,
   )
 import Toolbox.Util.OGDF
@@ -67,6 +80,9 @@ import Toolbox.Util.OGDF
     runGraphLayouter,
   )
 import Prelude hiding (div)
+
+xmlns :: Props a
+xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
@@ -135,31 +151,115 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
+makePolylineText :: [Point] -> Text
+makePolylineText xys = T.intercalate " " (fmap each xys)
+  where
+    each (Point x y) = [fmt|{x:.2},{y:.2}|]
+
+renderModuleGraphSVG ::
+  Map Text Timer ->
+  [(Text, [Text])] ->
+  GraphVisInfo ->
+  Widget HTML a
+renderModuleGraphSVG timing clustering grVisInfo =
+  let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
+      edge (EdgeLayout _ _ xys) =
+        S.polyline
+          [ SP.points (makePolylineText xys)
+          , SP.stroke "gray"
+          , SP.fill "none"
+          ]
+          []
+      aFactor = 0.8
+      offXFactor = -0.4
+      offYFactor = -0.6
+      box0 (NodeLayout _ (Point x y) (Dim w h)) =
+        S.rect
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
+          , width (T.pack $ show (w * aFactor))
+          , height "20"
+          , SP.stroke "dimgray"
+          , SP.fill "ivory"
+          ]
+          []
+      box1 (NodeLayout _ (Point x y) (Dim w h)) =
+        S.rect
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
+          , width (T.pack $ show (w * aFactor))
+          , height "5"
+          , SP.stroke "black"
+          , SP.fill "none"
+          ]
+          []
+      box2 (NodeLayout name (Point x y) (Dim w h)) =
+        let ratio = fromMaybe 0 $ do
+              cluster <- L.lookup name clustering
+              let nTot = length cluster
+              if nTot == 0
+                then Nothing
+                else do
+                  let compiled = filter (\j -> j `M.member` timing) cluster
+                      nCompiled = length compiled
+                  pure (fromIntegral nCompiled / fromIntegral nTot)
+            w' = ratio * w
+         in S.rect
+              [ SP.x (T.pack $ show (x + w * offXFactor))
+              , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
+              , width (T.pack $ show (w' * aFactor))
+              , height "5"
+              , SP.fill "blue"
+              ]
+              []
+      moduleText (NodeLayout name (Point x y) (Dim w h)) =
+        S.text
+          [ SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.y (T.pack $ show (y + h * offYFactor + h))
+          , classList [("small", True)]
+          ]
+          [text name]
+
+      edges = fmap edge $ gviEdges grVisInfo
+      nodes =
+        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
+
+      svgElement =
+        S.svg
+          [ width "100%"
+          , SP.viewBox
+              ( "0 0 "
+                  <> T.pack (show (canvasWidth + 300)) -- i don't understand why it's incorrect
+                  <> " "
+                  <> T.pack (show (canvasHeight + 300))
+              )
+          , SP.version "1.1"
+          , xmlns
+          ]
+          (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
+   in div [classList [("is-fullwidth", True)]] [svgElement]
+
 renderModuleGraph :: ServerState -> Widget HTML a
 renderModuleGraph ss =
   let sessionInfo = serverSessionInfo ss
+      timing = serverTiming ss
+      clustering = serverModuleClustering ss
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            [ pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]
-            ]
+            ( ( case serverModuleGraph ss of
+                  Nothing -> []
+                  Just grVisInfo ->
+                    [renderModuleGraphSVG timing clustering grVisInfo]
+              )
+                ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
+            )
 
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
-
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
-makeReducedGraphReversedFromModuleGraph mgi =
-  let nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges $ mginfoModuleDep mgi
-      g = buildG (1, nVtx) es
-      seeds = filterOutSmallNodes mgi
-      tordVtxs = topSort g
-      tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = makeReducedGraph g tordSeeds
-   in mkRevDep reducedGraph
 
 layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
 layOutGraph nameMap graph = runGraphLayouter $ do
@@ -171,8 +271,8 @@ layOutGraph nameMap graph = runGraphLayouter $ do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
         Just name -> do
-          let width = 8 * T.length name
-          node <- newGraphNodeWithSize (g, ga) (width, 15)
+          let w = 8 * T.length name
+          node <- newGraphNodeWithSize (g, ga) (w, 15)
           appendText ga node name
           pure (Just node)
   moduleNodeIndex <-
@@ -180,9 +280,9 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
   void $
     flip IM.traverseWithKey graph $ \i js ->
-      for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
+      F.for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
         let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
-        for_ node_js $ \node_j ->
+        F.for_ node_js $ \node_j ->
           liftIO (graph_newEdge g node_i node_j)
 
   doSugiyamaLayout ga
@@ -198,6 +298,4 @@ layOutGraph nameMap graph = runGraphLayouter $ do
             pure $ NodeLayout name pt dim
 
   edgeLayout <- getAllEdgeLayout g ga
-  liftIO $ print edgeLayout
-
   pure $ GraphVisInfo canvasDim nodeLayout edgeLayout

@@ -14,7 +14,7 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Map.Strict as M
@@ -30,7 +30,6 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
-    ModuleGraphInfo (..),
     SessionInfo (..),
     emptyModuleGraphInfo,
   )
@@ -39,16 +38,13 @@ import Toolbox.Comm
     runServer,
   )
 import Toolbox.Render (render)
-import Toolbox.Render.ModuleGraph
-  ( layOutGraph,
-    makeReducedGraphReversedFromModuleGraph,
-  )
 import Toolbox.Server.Types
   ( ServerState (..),
     Tab (TabCheckImports),
     UIState (..),
     incrementSN,
   )
+import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
 
 newtype Options = Options {optSocketFile :: FilePath}
@@ -65,7 +61,7 @@ main = do
   let socketFile = optSocketFile opts
   var <-
     atomically $
-      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty)
+      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty Nothing [])
   _ <- forkIO $ listener socketFile var
   webServer var
 
@@ -80,12 +76,8 @@ listener socketFile var =
         o <- receiveObject sock
         case o of
           CMBox (CMSession s') -> do
-            let graphInfo = sessionModuleGraph s'
-                modNameMap = mginfoModuleNameMap graphInfo
-                reducedGraphReversed =
-                  makeReducedGraphReversedFromModuleGraph graphInfo
-            test <- layOutGraph modNameMap reducedGraphReversed
-            print test
+            let mgi = sessionModuleGraph s'
+            void $ forkIO (moduleGraphWorker var mgi)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ o
     )
