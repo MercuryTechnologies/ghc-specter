@@ -13,11 +13,15 @@ where
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
+import Data.Data
+import Data.Dynamic
+import Data.Functor.Const
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
 import qualified Data.List as L
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Maybe
 import qualified Data.Monoid as M ((<>))
 import Data.Set (Set)
 import qualified Data.Set as S
@@ -25,6 +29,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.Data.Bag (bagToList)
+import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Doc (LHsDocString)
 import GHC.Hs.Extension (GhcRn, GhcTc)
@@ -38,7 +43,12 @@ import GHC.Plugins
     localiseName,
     showSDoc,
   )
-import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Tc.Types
+  ( Env (..),
+    TcGblEnv (..),
+    TcLclEnv (..),
+    TcM,
+  )
 import GHC.Types.Avail (Avails)
 import GHC.Types.Name.Reader
   ( GlobalRdrElt (..),
@@ -46,8 +56,9 @@ import GHC.Types.Name.Reader
     ImpDeclSpec (..),
     ImportSpec (..),
     Parent,
+    greNameSrcSpan,
   )
-import GHC.Types.SrcLoc (unLoc)
+import GHC.Types.SrcLoc (SrcSpan, unLoc)
 import GHC.Types.Var (Id)
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
@@ -58,6 +69,11 @@ import Language.Haskell.Syntax.Binds
     LHsBinds,
   )
 import Language.Haskell.Syntax.Decls (HsGroup)
+import Language.Haskell.Syntax.Expr
+  ( HsExpr (..),
+    LHsExpr,
+    MatchGroup (..),
+  )
 import PyF (fmt)
 import System.Directory (doesFileExist)
 import Toolbox.Channel
@@ -65,7 +81,7 @@ import Toolbox.Channel
     ChanMessageBox (..),
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (printPpr, showPpr, showPprDebug)
+import Toolbox.Util (printPpr, printPprDebug, showPpr, showPprDebug)
 import Prelude hiding ((<>))
 
 plugin :: Plugin
@@ -115,18 +131,53 @@ type TypecheckedSource = LHsBinds GhcTc
 formatId :: DynFlags -> Id -> Text
 formatId dflags i = [fmt|({showPpr dflags i}: {showPprDebug dflags i})|]
 
-getFunctionDeps :: DynFlags -> HsBindLR GhcTc GhcTc -> Text
-getFunctionDeps dflags b =
-  case b of
-    FunBind {fun_id} -> [fmt|fun_id={formatId dflags (unLoc fun_id)}|]
-    PatBind {} -> [fmt|PatBind|]
-    VarBind {var_id} -> [fmt|var_id={formatId dflags var_id}|]
-    AbsBinds {abs_binds} ->
-      -- [fmt|AbsBinds|]
-      [fmt|AbsBinds:\n  |]
-        M.<> T.intercalate "\n, " (fmap (getFunctionDeps dflags . unLoc) (bagToList abs_binds))
-    PatSynBind {} -> [fmt|PatSynBind|]
-    XHsBindsLR {} -> [fmt|XHsBindsLR|]
+{-
+getFunctionDeps :: HsBindLR GhcTc GhcTc -> [(Id, [Id])]
+getFunctionDeps binding =
+    case binding of
+      -- function/variable binding
+      FunBind {fun_id, fun_matches} ->
+        [(unLoc fun_id, depsFromFunBind fun_matches)]
+      PatBind {} -> []
+      -- dictionary binding
+      VarBind {var_id} -> [(var_id, [])]
+      AbsBinds {abs_binds} -> concatMap (getFunctionDeps . unLoc) (bagToList abs_binds)
+      PatSynBind {} -> []
+      XHsBindsLR {} -> []
+  where
+    depsFromFunBind :: MatchGroup GhcTc (LHsExpr GhcTc) -> [Id]
+    depsFromFunBind MG {mg_alts} = concatMap go mg_alts
+      where
+        go Match {grhss}
+    depsFromFunBind (XMatchGroup _) = []
+-}
+
+extractIds :: HsBindLR GhcTc GhcTc -> [Id]
+extractIds binding =
+  mapMaybe fromDynamic $ getConst (go binding)
+  where
+    go :: Data x => x -> Const [Dynamic] x
+    go = gfoldl k (\_ -> Const [])
+    k ::
+      forall d b. Data d => Const [Dynamic] (d -> b) -> d -> Const [Dynamic] b
+    Const (!ys) `k` x =
+      let zs =
+            if typeOf x == typeOf (undefined :: Id)
+              then [toDyn x]
+              else
+                let Const zs' = go x
+                 in zs'
+       in Const (ys ++ zs)
+
+getAllGreNameSrcSpans :: [GlobalRdrElt] -> [(GreName, SrcSpan)]
+getAllGreNameSrcSpans gres = do
+  gre <- gres
+  let grename = gre_name gre
+  pure (grename, greNameSrcSpan grename)
+
+formatGreNameSrcSpan :: DynFlags -> (GreName, SrcSpan) -> Text
+formatGreNameSrcSpan dflags (grename, srcspan) =
+  [fmt|{showPpr dflags grename}: {showPprDebug dflags grename}, {showPpr dflags srcspan}: {showPprDebug dflags srcspan}|]
 
 -- | First argument in -fplugin-opt is interpreted as the socket file path.
 --   If nothing, do not try to communicate with web frontend.
@@ -136,7 +187,10 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin opts modsummary tc = do
+  tlEnv <- env_lcl <$> getEnv
   dflags <- getDynFlags
+  -- printPprDebug dflags (tcl_env tlEnv)
+  -- printPprDebug dflags (tcg_rdr_env tc)
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
   let modNameMap = concatMap mkModuleNameMap usedGREs
@@ -149,11 +203,11 @@ typecheckPlugin opts modsummary tc = do
   let tc_binds = bagToList $ tcg_binds tc
       tcs = tcg_tcs tc
 
-      debugMsg = T.intercalate "\n" $ fmap (getFunctionDeps dflags . unLoc) tc_binds
-
-  -- printPpr dflags tc_binds
-  -- printPpr dflags tcs
-  liftIO $ TIO.putStrLn debugMsg
+  liftIO $
+    TIO.putStrLn $
+      T.intercalate "\n" $
+        fmap (formatId dflags) $
+          concatMap (extractIds . unLoc) tc_binds
 
   let rendered =
         unlines $ do
