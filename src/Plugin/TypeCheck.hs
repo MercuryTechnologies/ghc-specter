@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | TypeCheck plugin:
 --   This plugin runs at type checker time.
@@ -129,7 +130,7 @@ type RenamedSource =
 type TypecheckedSource = LHsBinds GhcTc
 
 formatId :: DynFlags -> Id -> Text
-formatId dflags i = [fmt|({showPpr dflags i}: {showPprDebug dflags i})|]
+formatId dflags i = [fmt|{showPpr dflags i}|]  -- : {showPprDebug dflags i})|]
 
 {-
 getFunctionDeps :: HsBindLR GhcTc GhcTc -> [(Id, [Id])]
@@ -154,16 +155,17 @@ getFunctionDeps binding =
 
 extractIds :: HsBindLR GhcTc GhcTc -> [Id]
 extractIds binding =
-  mapMaybe fromDynamic $ getConst (go binding)
+  {- mapMaybe fromDynamic $ -}
+    getConst (go binding)
   where
-    go :: Data x => x -> Const [Dynamic] x
+    go :: Data x => x -> Const [Id] x
     go = gfoldl k (\_ -> Const [])
     k ::
-      forall d b. Data d => Const [Dynamic] (d -> b) -> d -> Const [Dynamic] b
+      forall d b. Data d => Const [Id] (d -> b) -> d -> Const [Id] b
     Const (!ys) `k` x =
       let zs =
             if typeOf x == typeOf (undefined :: Id)
-              then [toDyn x]
+              then maybeToList . fromDynamic . toDyn $ x
               else
                 let Const zs' = go x
                  in zs'
@@ -205,9 +207,16 @@ typecheckPlugin opts modsummary tc = do
 
   liftIO $
     TIO.putStrLn $
-      T.intercalate "\n" $
-        fmap (formatId dflags) $
-          concatMap (extractIds . unLoc) tc_binds
+      T.intercalate "\n------\n" $
+        flip fmap tc_binds $ \(unLoc -> binding) ->
+          T.pack (showPpr dflags binding)
+            M.<> "\n"
+            M.<> T.intercalate
+                   ", "
+                   (fmap (formatId dflags) (extractIds binding))
+
+--        (formatId dflags) $
+--          concatMap (extractIds . unLoc) tc_binds
 
   let rendered =
         unlines $ do
