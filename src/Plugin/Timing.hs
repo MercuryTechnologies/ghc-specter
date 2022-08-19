@@ -30,6 +30,7 @@ import Data.Time.Clock (getCurrentTime)
 import Data.Tuple (swap)
 import qualified GHC.Data.Graph.Directed as G
 import GHC.Driver.Env (HscEnv (..))
+import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
 import GHC.Driver.Make
   ( moduleGraphNodes,
@@ -38,7 +39,7 @@ import GHC.Driver.Make
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
   ( PhasePlus (RealPhase),
-    PipeState (iface),
+    PipeState (iface, maybe_loc),
     getPipeState,
     runPhase,
   )
@@ -47,10 +48,22 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
+import GHC.Driver.Session (gopt)
+import GHC.Iface.Ext.Binary
+  ( HieFileResult (..),
+    NameCacheUpdater (NCU),
+    readHieFile,
+  )
+import GHC.Iface.Ext.Types (HieFile (..))
+import GHC.Types.Name.Cache (initNameCache)
+import GHC.Types.Unique.Supply (mkSplitUniqSupply)
 import GHC.Unit.Module.Graph
   ( ModuleGraph,
     ModuleGraphNode (..),
     mgModSummaries',
+  )
+import GHC.Unit.Module.Location
+  ( ModLocation (ml_hie_file),
   )
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
 import GHC.Unit.Module.ModSummary
@@ -72,7 +85,7 @@ import Toolbox.Channel
     resetTimer,
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (showPpr)
+import Toolbox.Util (printPpr, showPpr)
 
 plugin :: Plugin
 plugin =
@@ -152,9 +165,20 @@ driver opts env = do
 
         case phase' of
           RealPhase StopLn -> do
-            mmodName <-
-              fmap (T.pack . moduleNameString . moduleName . mi_module) . iface
-                <$> getPipeState
+            pstate <- getPipeState
+            let mmodName = fmap (T.pack . moduleNameString . moduleName . mi_module) . iface $ pstate
+            -- liftIO $ print $ maybe_loc pstate
+            -- liftIO $ print $ gopt Opt_WriteHie dflags
+            case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
+              (Just modLoc, True) -> liftIO $ do
+                let hiefile = ml_hie_file modLoc
+                uniq_supply <- mkSplitUniqSupply 'z'
+                let nc = initNameCache uniq_supply []
+                hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
+                let asts = hie_asts $ hie_file_result hieResult
+                printPpr dflags asts
+                pure ()
+              _ -> pure ()
             case mmodName of
               Nothing -> pure ()
               Just modName -> liftIO $ do
