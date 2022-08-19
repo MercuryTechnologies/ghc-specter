@@ -31,7 +31,9 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.Data.Bag (bagToList)
 import GHC.Data.IOEnv (getEnv)
+import GHC.Driver.Env.Types (Hsc)
 import GHC.Driver.Session (DynFlags, getDynFlags)
+import GHC.Hs (HsParsedModule)
 import GHC.Hs.Doc (LHsDocString)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Hs.ImpExp (LIE, LImportDecl)
@@ -88,8 +90,15 @@ import Prelude hiding ((<>))
 plugin :: Plugin
 plugin =
   defaultPlugin
-    { typeCheckResultAction = typecheckPlugin
+    { parsedResultAction = parsedResultPlugin
+    , typeCheckResultAction = typecheckPlugin
     }
+
+
+parsedResultPlugin :: [CommandLineOption] -> ModSummary -> HsParsedModule -> Hsc HsParsedModule
+parsedResultPlugin _ modSummary hpm = do
+  -- mkHieFile modSummary
+  pure hpm
 
 formatName :: DynFlags -> Name -> String
 formatName dflags name =
@@ -130,7 +139,9 @@ type RenamedSource =
 type TypecheckedSource = LHsBinds GhcTc
 
 formatId :: DynFlags -> Id -> Text
-formatId dflags i = [fmt|{showPpr dflags i}|]  -- : {showPprDebug dflags i})|]
+formatId dflags i =
+  T.pack (showPpr dflags i)
+  -- [fmt|{showPpr dflags i}|]  -- : {showPprDebug dflags i})|]
 
 {-
 getFunctionDeps :: HsBindLR GhcTc GhcTc -> [(Id, [Id])]
@@ -153,23 +164,22 @@ getFunctionDeps binding =
     depsFromFunBind (XMatchGroup _) = []
 -}
 
-extractIds :: HsBindLR GhcTc GhcTc -> [Id]
+extractIds :: HsBindLR GhcTc GhcTc -> Int -- [Id]
 extractIds binding =
-  {- mapMaybe fromDynamic $ -}
     getConst (go binding)
   where
-    go :: Data x => x -> Const [Id] x
-    go = gfoldl k (\_ -> Const [])
+    go :: Data x => x -> Const {- [Id] -} Int x
+    go = gfoldl k (\_ -> Const 0)
     k ::
-      forall d b. Data d => Const [Id] (d -> b) -> d -> Const [Id] b
+      forall d b. Data d => Const Int {- [Id] -} (d -> b) -> d -> Const Int {- [Id] -} b
     Const (!ys) `k` x =
       let zs =
             if typeOf x == typeOf (undefined :: Id)
-              then maybeToList . fromDynamic . toDyn $ x
+              then 1 -- maybeToList . fromDynamic . toDyn $ x
               else
                 let Const zs' = go x
                  in zs'
-       in Const (ys ++ zs)
+       in Const {- (ys ++ zs) -} (ys + zs)
 
 getAllGreNameSrcSpans :: [GlobalRdrElt] -> [(GreName, SrcSpan)]
 getAllGreNameSrcSpans gres = do
@@ -177,9 +187,11 @@ getAllGreNameSrcSpans gres = do
   let grename = gre_name gre
   pure (grename, greNameSrcSpan grename)
 
+{-
 formatGreNameSrcSpan :: DynFlags -> (GreName, SrcSpan) -> Text
 formatGreNameSrcSpan dflags (grename, srcspan) =
   [fmt|{showPpr dflags grename}: {showPprDebug dflags grename}, {showPpr dflags srcspan}: {showPprDebug dflags srcspan}|]
+-}
 
 -- | First argument in -fplugin-opt is interpreted as the socket file path.
 --   If nothing, do not try to communicate with web frontend.
@@ -204,17 +216,17 @@ typecheckPlugin opts modsummary tc = do
 
   let tc_binds = bagToList $ tcg_binds tc
       tcs = tcg_tcs tc
-
+{-  
   liftIO $
     TIO.putStrLn $
       T.intercalate "\n------\n" $
         flip fmap tc_binds $ \(unLoc -> binding) ->
-          T.pack (showPpr dflags binding)
+          {- T.pack (showPpr dflags binding)
             M.<> "\n"
-            M.<> T.intercalate
-                   ", "
-                   (fmap (formatId dflags) (extractIds binding))
-
+            M.<> -} {- T.intercalate
+                   ", " -}
+                   ({- fmap (formatId dflags) -} (T.pack . show) (extractIds binding))
+-}
 --        (formatId dflags) $
 --          concatMap (extractIds . unLoc) tc_binds
 
