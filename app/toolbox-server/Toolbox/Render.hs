@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Toolbox.Render
   ( ChanModule,
     Inbox,
@@ -32,7 +34,8 @@ import Toolbox.Render.ModuleGraph (renderModuleGraph)
 import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
-  ( ServerState (..),
+  ( Event (..),
+    ServerState (..),
     Tab (..),
     UIState (..),
     type ChanModule,
@@ -53,10 +56,12 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderInbox :: UIState -> Inbox -> Widget HTML (Maybe Text)
-renderInbox (UIState tab mexpandedModu) m =
+renderInbox :: UIState -> Inbox -> Widget HTML Event
+renderInbox ui m =
   ul [] $ map eachRender filtered
   where
+    tab = uiTab ui
+    mexpandedModu = uiModuleExpanded ui
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -64,25 +69,25 @@ renderInbox (UIState tab mexpandedModu) m =
       TabTiming -> Timing
     filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
 
-    eachRender :: (ChanModule, Text) -> Widget HTML (Maybe Text)
+    eachRender :: (ChanModule, Text) -> Widget HTML Event
     eachRender ((_, modu), v) =
       let modinfo
             | mexpandedModu == Just modu =
-                [ Nothing <$ iconText "fa-minus" modu
+                [ ExpandModuleEv Nothing <$ iconText "fa-minus" modu
                 , pre [] [text v]
                 ]
             | otherwise =
-                [Just modu <$ iconText "fa-plus" modu]
+                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
        in li [] modinfo
 
 renderMainPanel ::
   UIState ->
   ServerState ->
-  Widget HTML (Maybe Text)
-renderMainPanel ui@(UIState tab _) ss =
-  case tab of
+  Widget HTML Event
+renderMainPanel ui ss =
+  case uiTab ui of
     TabSession -> renderSession ss
-    TabModuleGraph -> renderModuleGraph ss
+    TabModuleGraph -> renderModuleGraph ui ss
     TabCheckImports -> renderInbox ui (serverInbox ss)
     TabTiming -> renderTiming ss
 
@@ -95,16 +100,16 @@ cssLink url =
     ]
     []
 
-renderNavbar :: Tab -> Widget HTML Tab
+renderNavbar :: Tab -> Widget HTML Event
 renderNavbar tab =
   nav
-    [classList [("navbar", True)]]
+    [classList [("navbar m-0 p-0", True)]]
     [ navbarMenu
         [ navbarStart
-            [ TabSession <$ navItem (tab == TabSession) [text "Session"]
-            , TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
-            , TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
+            [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
+            , TabEv TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
+            , TabEv TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
+            , TabEv TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
     ]
@@ -113,15 +118,15 @@ renderNavbar tab =
     navbarStart = divClass "navbar-start" []
     navItem isActive =
       let clss
-            | isActive = ["navbar-item", "is-tab", "is-active"]
-            | otherwise = ["navbar-item", "is-tab"]
+            | isActive = ["navbar-item", "is-tab", "is-active", "m-0", "p-1"]
+            | otherwise = ["navbar-item", "is-tab", "m-0", "p-1"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
 render ::
   (UIState, ServerState) ->
   Widget HTML UIState
-render (ui@(UIState tab mexpandedModu), ss) = do
+render (ui, ss) = do
   let (mainPanel, bottomPanel)
         | serverMessageSN ss == 0 =
             ( div [] [text "No GHC process yet"]
@@ -135,13 +140,24 @@ render (ui@(UIState tab mexpandedModu), ss) = do
                 []
                 [divClass "box" [] [text $ "message: " <> T.pack (show (serverMessageSN ss))]]
             )
+
+  let handleNavbar :: UIState -> Event -> UIState
+      handleNavbar oldUI (TabEv tab') = oldUI {uiTab = tab'}
+      handleNavbar oldUI _ = oldUI
+
+      handleMainPanel :: UIState -> Event -> UIState
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = oldUI {uiModuleExpanded = mexpandedModu'}
+      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = oldUI {uiModuleHover = mhoverModu'}
+      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = oldUI {uiModuleClick = mclickedModu'}
+      handleMainPanel oldUI _ = oldUI
+
   ui' <-
     div
-      [classList [("container is-fullheight", True)]]
+      [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , (\tab' -> UIState tab' mexpandedModu) <$> renderNavbar tab
-      , (\mexpandedModu' -> UIState tab mexpandedModu') <$> mainPanel
+      , handleNavbar ui <$> renderNavbar (uiTab ui)
+      , handleMainPanel ui <$> mainPanel
       , bottomPanel
       ]
   pure ui'

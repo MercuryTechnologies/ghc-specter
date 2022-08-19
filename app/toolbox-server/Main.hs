@@ -31,7 +31,6 @@ import Toolbox.Channel
     ChanMessageBox (..),
     Channel (..),
     SessionInfo (..),
-    emptyModuleGraphInfo,
   )
 import Toolbox.Comm
   ( receiveObject,
@@ -40,9 +39,9 @@ import Toolbox.Comm
 import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
-    Tab (TabCheckImports),
-    UIState (..),
     incrementSN,
+    initServerState,
+    initUIState,
   )
 import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
@@ -59,9 +58,7 @@ main :: IO ()
 main = do
   opts <- OA.execParser optsParser
   let socketFile = optSocketFile opts
-  var <-
-    atomically $
-      newTVar (ServerState 0 mempty (SessionInfo Nothing emptyModuleGraphInfo) mempty Nothing [])
+  var <- atomically $ newTVar initServerState
   _ <- forkIO $ listener socketFile var
   webServer var
 
@@ -97,11 +94,10 @@ updateInbox chanMsg ss =
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
-  initServerState <- atomically (readTVar var)
+  ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
-  let initUIState = UIState TabCheckImports Nothing
   runDefault 8080 "test" $
-    \_ -> loopM step (initUIState, initServerState, initTime)
+    \_ -> loopM step (initUIState, ss0, initTime)
   where
     step (ui, ss, lastUIUpdate) = do
       let await = do
