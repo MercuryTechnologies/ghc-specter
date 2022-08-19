@@ -24,9 +24,10 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, maybeToList)
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
+import Data.Tree (drawForest)
 import Data.Tuple (swap)
 import qualified GHC.Data.Graph.Directed as G
 import GHC.Driver.Env (HscEnv (..))
@@ -48,13 +49,27 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Driver.Session (gopt)
+import GHC.Driver.Session
+  ( DynFlags,
+    gopt,
+    initSDocContext,
+  )
 import GHC.Iface.Ext.Binary
   ( HieFileResult (..),
     NameCacheUpdater (NCU),
     readHieFile,
   )
-import GHC.Iface.Ext.Types (HieFile (..))
+import GHC.Iface.Ext.Types
+  ( HieFile (..),
+    getAsts,
+  )
+import GHC.Iface.Ext.Utils
+  ( RefMap,
+    generateReferencesMap,
+    getEvidenceTree,
+    recoverFullType,
+    renderHieType,
+  )
 import GHC.Types.Name.Cache (initNameCache)
 import GHC.Types.Unique.Supply (mkSplitUniqSupply)
 import GHC.Unit.Module.Graph
@@ -72,6 +87,7 @@ import GHC.Unit.Module.ModSummary
   )
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
+import GHC.Utils.Outputable (Outputable, renderWithContext, ppr, defaultUserStyle, text)
 import System.Directory (doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 import Toolbox.Channel
@@ -86,6 +102,22 @@ import Toolbox.Channel
   )
 import Toolbox.Comm (runClient, sendObject)
 import Toolbox.Util (printPpr, showPpr)
+
+{-
+import GHC.Types.Name.Cache
+import GHC.Types.SrcLoc
+import GHC.Types.Unique.Supply
+import GHC.Types.Name
+import Data.Tree
+import GHC.Iface.Ext.Binary
+import GHC.Iface.Ext.Types
+import GHC.Iface.Ext.Utils
+import Data.Maybe (fromJust)
+import GHC.Driver.Session
+import GHC.SysTools
+import qualified Data.Map as M
+import Data.Foldable
+-}
 
 plugin :: Plugin
 plugin =
@@ -175,8 +207,13 @@ driver opts env = do
                 uniq_supply <- mkSplitUniqSupply 'z'
                 let nc = initNameCache uniq_supply []
                 hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
-                let asts = hie_asts $ hie_file_result hieResult
-                printPpr dflags asts
+                let hf = hie_file_result hieResult
+                    asts = hie_asts hf
+                    refmap = generateReferencesMap $ getAsts asts
+                -- printPpr dflags asts
+                printPpr dflags refmap
+                explainEv dflags hf refmap
+                -- printPpr dflags asts
                 pure ()
               _ -> pure ()
             case mmodName of
@@ -197,3 +234,43 @@ driver opts env = do
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
   pure env'
+
+
+{-
+dynFlagsForPrinting :: String -> IO DynFlags
+dynFlagsForPrinting libdir = do
+  systemSettings <- initSysTools libdir
+  return $ defaultDynFlags systemSettings (LlvmConfig [] [])
+-}
+
+{-
+main = do
+  libdir:_ <- getArgs
+  df <- dynFlagsForPrinting libdir
+  nc <- makeNc
+  hfr <- readHieFile (NCU (\f -> pure $ snd $ f nc)) "HieQueries.hie"
+  let hf = hie_file_result hfr
+      refmap = generateReferencesMap $ getAsts $ hie_asts hf
+  explainEv df hf refmap point
+  explainEv df hf refmap point'
+  return ()
+-}
+
+{-
+explainEv :: DynFlags -> HieFile -> RefMap Int -> IO ()
+explainEv df hf refmap = do
+  putStrLn $ replicate 26 '='
+  putStr $ drawForest ptrees
+  where
+    mtree = getEvidenceTree hf refmap
+
+    ptrees = maybeToList (fmap (pprint . fmap expandType) <$> mtree)
+
+    expandType = text . renderHieType df .
+      flip recoverFullType (hie_types hf)
+
+    pretty = unlines . (++["└"]) . ("┌":) . map ("│ "++) . lines
+
+    pprint = pretty . renderWithContext (initSDocContext df sty) . ppr
+    sty = defaultUserStyle
+-}
