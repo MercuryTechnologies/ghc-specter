@@ -188,15 +188,15 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               , SP.fill "none"
               ]
               []
-      aFactor = 0.8
-      offXFactor = -0.4
-      offYFactor = -0.6
+      aFactor = 0.9
+      offXFactor = -0.30
+      offYFactor = -0.9
       box0 (NodeLayout name (Point x y) (Dim w h)) =
         S.rect
           [ SP.x (T.pack $ show (x + w * offXFactor))
-          , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
+          , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
           , width (T.pack $ show (w * aFactor))
-          , height "20"
+          , height "13"
           , SP.stroke "dimgray"
           , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
           ]
@@ -206,7 +206,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
-          , height "5"
+          , height "4"
           , SP.stroke "black"
           , SP.fill "none"
           ]
@@ -226,7 +226,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               [ SP.x (T.pack $ show (x + w * offXFactor))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
-              , height "5"
+              , height "4"
               , SP.fill "blue"
               ]
               []
@@ -235,7 +235,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.x (T.pack $ show (x + w * offXFactor + 2))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
@@ -247,7 +247,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
 
       svgElement =
         S.svg
-          [ width "100%"
+          [ width (T.pack (show (canvasWidth + 100))) -- "100%"
           , SP.viewBox
               ( "0 0 "
                   <> T.pack (show (canvasWidth + 100)) -- i don't understand why it's incorrect
@@ -257,7 +257,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           , SP.version "1.1"
           , xmlns
           ]
-          (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
+          (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderSubgraph ::
@@ -311,7 +311,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
         Just name -> do
-          let w = 8 * T.length name
+          let w = 4 * T.length name
           node <- newGraphNodeWithSize (g, ga) (w, 15)
           appendText ga node name
           pure (Just node)

@@ -201,6 +201,7 @@ driver opts env = do
             let mmodName = fmap (T.pack . moduleNameString . moduleName . mi_module) . iface $ pstate
             -- liftIO $ print $ maybe_loc pstate
             -- liftIO $ print $ gopt Opt_WriteHie dflags
+            {-
             case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
               (Just modLoc, True) -> liftIO $ do
                 let hiefile = ml_hie_file modLoc
@@ -216,6 +217,7 @@ driver opts env = do
                 -- printPpr dflags asts
                 pure ()
               _ -> pure ()
+            -}
             case mmodName of
               Nothing -> pure ()
               Just modName -> liftIO $ do
