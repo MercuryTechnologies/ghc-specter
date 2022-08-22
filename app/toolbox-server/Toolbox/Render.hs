@@ -39,6 +39,7 @@ import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( Event (..),
+    ModuleGraphEvent (..),
     ServerState (..),
     Tab (..),
     UIState (..),
@@ -151,8 +152,12 @@ render (ui, ss) = do
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
       handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {uiModuleExpanded = mexpandedModu'}
-      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = pure oldUI {uiModuleHover = mhoverModu'}
-      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = pure oldUI {uiModuleClick = mclickedModu'}
+      -- handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = pure oldUI {uiModuleHover = mhoverModu'}
+      -- handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = pure oldUI {uiModuleClick = mclickedModu'}
+      handleMainPanel oldUI (MainModuleGraphEv ev) =
+        case ev of
+          HoverOnModuleEv mhoverModu' -> pure oldUI {uiModuleHover = mhoverModu'}
+          ClickOnModuleEv mclickedModu' -> pure oldUI {uiModuleClick = mclickedModu'}
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->

@@ -63,6 +63,7 @@ import Toolbox.Server.Types
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
+    ModuleGraphEvent (..),
     NodeLayout (..),
     Point (..),
     ServerState (..),
@@ -170,7 +171,7 @@ renderModuleGraphSVG ::
   [(Text, [Text])] ->
   GraphVisInfo ->
   Maybe Text ->
-  Widget HTML Event
+  Widget HTML ModuleGraphEvent
 renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
@@ -297,7 +298,7 @@ renderSubgraph timing subgraphs mselected =
           text [fmt|cannot find the subgraph for the module cluster {selected}|]
         Just subgraph ->
           let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
-           in renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
+           in MainModuleGraphEv <$> renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
 
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraph ui ss =
@@ -314,7 +315,8 @@ renderModuleGraph ui ss =
             ( ( case serverModuleGraph ss of
                   Nothing -> []
                   Just grVisInfo ->
-                    [ renderModuleGraphSVG nameMap timing clustering grVisInfo (uiModuleHover ui)
+                    [ MainModuleGraphEv
+                        <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (uiModuleHover ui)
                     , renderSubgraph timing (serverModuleSubgraph ss) (uiModuleClick ui)
                     ]
               )

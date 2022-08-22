@@ -4,6 +4,9 @@ module Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
     Tab (..),
+
+    -- * Event types
+    ModuleGraphEvent (..),
     Event (..),
 
     -- * UI state
@@ -44,11 +47,14 @@ type Inbox = Map ChanModule Text
 data Tab = TabSession | TabModuleGraph | TabCheckImports | TabTiming
   deriving (Eq)
 
+data ModuleGraphEvent
+  = HoverOnModuleEv (Maybe Text)
+  | ClickOnModuleEv (Maybe Text)
+
 data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
-  | HoverOnModuleEv (Maybe Text)
-  | ClickOnModuleEv (Maybe Text)
+  | MainModuleGraphEv ModuleGraphEvent
   | SaveSessionEv
 
 data UIState = UIState
