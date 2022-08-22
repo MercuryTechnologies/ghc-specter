@@ -2,10 +2,15 @@
 
 -- This module provides the current module under compilation.
 module Plugin.Timing
-  ( -- NOTE: The name "plugin" should be used as a GHC plugin.
+  ( -- * main plugin entry point
+
+    -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
+
+    -- * Global variable for the session information
     sessionRef,
-    --
+
+    -- * Utilities
     getTopSortedModules,
   )
 where

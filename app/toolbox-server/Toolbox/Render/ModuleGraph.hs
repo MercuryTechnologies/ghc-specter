@@ -3,8 +3,18 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Render.ModuleGraph
-  ( layOutGraph,
+  ( -- * Make a visual module graph layout
+    layOutGraph,
+
+    -- * Render HTML for the Module Graph tab
     renderModuleGraphTab,
+
+    -- * show textual info:
+
+    -- TODO: they are obsolete and will be moved to a separate module
+    formatModuleGraphInfo,
+    stat,
+    analyze,
   )
 where
 
@@ -336,23 +346,21 @@ renderModuleGraphTab ui ss =
         Just _ ->
           div
             []
-            ( ( case serverModuleGraph ss of
-                  Nothing -> []
-                  Just grVisInfo ->
-                    [ renderMainModuleGraph
-                        nameMap
-                        timing
-                        clustering
-                        grVisInfo
-                        (uiMainModuleGraph ui)
-                    , renderSubModuleGraph
-                        nameMap
-                        timing
-                        (serverModuleSubgraph ss)
-                        (uiMainModuleGraph ui, uiSubModuleGraph ui)
-                    ]
-              )
-                ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
+            ( case serverModuleGraph ss of
+                Nothing -> []
+                Just grVisInfo ->
+                  [ renderMainModuleGraph
+                      nameMap
+                      timing
+                      clustering
+                      grVisInfo
+                      (uiMainModuleGraph ui)
+                  , renderSubModuleGraph
+                      nameMap
+                      timing
+                      (serverModuleSubgraph ss)
+                      (uiMainModuleGraph ui, uiSubModuleGraph ui)
+                  ]
             )
 
 newGA :: Graph -> IO GraphAttributes
