@@ -24,6 +24,7 @@ import Concur.Replica
   )
 import qualified Concur.Replica.SVG as S
 import qualified Concur.Replica.SVG.Props as SP
+import Control.Exception (bracket)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -39,6 +40,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
+import Foreign.C.String (withCString)
 import OGDF.Graph
   ( Graph,
     graph_newEdge,
@@ -48,10 +50,12 @@ import OGDF.GraphAttributes
   ( GraphAttributes,
     newGraphAttributes,
   )
+import OGDF.GraphIO (graphIO_write)
 import OGDF.NodeElement (nodeElement_index)
 import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
+import STD.CppString (newCppString)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -67,6 +71,7 @@ import Toolbox.Server.Types
     Point (..),
     ServerState (..),
     UIState (..),
+    transposeGraphVis,
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
@@ -188,15 +193,15 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               , SP.fill "none"
               ]
               []
-      aFactor = 0.8
-      offXFactor = -0.4
-      offYFactor = -0.6
+      aFactor = 0.9
+      offXFactor = -0.3
+      offYFactor = -0.9
       box0 (NodeLayout name (Point x y) (Dim w h)) =
         S.rect
           [ SP.x (T.pack $ show (x + w * offXFactor))
-          , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
+          , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
           , width (T.pack $ show (w * aFactor))
-          , height "20"
+          , height "13"
           , SP.stroke "dimgray"
           , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
           ]
@@ -206,7 +211,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           [ SP.x (T.pack $ show (x + w * offXFactor))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
-          , height "5"
+          , height "4"
           , SP.stroke "black"
           , SP.fill "none"
           ]
@@ -226,7 +231,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               [ SP.x (T.pack $ show (x + w * offXFactor))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
-              , height "5"
+              , height "4"
               , SP.fill "blue"
               ]
               []
@@ -235,7 +240,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.x (T.pack $ show (x + w * offXFactor + 2))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
@@ -247,7 +252,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
 
       svgElement =
         S.svg
-          [ width "100%"
+          [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox
               ( "0 0 "
                   <> T.pack (show (canvasWidth + 100)) -- i don't understand why it's incorrect
@@ -257,7 +262,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           , SP.version "1.1"
           , xmlns
           ]
-          (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
+          (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderSubgraph ::
@@ -301,8 +306,8 @@ renderModuleGraph ui ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
-layOutGraph nameMap graph = runGraphLayouter $ do
+layOutGraph :: Maybe FilePath -> IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
+layOutGraph mfile nameMap graph = runGraphLayouter $ do
   (_, g) <- allocate newGraph delete
   (_, ga) <- allocate (newGA g) delete
 
@@ -311,8 +316,8 @@ layOutGraph nameMap graph = runGraphLayouter $ do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
         Just name -> do
-          let w = 8 * T.length name
-          node <- newGraphNodeWithSize (g, ga) (w, 15)
+          let h = 4 * T.length name
+          node <- newGraphNodeWithSize (g, ga) (15, h)
           appendText ga node name
           pure (Just node)
   moduleNodeIndex <-
@@ -324,7 +329,11 @@ layOutGraph nameMap graph = runGraphLayouter $ do
         let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
         F.for_ node_js $ \node_j ->
           liftIO (graph_newEdge g node_i node_j)
-
+  F.for_ mfile $ \file -> liftIO $ do
+    withCString file $ \outputGMLFileNameCstr ->
+      bracket (newCppString outputGMLFileNameCstr) delete $ \outputGMLFileName ->
+        graphIO_write ga outputGMLFileName
+  
   doSugiyamaLayout ga
 
   canvasDim <- getCanvasDim ga
@@ -345,4 +354,5 @@ layOutGraph nameMap graph = runGraphLayouter $ do
             endIdx <- IM.lookup end moduleNodeRevIndex
             pure (EdgeLayout k (startIdx, endIdx) vertices)
 
-  pure $ GraphVisInfo canvasDim nodeLayout edgeLayout
+  let gvisInfo0 = GraphVisInfo canvasDim nodeLayout edgeLayout
+  pure $ transposeGraphVis gvisInfo0

@@ -314,8 +314,8 @@ doSugiyamaLayout ga = do
     mh <- newMedianHeuristic
     sugiyamaLayout_setCrossMin sl mh
     ohl <- newOptimalHierarchyLayout
-    optimalHierarchyLayout_layerDistance ohl 5.0
+    optimalHierarchyLayout_layerDistance ohl 1.0
     optimalHierarchyLayout_nodeDistance ohl 0
-    optimalHierarchyLayout_weightBalancing ohl 0.1
+    optimalHierarchyLayout_weightBalancing ohl 1.0
     sugiyamaLayout_setLayout sl ohl
     call sl ga

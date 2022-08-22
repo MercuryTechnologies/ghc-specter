@@ -18,6 +18,7 @@ module Toolbox.Server.Types
     NodeLayout (..),
     EdgeLayout (..),
     GraphVisInfo (..),
+    transposeGraphVis,
   )
 where
 
@@ -125,6 +126,19 @@ data GraphVisInfo = GraphVisInfo
 instance FromJSON GraphVisInfo
 
 instance ToJSON GraphVisInfo
+
+-- | swap horizontal and vertical directions.
+transposeGraphVis :: GraphVisInfo -> GraphVisInfo
+transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
+    GraphVisInfo dim' nodeLayout' edgeLayout'
+  where
+    xposeDim (Dim w h) = Dim h w
+    xposePt (Point x y) = Point y x
+    xposeNode (NodeLayout txt xy d) = NodeLayout txt (xposePt xy) (xposeDim d)
+    xposeEdge (EdgeLayout i (j, k) pts) = EdgeLayout i (j, k) (fmap xposePt pts)
+    dim' = xposeDim dim
+    nodeLayout' = fmap xposeNode nodeLayout
+    edgeLayout' = fmap xposeEdge edgeLayout
 
 data ServerState = ServerState
   { serverMessageSN :: Int
