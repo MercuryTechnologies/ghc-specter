@@ -194,11 +194,14 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               ]
               []
       aFactor = 0.9
-      offXFactor = -0.3
-      offYFactor = -0.9
+      offX = -15
+      offYFactor = -1.0
       box0 (NodeLayout name (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + w * offXFactor))
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
+          , SP.x (T.pack $ show (x + offX))
           , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
           , width (T.pack $ show (w * aFactor))
           , height "13"
@@ -208,7 +211,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           []
       box1 (NodeLayout _ (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + w * offXFactor))
+          [ SP.x (T.pack $ show (x + offX))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
           , height "4"
@@ -228,19 +231,19 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
                   pure (fromIntegral nCompiled / fromIntegral nTot)
             w' = ratio * w
          in S.rect
-              [ SP.x (T.pack $ show (x + w * offXFactor))
+              [ SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
               , height "4"
               , SP.fill "blue"
               ]
               []
-      moduleText (NodeLayout name (Point x y) (Dim w h)) =
+      moduleText (NodeLayout name (Point x y) (Dim _w h)) =
         S.text
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + w * offXFactor + 2))
+          , SP.x (T.pack $ show (x + offX + 2))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
