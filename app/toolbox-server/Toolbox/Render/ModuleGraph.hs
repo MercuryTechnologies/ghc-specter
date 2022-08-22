@@ -196,7 +196,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
       aFactor = 0.9
       offX = -15
       offYFactor = -1.0
-      box0 (NodeLayout name (Point x y) (Dim w h)) =
+      box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
@@ -219,7 +219,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           , SP.fill "none"
           ]
           []
-      box2 (NodeLayout name (Point x y) (Dim w h)) =
+      box2 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         let ratio = fromMaybe 0 $ do
               cluster <- L.lookup name clustering
               let nTot = length cluster
@@ -238,7 +238,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               , SP.fill "blue"
               ]
               []
-      moduleText (NodeLayout name (Point x y) (Dim _w h)) =
+      moduleText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
         S.text
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
@@ -281,7 +281,7 @@ renderSubgraph timing subgraphs mselected =
         Nothing ->
           text [fmt|cannot find the subgraph for the module cluster {selected}|]
         Just subgraph ->
-          let tempclustering = fmap (\(NodeLayout name _ _) -> (name, [name])) $ gviNodes subgraph
+          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
            in renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
 
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
@@ -347,7 +347,7 @@ layOutGraph mfile nameMap graph = runGraphLayouter $ do
           replace (NodeLayout j pt dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
-            pure $ NodeLayout name pt dim
+            pure $ NodeLayout (i, name) pt dim
 
   edgeLayout0 <- getAllEdgeLayout g ga
   let edgeLayout = mapMaybe replace edgeLayout0

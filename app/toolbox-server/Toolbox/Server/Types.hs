@@ -118,7 +118,7 @@ instance ToJSON EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
   { gviCanvasDim :: Dimension
-  , gviNodes :: [NodeLayout Text]
+  , gviNodes :: [NodeLayout (Int, Text)]
   , gviEdges :: [EdgeLayout]
   }
   deriving (Show, Generic)
