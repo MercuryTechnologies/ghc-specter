@@ -10,6 +10,7 @@ module Toolbox.Server.Types
     Event (..),
 
     -- * UI state
+    ModuleGraphUI (..),
     UIState (..),
     initUIState,
 
@@ -55,17 +56,25 @@ data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
   | MainModuleGraphEv ModuleGraphEvent
+  | SubModuleGraphEv ModuleGraphEvent
   | SaveSessionEv
+
+data ModuleGraphUI = ModuleGraphUI
+  { modGraphUIHover :: Maybe Text
+  -- ^ module under mouse cursor in Module Graph
+  , modGraphUIClick :: Maybe Text
+  -- ^ module clicked in Module Graph
+  }
 
 data UIState = UIState
   { uiTab :: Tab
   -- ^ current tab
   , uiModuleExpanded :: Maybe Text
   -- ^ expanded module in CheckImports
-  , uiModuleHover :: Maybe Text
-  -- ^ module under mouse cursor in Module Graph
-  , uiModuleClick :: Maybe Text
-  -- ^ module clicked in Module Graph
+  , uiMainModuleGraph :: ModuleGraphUI
+  -- ^ UI state of main module graph
+  , uiSubModuleGraph :: ModuleGraphUI
+  -- ^ UI state of sub module graph
   }
 
 initUIState :: UIState
@@ -73,8 +82,8 @@ initUIState =
   UIState
     { uiTab = TabSession
     , uiModuleExpanded = Nothing
-    , uiModuleHover = Nothing
-    , uiModuleClick = Nothing
+    , uiMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , uiSubModuleGraph = ModuleGraphUI Nothing Nothing
     }
 
 data Point = Point
