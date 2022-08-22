@@ -162,8 +162,9 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
-makePolylineText :: [Point] -> Text
-makePolylineText xys = T.intercalate " " (fmap each xys)
+makePolylineText :: (Point, Point) -> [Point] -> Text
+makePolylineText (p0, p1) xys =
+    T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
   where
     each (Point x y) = [fmt|{x:.2},{y:.2}|]
 
@@ -177,22 +178,23 @@ renderModuleGraphSVG ::
 renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
-      edge (EdgeLayout _ (start, end) xys) =
+      edge (EdgeLayout _ (src, tgt) (srcPt, tgtPt) xys) =
         let (color, swidth) = fromMaybe ("gray", "1") $ do
               hovered <- mhovered
               hoveredIdx_ <- M.lookup hovered revNameMap
               hoveredIdx <- Just hoveredIdx_
               if
-                  | start == hoveredIdx -> pure ("black", "2")
-                  | end == hoveredIdx -> pure ("black", "2")
+                  | src == hoveredIdx -> pure ("black", "2")
+                  | tgt == hoveredIdx -> pure ("black", "2")
                   | otherwise -> Nothing
-         in S.polyline
-              [ SP.points (makePolylineText xys)
+        in S.polyline
+              [ SP.points (makePolylineText (srcPt, tgtPt) xys)
               , SP.stroke color
               , SP.strokeWidth swidth
               , SP.fill "none"
               ]
               []
+
       aFactor = 0.9
       offX = -15
       offYFactor = -1.0
@@ -352,10 +354,10 @@ layOutGraph mfile nameMap graph = runGraphLayouter $ do
   edgeLayout0 <- getAllEdgeLayout g ga
   let edgeLayout = mapMaybe replace edgeLayout0
         where
-          replace (EdgeLayout k (start, end) vertices) = do
+          replace (EdgeLayout k (start, end) srcTgtPts vertices) = do
             startIdx <- IM.lookup start moduleNodeRevIndex
             endIdx <- IM.lookup end moduleNodeRevIndex
-            pure (EdgeLayout k (startIdx, endIdx) vertices)
+            pure (EdgeLayout k (startIdx, endIdx) srcTgtPts vertices)
 
   let gvisInfo0 = GraphVisInfo canvasDim nodeLayout edgeLayout
   pure $ transposeGraphVis gvisInfo0

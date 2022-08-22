@@ -5,13 +5,16 @@ module Toolbox.Server.Types
     type Inbox,
     Tab (..),
     Event (..),
+
     -- * UI state
     UIState (..),
     initUIState,
+
     -- * Server state
     ServerState (..),
     initServerState,
     incrementSN,
+
     -- * graph visualization information
     Point (..),
     Dimension (..),
@@ -30,8 +33,8 @@ import Toolbox.Channel
   ( Channel,
     SessionInfo (..),
     Timer,
-    type ModuleName,
     emptyModuleGraphInfo,
+    type ModuleName,
   )
 
 type ChanModule = (Channel, Text)
@@ -62,10 +65,10 @@ data UIState = UIState
 initUIState :: UIState
 initUIState =
   UIState
-    { uiTab = TabSession,
-      uiModuleExpanded = Nothing,
-      uiModuleHover = Nothing,
-      uiModuleClick = Nothing
+    { uiTab = TabSession
+    , uiModuleExpanded = Nothing
+    , uiModuleHover = Nothing
+    , uiModuleClick = Nothing
     }
 
 data Point = Point
@@ -107,8 +110,10 @@ data EdgeLayout = EdgeLayout
   -- ^ edge id from the graph layouter
   , edgeEndNodes :: (Int, Int)
   -- ^ (source node, target node)
-  , edgePoints :: [Point]
-  -- ^ edge start point, bend points, end point
+  , edgeStartEndPoints :: (Point, Point)
+  -- ^ edge start point, end point
+  , edgeBendPoints :: [Point]
+  -- ^ edge bend points
   }
   deriving (Show, Generic)
 
@@ -130,12 +135,13 @@ instance ToJSON GraphVisInfo
 -- | swap horizontal and vertical directions.
 transposeGraphVis :: GraphVisInfo -> GraphVisInfo
 transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
-    GraphVisInfo dim' nodeLayout' edgeLayout'
+  GraphVisInfo dim' nodeLayout' edgeLayout'
   where
     xposeDim (Dim w h) = Dim h w
     xposePt (Point x y) = Point y x
-    xposeNode (NodeLayout txt xy d) = NodeLayout txt (xposePt xy) (xposeDim d)
-    xposeEdge (EdgeLayout i (j, k) pts) = EdgeLayout i (j, k) (fmap xposePt pts)
+    xposeNode (NodeLayout p xy d) = NodeLayout p (xposePt xy) (xposeDim d)
+    xposeEdge (EdgeLayout i (j, k) (start, end) pts) =
+      EdgeLayout i (j, k) (xposePt start, xposePt end) (fmap xposePt pts)
     dim' = xposeDim dim
     nodeLayout' = fmap xposeNode nodeLayout
     edgeLayout' = fmap xposeEdge edgeLayout
