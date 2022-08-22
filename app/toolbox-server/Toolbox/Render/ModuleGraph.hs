@@ -54,8 +54,8 @@ import OGDF.GraphIO (graphIO_write)
 import OGDF.NodeElement (nodeElement_index)
 import PyF (fmt)
 import Replica.VDOM.Types (HTML)
-import STD.Deletable (delete)
 import STD.CppString (newCppString)
+import STD.Deletable (delete)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -164,7 +164,7 @@ formatModuleGraphInfo mgi =
 
 makePolylineText :: (Point, Point) -> [Point] -> Text
 makePolylineText (p0, p1) xys =
-    T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
+  T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
   where
     each (Point x y) = [fmt|{x:.2},{y:.2}|]
 
@@ -178,7 +178,19 @@ renderModuleGraphSVG ::
 renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
-      edge (EdgeLayout _ (src, tgt) (srcPt, tgtPt) xys) =
+      nodeLayoutMap =
+        IM.fromList $ fmap (\n -> (fst (nodePayload n), n)) $ gviNodes grVisInfo
+      -- graph layout parameter
+      aFactor = 0.9
+      offX = -15
+      offYFactor = -1.0
+      -- the center of left side of a node
+      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
+        Point (x + offX) (y + h * offYFactor + h + 0.5)
+      -- the center of right side of a node
+      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
+        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
+      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
         let (color, swidth) = fromMaybe ("gray", "1") $ do
               hovered <- mhovered
               hoveredIdx_ <- M.lookup hovered revNameMap
@@ -187,7 +199,15 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
                   | src == hoveredIdx -> pure ("black", "2")
                   | tgt == hoveredIdx -> pure ("black", "2")
                   | otherwise -> Nothing
-        in S.polyline
+            -- if source and target nodes cannot be found,
+            -- just use coordinates recorded in edge.
+            -- TODO: should be handled as error.
+            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
+              srcNode <- IM.lookup src nodeLayoutMap
+              tgtNode <- IM.lookup tgt nodeLayoutMap
+              -- Left-to-right flow.
+              pure (rightCenter srcNode, leftCenter tgtNode)
+         in S.polyline
               [ SP.points (makePolylineText (srcPt, tgtPt) xys)
               , SP.stroke color
               , SP.strokeWidth swidth
@@ -195,9 +215,6 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               ]
               []
 
-      aFactor = 0.9
-      offX = -15
-      offYFactor = -1.0
       box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
@@ -338,7 +355,7 @@ layOutGraph mfile nameMap graph = runGraphLayouter $ do
     withCString file $ \outputGMLFileNameCstr ->
       bracket (newCppString outputGMLFileNameCstr) delete $ \outputGMLFileName ->
         graphIO_write ga outputGMLFileName
-  
+
   doSugiyamaLayout ga
 
   canvasDim <- getCanvasDim ga
