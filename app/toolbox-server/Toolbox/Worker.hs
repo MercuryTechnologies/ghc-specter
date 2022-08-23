@@ -3,12 +3,14 @@
 
 module Toolbox.Worker
   ( moduleGraphWorker,
+    tempWorker,
   )
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import qualified Data.Foldable as F
 import Data.Function (on)
+import Data.Functor.Identity (runIdentity)
 import Data.Graph (buildG)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -24,6 +26,7 @@ import Toolbox.Server.Types
     ServerState (..),
     incrementSN,
   )
+import Toolbox.Util.Graph.BFS (runMultiseedStagedBFS)
 import Toolbox.Util.Graph.Builder
   ( makeBiDep,
     makeEdges,
@@ -48,7 +51,6 @@ moduleGraphWorker var mgi = do
           { serverModuleGraph = Just grVisInfo
           , serverModuleClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
           }
-
   subgraph <-
     traverse (layOutModuleSubgraph mgi) clustering
   atomically $
@@ -70,21 +72,37 @@ moduleGraphWorker var mgi = do
     reducedGraph = reduceGraphByPath g tordSeeds
     reducedGraphReversed = makeRevDep reducedGraph
     -- compute clustering
-    seedClustering =
-      ClusterState
-        { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
-        , clusterStateUnclustered = smallNodes
-        }
-    bgr = makeBiDep (mginfoModuleDep mgi)
-    (clustering_, _) =
-      -- run clustering twice
-      fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
-    clustering = mapMaybe convert (clusterStateClustered clustering_)
+    bfsResult = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) modDep largeNodes
+    clustering = mapMaybe convert bfsResult
       where
-        convert (Cluster i, js) = do
+        convert (i, stages) = do
+          let js = concat stages
           clusterName <- IM.lookup i modNameMap
           let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
           pure (clusterName, members)
+
+{-          -> cidconcat stages  bfsResult
+     -- r2 <- runMultiseedStagedBFS (\_ -> pure ()) gr4 [2, 9]
+    mapM_ print r2
+-}
+
+{-
+seedClustering =
+  ClusterState
+    { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
+    , clusterStateUnclustered = smallNodes
+    }
+bgr = makeBiDep (mginfoModuleDep mgi)
+(clustering_, _) =
+  -- run clustering twice
+  fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
+clustering = mapMaybe convert (clusterStateClustered clustering_)
+  where
+    convert (Cluster i, js) = do
+      clusterName <- IM.lookup i modNameMap
+      let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
+      pure (clusterName, members)
+-}
 
 maxSubGraphSize :: Int
 maxSubGraphSize = 30
@@ -114,3 +132,37 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
+
+testGraph :: [(Int, [Int])]
+testGraph =
+  [ (1, [])
+  , (2, [1, 4, 5, 6])
+  , (3, [6])
+  , (4, [])
+  , (5, [4, 7, 8])
+  , (6, [8])
+  , (7, [9, 10])
+  , (8, [9])
+  , (9, [])
+  , (10, [])
+  ]
+
+tempWorker :: ModuleGraphInfo -> IO ()
+tempWorker mgi = do
+  let seeds = filterOutSmallNodes (mginfoModuleDep mgi)
+  -- print seeds
+  -- print mgi
+
+  let -- gr1 = IM.fromList testGraph
+      -- gr2 = makeRevDep gr1
+
+      -- gr4 = fmap (\(outs, ins) -> outs++ins) $ makeBiDep gr1
+
+      modNameMap = mginfoModuleNameMap mgi
+      modDep = mginfoModuleDep mgi
+      largeNodes = filterOutSmallNodes modDep
+      modRevDep = makeRevDep modDep
+
+  r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
+  -- r2 <- runMultiseedStagedBFS (\_ -> pure ()) gr4 [2, 9]
+  mapM_ print r2
