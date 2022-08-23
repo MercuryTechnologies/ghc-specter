@@ -8,16 +8,11 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Monad (join, void)
-import Control.Monad.Extra (loopM)
-import qualified Data.Foldable as F
+import Control.Monad (void)
 import Data.Function (on)
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
-import Data.IntSet (IntSet)
-import qualified Data.IntSet as IS (fromList, notMember, union)
 import qualified Data.List as L
-import Data.Maybe (mapMaybe, maybeToList)
+import Data.Maybe (mapMaybe)
 import Data.Tree (Tree (..), drawTree)
 import PyF (fmt)
 import Toolbox.Channel
@@ -40,6 +35,7 @@ import Toolbox.Util.Graph
     makeRevDep,
     makeSeedState,
   )
+import Toolbox.Util.Graph.BFS (runStagedBFS)
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
@@ -123,47 +119,6 @@ testGraph =
 testDFSTree :: Tree Int
 testDFSTree = Node 2 [Node 4 [], Node 5 [Node 7 [Node 9 [], Node 10 []], Node 8 []], Node 6 []]
 
-data BFSState = BFSState
-  { bfsSearchResult :: ![[Int]]
-  , bfsNextStage :: ![Int]
-  }
-
-runStagedBFS :: IntMap [Int] -> Int -> IO [[Int]]
-runStagedBFS graph seed = loopM go start
-  where
-    start = BFSState [[seed]] [seed]
-    go s = do
-      let e = stepBFS graph s
-      case e of
-        Left (BFSState _searched staged) -> do
-          putStrLn "--------"
-          print staged
-        _ -> pure ()
-      pure e
-
-stepBFS :: IntMap [Int] -> BFSState -> Either BFSState [[Int]]
-stepBFS graph (BFSState staged nexts) =
-  case nexts of
-    [] -> Right staged
-    _ ->
-      let stagedSet = IS.fromList (concat staged)
-          newStage = L.foldl' (step stagedSet) [] nexts
-          staged' = staged ++ [newStage]
-       in Left (BFSState staged' newStage)
-  where
-    getUnvisitedChildren :: IntSet -> Int -> [Int]
-    getUnvisitedChildren !visited current =
-      let children :: [Int]
-          children = join $ maybeToList (IM.lookup current graph)
-       in filter (`IS.notMember` visited) children
-
-    step :: IntSet -> [Int] -> Int -> [Int]
-    step !stagedSet !newStage current =
-      let visited = stagedSet `IS.union` (IS.fromList newStage)
-          newChildren = getUnvisitedChildren visited current
-          newStage' = newStage ++ newChildren
-       in newStage'
-
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
   let seeds = filterOutSmallNodes mgi
@@ -174,8 +129,15 @@ tempWorker mgi = do
       gr2 = makeRevDep gr1
 
       gr3 = makeRevDep (mginfoModuleDep mgi)
-  void $ runStagedBFS gr1 2
-  void $ runStagedBFS gr1 5
-  putStrLn (drawTree $ fmap show testDFSTree)
+      gr4 = fmap (\(outs, ins) -> outs++ins) $ makeBiDep gr1
 
--- void $ runStagedBFS gr3 2
+  void $ runStagedBFS gr1 2
+  putStrLn "========="
+  void $ runStagedBFS gr1 5
+  putStrLn "========="
+  putStrLn (drawTree $ fmap show testDFSTree)
+  putStrLn "========="
+  void $ runStagedBFS gr3 2
+  r <- runStagedBFS gr4 2
+  putStrLn "========="
+  print r
