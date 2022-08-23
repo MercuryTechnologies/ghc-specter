@@ -35,7 +35,10 @@ import Toolbox.Util.Graph
     makeRevDep,
     makeSeedState,
   )
-import Toolbox.Util.Graph.BFS (runStagedBFS)
+import Toolbox.Util.Graph.BFS
+  ( runMultiseedStagedBFS,
+    runStagedBFS,
+  )
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
@@ -137,7 +140,9 @@ tempWorker mgi = do
   putStrLn "========="
   putStrLn (drawTree $ fmap show testDFSTree)
   putStrLn "========="
-  void $ runStagedBFS gr3 2
+  -- void $ runStagedBFS gr3 2
   r <- runStagedBFS gr4 2
   putStrLn "========="
   print r
+  putStrLn "========="
+  void $ runMultiseedStagedBFS gr4 [2, 9]
