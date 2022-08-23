@@ -8,11 +8,11 @@ import Test.Hspec
     it,
     shouldBe,
   )
-import Toolbox.Util.Graph (makeBiDep)
 import Toolbox.Util.Graph.BFS
   ( runMultiseedStagedBFS,
     runStagedBFS,
   )
+import Toolbox.Util.Graph.Builder (makeBiDep)
 
 testGraph :: [(Int, [Int])]
 testGraph =

@@ -81,10 +81,8 @@ import Toolbox.Server.Types
     UIState (..),
     transposeGraphVis,
   )
-import Toolbox.Util.Graph
-  ( filterOutSmallNodes,
-    makeRevDep,
-  )
+import Toolbox.Util.Graph.Builder (makeRevDep)
+import Toolbox.Util.Graph.Cluster (filterOutSmallNodes)
 import Toolbox.Util.OGDF
   ( appendText,
     doSugiyamaLayout,

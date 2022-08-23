@@ -22,13 +22,15 @@ import Toolbox.Server.Types
     ServerState (..),
     incrementSN,
   )
-import Toolbox.Util.Graph
+import Toolbox.Util.Graph.Builder
+  ( makeBiDep,
+    makeRevDep,
+  )
+import Toolbox.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     fullStep,
-    makeBiDep,
     makeReducedGraphReversedFromModuleGraph,
-    makeRevDep,
     makeSeedState,
   )
 

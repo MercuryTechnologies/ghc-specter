@@ -1,26 +1,23 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Toolbox.Util.Graph
+module Toolbox.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     GraphState (..),
     ICVertex (..),
     annotateLevel,
-    degreeInvariant,
     diffCluster,
     filterOutSmallNodes,
     fullStep,
-    makeEdges,
     makeReducedGraph,
     makeReducedGraphReversedFromModuleGraph,
     makeSeedState,
     reduceGraph,
-    totalNumberInvariant,
 
-    -- * reverse, bidep
-    makeRevDep,
-    makeBiDep,
+    -- * invariant checks
+    degreeInvariant,
+    totalNumberInvariant,
   )
 where
 
@@ -36,6 +33,7 @@ import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
 import Toolbox.Channel (ModuleGraphInfo (..))
+import Toolbox.Util.Graph.Builder (makeBiDep, makeEdges, makeRevDep)
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster {unCluster :: Int}
@@ -178,9 +176,6 @@ fullStep (clustering, graphState) =
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
--- | graph to edge list
-makeEdges :: IntMap [Int] -> [(Int, Int)]
-makeEdges = concatMap (\(i, js) -> fmap (i,) js) . IM.toList
 
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
@@ -235,25 +230,3 @@ makeReducedGraphReversedFromModuleGraph mgi =
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
    in makeRevDep reducedGraph
-
---
--- rev-dep, bi-dep
---
-
--- | reverse dependency graph
-makeRevDep :: IntMap [Int] -> IntMap [Int]
-makeRevDep deps = IM.foldlWithKey step emptyMap deps
-  where
-    emptyMap = fmap (const []) deps
-    step !acc i js =
-      L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
-
--- | bi-dependency graph: (dep, revdep) per each vertex
-makeBiDep :: IntMap [Int] -> IntMap ([Int], [Int])
-makeBiDep dep =
-  let revDep = makeRevDep dep
-      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
-      biDep = concat $ inner grouping joiner fst fst (IM.toList dep) (IM.toList revDep)
-        where
-          joiner (i, js) (_, ks) = (i, (js, ks))
-   in IM.fromList biDep
