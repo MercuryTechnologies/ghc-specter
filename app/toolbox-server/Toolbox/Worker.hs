@@ -2,6 +2,7 @@
 
 module Toolbox.Worker
   ( moduleGraphWorker,
+    tempWorker,
   )
 where
 
@@ -24,6 +25,7 @@ import Toolbox.Server.Types
 import Toolbox.Util.Graph
   ( ClusterState (..),
     ClusterVertex (..),
+    filterOutSmallNodes,
     fullStep,
     getBiDepGraph,
     makeReducedGraphReversedFromModuleGraph,
@@ -95,3 +97,9 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
+
+tempWorker :: ModuleGraphInfo -> IO ()
+tempWorker mgi = do
+  let seeds = filterOutSmallNodes mgi
+  print seeds
+  print mgi
