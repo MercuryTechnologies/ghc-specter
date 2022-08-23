@@ -77,15 +77,19 @@ stepBFS graph (BFSPath searched nexts) = do
 
 runStagedBFS ::
   (Monad m) =>
+  (BFSPath -> StateT BFSState m ()) ->
   IntMap [Int] ->
   Int ->
   m [[Int]]
-runStagedBFS graph seed = evalStateT (loopM go startPath) startState
+runStagedBFS hook graph seed = evalStateT (loopM go startPath) startState
   where
     startState = BFSState (IS.singleton seed)
     startPath = BFSPath [[seed]] [seed]
     go path = do
       e <- stepBFS graph path
+      case e of
+        Left p -> hook p
+        _ -> pure ()
       pure e
 
 data MultiBFSPath = MultiBFSPath
@@ -110,10 +114,21 @@ stepMultiseedBFS graph (MultiBFSPath dones notDones) = do
     [] -> pure $ Right dones'
     _ -> pure $ Left (MultiBFSPath dones' notDones')
 
-runMultiseedStagedBFS :: (Monad m) => IntMap [Int] -> [Int] -> m [(Int, [[Int]])]
-runMultiseedStagedBFS graph seeds =
-  evalStateT (loopM (stepMultiseedBFS graph) startMultiBFSPath) startState
+runMultiseedStagedBFS ::
+  (Monad m) =>
+  (MultiBFSPath -> StateT BFSState m ()) ->
+  IntMap [Int] ->
+  [Int] ->
+  m [(Int, [[Int]])]
+runMultiseedStagedBFS hook graph seeds =
+  evalStateT (loopM go startMultiBFSPath) startState
   where
     startState = BFSState $ IS.fromList seeds
     seedPaths = fmap (\seed -> (seed, BFSPath [[seed]] [seed])) seeds
     startMultiBFSPath = MultiBFSPath [] seedPaths
+    go mpath = do
+      e <- stepMultiseedBFS graph mpath
+      case e of
+        Left mp -> hook mp
+        _ -> pure ()
+      pure e

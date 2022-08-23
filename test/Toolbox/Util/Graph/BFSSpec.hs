@@ -34,21 +34,11 @@ spec =
     let directedGraph = IM.fromList testGraph
         undirectedGraph = fmap (\(outs, ins) -> outs ++ ins) $ makeBiDep directedGraph
     it "should get correct BFS search result for directed graph" $ do
-      let result = runIdentity $ runStagedBFS directedGraph 5
+      let result = runIdentity $ runStagedBFS (\_ -> pure ()) directedGraph 5
       result `shouldBe` [[5], [4, 7, 8], [9, 10]]
     it "should get correct BFS search result for undirected graph" $ do
-      let result = runIdentity $ runStagedBFS undirectedGraph 5
+      let result = runIdentity $ runStagedBFS (\_ -> pure ()) undirectedGraph 5
       result `shouldBe` [[5], [4, 7, 8, 2], [9, 10, 6, 1], [3]]
     it "should get correct BFS search result with multiple seed for undirected graph" $ do
-      let result = runIdentity $ runMultiseedStagedBFS undirectedGraph [2, 9]
+      let result = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) undirectedGraph [2, 9]
       result `shouldBe` [(2, [[2], [1, 4, 5, 6], [3]]), (9, [[9], [8, 7], [10]])]
-      pure ()
-
---  pure ()
-{-
-   void $ runStagedBFS gr1 5
-
-      gr4 = fmap (\(outs, ins) -> outs++ins) $ makeBiDep gr1
-  r2 <- runMultiseedStagedBFS gr4 [2, 9]
-  print r2
--}
