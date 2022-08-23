@@ -145,4 +145,5 @@ tempWorker mgi = do
   putStrLn "========="
   print r
   putStrLn "========="
-  void $ runMultiseedStagedBFS gr4 [2, 9]
+  r2 <- runMultiseedStagedBFS gr4 [2, 9]
+  print r2
