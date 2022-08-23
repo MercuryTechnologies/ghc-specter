@@ -59,6 +59,7 @@ moduleGraphWorker var mgi = do
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi
+    modRevDep = makeRevDep modDep
     nVtx = F.length $ mginfoModuleNameMap mgi
     -- separate large/small nodes
     allNodes = IM.keys modNameMap
@@ -72,7 +73,8 @@ moduleGraphWorker var mgi = do
     reducedGraph = reduceGraphByPath g tordSeeds
     reducedGraphReversed = makeRevDep reducedGraph
     -- compute clustering
-    bfsResult = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) modDep largeNodes
+    -- as we use modRevDep as the graph, the greediness has precedence towards upper dependencies.
+    bfsResult = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
     clustering = mapMaybe convert bfsResult
       where
         convert (i, stages) = do
@@ -81,31 +83,8 @@ moduleGraphWorker var mgi = do
           let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
           pure (clusterName, members)
 
-{-          -> cidconcat stages  bfsResult
-     -- r2 <- runMultiseedStagedBFS (\_ -> pure ()) gr4 [2, 9]
-    mapM_ print r2
--}
-
-{-
-seedClustering =
-  ClusterState
-    { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
-    , clusterStateUnclustered = smallNodes
-    }
-bgr = makeBiDep (mginfoModuleDep mgi)
-(clustering_, _) =
-  -- run clustering twice
-  fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
-clustering = mapMaybe convert (clusterStateClustered clustering_)
-  where
-    convert (Cluster i, js) = do
-      clusterName <- IM.lookup i modNameMap
-      let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
-      pure (clusterName, members)
--}
-
 maxSubGraphSize :: Int
-maxSubGraphSize = 30
+maxSubGraphSize = 1000 -- 100 -- 30
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->
@@ -150,19 +129,10 @@ testGraph =
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
   let seeds = filterOutSmallNodes (mginfoModuleDep mgi)
-  -- print seeds
-  -- print mgi
-
-  let -- gr1 = IM.fromList testGraph
-      -- gr2 = makeRevDep gr1
-
-      -- gr4 = fmap (\(outs, ins) -> outs++ins) $ makeBiDep gr1
-
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
       largeNodes = filterOutSmallNodes modDep
       modRevDep = makeRevDep modDep
 
   r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
-  -- r2 <- runMultiseedStagedBFS (\_ -> pure ()) gr4 [2, 9]
-  mapM_ print r2
+  mapM_ (\(i, jss) -> print (i, length (concat jss))) r2
