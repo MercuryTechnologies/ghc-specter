@@ -19,7 +19,7 @@ where
 
 import Control.Monad (join)
 import Control.Monad.Extra (loopM)
-import Control.Monad.IO.Class (liftIO)
+-- import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
   ( StateT (..),
     evalStateT,
@@ -76,22 +76,16 @@ stepBFS graph (BFSPath searched nexts) = do
       pure thisStage'
 
 runStagedBFS ::
+  (Monad m) =>
   IntMap [Int] ->
   Int ->
-  IO [[Int]]
+  m [[Int]]
 runStagedBFS graph seed = evalStateT (loopM go startPath) startState
   where
     startState = BFSState (IS.singleton seed)
     startPath = BFSPath [[seed]] [seed]
     go path = do
       e <- stepBFS graph path
-      case e of
-        Left (BFSPath _searched staged) -> do
-          visited <- bfsVisited <$> get
-          liftIO $ do
-            putStrLn "--------"
-            print (visited, staged)
-        _ -> pure ()
       pure e
 
 data MultiBFSPath = MultiBFSPath
@@ -100,11 +94,12 @@ data MultiBFSPath = MultiBFSPath
   }
 
 stepMultiseedBFS ::
+  (Monad m) =>
   IntMap [Int] ->
   MultiBFSPath ->
   StateT
     BFSState
-    IO
+    m
     (Either MultiBFSPath [(Int, [[Int]])])
 stepMultiseedBFS graph (MultiBFSPath dones notDones) = do
   es :: [Either (Int, BFSPath) (Int, [[Int]])] <-
@@ -115,7 +110,7 @@ stepMultiseedBFS graph (MultiBFSPath dones notDones) = do
     [] -> pure $ Right dones'
     _ -> pure $ Left (MultiBFSPath dones' notDones')
 
-runMultiseedStagedBFS :: IntMap [Int] -> [Int] -> IO [(Int, [[Int]])]
+runMultiseedStagedBFS :: (Monad m) => IntMap [Int] -> [Int] -> m [(Int, [[Int]])]
 runMultiseedStagedBFS graph seeds =
   evalStateT (loopM (stepMultiseedBFS graph) startMultiBFSPath) startState
   where
