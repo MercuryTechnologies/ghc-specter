@@ -27,7 +27,7 @@ import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
 import qualified Data.Foldable as F
-import Data.Graph (Graph, Tree (..), buildG, path, topSort)
+import Data.Graph (Graph, Tree (..), buildG, path)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
@@ -248,7 +248,7 @@ makeReducedGraphReversedFromModuleGraph mgi =
       es = makeEdges $ mginfoModuleDep mgi
       g = buildG (1, nVtx) es
       seeds = filterOutSmallNodes mgi
-      tordVtxs = topSort g
+      tordVtxs = reverse $ mginfoModuleTopSorted mgi
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
    in mkRevDep reducedGraph
