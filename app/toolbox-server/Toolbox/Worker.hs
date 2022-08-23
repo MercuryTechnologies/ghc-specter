@@ -15,6 +15,8 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe, maybeToList)
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IS (fromList, notMember, union)
 import Data.Tree (Tree (..), drawTree)
 import PyF (fmt)
 import Toolbox.Channel
@@ -123,15 +125,15 @@ testDFSTree = Node 2 [Node 4 [], Node 5 [Node 7 [Node 9 [], Node 10 []], Node 8 
 stagedBFS :: IntMap [Int] -> Int -> [[Int]]
 stagedBFS graph root = go [[root]] [root]
   where
-    getUnvisitedChildren :: [Int] -> Int -> [Int]
+    getUnvisitedChildren :: IntSet -> Int -> [Int]
     getUnvisitedChildren !visited current =
       let children :: [Int]
           children = join $ maybeToList (IM.lookup current graph)
-       in filter (not . (`elem` visited)) children
+       in filter (`IS.notMember` visited) children
 
-    step :: [[Int]] -> [Int] -> Int -> [Int]
-    step !staged !newStage current =
-      let visited = concat staged ++ newStage
+    step :: IntSet -> [Int] -> Int -> [Int]
+    step !stagedSet !newStage current =
+      let visited = stagedSet `IS.union` (IS.fromList newStage)
           newChildren = getUnvisitedChildren visited current
           newStage' = newStage ++ newChildren
        in newStage'
@@ -141,7 +143,8 @@ stagedBFS graph root = go [[root]] [root]
       case nexts of
         [] -> staged
         _ ->
-          let newStage = L.foldl' (step staged) [] nexts
+          let stagedSet = IS.fromList (concat staged)
+              newStage = L.foldl' (step stagedSet) [] nexts
               staged' = staged ++ [newStage]
            in go staged' newStage
 
@@ -153,6 +156,10 @@ tempWorker mgi = do
 
   let gr1 = IM.fromList testGraph
       gr2 = mkRevDep gr1
+
+      gr3 = mkRevDep (mginfoModuleDep mgi)
   print (stagedBFS gr1 2)
   print (stagedBFS gr1 5)
   putStrLn (drawTree $ fmap show testDFSTree)
+
+  print (stagedBFS gr3 2)
