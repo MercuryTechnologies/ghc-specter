@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Worker
@@ -8,11 +9,13 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Monad (join)
+import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe, maybeToList)
+import Data.Tree (Tree (..), drawTree)
 import PyF (fmt)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -84,12 +87,12 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
       modDep = mginfoModuleDep mgi
       modBiDep = getBiDepGraph mgi
       largeNodes =
-          take maxSubGraphSize
-            . fmap fst
-            . L.sortBy (flip compare `on` (countEdges . snd))
-            . filter (\(m, _) -> m `elem` members)
-            . IM.toList
-            $ modBiDep
+        take maxSubGraphSize
+          . fmap fst
+          . L.sortBy (flip compare `on` (countEdges . snd))
+          . filter (\(m, _) -> m `elem` members)
+          . IM.toList
+          $ modBiDep
         where
           countEdges (os, is) = length os + length is
       subModDep =
@@ -99,7 +102,6 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
-
 
 testGraph :: [(Int, [Int])]
 testGraph =
@@ -115,24 +117,33 @@ testGraph =
   , (10, [])
   ]
 
-bfs :: IntMap [Int] -> Int -> [Int]
-bfs graph root = go [] [root]
+testDFSTree :: Tree Int
+testDFSTree = Node 2 [Node 4 [], Node 5 [Node 7 [Node 9 [], Node 10 []], Node 8 []], Node 6 []]
+
+stagedBFS :: IntMap [Int] -> Int -> [[Int]]
+stagedBFS graph root = go [[root]] [root]
   where
-    step :: [Int] -> Int -> ([Int], [Int])
-    step !visited current =
+    getUnvisitedChildren :: [Int] -> Int -> [Int]
+    getUnvisitedChildren !visited current =
       let children :: [Int]
           children = join $ maybeToList (IM.lookup current graph)
-          newChildren = filter (not . (`elem` visited)) children
-          visited' = visited ++ newChildren
-       in (visited', newChildren)
+       in filter (not . (`elem` visited)) children
 
-    go :: [Int] -> [Int] -> [Int]
-    go !visited nexts =
+    step :: [[Int]] -> [Int] -> Int -> [Int]
+    step !staged !newStage current =
+      let visited = concat staged ++ newStage
+          newChildren = getUnvisitedChildren visited current
+          newStage' = newStage ++ newChildren
+       in newStage'
+
+    go :: [[Int]] -> [Int] -> [[Int]]
+    go !staged nexts =
       case nexts of
-        [] -> visited
+        [] -> staged
         _ ->
-          let (visited', newChildrens) = L.mapAccumL step visited nexts
-           in go visited' (concat newChildrens)
+          let newStage = L.foldl' (step staged) [] nexts
+              staged' = staged ++ [newStage]
+           in go staged' newStage
 
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
@@ -142,4 +153,6 @@ tempWorker mgi = do
 
   let gr1 = IM.fromList testGraph
       gr2 = mkRevDep gr1
-  print (bfs gr1 5)
+  print (stagedBFS gr1 2)
+  print (stagedBFS gr1 5)
+  putStrLn (drawTree $ fmap show testDFSTree)
