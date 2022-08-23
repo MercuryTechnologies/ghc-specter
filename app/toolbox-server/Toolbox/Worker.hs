@@ -7,10 +7,12 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Monad (join)
 import Data.Function (on)
+import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, maybeToList)
 import PyF (fmt)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -98,8 +100,46 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
 
+
+testGraph :: [(Int, [Int])]
+testGraph =
+  [ (1, [])
+  , (2, [1, 4, 5, 6])
+  , (3, [6])
+  , (4, [])
+  , (5, [4, 7, 8])
+  , (6, [8])
+  , (7, [9, 10])
+  , (8, [9])
+  , (9, [])
+  , (10, [])
+  ]
+
+bfs :: IntMap [Int] -> Int -> [Int]
+bfs graph root = go [] [root]
+  where
+    step :: [Int] -> Int -> ([Int], [Int])
+    step !visited current =
+      let children :: [Int]
+          children = join $ maybeToList (IM.lookup current graph)
+          newChildren = filter (not . (`elem` visited)) children
+          visited' = visited ++ newChildren
+       in (visited', newChildren)
+
+    go :: [Int] -> [Int] -> [Int]
+    go !visited nexts =
+      case nexts of
+        [] -> visited
+        _ ->
+          let (visited', newChildrens) = L.mapAccumL step visited nexts
+           in go visited' (concat newChildrens)
+
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
   let seeds = filterOutSmallNodes mgi
-  print seeds
-  print mgi
+  -- print seeds
+  -- print mgi
+
+  let gr1 = IM.fromList testGraph
+      gr2 = mkRevDep gr1
+  print (bfs gr1 5)
