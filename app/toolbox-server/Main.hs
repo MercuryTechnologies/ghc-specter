@@ -45,13 +45,12 @@ import Toolbox.Server.Types
     initServerState,
     initUIState,
   )
-import Toolbox.Worker (moduleGraphWorker, tempWorker)
+import Toolbox.Worker (moduleGraphWorker)
 import Prelude hiding (div)
 
 data CLIMode
   = Online FilePath
   | View FilePath
-  | Temp FilePath
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
@@ -71,19 +70,10 @@ viewMode =
         (OA.progDesc "viewing saved session")
     )
 
-tempMode :: OA.Mod OA.CommandFields CLIMode
-tempMode =
-  OA.command
-    "temp"
-    ( OA.info
-        (Temp <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
-        (OA.progDesc "temp saved session")
-    )
-
 optsParser :: OA.ParserInfo CLIMode
 optsParser =
   OA.info
-    (OA.subparser (onlineMode <> viewMode <> tempMode) OA.<**> OA.helper)
+    (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
 main :: IO ()
@@ -101,14 +91,6 @@ main = do
         Right ss -> do
           var <- atomically $ newTVar ss
           webServer var
-    Temp sessionFile -> do
-      lbs <- BL.readFile sessionFile
-      case eitherDecode' lbs of
-        Left err -> print err
-        Right ss -> do
-          let sessionInfo = serverSessionInfo ss
-              mginfo = sessionModuleGraph sessionInfo
-          tempWorker mginfo
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))

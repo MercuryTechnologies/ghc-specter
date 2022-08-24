@@ -3,7 +3,6 @@
 
 module Toolbox.Worker
   ( moduleGraphWorker,
-    tempWorker,
   )
 where
 
@@ -12,7 +11,7 @@ import Data.Bifunctor (second)
 import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Functor.Identity (runIdentity)
-import Data.Graph (Graph, buildG, topSort)
+import Data.Graph (buildG)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
@@ -34,12 +33,8 @@ import Toolbox.Util.Graph.Builder
     makeRevDep,
   )
 import Toolbox.Util.Graph.Cluster
-  ( ClusterState (..),
-    ClusterVertex (..),
-    filterOutSmallNodes,
-    fullStep,
+  ( filterOutSmallNodes,
     makeDivisionsInOrder,
-    makeSeedState,
     reduceGraphByPath,
   )
 
@@ -69,13 +64,10 @@ moduleGraphWorker var mgi = do
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi
-    modRevDep = makeRevDep modDep
     modBiDep = makeBiDep modDep
     nVtx = F.length $ mginfoModuleNameMap mgi
     -- separate large/small nodes
-    allNodes = IM.keys modNameMap
     largeNodes = filterOutSmallNodes modDep
-    smallNodes = allNodes L.\\ largeNodes
     -- compute reduced graph
     es = makeEdges modDep
     g = buildG (1, nVtx) es
@@ -130,45 +122,3 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
-
-testGraph :: [(Int, [Int])]
-testGraph =
-  [ (1, [])
-  , (2, [1, 4, 5, 6])
-  , (3, [6])
-  , (4, [])
-  , (5, [4, 7, 8])
-  , (6, [8])
-  , (7, [9, 10])
-  , (8, [9])
-  , (9, [])
-  , (10, [])
-  ]
-
-tempWorker :: ModuleGraphInfo -> IO ()
-tempWorker mgi = do
-  let seeds = filterOutSmallNodes (mginfoModuleDep mgi)
-      modNameMap = mginfoModuleNameMap mgi
-      modDep = mginfoModuleDep mgi
-      largeNodes = filterOutSmallNodes modDep
-      modRevDep = makeRevDep modDep
-
-  r1 <- runMultiseedStagedBFS (\_ -> pure ()) (IM.fromList testGraph) [(2, Just [2, 4, 5, 7, 9]), (9, Just [1, 3, 6, 7, 8, 9, 10])]
-  print r1
-  -- mapM_ (\(i, jss) -> print (i, length (concat jss))) r1
-
-  r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep (fmap (,Nothing) largeNodes)
-  mapM_ (\(i, jss) -> print (i, length (concat jss))) r2
-
-  let modNameMap = mginfoModuleNameMap mgi
-      nVtx = F.length modNameMap
-      gr = buildG (1, nVtx) (makeEdges modDep)
-      sorted = topSort gr
-      seedsInOrder = filter (`elem` seeds) sorted
-
-      divs = makeDivisionsInOrder sorted seedsInOrder
-
-  putStrLn "########"
-  F.for_ divs $ \(i, js) ->
-    F.for_ (IM.lookup i modNameMap) $ \clusterName ->
-      print (clusterName, length js)
