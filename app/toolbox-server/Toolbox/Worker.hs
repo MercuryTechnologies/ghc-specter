@@ -95,7 +95,7 @@ moduleGraphWorker var mgi = do
           pure (clusterName, members)
 
 maxSubGraphSize :: Int
-maxSubGraphSize = 30 -- 1000 -- 100 -- 30
+maxSubGraphSize = 30
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->
