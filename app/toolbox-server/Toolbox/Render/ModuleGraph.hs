@@ -78,6 +78,7 @@ import Toolbox.Server.Types
     NodeLayout (..),
     Point (..),
     ServerState (..),
+    SubModuleEvent (..),
     UIState (..),
     transposeGraphVis,
   )
@@ -315,7 +316,7 @@ renderMainModuleGraph ::
 renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
   let mclicked = modGraphUIClick mgUI
       mhovered = modGraphUIHover mgUI
-   in MainModuleGraphEv
+   in MainModuleEv
         <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (mclicked, mhovered)
 
 renderSubModuleGraph ::
@@ -336,7 +337,7 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
               text [fmt|cannot find the subgraph for the module cluster {selected}|]
             Just subgraph ->
               let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
-               in SubModuleGraphEv
+               in SubModuleEv . SubModuleGraphEv
                     <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event

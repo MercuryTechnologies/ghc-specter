@@ -6,6 +6,8 @@ module Toolbox.Server.Types
     Tab (..),
 
     -- * Event types
+    DetailLevel (..),
+    SubModuleEvent (..),
     ModuleGraphEvent (..),
     Event (..),
 
@@ -52,11 +54,17 @@ data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
 
+data DetailLevel = UpTo30 | UpTo100 | UpTo300
+
+data SubModuleEvent
+  = SubModuleGraphEv ModuleGraphEvent
+  | SubModuleLevelEv DetailLevel
+
 data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
-  | MainModuleGraphEv ModuleGraphEvent
-  | SubModuleGraphEv ModuleGraphEvent
+  | MainModuleEv ModuleGraphEvent
+  | SubModuleEv SubModuleEvent
   | SaveSessionEv
 
 data ModuleGraphUI = ModuleGraphUI

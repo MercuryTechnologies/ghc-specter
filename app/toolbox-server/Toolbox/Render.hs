@@ -42,6 +42,7 @@ import Toolbox.Server.Types
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
     ServerState (..),
+    SubModuleEvent (..),
     Tab (..),
     UIState (..),
     type ChanModule,
@@ -157,11 +158,15 @@ render (ui, ss) = do
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
       handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {uiModuleExpanded = mexpandedModu'}
-      handleMainPanel oldUI (MainModuleGraphEv ev) =
+      handleMainPanel oldUI (MainModuleEv ev) =
         -- TODO: just use lens
         pure oldUI {uiMainModuleGraph = handleModuleGraphEv ev (uiMainModuleGraph oldUI)}
-      handleMainPanel oldUI (SubModuleGraphEv ev) =
-        pure oldUI {uiSubModuleGraph = handleModuleGraphEv ev (uiSubModuleGraph oldUI)}
+      handleMainPanel oldUI (SubModuleEv sev) =
+        case sev of
+          SubModuleGraphEv ev ->
+            pure oldUI {uiSubModuleGraph = handleModuleGraphEv ev (uiSubModuleGraph oldUI)}
+          _ ->
+            pure oldUI
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->
