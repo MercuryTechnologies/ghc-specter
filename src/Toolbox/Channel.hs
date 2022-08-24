@@ -23,7 +23,11 @@ import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 
 data Channel = CheckImports | Timing | Session
-  deriving (Enum, Eq, Ord, Show)
+  deriving (Enum, Eq, Ord, Show, Generic)
+
+instance FromJSON Channel
+
+instance ToJSON Channel
 
 type ModuleName = Text
 
@@ -49,21 +53,29 @@ data SessionInfo = SessionInfo
   { sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
   }
-  deriving (Show)
+  deriving (Show, Generic)
 
 instance Binary SessionInfo where
   put (SessionInfo mtime modGraph) = put (mtime, modGraph)
   get = uncurry SessionInfo <$> get
 
+instance FromJSON SessionInfo
+
+instance ToJSON SessionInfo
+
 data Timer = Timer
   { timerStart :: Maybe UTCTime
   , timerEnd :: Maybe UTCTime
   }
-  deriving (Show)
+  deriving (Show, Generic)
 
 instance Binary Timer where
   put (Timer s t) = put (s, t)
   get = uncurry Timer <$> get
+
+instance FromJSON Timer
+
+instance ToJSON Timer
 
 resetTimer :: Timer
 resetTimer = Timer Nothing Nothing

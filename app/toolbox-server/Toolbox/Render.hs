@@ -25,10 +25,14 @@ import Concur.Replica
     textProp,
     ul,
   )
+import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (encode)
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
+import System.IO (IOMode (WriteMode), withFile)
 import Toolbox.Channel (Channel (..))
 import Toolbox.Render.ModuleGraph (renderModuleGraph)
 import Toolbox.Render.Session (renderSession)
@@ -145,11 +149,16 @@ render (ui, ss) = do
       handleNavbar oldUI (TabEv tab') = oldUI {uiTab = tab'}
       handleNavbar oldUI _ = oldUI
 
-      handleMainPanel :: UIState -> Event -> UIState
-      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = oldUI {uiModuleExpanded = mexpandedModu'}
-      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = oldUI {uiModuleHover = mhoverModu'}
-      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = oldUI {uiModuleClick = mclickedModu'}
-      handleMainPanel oldUI _ = oldUI
+      handleMainPanel :: UIState -> Event -> Widget HTML UIState
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {uiModuleExpanded = mexpandedModu'}
+      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = pure oldUI {uiModuleHover = mhoverModu'}
+      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = pure oldUI {uiModuleClick = mclickedModu'}
+      handleMainPanel oldUI SaveSessionEv = do
+        liftIO $
+          withFile "session.json" WriteMode $ \h ->
+            BL.hPutStr h (encode ss)
+        pure oldUI
+      handleMainPanel oldUI _ = pure oldUI
 
   ui' <-
     div
@@ -157,7 +166,7 @@ render (ui, ss) = do
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
       , handleNavbar ui <$> renderNavbar (uiTab ui)
-      , handleMainPanel ui <$> mainPanel
+      , handleMainPanel ui =<< mainPanel
       , bottomPanel
       ]
   pure ui'

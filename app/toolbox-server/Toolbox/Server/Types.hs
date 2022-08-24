@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Toolbox.Server.Types
   ( type ChanModule,
     type Inbox,
@@ -19,8 +21,10 @@ module Toolbox.Server.Types
   )
 where
 
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import GHC.Generics (Generic)
 import Toolbox.Channel
   ( Channel,
     SessionInfo (..),
@@ -41,6 +45,7 @@ data Event
   | ExpandModuleEv (Maybe Text)
   | HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
+  | SaveSessionEv
 
 data UIState = UIState
   { uiTab :: Tab
@@ -66,13 +71,21 @@ data Point = Point
   { pointX :: Double
   , pointY :: Double
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON Point
+
+instance ToJSON Point
 
 data Dimension = Dim
   { dimWidth :: Double
   , dimHeight :: Double
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON Dimension
+
+instance ToJSON Dimension
 
 data NodeLayout a = NodeLayout
   { nodePayload :: a
@@ -82,7 +95,11 @@ data NodeLayout a = NodeLayout
   , nodeSize :: Dimension
   -- ^ node width and height
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON a => FromJSON (NodeLayout a)
+
+instance ToJSON a => ToJSON (NodeLayout a)
 
 data EdgeLayout = EdgeLayout
   { edgeId :: Int
@@ -92,14 +109,22 @@ data EdgeLayout = EdgeLayout
   , edgePoints :: [Point]
   -- ^ edge start point, bend points, end point
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON EdgeLayout
+
+instance ToJSON EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
   { gviCanvasDim :: Dimension
   , gviNodes :: [NodeLayout Text]
   , gviEdges :: [EdgeLayout]
   }
-  deriving (Show)
+  deriving (Show, Generic)
+
+instance FromJSON GraphVisInfo
+
+instance ToJSON GraphVisInfo
 
 data ServerState = ServerState
   { serverMessageSN :: Int
@@ -110,6 +135,11 @@ data ServerState = ServerState
   , serverModuleClustering :: [(ModuleName, [ModuleName])]
   , serverModuleSubgraph :: [(ModuleName, GraphVisInfo)]
   }
+  deriving (Show, Generic)
+
+instance FromJSON ServerState
+
+instance ToJSON ServerState
 
 initServerState :: ServerState
 initServerState =
