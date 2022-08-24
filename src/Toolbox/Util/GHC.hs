@@ -1,4 +1,4 @@
-module Toolbox.Util
+module Toolbox.Util.GHC
   ( showPpr,
     printPpr,
   )
