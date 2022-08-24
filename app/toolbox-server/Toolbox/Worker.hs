@@ -11,7 +11,7 @@ import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Functor.Identity (runIdentity)
-import Data.Graph (buildG)
+import Data.Graph (Graph, buildG, topSort)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
@@ -126,6 +126,22 @@ testGraph =
   , (10, [])
   ]
 
+-- | Make division per seed, which contains vertices that does not pass the previous
+--   and the next seeds in topological order.
+makeTopologicalDivisions :: Graph -> [Int] -> [(Int, [Int])]
+makeTopologicalDivisions graph seeds =
+  let sorted = topSort graph
+      seedsInOrder = filter (`elem` seeds) sorted
+      seedsInOrder' = (Nothing : fmap Just seedsInOrder) ++ [Nothing]
+      iranges = zip seedsInOrder (zip seedsInOrder' (tail (tail seedsInOrder')))
+      filterByRange :: (Maybe Int, Maybe Int) -> [Int] -> [Int]
+      filterByRange (Nothing, Nothing) xs = xs
+      filterByRange (Nothing, Just z) xs = fst $ break (== z) xs
+      filterByRange (Just y, Nothing) xs = tail $ snd $ break (== y) xs
+      filterByRange (Just y, Just z) xs =
+        filterByRange (Nothing, Just z) . filterByRange (Just y, Nothing) $ xs
+   in fmap (\(i, range) -> (i, filterByRange range sorted)) iranges
+
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
   let seeds = filterOutSmallNodes (mginfoModuleDep mgi)
@@ -136,3 +152,12 @@ tempWorker mgi = do
 
   r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
   mapM_ (\(i, jss) -> print (i, length (concat jss))) r2
+
+
+  let nVtx = F.length $ mginfoModuleNameMap mgi
+      gr = buildG (1, nVtx) (makeEdges modDep)
+
+      divs = makeTopologicalDivisions gr largeNodes
+
+  putStrLn "########"
+  mapM_ (\(i, js) -> print (i, length js)) divs
