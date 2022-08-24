@@ -40,5 +40,5 @@ spec =
       let result = runIdentity $ runStagedBFS (\_ -> pure ()) undirectedGraph 5
       result `shouldBe` [[5], [4, 7, 8, 2], [9, 10, 6, 1], [3]]
     it "should get correct BFS search result with multiple seed for undirected graph" $ do
-      let result = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) undirectedGraph [2, 9]
+      let result = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) undirectedGraph [(2, Nothing), (9, Nothing)]
       result `shouldBe` [(2, [[2], [1, 4, 5, 6], [3]]), (9, [[9], [8, 7], [10]])]
