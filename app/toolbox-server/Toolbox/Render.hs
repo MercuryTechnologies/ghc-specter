@@ -34,11 +34,13 @@ import qualified Data.Text as T
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
 import Toolbox.Channel (Channel (..))
-import Toolbox.Render.ModuleGraph (renderModuleGraph)
+import Toolbox.Render.ModuleGraph (renderModuleGraphTab)
 import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( Event (..),
+    ModuleGraphEvent (..),
+    ModuleGraphUI (..),
     ServerState (..),
     Tab (..),
     UIState (..),
@@ -91,7 +93,7 @@ renderMainPanel ::
 renderMainPanel ui ss =
   case uiTab ui of
     TabSession -> renderSession ss
-    TabModuleGraph -> renderModuleGraph ui ss
+    TabModuleGraph -> renderModuleGraphTab ui ss
     TabCheckImports -> renderInbox ui (serverInbox ss)
     TabTiming -> renderTiming ss
 
@@ -149,10 +151,17 @@ render (ui, ss) = do
       handleNavbar oldUI (TabEv tab') = oldUI {uiTab = tab'}
       handleNavbar oldUI _ = oldUI
 
+      handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
+      handleModuleGraphEv (HoverOnModuleEv mhovered) mgUI = mgUI {modGraphUIHover = mhovered}
+      handleModuleGraphEv (ClickOnModuleEv mclicked) mgUI = mgUI {modGraphUIClick = mclicked}
+
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
       handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {uiModuleExpanded = mexpandedModu'}
-      handleMainPanel oldUI (HoverOnModuleEv mhoverModu') = pure oldUI {uiModuleHover = mhoverModu'}
-      handleMainPanel oldUI (ClickOnModuleEv mclickedModu') = pure oldUI {uiModuleClick = mclickedModu'}
+      handleMainPanel oldUI (MainModuleGraphEv ev) =
+        -- TODO: just use lens
+        pure oldUI {uiMainModuleGraph = handleModuleGraphEv ev (uiMainModuleGraph oldUI)}
+      handleMainPanel oldUI (SubModuleGraphEv ev) =
+        pure oldUI {uiSubModuleGraph = handleModuleGraphEv ev (uiSubModuleGraph oldUI)}
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->

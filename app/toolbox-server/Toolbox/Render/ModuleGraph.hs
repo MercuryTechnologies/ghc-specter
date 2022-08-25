@@ -3,8 +3,18 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Render.ModuleGraph
-  ( layOutGraph,
-    renderModuleGraph,
+  ( -- * Make a visual module graph layout
+    layOutGraph,
+
+    -- * Render HTML for the Module Graph tab
+    renderModuleGraphTab,
+
+    -- * show textual info:
+
+    -- TODO: they are obsolete and will be moved to a separate module
+    formatModuleGraphInfo,
+    stat,
+    analyze,
   )
 where
 
@@ -63,6 +73,8 @@ import Toolbox.Server.Types
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
+    ModuleGraphEvent (..),
+    ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
     ServerState (..),
@@ -170,7 +182,7 @@ renderModuleGraphSVG ::
   [(Text, [Text])] ->
   GraphVisInfo ->
   Maybe Text ->
-  Widget HTML Event
+  Widget HTML ModuleGraphEvent
 renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
@@ -224,9 +236,12 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
           ]
           []
-      box1 (NodeLayout _ (Point x y) (Dim w h)) =
+      box1 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + offX))
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
+          , SP.x (T.pack $ show (x + offX))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
           , height "4"
@@ -246,7 +261,10 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
                   pure (fromIntegral nCompiled / fromIntegral nTot)
             w' = ratio * w
          in S.rect
-              [ SP.x (T.pack $ show (x + offX))
+              [ HoverOnModuleEv (Just name) <$ onMouseEnter
+              , HoverOnModuleEv Nothing <$ onMouseLeave
+              , ClickOnModuleEv (Just name) <$ onClick
+              , SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
               , height "4"
@@ -283,24 +301,41 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
-renderSubgraph ::
+renderMainModuleGraph ::
+  IntMap ModuleName ->
+  Map ModuleName Timer ->
+  [(Text, [Text])] ->
+  GraphVisInfo ->
+  -- | main module graph UI state
+  ModuleGraphUI ->
+  Widget HTML Event
+renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
+  let mhovered = modGraphUIHover mgUI
+   in MainModuleGraphEv <$> renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered
+
+renderSubModuleGraph ::
+  IntMap ModuleName ->
   Map ModuleName Timer ->
   [(ModuleName, GraphVisInfo)] ->
-  Maybe Text ->
+  -- | (main module graph UI state, sub module graph UI state)
+  (ModuleGraphUI, ModuleGraphUI) ->
   Widget HTML Event
-renderSubgraph timing subgraphs mselected =
-  case mselected of
-    Nothing -> text "no module cluster is selected"
-    Just selected ->
-      case L.lookup selected subgraphs of
-        Nothing ->
-          text [fmt|cannot find the subgraph for the module cluster {selected}|]
-        Just subgraph ->
-          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
-           in renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
+renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
+  let mainModuleClicked = modGraphUIClick mainMGUI
+      subModuleHovered = modGraphUIHover subMGUI
+   in case mainModuleClicked of
+        Nothing -> text "no module cluster is selected"
+        Just selected ->
+          case L.lookup selected subgraphs of
+            Nothing ->
+              text [fmt|cannot find the subgraph for the module cluster {selected}|]
+            Just subgraph ->
+              let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
+               in SubModuleGraphEv
+                    <$> renderModuleGraphSVG nameMap timing tempclustering subgraph subModuleHovered
 
-renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
-renderModuleGraph ui ss =
+renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
+renderModuleGraphTab ui ss =
   let sessionInfo = serverSessionInfo ss
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = serverTiming ss
@@ -311,14 +346,21 @@ renderModuleGraph ui ss =
         Just _ ->
           div
             []
-            ( ( case serverModuleGraph ss of
-                  Nothing -> []
-                  Just grVisInfo ->
-                    [ renderModuleGraphSVG nameMap timing clustering grVisInfo (uiModuleHover ui)
-                    , renderSubgraph timing (serverModuleSubgraph ss) (uiModuleClick ui)
-                    ]
-              )
-                ++ [pre [] [text $ formatModuleGraphInfo (sessionModuleGraph sessionInfo)]]
+            ( case serverModuleGraph ss of
+                Nothing -> []
+                Just grVisInfo ->
+                  [ renderMainModuleGraph
+                      nameMap
+                      timing
+                      clustering
+                      grVisInfo
+                      (uiMainModuleGraph ui)
+                  , renderSubModuleGraph
+                      nameMap
+                      timing
+                      (serverModuleSubgraph ss)
+                      (uiMainModuleGraph ui, uiSubModuleGraph ui)
+                  ]
             )
 
 newGA :: Graph -> IO GraphAttributes
