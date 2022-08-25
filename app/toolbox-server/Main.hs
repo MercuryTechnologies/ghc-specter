@@ -32,6 +32,7 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    HsSourceInfo (..),
     SessionInfo (..),
   )
 import Toolbox.Comm
@@ -45,7 +46,8 @@ import Toolbox.Server.Types
     initServerState,
     initUIState,
   )
-import Toolbox.Worker (moduleGraphWorker, tempWorker)
+import Toolbox.Worker.ModuleGraph (moduleGraphWorker)
+import Toolbox.Worker.CallGraph (tempWorker)
 import Prelude hiding (div)
 
 data CLIMode
@@ -95,12 +97,13 @@ main = do
         Right ss -> do
           var <- atomically $ newTVar ss
           webServer var
-    Temp sessionFile -> do
-      lbs <- BL.readFile sessionFile
+    Temp sessionFile -> pure ()
+{-      lbs <- BL.readFile sessionFile
       case eitherDecode' lbs of
         Left err -> print err
         Right ss -> do
-          tempWorker ss
+          pure ()
+-}
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
@@ -115,8 +118,9 @@ listener socketFile var =
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
-          CMHsSource modu info -> do
-            print (modu, info)
+          CMHsSource modu (HsSourceInfo hiefile) -> do
+            tempWorker hiefile
+            -- print (modu, info)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
     )

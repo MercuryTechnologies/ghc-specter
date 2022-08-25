@@ -1,9 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Toolbox.Worker
+module Toolbox.Worker.ModuleGraph
   ( moduleGraphWorker,
-    tempWorker,
   )
 where
 
@@ -16,7 +15,8 @@ import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
-import PyF (fmt)
+import qualified Data.Text as T 
+import Text.Printf (printf)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -119,9 +119,5 @@ layOutModuleSubgraph mgi detailLevel (clusterName, members_) = do
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
       subModDepReversed = makeRevDep subModDep
   grVisInfo <- layOutGraph modNameMap subModDepReversed
-  putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
+  printf "Cluster %s subgraph layout has been calculated." (T.unpack clusterName)
   pure (clusterName, grVisInfo)
-
-tempWorker :: ServerState -> IO ()
-tempWorker ss = do
-  putStrLn "tempWorker"

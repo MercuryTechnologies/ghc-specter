@@ -88,7 +88,6 @@ library:
     - ghc == 9.2.*
     - hiedb
     - network
-    - pretty-simple
     - stm
     - time
     - transformers
@@ -113,7 +112,6 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - OGDF
-      - PyF
       - concur-core
       - concur-replica
       - containers
@@ -121,8 +119,11 @@ executables:
       - errors
       - extra
       - fficxx-runtime
+      - ghc
       - ghc-build-analyzer
+      - hiedb
       - optparse-applicative
+      - pretty-simple
       - replica
       - resourcet
       - stdcxx
