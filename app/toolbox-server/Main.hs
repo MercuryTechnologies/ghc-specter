@@ -131,6 +131,8 @@ updateInbox chanMsg ss =
          in ss {serverTiming = M.insert modu timer' m}
       CMBox (CMSession s') ->
         ss {serverSessionInfo = s'}
+      CMBox (CMHsSource modu info) ->
+        ss
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
