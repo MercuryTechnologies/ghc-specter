@@ -41,14 +41,6 @@ import Toolbox.Util.Graph.Cluster
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
-  putStrLn "########"
-  F.for_ divisions $ \(i, js) ->
-    F.for_ (IM.lookup i modNameMap) $ \clusterName ->
-      print (clusterName, length js)
-  putStrLn "********"
-  F.for_ clustering $ \(c, js) ->
-    print (c, length js)
-  putStrLn "%%%%%%%%"
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
