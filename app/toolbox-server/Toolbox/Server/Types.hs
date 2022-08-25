@@ -14,11 +14,15 @@ module Toolbox.Server.Types
     -- * UI state
     ModuleGraphUI (..),
     UIState (..),
-    initUIState,
+    emptyUIState,
+
+    -- * ModuleGraph state
+    ModuleGraphState (..),
+    emptyModuleGraphState,
 
     -- * Server state
     ServerState (..),
-    initServerState,
+    emptyServerState,
     incrementSN,
 
     -- * graph visualization information
@@ -90,8 +94,8 @@ data UIState = UIState
   -- ^ UI state of sub module graph
   }
 
-initUIState :: UIState
-initUIState =
+emptyUIState :: UIState
+emptyUIState =
   UIState
     { uiTab = TabSession
     , uiModuleExpanded = Nothing
@@ -174,14 +178,26 @@ transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
     nodeLayout' = fmap xposeNode nodeLayout
     edgeLayout' = fmap xposeEdge edgeLayout
 
+data ModuleGraphState = ModuleGraphState
+  { mgsClusterGraph :: Maybe GraphVisInfo
+  , mgsClustering :: [(ModuleName, [ModuleName])]
+  , mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  }
+  deriving (Show, Generic)
+
+instance FromJSON ModuleGraphState
+
+instance ToJSON ModuleGraphState
+
+emptyModuleGraphState :: ModuleGraphState
+emptyModuleGraphState = ModuleGraphState Nothing [] []
+
 data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
   , serverTiming :: Map ModuleName Timer
-  , serverModuleGraph :: Maybe GraphVisInfo
-  , serverModuleClustering :: [(ModuleName, [ModuleName])]
-  , serverModuleSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  , serverModuleGraphState :: ModuleGraphState
   }
   deriving (Show, Generic)
 
@@ -189,16 +205,14 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-initServerState :: ServerState
-initServerState =
+emptyServerState :: ServerState
+emptyServerState =
   ServerState
     { serverMessageSN = 0
     , serverInbox = mempty
     , serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
     , serverTiming = mempty
-    , serverModuleGraph = Nothing
-    , serverModuleClustering = []
-    , serverModuleSubgraph = []
+    , serverModuleGraphState = emptyModuleGraphState
     }
 
 incrementSN :: ServerState -> ServerState

@@ -15,7 +15,7 @@ import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
-import qualified Data.Text as T 
+import qualified Data.Text as T
 import Text.Printf (printf)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -25,6 +25,7 @@ import Toolbox.Render.ModuleGraph (layOutGraph)
 import Toolbox.Server.Types
   ( DetailLevel (..),
     GraphVisInfo,
+    ModuleGraphState (..),
     ServerState (..),
     incrementSN,
   )
@@ -51,17 +52,23 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
-        ss
-          { serverModuleGraph = Just grVisInfo
-          , serverModuleClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
-          }
+        let mgs = serverModuleGraphState ss
+            mgs' =
+              mgs
+                { mgsClusterGraph = Just grVisInfo
+                , mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
+                }
+         in ss {serverModuleGraphState = mgs'}
   subgraphs <-
     traverse
       (\level -> (level,) <$> traverse (layOutModuleSubgraph mgi level) clustering)
       [UpTo30, UpTo100, UpTo300]
   atomically $
     modifyTVar' var $ \ss ->
-      incrementSN ss {serverModuleSubgraph = subgraphs}
+      incrementSN $
+        let mgs = serverModuleGraphState ss
+            mgs' = mgs {mgsSubgraph = subgraphs}
+         in ss {serverModuleGraphState = mgs'}
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi

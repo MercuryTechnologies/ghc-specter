@@ -42,12 +42,12 @@ import Toolbox.Comm
 import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
+    emptyServerState,
+    emptyUIState,
     incrementSN,
-    initServerState,
-    initUIState,
   )
+import Toolbox.Worker.CallGraph (callGraphWorker)
 import Toolbox.Worker.ModuleGraph (moduleGraphWorker)
-import Toolbox.Worker.CallGraph (tempWorker)
 import Prelude hiding (div)
 
 data CLIMode
@@ -87,7 +87,7 @@ main = do
   mode <- OA.execParser optsParser
   case mode of
     Online socketFile -> do
-      var <- atomically $ newTVar initServerState
+      var <- atomically $ newTVar emptyServerState
       _ <- forkIO $ listener socketFile var
       webServer var
     View sessionFile -> do
@@ -98,6 +98,7 @@ main = do
           var <- atomically $ newTVar ss
           webServer var
     Temp sessionFile -> pure ()
+
 {-      lbs <- BL.readFile sessionFile
       case eitherDecode' lbs of
         Left err -> print err
@@ -119,8 +120,7 @@ listener socketFile var =
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
           CMHsSource modu (HsSourceInfo hiefile) -> do
-            tempWorker hiefile
-            -- print (modu, info)
+            callGraphWorker hiefile
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
     )
@@ -145,7 +145,7 @@ webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "test" $
-    \_ -> loopM step (initUIState, ss0, initTime)
+    \_ -> loopM step (emptyUIState, ss0, initTime)
   where
     step (ui, ss, lastUIUpdate) = do
       let await = do

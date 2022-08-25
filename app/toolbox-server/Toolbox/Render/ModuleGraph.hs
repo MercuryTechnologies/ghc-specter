@@ -81,6 +81,7 @@ import Toolbox.Server.Types
     Event (..),
     GraphVisInfo (..),
     ModuleGraphEvent (..),
+    ModuleGraphState (..),
     ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
@@ -377,14 +378,15 @@ renderModuleGraphTab ui ss =
   let sessionInfo = serverSessionInfo ss
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = serverTiming ss
-      clustering = serverModuleClustering ss
+      mgs = serverModuleGraphState ss
+      clustering = mgsClustering mgs
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            ( case serverModuleGraph ss of
+            ( case mgsClusterGraph mgs of
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
@@ -397,7 +399,7 @@ renderModuleGraphTab ui ss =
                   , renderSubModuleGraph
                       nameMap
                       timing
-                      (serverModuleSubgraph ss)
+                      (mgsSubgraph mgs)
                       (uiMainModuleGraph ui, uiSubModuleGraph ui)
                   ]
             )
