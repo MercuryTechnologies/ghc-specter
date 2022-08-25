@@ -3,6 +3,7 @@
 
 module Toolbox.Worker
   ( moduleGraphWorker,
+    tempWorker,
   )
 where
 
@@ -120,3 +121,7 @@ layOutModuleSubgraph mgi detailLevel (clusterName, members_) = do
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
+
+tempWorker :: ServerState -> IO ()
+tempWorker ss = do
+  putStrLn "tempWorker"
