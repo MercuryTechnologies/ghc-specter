@@ -83,7 +83,7 @@ import Toolbox.Server.Types
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
-    mkRevDep,
+    makeRevDep,
   )
 import Toolbox.Util.OGDF
   ( appendText,
@@ -106,7 +106,7 @@ xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
   let modDep = mginfoModuleDep graphInfo
-      modRevDep = mkRevDep modDep
+      modRevDep = makeRevDep modDep
       initials = IM.keys $ IM.filter (\js -> null js) modDep
       terminals = IM.keys $ IM.filter (\js -> null js) modRevDep
       orphans = initials `L.intersect` terminals

@@ -35,10 +35,10 @@ import Toolbox.Util.Graph
     ClusterVertex (..),
     filterOutSmallNodes,
     fullStep,
-    getBiDepGraph,
+    makeBiDep,
     makeReducedGraphReversedFromModuleGraph,
+    makeRevDep,
     makeSeedState,
-    mkRevDep,
   )
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
@@ -55,7 +55,7 @@ moduleGraphWorker var mgi = do
           { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
           , clusterStateUnclustered = smallNodes
           }
-      bgr = getBiDepGraph mgi
+      bgr = makeBiDep (mginfoModuleDep mgi)
       (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
       clustering = mapMaybe convert (clusterStateClustered clustering_)
         where
@@ -88,7 +88,7 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   let members = fmap fst members_
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
-      modBiDep = getBiDepGraph mgi
+      modBiDep = makeBiDep modDep
       largeNodes =
         take maxSubGraphSize
           . fmap fst
@@ -101,7 +101,7 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
       subModDep =
         fmap (\ns -> filter (\n -> n `elem` largeNodes) ns) $
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
-      subModDepReversed = mkRevDep subModDep
+      subModDepReversed = makeRevDep subModDep
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)
@@ -171,11 +171,11 @@ tempWorker mgi = do
   -- print mgi
 
   let gr1 = IM.fromList testGraph
-      gr2 = mkRevDep gr1
+      gr2 = makeRevDep gr1
 
-      gr3 = mkRevDep (mginfoModuleDep mgi)
+      gr3 = makeRevDep (mginfoModuleDep mgi)
   void $ runStagedBFS gr1 2
   void $ runStagedBFS gr1 5
   putStrLn (drawTree $ fmap show testDFSTree)
 
-  -- void $ runStagedBFS gr3 2
+-- void $ runStagedBFS gr3 2
