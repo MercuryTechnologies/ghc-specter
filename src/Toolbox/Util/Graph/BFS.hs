@@ -50,7 +50,11 @@ newtype BFSState = BFSState
 -- bfsSearchResult :: [[Int]] is the final result.
 data BFSPath = BFSPath
   { bfsSearchResult :: ![[Int]]
+  -- ^ Result of BFS search. Each nested list item is the searched vertices in each stage.
   , bfsNextStage :: ![Int]
+  -- ^ The plan for the next search.
+  , bfsWhiteList :: Maybe [Int]
+  -- ^ when Just, the vertices in the staged plan should be included in this white list
   }
   deriving (Show)
 
@@ -61,14 +65,19 @@ stepBFS ::
   BFSPath ->
   -- | Left: search in progress, as temporary BFSPath, Right: search done and result is [[Int]].
   StateT BFSState m (Either BFSPath [[Int]])
-stepBFS graph (BFSPath searched nexts) = do
-  thisStage <- F.foldlM step [] nexts
+stepBFS graph (BFSPath searched nexts mwhiteList) = do
+  thisStage_ <- F.foldlM step [] nexts
+  let thisStage =
+        maybe
+          thisStage_
+          (\whiteList -> filter (`elem` whiteList) thisStage_)
+          mwhiteList
   case thisStage of
     [] -> pure $ Right searched
     _ -> do
       let searched' = searched ++ [thisStage]
       modify' (\s -> s {bfsVisited = bfsVisited s `IS.union` IS.fromList thisStage})
-      pure $ Left (BFSPath searched' thisStage)
+      pure $ Left (BFSPath searched' thisStage mwhiteList)
   where
     getUnvisitedChildren :: IntSet -> Int -> [Int]
     getUnvisitedChildren !visited current =
@@ -93,7 +102,7 @@ runStagedBFS ::
 runStagedBFS hook graph seed = evalStateT (loopM go startPath) startState
   where
     startState = BFSState (IS.singleton seed)
-    startPath = BFSPath [[seed]] [seed]
+    startPath = BFSPath [[seed]] [seed] Nothing
     go path = do
       e <- stepBFS graph path
       case e of
@@ -127,13 +136,16 @@ runMultiseedStagedBFS ::
   (Monad m) =>
   (MultiBFSPath -> StateT BFSState m ()) ->
   IntMap [Int] ->
-  [Int] ->
+  [(Int, Maybe [Int])] ->
   m [(Int, [[Int]])]
-runMultiseedStagedBFS hook graph seeds =
+runMultiseedStagedBFS hook graph seedsWithWhiteList =
   evalStateT (loopM go startMultiBFSPath) startState
   where
-    startState = BFSState $ IS.fromList seeds
-    seedPaths = fmap (\seed -> (seed, BFSPath [[seed]] [seed])) seeds
+    startState = BFSState $ IS.fromList $ fmap fst seedsWithWhiteList
+    seedPaths =
+      fmap
+        (\(seed, mwhiteList) -> (seed, BFSPath [[seed]] [seed] mwhiteList))
+        seedsWithWhiteList
     startMultiBFSPath = MultiBFSPath [] seedPaths
     go mpath = do
       e <- stepMultiseedBFS graph mpath

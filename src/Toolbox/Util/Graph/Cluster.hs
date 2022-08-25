@@ -8,18 +8,19 @@ module Toolbox.Util.Graph.Cluster
     ICVertex (..),
     annotateLevel,
 
+    -- * invariant checks
+    degreeInvariant,
+    totalNumberInvariant,
+
+    -- * reduction without clustering
+    reduceGraphByPath,
+
     -- * reduction with clustering
     diffCluster,
     filterOutSmallNodes,
     fullStep,
     makeSeedState,
-
-    -- * reduction without clustering
-    reduceGraphByPath,
-
-    -- * invariant checks
-    degreeInvariant,
-    totalNumberInvariant,
+    makeDivisionsInOrder,
   )
 where
 
@@ -89,6 +90,18 @@ totalNumberInvariant clustering =
   let clustered = clusterStateClustered clustering
       unclustered = clusterStateUnclustered clustering
    in sum (fmap (length . snd) clustered) + length unclustered
+
+-- | Strip down graph to a given topologically ordered subset
+--   with edges by path-connectedness
+reduceGraphByPath :: Graph -> [Int] -> IntMap [Int]
+reduceGraphByPath g tordList = IM.fromList $ go tordList
+  where
+    go ys =
+      case ys of
+        [] -> []
+        x : [] -> [(x, [])]
+        x : xs ->
+          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
 
 makeSeedState ::
   [Int] ->
@@ -180,21 +193,28 @@ nodeSizeLimit = 150
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
 
--- | Strip down graph to a given topologically ordered subset
---   with edges by path-connectedness
-reduceGraphByPath :: Graph -> [Int] -> IntMap [Int]
-reduceGraphByPath g tordList = IM.fromList $ go tordList
-  where
-    go ys =
-      case ys of
-        [] -> []
-        x : [] -> [(x, [])]
-        x : xs ->
-          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
-
 filterOutSmallNodes :: IntMap [Int] -> [Int]
 filterOutSmallNodes graph =
   IM.keys $
     IM.filter
       (\(js, ks) -> length js + length ks > nodeSizeLimit)
       (makeBiDep graph)
+
+-- | Make division per seed, which contains vertices that do not pass the previous
+--   and the next seeds in a given order.
+makeDivisionsInOrder ::
+  -- | sorted vertices
+  [Int] ->
+  -- | seed in order
+  [Int] ->
+  [(Int, [Int])]
+makeDivisionsInOrder sorted seedsInOrder =
+  let seedsInOrder' = (Nothing : fmap Just seedsInOrder) ++ [Nothing]
+      iranges = zip seedsInOrder (zip seedsInOrder' (tail (tail seedsInOrder')))
+      filterByRange :: (Maybe Int, Maybe Int) -> [Int] -> [Int]
+      filterByRange (Nothing, Nothing) xs = xs
+      filterByRange (Nothing, Just z) xs = fst $ break (== z) xs
+      filterByRange (Just y, Nothing) xs = tail $ snd $ break (== y) xs
+      filterByRange (Just y, Just z) xs =
+        filterByRange (Nothing, Just z) . filterByRange (Just y, Nothing) $ xs
+   in fmap (\(i, range) -> (i, filterByRange range sorted)) iranges

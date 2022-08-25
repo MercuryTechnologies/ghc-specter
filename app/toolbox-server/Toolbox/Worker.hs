@@ -8,6 +8,7 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Data.Bifunctor (second)
 import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Functor.Identity (runIdentity)
@@ -37,6 +38,7 @@ import Toolbox.Util.Graph.Cluster
     ClusterVertex (..),
     filterOutSmallNodes,
     fullStep,
+    makeDivisionsInOrder,
     makeSeedState,
     reduceGraphByPath,
   )
@@ -44,6 +46,14 @@ import Toolbox.Util.Graph.Cluster
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
+  putStrLn "########"
+  F.for_ divisions $ \(i, js) ->
+    F.for_ (IM.lookup i modNameMap) $ \clusterName ->
+      print (clusterName, length js)
+  putStrLn "********"
+  F.for_ clustering $ \(c, js) ->
+    print (c, length js)
+  putStrLn "%%%%%%%%"
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
@@ -60,6 +70,7 @@ moduleGraphWorker var mgi = do
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi
     modRevDep = makeRevDep modDep
+    modBiDep = makeBiDep modDep
     nVtx = F.length $ mginfoModuleNameMap mgi
     -- separate large/small nodes
     allNodes = IM.keys modNameMap
@@ -74,7 +85,15 @@ moduleGraphWorker var mgi = do
     reducedGraphReversed = makeRevDep reducedGraph
     -- compute clustering
     -- as we use modRevDep as the graph, the greediness has precedence towards upper dependencies.
-    bfsResult = runIdentity $ runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
+    divisions = makeDivisionsInOrder tordVtxs tordSeeds
+    seedsWithWhiteList = fmap (second Just) divisions
+    modUndirDep = fmap (\(outs, ins) -> outs ++ ins) $ modBiDep
+    bfsResult =
+      runIdentity $
+        runMultiseedStagedBFS
+          (\_ -> pure ())
+          modUndirDep
+          seedsWithWhiteList
     clustering = mapMaybe convert bfsResult
       where
         convert (i, stages) = do
@@ -84,7 +103,7 @@ moduleGraphWorker var mgi = do
           pure (clusterName, members)
 
 maxSubGraphSize :: Int
-maxSubGraphSize = 1000 -- 100 -- 30
+maxSubGraphSize = 30 -- 1000 -- 100 -- 30
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->
@@ -126,22 +145,6 @@ testGraph =
   , (10, [])
   ]
 
--- | Make division per seed, which contains vertices that does not pass the previous
---   and the next seeds in topological order.
-makeTopologicalDivisions :: Graph -> [Int] -> [(Int, [Int])]
-makeTopologicalDivisions graph seeds =
-  let sorted = topSort graph
-      seedsInOrder = filter (`elem` seeds) sorted
-      seedsInOrder' = (Nothing : fmap Just seedsInOrder) ++ [Nothing]
-      iranges = zip seedsInOrder (zip seedsInOrder' (tail (tail seedsInOrder')))
-      filterByRange :: (Maybe Int, Maybe Int) -> [Int] -> [Int]
-      filterByRange (Nothing, Nothing) xs = xs
-      filterByRange (Nothing, Just z) xs = fst $ break (== z) xs
-      filterByRange (Just y, Nothing) xs = tail $ snd $ break (== y) xs
-      filterByRange (Just y, Just z) xs =
-        filterByRange (Nothing, Just z) . filterByRange (Just y, Nothing) $ xs
-   in fmap (\(i, range) -> (i, filterByRange range sorted)) iranges
-
 tempWorker :: ModuleGraphInfo -> IO ()
 tempWorker mgi = do
   let seeds = filterOutSmallNodes (mginfoModuleDep mgi)
@@ -150,14 +153,22 @@ tempWorker mgi = do
       largeNodes = filterOutSmallNodes modDep
       modRevDep = makeRevDep modDep
 
-  r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep largeNodes
+  r1 <- runMultiseedStagedBFS (\_ -> pure ()) (IM.fromList testGraph) [(2, Just [2, 4, 5, 7, 9]), (9, Just [1, 3, 6, 7, 8, 9, 10])]
+  print r1
+  -- mapM_ (\(i, jss) -> print (i, length (concat jss))) r1
+
+  r2 <- runMultiseedStagedBFS (\_ -> pure ()) modRevDep (fmap (,Nothing) largeNodes)
   mapM_ (\(i, jss) -> print (i, length (concat jss))) r2
 
-
-  let nVtx = F.length $ mginfoModuleNameMap mgi
+  let modNameMap = mginfoModuleNameMap mgi
+      nVtx = F.length modNameMap
       gr = buildG (1, nVtx) (makeEdges modDep)
+      sorted = topSort gr
+      seedsInOrder = filter (`elem` seeds) sorted
 
-      divs = makeTopologicalDivisions gr largeNodes
+      divs = makeDivisionsInOrder sorted seedsInOrder
 
   putStrLn "########"
-  mapM_ (\(i, js) -> print (i, length js)) divs
+  F.for_ divs $ \(i, js) ->
+    F.for_ (IM.lookup i modNameMap) $ \clusterName ->
+      print (clusterName, length js)
