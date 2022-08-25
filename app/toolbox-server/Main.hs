@@ -110,13 +110,15 @@ listener socketFile var =
   runServer
     socketFile
     ( \sock -> do
-        o <- receiveObject sock
+        CMBox o <- receiveObject sock
         case o of
-          CMBox (CMSession s') -> do
+          CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
+          CMHsSource modu info -> do
+            print (modu, info)
           _ -> pure ()
-        atomically . modifyTVar' var . updateInbox $ o
+        atomically . modifyTVar' var . updateInbox $ CMBox o
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState

@@ -2,15 +2,19 @@
 {-# LANGUAGE GADTs #-}
 
 module Toolbox.Channel
-  ( Channel (..),
+  ( -- * information types
     type ModuleName,
-    ChanMessage (..),
-    ChanMessageBox (..),
     SessionInfo (..),
     Timer (..),
     resetTimer,
+    HsSourceInfo (..),
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
+
+    -- * channel
+    Channel (..),
+    ChanMessage (..),
+    ChanMessageBox (..),
   )
 where
 
