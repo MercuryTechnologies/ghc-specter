@@ -36,7 +36,7 @@ moduleGraphWorker var mgi = do
   let modNameMap = mginfoModuleNameMap mgi
       reducedGraphReversed =
         makeReducedGraphReversedFromModuleGraph mgi
-  grVisInfo <- layOutGraph Nothing modNameMap reducedGraphReversed
+  grVisInfo <- layOutGraph modNameMap reducedGraphReversed
   let allNodes = IM.keys modNameMap
       largeNodes = IM.keys reducedGraphReversed
       smallNodes = allNodes L.\\ largeNodes
@@ -92,6 +92,6 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
         fmap (\ns -> filter (\n -> n `elem` largeNodes) ns) $
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
       subModDepReversed = mkRevDep subModDep
-  grVisInfo <- layOutGraph Nothing modNameMap subModDepReversed
+  grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)

@@ -24,7 +24,6 @@ import Concur.Replica
   )
 import qualified Concur.Replica.SVG as S
 import qualified Concur.Replica.SVG.Props as SP
-import Control.Exception (bracket)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -40,7 +39,6 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Tuple (swap)
-import Foreign.C.String (withCString)
 import OGDF.Graph
   ( Graph,
     graph_newEdge,
@@ -50,11 +48,9 @@ import OGDF.GraphAttributes
   ( GraphAttributes,
     newGraphAttributes,
   )
-import OGDF.GraphIO (graphIO_write)
 import OGDF.NodeElement (nodeElement_index)
 import PyF (fmt)
 import Replica.VDOM.Types (HTML)
-import STD.CppString (newCppString)
 import STD.Deletable (delete)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -328,8 +324,8 @@ renderModuleGraph ui ss =
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-layOutGraph :: Maybe FilePath -> IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
-layOutGraph mfile nameMap graph = runGraphLayouter $ do
+layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
+layOutGraph nameMap graph = runGraphLayouter $ do
   (_, g) <- allocate newGraph delete
   (_, ga) <- allocate (newGA g) delete
 
@@ -351,10 +347,6 @@ layOutGraph mfile nameMap graph = runGraphLayouter $ do
         let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
         F.for_ node_js $ \node_j ->
           liftIO (graph_newEdge g node_i node_j)
-  F.for_ mfile $ \file -> liftIO $ do
-    withCString file $ \outputGMLFileNameCstr ->
-      bracket (newCppString outputGMLFileNameCstr) delete $ \outputGMLFileName ->
-        graphIO_write ga outputGMLFileName
 
   doSugiyamaLayout ga
 
