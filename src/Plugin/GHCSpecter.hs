@@ -135,10 +135,21 @@ plugin =
     , typeCheckResultAction = typecheckPlugin
     }
 
--- shared across the session
+-- | Global variable shared across the session
 sessionRef :: TVar SessionInfo
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newTVarIO (SessionInfo Nothing emptyModuleGraphInfo))
+
+-- | send message to the web daemon
+sendMsgToDaemon :: [CommandLineOption] -> ChanMessage a -> IO ()
+sendMsgToDaemon opts msg =
+  case opts of
+    ipcfile : _ -> liftIO $ do
+      socketExists <- doesFileExist ipcfile
+      when socketExists $
+        runClient ipcfile $ \sock ->
+          sendObject sock (CMBox msg)
+    _ -> pure ()
 
 --
 -- driver plugin
@@ -179,6 +190,7 @@ extractModuleGraphInfo modGraph = do
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
 
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
@@ -218,7 +230,7 @@ driver opts env = do
             let mmi = iface pstate
                 mmod = fmap mi_module mmi
                 mmodName = fmap (T.pack . moduleNameString . moduleName) mmod
-
+            -- send HIE file information to the daemon after compilation
             case (maybe_loc pstate, gopt Opt_WriteHie dflags, mmod) of
               (Just modLoc, True, Just mod) -> liftIO $ do
                 let hiefile = ml_hie_file modLoc
@@ -247,13 +259,7 @@ driver opts env = do
               Just modName -> liftIO $ do
                 endTime <- getCurrentTime
                 let timer = timer0 {timerEnd = Just endTime}
-                case opts of
-                  ipcfile : _ -> liftIO $ do
-                    socketExists <- doesFileExist ipcfile
-                    when socketExists $
-                      runClient ipcfile $ \sock ->
-                        sendObject sock $ CMBox (CMTiming modName timer)
-                  _ -> pure ()
+                sendMsgToDaemon opts (CMTiming modName timer)
           _ -> pure ()
 
         pure (phase', fp')
@@ -321,11 +327,5 @@ typecheckPlugin opts modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  case opts of
-    ipcfile : _ -> liftIO $ do
-      socketExists <- doesFileExist ipcfile
-      when socketExists $
-        runClient ipcfile $ \sock ->
-          sendObject sock (CMBox (CMCheckImports modName (T.pack rendered)))
-    _ -> pure ()
+  liftIO $  sendMsgToDaemon opts (CMCheckImports modName (T.pack rendered))
   pure tc
