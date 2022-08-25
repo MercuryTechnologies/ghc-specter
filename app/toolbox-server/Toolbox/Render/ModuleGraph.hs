@@ -67,6 +67,7 @@ import Toolbox.Server.Types
     Point (..),
     ServerState (..),
     UIState (..),
+    transposeGraphVis,
   )
 import Toolbox.Util.Graph
   ( filterOutSmallNodes,
@@ -157,8 +158,9 @@ formatModuleGraphInfo mgi =
         <> ", # of edges: "
         <> T.pack (show nEdg)
 
-makePolylineText :: [Point] -> Text
-makePolylineText xys = T.intercalate " " (fmap each xys)
+makePolylineText :: (Point, Point) -> [Point] -> Text
+makePolylineText (p0, p1) xys =
+  T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
   where
     each (Point x y) = [fmt|{x:.2},{y:.2}|]
 
@@ -172,46 +174,67 @@ renderModuleGraphSVG ::
 renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
-      edge (EdgeLayout _ (start, end) xys) =
+      nodeLayoutMap =
+        IM.fromList $ fmap (\n -> (fst (nodePayload n), n)) $ gviNodes grVisInfo
+      -- graph layout parameter
+      aFactor = 0.9
+      offX = -15
+      offYFactor = -1.0
+      -- the center of left side of a node
+      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
+        Point (x + offX) (y + h * offYFactor + h + 0.5)
+      -- the center of right side of a node
+      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
+        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
+      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
         let (color, swidth) = fromMaybe ("gray", "1") $ do
               hovered <- mhovered
               hoveredIdx_ <- M.lookup hovered revNameMap
               hoveredIdx <- Just hoveredIdx_
               if
-                  | start == hoveredIdx -> pure ("black", "2")
-                  | end == hoveredIdx -> pure ("black", "2")
+                  | src == hoveredIdx -> pure ("black", "2")
+                  | tgt == hoveredIdx -> pure ("black", "2")
                   | otherwise -> Nothing
+            -- if source and target nodes cannot be found,
+            -- just use coordinates recorded in edge.
+            -- TODO: should be handled as error.
+            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
+              srcNode <- IM.lookup src nodeLayoutMap
+              tgtNode <- IM.lookup tgt nodeLayoutMap
+              -- Left-to-right flow.
+              pure (rightCenter srcNode, leftCenter tgtNode)
          in S.polyline
-              [ SP.points (makePolylineText xys)
+              [ SP.points (makePolylineText (srcPt, tgtPt) xys)
               , SP.stroke color
               , SP.strokeWidth swidth
               , SP.fill "none"
               ]
               []
-      aFactor = 0.8
-      offXFactor = -0.4
-      offYFactor = -0.6
-      box0 (NodeLayout name (Point x y) (Dim w h)) =
+
+      box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + w * offXFactor))
-          , SP.y (T.pack $ show (y + h * offYFactor + h - 12))
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
+          , SP.x (T.pack $ show (x + offX))
+          , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
           , width (T.pack $ show (w * aFactor))
-          , height "20"
+          , height "13"
           , SP.stroke "dimgray"
           , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
           ]
           []
       box1 (NodeLayout _ (Point x y) (Dim w h)) =
         S.rect
-          [ SP.x (T.pack $ show (x + w * offXFactor))
+          [ SP.x (T.pack $ show (x + offX))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
-          , height "5"
+          , height "4"
           , SP.stroke "black"
           , SP.fill "none"
           ]
           []
-      box2 (NodeLayout name (Point x y) (Dim w h)) =
+      box2 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         let ratio = fromMaybe 0 $ do
               cluster <- L.lookup name clustering
               let nTot = length cluster
@@ -223,19 +246,19 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
                   pure (fromIntegral nCompiled / fromIntegral nTot)
             w' = ratio * w
          in S.rect
-              [ SP.x (T.pack $ show (x + w * offXFactor))
+              [ SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
-              , height "5"
+              , height "4"
               , SP.fill "blue"
               ]
               []
-      moduleText (NodeLayout name (Point x y) (Dim w h)) =
+      moduleText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
         S.text
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + w * offXFactor))
+          , SP.x (T.pack $ show (x + offX + 2))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
           ]
@@ -247,7 +270,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
 
       svgElement =
         S.svg
-          [ width "100%"
+          [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox
               ( "0 0 "
                   <> T.pack (show (canvasWidth + 100)) -- i don't understand why it's incorrect
@@ -257,7 +280,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
           , SP.version "1.1"
           , xmlns
           ]
-          (S.style [] [text ".small { font: 12px sans-serif; }"] : (edges ++ nodes))
+          (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderSubgraph ::
@@ -273,7 +296,7 @@ renderSubgraph timing subgraphs mselected =
         Nothing ->
           text [fmt|cannot find the subgraph for the module cluster {selected}|]
         Just subgraph ->
-          let tempclustering = fmap (\(NodeLayout name _ _) -> (name, [name])) $ gviNodes subgraph
+          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
            in renderModuleGraphSVG mempty timing tempclustering subgraph Nothing
 
 renderModuleGraph :: UIState -> ServerState -> Widget HTML Event
@@ -311,8 +334,8 @@ layOutGraph nameMap graph = runGraphLayouter $ do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
         Just name -> do
-          let w = 8 * T.length name
-          node <- newGraphNodeWithSize (g, ga) (w, 15)
+          let h = 4 * T.length name
+          node <- newGraphNodeWithSize (g, ga) (15, h)
           appendText ga node name
           pure (Just node)
   moduleNodeIndex <-
@@ -335,14 +358,15 @@ layOutGraph nameMap graph = runGraphLayouter $ do
           replace (NodeLayout j pt dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
-            pure $ NodeLayout name pt dim
+            pure $ NodeLayout (i, name) pt dim
 
   edgeLayout0 <- getAllEdgeLayout g ga
   let edgeLayout = mapMaybe replace edgeLayout0
         where
-          replace (EdgeLayout k (start, end) vertices) = do
+          replace (EdgeLayout k (start, end) srcTgtPts vertices) = do
             startIdx <- IM.lookup start moduleNodeRevIndex
             endIdx <- IM.lookup end moduleNodeRevIndex
-            pure (EdgeLayout k (startIdx, endIdx) vertices)
+            pure (EdgeLayout k (startIdx, endIdx) srcTgtPts vertices)
 
-  pure $ GraphVisInfo canvasDim nodeLayout edgeLayout
+  let gvisInfo0 = GraphVisInfo canvasDim nodeLayout edgeLayout
+  pure $ transposeGraphVis gvisInfo0

@@ -301,8 +301,10 @@ getAllEdgeLayout g ga = do
                   (Left . (bpts',) <$> liftIO (listIteratorSucc it))
               )
               (pure $ Right bpts)
-        let pts = [Point srcX srcY] ++ bendPoints ++ [Point tgtX tgtY]
-        let acc' = acc ++ [EdgeLayout j (isrc, itgt) pts]
+        let srcPt = Point srcX srcY
+            tgtPt = Point tgtX tgtY
+            newEdge = EdgeLayout j (isrc, itgt) (srcPt, tgtPt) bendPoints
+            acc' = acc ++ [newEdge]
         Left . (acc',) <$> liftIO (edgeElement_succ e)
 
 doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()
@@ -314,8 +316,8 @@ doSugiyamaLayout ga = do
     mh <- newMedianHeuristic
     sugiyamaLayout_setCrossMin sl mh
     ohl <- newOptimalHierarchyLayout
-    optimalHierarchyLayout_layerDistance ohl 5.0
+    optimalHierarchyLayout_layerDistance ohl 1.0
     optimalHierarchyLayout_nodeDistance ohl 0
-    optimalHierarchyLayout_weightBalancing ohl 0.1
+    optimalHierarchyLayout_weightBalancing ohl 1.0
     sugiyamaLayout_setLayout sl ohl
     call sl ga
