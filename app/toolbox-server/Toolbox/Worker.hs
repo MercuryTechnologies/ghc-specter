@@ -10,7 +10,6 @@ import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Graph (buildG)
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 import Data.Maybe (mapMaybe)
@@ -39,41 +38,9 @@ import Toolbox.Util.Graph.Cluster
     reduceGraphByPath,
   )
 
-reduceModuleRevDepByPath :: ModuleGraphInfo -> IntMap [Int]
-reduceModuleRevDepByPath mgi =
-  let modDep = mginfoModuleDep mgi
-      nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges modDep
-      g = buildG (1, nVtx) es
-      seeds = filterOutSmallNodes modDep
-      tordVtxs = reverse $ mginfoModuleTopSorted mgi
-      tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = reduceGraphByPath g tordSeeds
-   in makeRevDep reducedGraph
-
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
-  let modNameMap = mginfoModuleNameMap mgi
-      reducedGraphReversed =
-        reduceModuleRevDepByPath mgi
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
-  let allNodes = IM.keys modNameMap
-      largeNodes = IM.keys reducedGraphReversed
-      smallNodes = allNodes L.\\ largeNodes
-      seedClustering =
-        ClusterState
-          { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
-          , clusterStateUnclustered = smallNodes
-          }
-      bgr = makeBiDep (mginfoModuleDep mgi)
-      -- run clustering twice
-      (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
-      clustering = mapMaybe convert (clusterStateClustered clustering_)
-        where
-          convert (Cluster i, js) = do
-            clusterName <- IM.lookup i modNameMap
-            let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
-            pure (clusterName, members)
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
@@ -87,6 +54,37 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN ss {serverModuleSubgraph = subgraph}
+  where
+    modNameMap = mginfoModuleNameMap mgi
+    modDep = mginfoModuleDep mgi
+    nVtx = F.length $ mginfoModuleNameMap mgi
+    -- separate large/small nodes
+    allNodes = IM.keys modNameMap
+    largeNodes = filterOutSmallNodes modDep
+    smallNodes = allNodes L.\\ largeNodes
+    -- compute reduced graph
+    es = makeEdges modDep
+    g = buildG (1, nVtx) es
+    tordVtxs = reverse $ mginfoModuleTopSorted mgi
+    tordSeeds = filter (`elem` largeNodes) tordVtxs
+    reducedGraph = reduceGraphByPath g tordSeeds
+    reducedGraphReversed = makeRevDep reducedGraph
+    -- compute clustering
+    seedClustering =
+      ClusterState
+        { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
+        , clusterStateUnclustered = smallNodes
+        }
+    bgr = makeBiDep (mginfoModuleDep mgi)
+    (clustering_, _) =
+      -- run clustering twice
+      fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
+    clustering = mapMaybe convert (clusterStateClustered clustering_)
+      where
+        convert (Cluster i, js) = do
+          clusterName <- IM.lookup i modNameMap
+          let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
+          pure (clusterName, members)
 
 maxSubGraphSize :: Int
 maxSubGraphSize = 30
