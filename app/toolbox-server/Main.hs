@@ -53,7 +53,6 @@ import Prelude hiding (div)
 data CLIMode
   = Online FilePath
   | View FilePath
-  | Temp FilePath
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
@@ -69,17 +68,10 @@ viewMode =
       (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
       (OA.progDesc "viewing saved session")
 
-tempMode :: OA.Mod OA.CommandFields CLIMode
-tempMode =
-  OA.command "temp" $
-    OA.info
-      (Temp <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
-      (OA.progDesc "temp")
-
 optsParser :: OA.ParserInfo CLIMode
 optsParser =
   OA.info
-    (OA.subparser (onlineMode <> viewMode <> tempMode) OA.<**> OA.helper)
+    (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
 main :: IO ()
@@ -97,14 +89,6 @@ main = do
         Right ss -> do
           var <- atomically $ newTVar ss
           webServer var
-    Temp sessionFile -> pure ()
-
-{-      lbs <- BL.readFile sessionFile
-      case eitherDecode' lbs of
-        Left err -> print err
-        Right ss -> do
-          pure ()
--}
 
 updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))

@@ -5,28 +5,25 @@ module Toolbox.Worker.Hie
   )
 where
 
-import Control.Concurrent (forkIO)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Monad (void)
-import Data.Foldable
 import qualified Data.Map as M
-import Data.Maybe (fromJust)
 import qualified Data.Text as T
-import Data.Tree
-import GHC.Driver.Pipeline
 import GHC.Iface.Ext.Binary
-import GHC.Iface.Ext.Types
-import GHC.Iface.Ext.Utils
-import GHC.Plugins hiding (ModuleName)
-import GHC.SysTools
-import GHC.Types.Name
-import GHC.Types.Name.Cache
-import GHC.Types.SrcLoc
-import GHC.Types.Unique.Supply
-import HieDb.Compat (OccName, nameModule, occNameString)
-import HieDb.Types
-import HieDb.Utils
-import Toolbox.Channel (HsSourceInfo (..))
+  ( HieFileResult (..),
+    NameCacheUpdater (NCU),
+    readHieFile,
+  )
+import GHC.Iface.Ext.Types (HieFile (..), getAsts)
+import GHC.Iface.Ext.Utils (generateReferencesMap)
+import GHC.Types.Name.Cache (initNameCache)
+import HieDb.Compat
+  ( mkSplitUniqSupply,
+    moduleName,
+    moduleNameString,
+    occNameString,
+  )
+import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
+import HieDb.Utils (genDefRow, genRefsAndDecls)
 import Toolbox.Server.Types
   ( DeclRow' (..),
     DefRow' (..),
@@ -35,7 +32,6 @@ import Toolbox.Server.Types
     RefRow' (..),
     ServerState (..),
   )
-import Toolbox.Util.GHC (printPpr)
 
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
@@ -79,12 +75,12 @@ hieWorker var hiefile = do
   let nc = initNameCache uniq_supply []
   hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
   let hf = hie_file_result hieResult
-      mod = hie_module hf
-      modName = T.pack $ moduleNameString $ moduleName mod
+      modu = hie_module hf
+      modName = T.pack $ moduleNameString $ moduleName modu
       asts = hie_asts hf
       refmap = generateReferencesMap $ getAsts asts
-      (refs, decls) = genRefsAndDecls "" mod refmap
-      defs = genDefRow "" mod refmap
+      (refs, decls) = genRefsAndDecls "" modu refmap
+      defs = genDefRow "" modu refmap
   atomically $
     modifyTVar' var $ \ss ->
       let HieState hieModMap = serverHieState ss
