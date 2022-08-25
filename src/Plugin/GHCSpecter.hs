@@ -197,11 +197,7 @@ driver opts env = do
   let timer0 = resetTimer {timerStart = Just startTime}
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
-        liftIO $ do
-          putStrLn $ "###########" <> showPpr dflags phase
         (phase', fp') <- runPhase phase fp
-        liftIO $ putStrLn $ "------------>" <> showPpr dflags phase'
-
         case phase' of
           RealPhase StopLn -> do
             pstate <- getPipeState

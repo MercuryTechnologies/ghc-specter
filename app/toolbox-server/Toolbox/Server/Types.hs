@@ -16,9 +16,12 @@ module Toolbox.Server.Types
     UIState (..),
     emptyUIState,
 
-    -- * ModuleGraph state
+    -- * ModuleGraph and Hie state
     ModuleGraphState (..),
     emptyModuleGraphState,
+    RefRow' (..),
+    HieState (..),
+    emptyHieState,
 
     -- * Server state
     ServerState (..),
@@ -39,6 +42,9 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import GHC.Types.Name (OccName, occNameString)
+import HieDb.Compat (Unit)
+import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import Toolbox.Channel
   ( Channel,
     SessionInfo (..),
@@ -192,12 +198,42 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState = ModuleGraphState Nothing [] []
 
+-- | RefRow has OccName which is not JSON-serializable.
+data RefRow' = RefRow'
+  { ref'Src :: FilePath
+  , ref'NameOcc :: Text
+  , ref'NameMod :: ModuleName
+  , ref'NameUnit :: Text
+  , ref'SLine :: Int
+  , ref'SCol :: Int
+  , ref'ELine :: Int
+  , ref'ECol :: Int
+  }
+  deriving (Show, Generic)
+
+instance FromJSON RefRow'
+
+instance ToJSON RefRow'
+
+newtype HieState = HieState
+  { hieModuleMap :: [(ModuleName, [RefRow'])]  -- , [DeclRow], [DefRow]))]
+  }
+  deriving (Show, Generic)
+
+instance FromJSON HieState
+
+instance ToJSON HieState
+
+emptyHieState :: HieState
+emptyHieState = HieState []
+
 data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
   , serverTiming :: Map ModuleName Timer
   , serverModuleGraphState :: ModuleGraphState
+  , serverHieState :: HieState
   }
   deriving (Show, Generic)
 
@@ -213,6 +249,7 @@ emptyServerState =
     , serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
     , serverTiming = mempty
     , serverModuleGraphState = emptyModuleGraphState
+    , serverHieState = emptyHieState
     }
 
 incrementSN :: ServerState -> ServerState

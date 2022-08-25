@@ -120,7 +120,7 @@ listener socketFile var =
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
           CMHsSource modu (HsSourceInfo hiefile) -> do
-            callGraphWorker hiefile
+            void $ forkIO (callGraphWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
     )
