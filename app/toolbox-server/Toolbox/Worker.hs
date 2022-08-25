@@ -35,12 +35,12 @@ import Toolbox.Util.Graph.Cluster
     ClusterVertex (..),
     filterOutSmallNodes,
     fullStep,
-    makeReducedGraph,
     makeSeedState,
+    reduceGraphByPath,
   )
 
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
-makeReducedGraphReversedFromModuleGraph mgi =
+reduceModuleRevDepByPath :: ModuleGraphInfo -> IntMap [Int]
+reduceModuleRevDepByPath mgi =
   let modDep = mginfoModuleDep mgi
       nVtx = F.length $ mginfoModuleNameMap mgi
       es = makeEdges modDep
@@ -48,14 +48,14 @@ makeReducedGraphReversedFromModuleGraph mgi =
       seeds = filterOutSmallNodes modDep
       tordVtxs = reverse $ mginfoModuleTopSorted mgi
       tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = makeReducedGraph g tordSeeds
+      reducedGraph = reduceGraphByPath g tordSeeds
    in makeRevDep reducedGraph
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   let modNameMap = mginfoModuleNameMap mgi
       reducedGraphReversed =
-        makeReducedGraphReversedFromModuleGraph mgi
+        reduceModuleRevDepByPath mgi
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
   let allNodes = IM.keys modNameMap
       largeNodes = IM.keys reducedGraphReversed

@@ -7,11 +7,15 @@ module Toolbox.Util.Graph.Cluster
     GraphState (..),
     ICVertex (..),
     annotateLevel,
+
+    -- * reduction with clustering
     diffCluster,
     filterOutSmallNodes,
     fullStep,
-    makeReducedGraph,
     makeSeedState,
+
+    -- * reduction without clustering
+    reduceGraphByPath,
 
     -- * invariant checks
     degreeInvariant,
@@ -176,9 +180,10 @@ nodeSizeLimit = 150
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
 
--- | strip down graph to a given topologically ordered subset
-makeReducedGraph :: Graph -> [Int] -> IntMap [Int]
-makeReducedGraph g tordList = IM.fromList $ go tordList
+-- | Strip down graph to a given topologically ordered subset
+--   with edges by path-connectedness
+reduceGraphByPath :: Graph -> [Int] -> IntMap [Int]
+reduceGraphByPath g tordList = IM.fromList $ go tordList
   where
     go ys =
       case ys of
