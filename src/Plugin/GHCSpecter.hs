@@ -105,6 +105,7 @@ import Toolbox.Channel
     resetTimer,
   )
 import Toolbox.Comm (runClient, sendObject)
+import Toolbox.Util.GHC (showPpr)
 
 plugin :: Plugin
 plugin =
