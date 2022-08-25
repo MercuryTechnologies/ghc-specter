@@ -46,7 +46,7 @@ import Toolbox.Server.Types
     emptyUIState,
     incrementSN,
   )
-import Toolbox.Worker.CallGraph (callGraphWorker)
+import Toolbox.Worker.Hie (hieWorker)
 import Toolbox.Worker.ModuleGraph (moduleGraphWorker)
 import Prelude hiding (div)
 
@@ -120,7 +120,7 @@ listener socketFile var =
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
           CMHsSource modu (HsSourceInfo hiefile) -> do
-            void $ forkIO (callGraphWorker var hiefile)
+            void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
     )

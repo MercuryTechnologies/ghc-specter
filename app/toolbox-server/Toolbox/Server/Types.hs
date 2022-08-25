@@ -16,10 +16,15 @@ module Toolbox.Server.Types
     UIState (..),
     emptyUIState,
 
-    -- * ModuleGraph and Hie state
+    -- * ModuleGraph state
     ModuleGraphState (..),
     emptyModuleGraphState,
+
+    -- * Hie state
     RefRow' (..),
+    DeclRow' (..),
+    DefRow' (..),
+    ModuleHieInfo (..),
     HieState (..),
     emptyHieState,
 
@@ -42,9 +47,6 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import GHC.Types.Name (OccName, occNameString)
-import HieDb.Compat (Unit)
-import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import Toolbox.Channel
   ( Channel,
     SessionInfo (..),
@@ -198,7 +200,7 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState = ModuleGraphState Nothing [] []
 
--- | RefRow has OccName which is not JSON-serializable.
+-- | RefRow has OccName and Unit which are not JSON-serializable.
 data RefRow' = RefRow'
   { ref'Src :: FilePath
   , ref'NameOcc :: Text
@@ -215,8 +217,50 @@ instance FromJSON RefRow'
 
 instance ToJSON RefRow'
 
+-- | DeclRow has OccName
+data DeclRow' = DeclRow'
+  { decl'Src :: FilePath
+  , decl'NameOcc :: Text
+  , decl'SLine :: Int
+  , decl'SCol :: Int
+  , decl'ELine :: Int
+  , decl'ECol :: Int
+  , decl'Root :: Bool
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DeclRow'
+
+instance ToJSON DeclRow'
+
+-- | DefRow has OccName
+data DefRow' = DefRow'
+  { def'Src :: FilePath
+  , def'NameOcc :: Text
+  , def'SLine :: Int
+  , def'SCol :: Int
+  , def'ELine :: Int
+  , def'ECol :: Int
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DefRow'
+
+instance ToJSON DefRow'
+
+data ModuleHieInfo = ModuleHieInfo
+  { modHieRefs :: [RefRow']
+  , modHieDecls :: [DeclRow']
+  , modHieDefs :: [DefRow']
+  }
+  deriving (Show, Generic)
+
+instance FromJSON ModuleHieInfo
+
+instance ToJSON ModuleHieInfo
+
 newtype HieState = HieState
-  { hieModuleMap :: [(ModuleName, [RefRow'])]  -- , [DeclRow], [DefRow]))]
+  { hieModuleMap :: Map ModuleName ModuleHieInfo
   }
   deriving (Show, Generic)
 
@@ -225,7 +269,7 @@ instance FromJSON HieState
 instance ToJSON HieState
 
 emptyHieState :: HieState
-emptyHieState = HieState []
+emptyHieState = HieState mempty
 
 data ServerState = ServerState
   { serverMessageSN :: Int

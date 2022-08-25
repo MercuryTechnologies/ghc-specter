@@ -74,7 +74,6 @@
           p.hspec
           p.OGDF
           p.optparse-applicative
-          p.pretty-simple
           p.replica
           p.socket
           p.text

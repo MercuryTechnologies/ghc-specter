@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Toolbox.Worker.CallGraph
-  ( callGraphWorker,
+module Toolbox.Worker.Hie
+  ( hieWorker,
   )
 where
 
@@ -26,41 +26,22 @@ import GHC.Types.Unique.Supply
 import HieDb.Compat (OccName, nameModule, occNameString)
 import HieDb.Types
 import HieDb.Utils
-import Text.Pretty.Simple
 import Toolbox.Channel (HsSourceInfo (..))
 import Toolbox.Server.Types
-  ( HieState (..),
+  ( DeclRow' (..),
+    DefRow' (..),
+    HieState (..),
+    ModuleHieInfo (..),
     RefRow' (..),
     ServerState (..),
   )
 import Toolbox.Util.GHC (printPpr)
 
-
--- orphan instances for now
-
-instance Show OccName where
-  show = occNameString
-
--- instance FromJSON OccName where
---   occNameString
-  
-deriving instance Show RefRow
-
--- deriving instance Generic RefRow
-
-deriving instance Show DeclRow
-
--- deriving instance Generic DeclRow
-
-deriving instance Show DefRow
-
--- deriving instance Generic DefRow
-
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
   RefRow'
     { ref'Src = refSrc
-    , ref'NameOcc = T.pack $ show refNameOcc
+    , ref'NameOcc = T.pack $ occNameString refNameOcc
     , ref'NameMod = T.pack $ show refNameMod
     , ref'NameUnit = T.pack $ show refNameUnit
     , ref'SLine = refSLine
@@ -69,8 +50,31 @@ convertRefRow RefRow {..} =
     , ref'ECol = refECol
     }
 
-callGraphWorker :: TVar ServerState -> FilePath -> IO ()
-callGraphWorker var hiefile = do
+convertDeclRow :: DeclRow -> DeclRow'
+convertDeclRow DeclRow {..} =
+  DeclRow'
+    { decl'Src = declSrc
+    , decl'NameOcc = T.pack $ occNameString declNameOcc
+    , decl'SLine = declSLine
+    , decl'SCol = declSCol
+    , decl'ELine = declELine
+    , decl'ECol = declECol
+    , decl'Root = declRoot
+    }
+
+convertDefRow :: DefRow -> DefRow'
+convertDefRow DefRow {..} =
+  DefRow'
+    { def'Src = defSrc
+    , def'NameOcc = T.pack $ occNameString defNameOcc
+    , def'SLine = defSLine
+    , def'SCol = defSCol
+    , def'ELine = defELine
+    , def'ECol = defECol
+    }
+
+hieWorker :: TVar ServerState -> FilePath -> IO ()
+hieWorker var hiefile = do
   uniq_supply <- mkSplitUniqSupply 'z'
   let nc = initNameCache uniq_supply []
   hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
@@ -81,9 +85,14 @@ callGraphWorker var hiefile = do
       refmap = generateReferencesMap $ getAsts asts
       (refs, decls) = genRefsAndDecls "" mod refmap
       defs = genDefRow "" mod refmap
-  let hieState = HieState $
-        [(modName, fmap convertRefRow refs)]
   atomically $
     modifyTVar' var $ \ss ->
-      ss {serverHieState = hieState}
-
+      let HieState hieModMap = serverHieState ss
+          modHie =
+            ModuleHieInfo
+              { modHieRefs = fmap convertRefRow refs
+              , modHieDecls = fmap convertDeclRow decls
+              , modHieDefs = fmap convertDefRow defs
+              }
+          hieModMap' = M.insert modName modHie hieModMap
+       in ss {serverHieState = HieState hieModMap'}
