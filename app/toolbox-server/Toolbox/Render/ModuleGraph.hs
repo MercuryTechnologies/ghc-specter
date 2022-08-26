@@ -192,10 +192,10 @@ renderModuleGraphSVG ::
   (Maybe Text, Maybe Text) ->
   Widget HTML ModuleGraphEvent
 renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
-  let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
+  let Dim canvasWidth canvasHeight = _gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
       nodeLayoutMap =
-        IM.fromList $ fmap (\n -> (fst (nodePayload n), n)) $ gviNodes grVisInfo
+        IM.fromList $ fmap (\n -> (fst (_nodePayload n), n)) $ _gviNodes grVisInfo
       -- graph layout parameter
       aFactor = 0.9
       offX = -15
@@ -294,9 +294,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
           ]
           [text name]
 
-      edges = fmap edge $ gviEdges grVisInfo
+      edges = fmap edge $ _gviEdges grVisInfo
       nodes =
-        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
+        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (_gviNodes grVisInfo)
 
       svgElement =
         S.svg
@@ -322,8 +322,8 @@ renderMainModuleGraph ::
   ModuleGraphUI ->
   Widget HTML Event
 renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
-  let mclicked = modGraphUIClick mgUI
-      mhovered = modGraphUIHover mgUI
+  let mclicked = _modGraphUIClick mgUI
+      mhovered = _modGraphUIHover mgUI
    in MainModuleEv
         <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (mclicked, mhovered)
 
@@ -335,8 +335,8 @@ renderSubModuleGraph ::
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget HTML Event
 renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI)) =
-  let mainModuleClicked = modGraphUIClick mainMGUI
-      subModuleHovered = modGraphUIHover subMGUI
+  let mainModuleClicked = _modGraphUIClick mainMGUI
+      subModuleHovered = _modGraphUIHover subMGUI
       esubgraph = do
         selected <-
           note "no module cluster is selected" mainModuleClicked
@@ -350,7 +350,7 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI))
    in case esubgraph of
         Left err -> text (T.pack err)
         Right subgraph ->
-          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
+          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ _gviNodes subgraph
            in SubModuleEv . SubModuleGraphEv
                 <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
 
@@ -361,7 +361,7 @@ renderDetailLevel ui =
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = fst $ uiSubModuleGraph ui
+    currLevel = fst $ _uiSubModuleGraph ui
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -375,18 +375,18 @@ renderDetailLevel ui =
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =
-  let sessionInfo = serverSessionInfo ss
+  let sessionInfo = _serverSessionInfo ss
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-      timing = serverTiming ss
-      mgs = serverModuleGraphState ss
-      clustering = mgsClustering mgs
+      timing = _serverTiming ss
+      mgs = _serverModuleGraphState ss
+      clustering = _mgsClustering mgs
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            ( case mgsClusterGraph mgs of
+            ( case _mgsClusterGraph mgs of
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
@@ -394,13 +394,13 @@ renderModuleGraphTab ui ss =
                       timing
                       clustering
                       grVisInfo
-                      (uiMainModuleGraph ui)
+                      (_uiMainModuleGraph ui)
                   , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing
-                      (mgsSubgraph mgs)
-                      (uiMainModuleGraph ui, uiSubModuleGraph ui)
+                      (_mgsSubgraph mgs)
+                      (_uiMainModuleGraph ui, _uiSubModuleGraph ui)
                   ]
             )
 

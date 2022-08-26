@@ -114,13 +114,13 @@ updateInbox chanMsg ss =
   incrementSN $
     case chanMsg of
       CMBox (CMCheckImports modu msg) ->
-        let m = serverInbox ss
-         in ss {serverInbox = M.insert (CheckImports, modu) msg m}
+        let m = _serverInbox ss
+         in ss {_serverInbox = M.insert (CheckImports, modu) msg m}
       CMBox (CMTiming modu timer') ->
-        let m = serverTiming ss
-         in ss {serverTiming = M.insert modu timer' m}
+        let m = _serverTiming ss
+         in ss {_serverTiming = M.insert modu timer' m}
       CMBox (CMSession s') ->
-        ss {serverSessionInfo = s'}
+        ss {_serverSessionInfo = s'}
       CMBox (CMHsSource modu info) ->
         ss
 
@@ -141,7 +141,7 @@ webServer var = do
             -- lock until new message comes
             ss' <- liftSTM $ do
               ss' <- readTVar var
-              if (serverMessageSN ss == serverMessageSN ss')
+              if (_serverMessageSN ss == _serverMessageSN ss')
                 then retry
                 else pure ss'
             newUIUpdate <- liftIO getCurrentTime

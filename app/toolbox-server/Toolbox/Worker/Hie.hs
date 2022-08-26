@@ -36,37 +36,37 @@ import Toolbox.Server.Types
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
   RefRow'
-    { ref'Src = refSrc
-    , ref'NameOcc = T.pack $ occNameString refNameOcc
-    , ref'NameMod = T.pack $ show refNameMod
-    , ref'NameUnit = T.pack $ show refNameUnit
-    , ref'SLine = refSLine
-    , ref'SCol = refSCol
-    , ref'ELine = refELine
-    , ref'ECol = refECol
+    { _ref'Src = refSrc
+    , _ref'NameOcc = T.pack $ occNameString refNameOcc
+    , _ref'NameMod = T.pack $ show refNameMod
+    , _ref'NameUnit = T.pack $ show refNameUnit
+    , _ref'SLine = refSLine
+    , _ref'SCol = refSCol
+    , _ref'ELine = refELine
+    , _ref'ECol = refECol
     }
 
 convertDeclRow :: DeclRow -> DeclRow'
 convertDeclRow DeclRow {..} =
   DeclRow'
-    { decl'Src = declSrc
-    , decl'NameOcc = T.pack $ occNameString declNameOcc
-    , decl'SLine = declSLine
-    , decl'SCol = declSCol
-    , decl'ELine = declELine
-    , decl'ECol = declECol
-    , decl'Root = declRoot
+    { _decl'Src = declSrc
+    , _decl'NameOcc = T.pack $ occNameString declNameOcc
+    , _decl'SLine = declSLine
+    , _decl'SCol = declSCol
+    , _decl'ELine = declELine
+    , _decl'ECol = declECol
+    , _decl'Root = declRoot
     }
 
 convertDefRow :: DefRow -> DefRow'
 convertDefRow DefRow {..} =
   DefRow'
-    { def'Src = defSrc
-    , def'NameOcc = T.pack $ occNameString defNameOcc
-    , def'SLine = defSLine
-    , def'SCol = defSCol
-    , def'ELine = defELine
-    , def'ECol = defECol
+    { _def'Src = defSrc
+    , _def'NameOcc = T.pack $ occNameString defNameOcc
+    , _def'SLine = defSLine
+    , _def'SCol = defSCol
+    , _def'ELine = defELine
+    , _def'ECol = defECol
     }
 
 hieWorker :: TVar ServerState -> FilePath -> IO ()
@@ -83,12 +83,12 @@ hieWorker var hiefile = do
       defs = genDefRow "" modu refmap
   atomically $
     modifyTVar' var $ \ss ->
-      let HieState hieModMap = serverHieState ss
+      let HieState hieModMap = _serverHieState ss
           modHie =
             ModuleHieInfo
-              { modHieRefs = fmap convertRefRow refs
-              , modHieDecls = fmap convertDeclRow decls
-              , modHieDefs = fmap convertDefRow defs
+              { _modHieRefs = fmap convertRefRow refs
+              , _modHieDecls = fmap convertDeclRow decls
+              , _modHieDefs = fmap convertDefRow defs
               }
           hieModMap' = M.insert modName modHie hieModMap
-       in ss {serverHieState = HieState hieModMap'}
+       in ss {_serverHieState = HieState hieModMap'}

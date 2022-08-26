@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Werror #-}
-
 module Toolbox.Render.Session
   ( renderSession,
   )
@@ -26,8 +24,8 @@ import Prelude hiding (div)
 
 renderSession :: ServerState -> Widget HTML Event
 renderSession ss =
-  let sessionInfo = serverSessionInfo ss
-      timing = serverTiming ss
+  let sessionInfo = _serverSessionInfo ss
+      timing = _serverTiming ss
       msg = "# of compiled module now : " <> T.pack (show (M.size timing))
    in case sessionStartTime sessionInfo of
         Nothing ->

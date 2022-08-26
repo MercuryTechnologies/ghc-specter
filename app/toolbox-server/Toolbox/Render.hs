@@ -25,6 +25,7 @@ import Concur.Replica
     textProp,
     ul,
   )
+import Control.Lens ((.~))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -48,6 +49,7 @@ import Toolbox.Server.Types
     type ChanModule,
     type Inbox,
   )
+import qualified Toolbox.Server.Types as S
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
@@ -67,8 +69,8 @@ renderInbox :: UIState -> Inbox -> Widget HTML Event
 renderInbox ui m =
   ul [] $ map eachRender filtered
   where
-    tab = uiTab ui
-    mexpandedModu = uiModuleExpanded ui
+    tab = _uiTab ui
+    mexpandedModu = _uiModuleExpanded ui
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -92,10 +94,10 @@ renderMainPanel ::
   ServerState ->
   Widget HTML Event
 renderMainPanel ui ss =
-  case uiTab ui of
+  case _uiTab ui of
     TabSession -> renderSession ss
     TabModuleGraph -> renderModuleGraphTab ui ss
-    TabCheckImports -> renderInbox ui (serverInbox ss)
+    TabCheckImports -> renderInbox ui (_serverInbox ss)
     TabTiming -> renderTiming ss
 
 cssLink :: Text -> Widget HTML a
@@ -135,7 +137,7 @@ render ::
   Widget HTML UIState
 render (ui, ss) = do
   let (mainPanel, bottomPanel)
-        | serverMessageSN ss == 0 =
+        | _serverMessageSN ss == 0 =
             ( div [] [text "No GHC process yet"]
             , divClass "box" [] [text "No Messages"]
             )
@@ -145,31 +147,30 @@ render (ui, ss) = do
                 [renderMainPanel ui ss]
             , section
                 []
-                [divClass "box" [] [text $ "message: " <> T.pack (show (serverMessageSN ss))]]
+                [divClass "box" [] [text $ "message: " <> T.pack (show (_serverMessageSN ss))]]
             )
 
   let handleNavbar :: UIState -> Event -> UIState
-      handleNavbar oldUI (TabEv tab') = oldUI {uiTab = tab'}
+      handleNavbar oldUI (TabEv tab') = oldUI {_uiTab = tab'}
       handleNavbar oldUI _ = oldUI
 
       handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
-      handleModuleGraphEv (HoverOnModuleEv mhovered) mgUI = mgUI {modGraphUIHover = mhovered}
-      handleModuleGraphEv (ClickOnModuleEv mclicked) mgUI = mgUI {modGraphUIClick = mclicked}
+      handleModuleGraphEv (HoverOnModuleEv mhovered) mgUI = mgUI {_modGraphUIHover = mhovered}
+      handleModuleGraphEv (ClickOnModuleEv mclicked) mgUI = mgUI {_modGraphUIClick = mclicked}
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
-      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {uiModuleExpanded = mexpandedModu'}
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {_uiModuleExpanded = mexpandedModu'}
       handleMainPanel oldUI (MainModuleEv ev) =
-        -- TODO: just use lens
-        pure oldUI {uiMainModuleGraph = handleModuleGraphEv ev (uiMainModuleGraph oldUI)}
+        pure oldUI {_uiMainModuleGraph = handleModuleGraphEv ev (_uiMainModuleGraph oldUI)}
       handleMainPanel oldUI (SubModuleEv sev) =
         case sev of
           SubModuleGraphEv ev -> do
-            let (d, s) = uiSubModuleGraph oldUI
+            let (d, s) = _uiSubModuleGraph oldUI
                 s' = handleModuleGraphEv ev s
-            pure oldUI {uiSubModuleGraph = (d, s')}
+            pure oldUI {_uiSubModuleGraph = (d, s')}
           SubModuleLevelEv d' -> do
-            let (_, s) = uiSubModuleGraph oldUI
-            pure oldUI {uiSubModuleGraph = (d', s)}
+            let (_, s) = _uiSubModuleGraph oldUI
+            pure oldUI {_uiSubModuleGraph = (d', s)}
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->
@@ -182,7 +183,7 @@ render (ui, ss) = do
       [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , handleNavbar ui <$> renderNavbar (uiTab ui)
+      , handleNavbar ui <$> renderNavbar (_uiTab ui)
       , handleMainPanel ui =<< mainPanel
       , bottomPanel
       ]

@@ -100,7 +100,7 @@ renderTimingChart timingInfos =
 
 renderTiming :: ServerState -> Widget HTML a
 renderTiming ss =
-  case sessionStartTime (serverSessionInfo ss) of
+  case sessionStartTime (_serverSessionInfo ss) of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->
       let subtractTime (modName, Timer mstart mend) = do
@@ -110,5 +110,5 @@ renderTiming ss =
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
             pure (modName, (modStartTimeDiff, modEndTimeDiff))
           timingInfos =
-            L.sortOn (fst . snd) $ mapMaybe subtractTime $ M.toList $ serverTiming ss
+            L.sortOn (fst . snd) $ mapMaybe subtractTime $ M.toList $ _serverTiming ss
        in renderTimingChart timingInfos

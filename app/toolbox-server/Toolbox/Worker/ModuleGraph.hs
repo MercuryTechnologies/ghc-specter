@@ -52,13 +52,13 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
-        let mgs = serverModuleGraphState ss
+        let mgs = _serverModuleGraphState ss
             mgs' =
               mgs
-                { mgsClusterGraph = Just grVisInfo
-                , mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
+                { _mgsClusterGraph = Just grVisInfo
+                , _mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
                 }
-         in ss {serverModuleGraphState = mgs'}
+         in ss {_serverModuleGraphState = mgs'}
   subgraphs <-
     traverse
       (\level -> (level,) <$> traverse (layOutModuleSubgraph mgi level) clustering)
@@ -66,9 +66,9 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
-        let mgs = serverModuleGraphState ss
-            mgs' = mgs {mgsSubgraph = subgraphs}
-         in ss {serverModuleGraphState = mgs'}
+        let mgs = _serverModuleGraphState ss
+            mgs' = mgs {_mgsSubgraph = subgraphs}
+         in ss {_serverModuleGraphState = mgs'}
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi
