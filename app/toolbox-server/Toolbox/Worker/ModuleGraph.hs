@@ -7,6 +7,7 @@ module Toolbox.Worker.ModuleGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Lens ((.~))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -25,7 +26,8 @@ import Toolbox.Render.ModuleGraph (layOutGraph)
 import Toolbox.Server.Types
   ( DetailLevel (..),
     GraphVisInfo,
-    ModuleGraphState (..),
+    HasModuleGraphState (..),
+    HasServerState (..),
     ServerState (..),
     incrementSN,
   )
@@ -50,25 +52,20 @@ moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
   atomically $
-    modifyTVar' var $ \ss ->
-      incrementSN $
-        let mgs = _serverModuleGraphState ss
-            mgs' =
-              mgs
-                { _mgsClusterGraph = Just grVisInfo
-                , _mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
-                }
-         in ss {_serverModuleGraphState = mgs'}
+    modifyTVar' var $
+      let updater =
+            (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
+              . ( serverModuleGraphState . mgsClustering
+                    .~ fmap (\(c, ms) -> (c, fmap snd ms)) clustering
+                )
+       in incrementSN . updater
   subgraphs <-
     traverse
       (\level -> (level,) <$> traverse (layOutModuleSubgraph mgi level) clustering)
       [UpTo30, UpTo100, UpTo300]
   atomically $
-    modifyTVar' var $ \ss ->
-      incrementSN $
-        let mgs = _serverModuleGraphState ss
-            mgs' = mgs {_mgsSubgraph = subgraphs}
-         in ss {_serverModuleGraphState = mgs'}
+    modifyTVar' var $
+      incrementSN . (serverModuleGraphState . mgsSubgraph .~ subgraphs)
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi

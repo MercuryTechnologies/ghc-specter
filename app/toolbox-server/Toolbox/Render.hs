@@ -25,7 +25,7 @@ import Concur.Replica
     textProp,
     ul,
   )
-import Control.Lens (to, (^.))
+import Control.Lens (to, (.~), (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -41,6 +41,7 @@ import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( Event (..),
     HasServerState (..),
+    HasUIState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
     ServerState (..),
@@ -69,8 +70,8 @@ renderInbox :: UIState -> Inbox -> Widget HTML Event
 renderInbox ui m =
   ul [] $ map eachRender filtered
   where
-    tab = _uiTab ui
-    mexpandedModu = _uiModuleExpanded ui
+    tab = ui ^. uiTab
+    mexpandedModu = ui ^. uiModuleExpanded
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -94,7 +95,7 @@ renderMainPanel ::
   ServerState ->
   Widget HTML Event
 renderMainPanel ui ss =
-  case _uiTab ui of
+  case ui ^. uiTab of
     TabSession -> renderSession ss
     TabModuleGraph -> renderModuleGraphTab ui ss
     TabCheckImports -> renderInbox ui (ss ^. serverInbox)
@@ -150,9 +151,9 @@ render (ui, ss) = do
                 [divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]]
             )
 
-  let handleNavbar :: UIState -> Event -> UIState
-      handleNavbar oldUI (TabEv tab') = oldUI {_uiTab = tab'}
-      handleNavbar oldUI _ = oldUI
+  let handleNavbar :: Event -> UIState -> UIState
+      handleNavbar (TabEv tab') = (uiTab .~ tab')
+      handleNavbar _ = id
 
       handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
       handleModuleGraphEv (HoverOnModuleEv mhovered) mgUI = mgUI {_modGraphUIHover = mhovered}
@@ -183,7 +184,7 @@ render (ui, ss) = do
       [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , handleNavbar ui <$> renderNavbar (_uiTab ui)
+      , (`handleNavbar` ui) <$> renderNavbar (ui ^. uiTab)
       , handleMainPanel ui =<< mainPanel
       , bottomPanel
       ]
