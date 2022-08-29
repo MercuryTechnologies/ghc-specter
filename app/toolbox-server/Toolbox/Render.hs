@@ -25,7 +25,7 @@ import Concur.Replica
     textProp,
     ul,
   )
-import Control.Lens (to, (.~), (^.))
+import Control.Lens (to, (%~), (.~), (^.), _1, _2)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -40,6 +40,7 @@ import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( Event (..),
+    HasModuleGraphUI (..),
     HasServerState (..),
     HasUIState (..),
     ModuleGraphEvent (..),
@@ -156,22 +157,20 @@ render (ui, ss) = do
       handleNavbar _ = id
 
       handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
-      handleModuleGraphEv (HoverOnModuleEv mhovered) mgUI = mgUI {_modGraphUIHover = mhovered}
-      handleModuleGraphEv (ClickOnModuleEv mclicked) mgUI = mgUI {_modGraphUIClick = mclicked}
+      handleModuleGraphEv (HoverOnModuleEv mhovered) = modGraphUIHover .~ mhovered
+      handleModuleGraphEv (ClickOnModuleEv mclicked) = modGraphUIClick .~ mclicked
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
-      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') = pure oldUI {_uiModuleExpanded = mexpandedModu'}
+      handleMainPanel oldUI (ExpandModuleEv mexpandedModu') =
+        pure $ (uiModuleExpanded .~ mexpandedModu') oldUI
       handleMainPanel oldUI (MainModuleEv ev) =
-        pure oldUI {_uiMainModuleGraph = handleModuleGraphEv ev (_uiMainModuleGraph oldUI)}
+        pure $ (uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI
       handleMainPanel oldUI (SubModuleEv sev) =
         case sev of
-          SubModuleGraphEv ev -> do
-            let (d, s) = _uiSubModuleGraph oldUI
-                s' = handleModuleGraphEv ev s
-            pure oldUI {_uiSubModuleGraph = (d, s')}
-          SubModuleLevelEv d' -> do
-            let (_, s) = _uiSubModuleGraph oldUI
-            pure oldUI {_uiSubModuleGraph = (d', s)}
+          SubModuleGraphEv ev ->
+            pure $ (uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI
+          SubModuleLevelEv d' ->
+            pure $ (uiSubModuleGraph . _1 .~ d') oldUI
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->
