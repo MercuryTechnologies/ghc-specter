@@ -7,18 +7,22 @@ import Concur.Core (Widget)
 import Concur.Replica
   ( MouseEvent,
     classList,
+    div,
     el,
     li,
     onClick,
     pre,
     span,
+    style,
     text,
     ul,
   )
 import Control.Lens (at, to, (^.), (^?), _Just)
 import Data.Foldable qualified as F
+import Data.List qualified as L
 import Data.Maybe (isJust)
 import Data.Text (Text)
+import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( Channel (..),
@@ -50,13 +54,32 @@ iconText ico cls txt =
         , span [onClick] [text txt]
         ]
 
-renderModuleContent :: ModuleName -> HieState -> Inbox -> Text
-renderModuleContent modu hie inbox =
-  maybe "" (\msg -> "\n----- unqualified imports -----\n" <> msg) mmsg
-    <> maybe "" (\src -> "\n----- source -----\n" <> src) msrc
+-- | show information on unqualified imports
+renderUnqualifiedImports :: ModuleName -> Inbox -> Widget HTML a
+renderUnqualifiedImports modu inbox =
+  div [] [pre [] [text rendered]]
   where
     mmsg = inbox ^? at (CheckImports, modu) . _Just
+    rendered = maybe "" (\msg -> "\n----- unqualified imports -----\n" <> msg) mmsg
+
+-- | show source code
+renderSourceCode :: ModuleName -> HieState -> Widget HTML a
+renderSourceCode modu hie =
+  div [] [pre [] rendered]
+  where
     msrc = hie ^? hieModuleMap . at modu . _Just . modHieSource
+    theicon =
+      span
+        [style [("position", "relative"), ("width", "0"), ("height", "0")]]
+        [ span
+            [ classList [("icon", True)]
+            , style [("position", "absolute"), ("top", "-16px"), ("left", "-9px")]
+            ]
+            [el "i" [classList [("fas fa-long-arrow-alt-down", True)]] []]
+        ]
+    rendered =
+      L.intersperse theicon $
+        fmap text $ maybe [] (T.chunksOf 20) msrc
 
 -- | Top-level render function for the Source View tab
 render :: SourceViewUI -> ServerState -> Widget HTML Event
@@ -79,7 +102,8 @@ render srcUI ss =
           modinfo
             | mexpandedModu == Just modu =
                 [ ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
-                , pre [] [text (renderModuleContent modu hie inbox)]
+                , -- , renderUnqualifiedImports modu inbox
+                  renderSourceCode modu hie
                 ]
             | otherwise =
                 [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
