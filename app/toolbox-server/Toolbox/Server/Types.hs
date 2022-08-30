@@ -17,6 +17,9 @@ module Toolbox.Server.Types
     ModuleGraphUI (..),
     HasModuleGraphUI (..),
     emptyModuleGraphUI,
+    SourceViewUI (..),
+    HasSourceViewUI (..),
+    emptySourceViewUI,
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -115,15 +118,25 @@ makeClassy ''ModuleGraphUI
 emptyModuleGraphUI :: ModuleGraphUI
 emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
 
+newtype SourceViewUI = SourceViewUI
+  { _srcViewExpandedModule :: Maybe Text
+  -- ^ expanded module in CheckImports
+  }
+
+makeClassy ''SourceViewUI
+
+emptySourceViewUI :: SourceViewUI
+emptySourceViewUI = SourceViewUI Nothing
+
 data UIState = UIState
   { _uiTab :: Tab
   -- ^ current tab
-  , _uiModuleExpanded :: Maybe Text
-  -- ^ expanded module in CheckImports
   , _uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
   , _uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
+  , _uiSourceView :: SourceViewUI
+  -- ^ UI state of source view UI
   }
 
 makeClassy ''UIState
@@ -132,9 +145,9 @@ emptyUIState :: UIState
 emptyUIState =
   UIState
     { _uiTab = TabSession
-    , _uiModuleExpanded = Nothing
     , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    , _uiSourceView = emptySourceViewUI
     }
 
 data Point = Point

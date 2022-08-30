@@ -42,6 +42,7 @@ import Toolbox.Server.Types
   ( Event (..),
     HasModuleGraphUI (..),
     HasServerState (..),
+    HasSourceViewUI (..),
     HasUIState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
@@ -72,7 +73,7 @@ renderInbox ui m =
   ul [] $ map eachRender filtered
   where
     tab = ui ^. uiTab
-    mexpandedModu = ui ^. uiModuleExpanded
+    mexpandedModu = ui ^. uiSourceView . srcViewExpandedModule
     chan = case tab of
       TabSession -> Session
       TabModuleGraph -> Session
@@ -162,7 +163,7 @@ render (ui, ss) = do
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
       handleMainPanel oldUI (ExpandModuleEv mexpandedModu') =
-        pure $ (uiModuleExpanded .~ mexpandedModu') oldUI
+        pure $ (uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI
       handleMainPanel oldUI (MainModuleEv ev) =
         pure $ (uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI
       handleMainPanel oldUI (SubModuleEv sev) =
