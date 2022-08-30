@@ -1,5 +1,5 @@
 module Toolbox.Render.Timing
-  ( renderTiming,
+  ( render,
     renderTimingChart,
   )
 where
@@ -102,8 +102,9 @@ renderTimingChart timingInfos =
           )
    in div [] [svgElement]
 
-renderTiming :: ServerState -> Widget HTML a
-renderTiming ss =
+-- | Top-level render function for the Timing tab
+render :: ServerState -> Widget HTML a
+render ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->

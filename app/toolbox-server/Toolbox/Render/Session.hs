@@ -1,5 +1,5 @@
 module Toolbox.Render.Session
-  ( renderSession,
+  ( render,
   )
 where
 
@@ -24,8 +24,9 @@ import Toolbox.Server.Types
   )
 import Prelude hiding (div)
 
-renderSession :: ServerState -> Widget HTML Event
-renderSession ss =
+-- | Top-level render function for the Session tab.
+render :: ServerState -> Widget HTML Event
+render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
       msg = "# of compiled module now : " <> T.pack (show (M.size timing))

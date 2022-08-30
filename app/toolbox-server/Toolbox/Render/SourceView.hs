@@ -1,5 +1,5 @@
 module Toolbox.Render.SourceView
-  ( renderSourceView,
+  ( render,
   )
 where
 
@@ -40,8 +40,9 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
-renderSourceView :: SourceViewUI -> ServerState -> Widget HTML Event
-renderSourceView srcUI ss =
+-- | Top-level render function for the Source View tab
+render :: SourceViewUI -> ServerState -> Widget HTML Event
+render srcUI ss =
   ul [] $ map eachRender filtered
   where
     inbox = ss ^. serverInbox

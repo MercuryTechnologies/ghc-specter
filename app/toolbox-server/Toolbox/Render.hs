@@ -27,10 +27,10 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
-import Toolbox.Render.ModuleGraph (renderModuleGraphTab)
-import Toolbox.Render.Session (renderSession)
-import Toolbox.Render.SourceView (renderSourceView)
-import Toolbox.Render.Timing (renderTiming)
+import Toolbox.Render.ModuleGraph qualified as ModuleGraph
+import Toolbox.Render.Session qualified as Session
+import Toolbox.Render.SourceView qualified as SourceView
+import Toolbox.Render.Timing qualified as Timing
 import Toolbox.Server.Types
   ( Event (..),
     HasModuleGraphUI (..),
@@ -56,10 +56,10 @@ renderMainPanel ::
   Widget HTML Event
 renderMainPanel ui ss =
   case ui ^. uiTab of
-    TabSession -> renderSession ss
-    TabModuleGraph -> renderModuleGraphTab ui ss
-    TabSourceView -> renderSourceView (ui ^. uiSourceView) ss
-    TabTiming -> renderTiming ss
+    TabSession -> Session.render ss
+    TabModuleGraph -> ModuleGraph.render ui ss
+    TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
+    TabTiming -> Timing.render ss
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
