@@ -309,6 +309,7 @@ data ModuleHieInfo = ModuleHieInfo
   { _modHieRefs :: [RefRow']
   , _modHieDecls :: [DeclRow']
   , _modHieDefs :: [DefRow']
+  , _modHieSource :: Text
   }
   deriving (Show, Generic)
 
@@ -319,7 +320,7 @@ instance FromJSON ModuleHieInfo
 instance ToJSON ModuleHieInfo
 
 emptyModuleHieInfo :: ModuleHieInfo
-emptyModuleHieInfo = ModuleHieInfo [] [] []
+emptyModuleHieInfo = ModuleHieInfo [] [] [] ""
 
 newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo

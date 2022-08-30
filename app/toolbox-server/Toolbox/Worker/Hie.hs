@@ -6,9 +6,10 @@ module Toolbox.Worker.Hie
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens ((%~))
+import Control.Lens ((%~), (.~))
 import Data.Map qualified as M
 import Data.Text qualified as T
+import Data.Text.Encoding (decodeUtf8With)
 import GHC.Iface.Ext.Binary
   ( HieFileResult (..),
     NameCacheUpdater (NCU),
@@ -29,10 +30,11 @@ import Toolbox.Server.Types
   ( DeclRow' (..),
     DefRow' (..),
     HasHieState (..),
+    HasModuleHieInfo (..),
     HasServerState (..),
-    ModuleHieInfo (..),
     RefRow' (..),
     ServerState (..),
+    emptyModuleHieInfo,
   )
 
 convertRefRow :: RefRow -> RefRow'
@@ -77,6 +79,7 @@ hieWorker var hiefile = do
   let nc = initNameCache uniq_supply []
   hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
   let hf = hie_file_result hieResult
+      src = decodeUtf8With (\_ _ -> Just ' ') $ hie_hs_src hf
       modu = hie_module hf
       modName = T.pack $ moduleNameString $ moduleName modu
       asts = hie_asts hf
@@ -84,11 +87,11 @@ hieWorker var hiefile = do
       (refs, decls) = genRefsAndDecls "" modu refmap
       defs = genDefRow "" modu refmap
       modHie =
-        ModuleHieInfo
-          { _modHieRefs = fmap convertRefRow refs
-          , _modHieDecls = fmap convertDeclRow decls
-          , _modHieDefs = fmap convertDefRow defs
-          }
+        (modHieRefs .~ fmap convertRefRow refs)
+          . (modHieDecls .~ fmap convertDeclRow decls)
+          . (modHieDefs .~ fmap convertDefRow defs)
+          . (modHieSource .~ src)
+          $ emptyModuleHieInfo
 
   atomically $
     modifyTVar' var $

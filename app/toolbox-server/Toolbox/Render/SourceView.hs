@@ -15,18 +15,26 @@ import Concur.Replica
     text,
     ul,
   )
-import Control.Lens ((^.))
-import Data.Map.Strict qualified as M
+import Control.Lens (at, to, (^.), (^?), _Just)
+import Data.Foldable qualified as F
 import Data.Text (Text)
 import Replica.VDOM.Types (HTML)
-import Toolbox.Channel (Channel (..))
+import Toolbox.Channel
+  ( Channel (..),
+    ModuleGraphInfo (..),
+    ModuleName,
+    SessionInfo (..),
+  )
 import Toolbox.Server.Types
   ( Event (..),
+    HasHieState (..),
+    HasModuleHieInfo (..),
     HasServerState (..),
     HasSourceViewUI (..),
+    HieState (..),
+    Inbox,
     ServerState (..),
     SourceViewUI (..),
-    type ChanModule,
   )
 import Prelude hiding (div, span)
 
@@ -40,23 +48,31 @@ iconText ico txt =
         , span [onClick] [text txt]
         ]
 
+renderModuleContent :: ModuleName -> HieState -> Inbox -> Text
+renderModuleContent modu hie inbox =
+  maybe "" (\msg -> "\n----- unqualified imports -----\n" <> msg) mmsg
+    <> maybe "" (\src -> "\n----- source -----\n" <> src) msrc
+  where
+    mmsg = inbox ^? at (CheckImports, modu) . _Just
+    msrc = hie ^? hieModuleMap . at modu . _Just . modHieSource
+
 -- | Top-level render function for the Source View tab
 render :: SourceViewUI -> ServerState -> Widget HTML Event
 render srcUI ss =
-  ul [] $ map eachRender filtered
+  ul [] $ map eachRender allModules
   where
     inbox = ss ^. serverInbox
+    hie = ss ^. serverHieState
+    -- NOTE: We do not want to have lens dependency for the plugin.
+    allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
-    filtered =
-      M.toList $
-        M.filterWithKey (\(c, _) _ -> c == CheckImports) inbox
 
-    eachRender :: (ChanModule, Text) -> Widget HTML Event
-    eachRender ((_, modu), v) =
+    eachRender :: ModuleName -> Widget HTML Event
+    eachRender modu =
       let modinfo
             | mexpandedModu == Just modu =
                 [ ExpandModuleEv Nothing <$ iconText "fa-minus" modu
-                , pre [] [text v]
+                , pre [] [text (renderModuleContent modu hie inbox)]
                 ]
             | otherwise =
                 [ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
