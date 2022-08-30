@@ -17,6 +17,7 @@ import Concur.Replica
   )
 import Control.Lens (at, to, (^.), (^?), _Just)
 import Data.Foldable qualified as F
+import Data.Maybe (isJust)
 import Data.Text (Text)
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
@@ -24,6 +25,7 @@ import Toolbox.Channel
     ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
+    Timer (..),
   )
 import Toolbox.Server.Types
   ( Event (..),
@@ -38,12 +40,12 @@ import Toolbox.Server.Types
   )
 import Prelude hiding (div, span)
 
-iconText :: Text -> Text -> Widget HTML MouseEvent
-iconText ico txt =
+iconText :: Text -> Text -> Text -> Widget HTML MouseEvent
+iconText ico cls txt =
   let iconCls = classList [("fas", True), (ico, True)]
       iconProps = [iconCls, onClick]
    in span
-        [classList [("icon-text", True)]]
+        [classList [("icon-text " <> cls, True)]]
         [ span [classList [("icon", True)]] [el "i" iconProps []]
         , span [onClick] [text txt]
         ]
@@ -63,17 +65,22 @@ render srcUI ss =
   where
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
+    timing = ss ^. serverTiming
     -- NOTE: We do not want to have lens dependency for the plugin.
     allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
 
     eachRender :: ModuleName -> Widget HTML Event
     eachRender modu =
-      let modinfo
+      let isCompiled = isJust (timing ^? at modu . _Just . to timerEnd . _Just)
+          colorTxt
+            | isCompiled = "has-text-success-dark"
+            | otherwise = "has-text-grey"
+          modinfo
             | mexpandedModu == Just modu =
-                [ ExpandModuleEv Nothing <$ iconText "fa-minus" modu
+                [ ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
                 , pre [] [text (renderModuleContent modu hie inbox)]
                 ]
             | otherwise =
-                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
+                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
        in li [] modinfo
