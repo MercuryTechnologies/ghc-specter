@@ -11,6 +11,7 @@ import Concur.Replica
     classList,
     div,
     el,
+    hr,
     li,
     onClick,
     pre,
@@ -19,14 +20,14 @@ import Concur.Replica
     text,
     ul,
   )
-import Control.Lens (at, to, (^.), (^..), (^?), _Just)
-import Control.Monad.Trans.State (State, evalState, get, put, runState)
+import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
+import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Foldable qualified as F
+import Data.Function (on)
 import Data.List qualified as L
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( Channel (..),
@@ -42,7 +43,6 @@ import Toolbox.Server.Types
     HasModuleHieInfo (..),
     HasServerState (..),
     HasSourceViewUI (..),
-    HieState (..),
     Inbox,
     ModuleHieInfo,
     ServerState (..),
@@ -92,26 +92,52 @@ tempWorker ss = do
   case mmodHieInfo of
     Nothing -> putStrLn "No Hie file"
     Just modHieInfo -> do
-      F.traverse_ (\t -> TIO.putStrLn "########" >> TIO.putStrLn t) (breakSourceText modHieInfo)
+      let topLevelDecls = getTopLevelDecls modHieInfo
+      F.traverse_ print topLevelDecls
   where
     hie = ss ^. serverHieState
-    modu = "Mercury.Banking.Ach.Builder.Core"
+    modu = "AWS.Types"
     mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+
+isContainedIn :: ((Int, Int), (Int, Int)) -> ((Int, Int), (Int, Int)) -> Bool
+(s1, e1) `isContainedIn` (s2, e2) = s1 >= s2 && e1 <= e2
+
+filterTopLevel :: (Show a) => [(((Int, Int), (Int, Int)), a)] -> [(((Int, Int), (Int, Int)), a)]
+filterTopLevel items = go [] items
+  where
+    go ys [] = ys
+    go ys (x : xs) =
+      let ys' = L.nubBy ((==) `on` fst) $ L.sortBy (compare `on` fst) $ go' ys x
+       in go ys' xs
+    go' [] x = [x]
+    go' zs@(y : ys) x
+      | fst x `isContainedIn` fst y = zs
+      | fst y `isContainedIn` fst x = x : go' ys x
+      | otherwise = y : go' ys x
+
+getTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
+getTopLevelDecls modHieInfo = sortedTopLevelDecls
+  where
+    extract decl =
+      let spos = (decl ^. decl'SLine, decl ^. decl'SCol)
+          epos = (decl ^. decl'ELine, decl ^. decl'ECol)
+          name = decl ^. decl'NameOcc
+       in ((spos, epos), name)
+    decls = modHieInfo ^.. modHieDecls . traverse . to extract
+    topLevelDecls = filterTopLevel decls
+    sortedTopLevelDecls = L.sortBy (compare `on` (^. _1)) topLevelDecls
 
 breakSourceText :: ModuleHieInfo -> [Text]
 breakSourceText modHieInfo = txts ++ [txt]
   where
     src = modHieInfo ^. modHieSource
-    decls = modHieInfo ^.. modHieDecls . traverse . to (\decl -> (decl ^. decl'SLine, decl ^. decl'SCol))
-    sortedDecls = L.sort decls
-    (txts, (_, txt)) = runState (traverse (splitLineColumn) sortedDecls) ((1, 1), src)
+    topLevelDecls = getTopLevelDecls modHieInfo
+    (txts, (_, txt)) = runState (traverse (splitLineColumn . (^. _1 . _1)) topLevelDecls) ((1, 1), src)
 
--- | show source code
-renderSourceCode :: ModuleName -> HieState -> Widget HTML a
-renderSourceCode modu hie =
-  div [] [pre [] rendered]
+-- | show source code with declaration positions
+renderSourceCode :: ModuleHieInfo -> Widget HTML a
+renderSourceCode modHieInfo = pre [] rendered
   where
-    mmodHieSource = hie ^? hieModuleMap . at modu . _Just
     theicon =
       span
         [style [("position", "relative"), ("width", "0"), ("height", "0")]]
@@ -119,12 +145,16 @@ renderSourceCode modu hie =
             [ classList [("icon", True)]
             , style [("position", "absolute"), ("top", "-16px"), ("left", "-9px")]
             ]
-            [el "i" [classList [("fas fa-long-arrow-alt-down", True)]] []]
+            [el "i" [classList [("fas fa-long-arrow-alt-down has-text-primary", True)]] []]
         ]
     rendered =
-      L.intersperse theicon $
-        fmap text $
-          maybe [] breakSourceText mmodHieSource
+      L.intersperse theicon $ fmap text $ breakSourceText modHieInfo
+
+-- | list decls
+renderDecls :: ModuleHieInfo -> Widget HTML a
+renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLevelDecls)
+  where
+    topLevelDecls = getTopLevelDecls modHieInfo
 
 -- | Top-level render function for the Source View tab
 render :: SourceViewUI -> ServerState -> Widget HTML Event
@@ -144,12 +174,23 @@ render srcUI ss =
           colorTxt
             | isCompiled = "has-text-success-dark"
             | otherwise = "has-text-grey"
-          modinfo
-            | mexpandedModu == Just modu =
-                [ ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
-                , renderUnqualifiedImports modu inbox
-                , renderSourceCode modu hie
-                ]
-            | otherwise =
+          modinfo =
+            case mexpandedModu of
+              Just modu'
+                | modu == modu' ->
+                    let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+                        sourcePanel =
+                          case mmodHieInfo of
+                            Nothing -> div [] [pre [] [text "No Hie info"]]
+                            Just modHieInfo ->
+                              div
+                                [classList [("columns", True)]]
+                                [ div [classList [("column is-half", True)]] [renderSourceCode modHieInfo]
+                                , div [classList [("column is-half", True)]] [renderDecls modHieInfo]
+                                ]
+
+                        expanded = [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
+                     in (ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu) : expanded
+              _ ->
                 [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
        in li [] modinfo
