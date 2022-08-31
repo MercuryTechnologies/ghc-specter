@@ -22,7 +22,8 @@ import Toolbox.Channel
   )
 import Toolbox.Render.ModuleGraph (layOutGraph)
 import Toolbox.Server.Types
-  ( GraphVisInfo,
+  ( DetailLevel (..),
+    GraphVisInfo,
     ServerState (..),
     incrementSN,
   )
@@ -38,6 +39,11 @@ import Toolbox.Util.Graph.Cluster
     reduceGraphByPath,
   )
 
+maxSubGraphSize :: DetailLevel -> Int
+maxSubGraphSize UpTo30 = 30
+maxSubGraphSize UpTo100 = 100
+maxSubGraphSize UpTo300 = 300
+
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
@@ -48,11 +54,13 @@ moduleGraphWorker var mgi = do
           { serverModuleGraph = Just grVisInfo
           , serverModuleClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
           }
-  subgraph <-
-    traverse (layOutModuleSubgraph mgi) clustering
+  subgraphs <-
+    traverse
+      (\level -> (level,) <$> traverse (layOutModuleSubgraph mgi level) clustering)
+      [UpTo30, UpTo100, UpTo300]
   atomically $
     modifyTVar' var $ \ss ->
-      incrementSN ss {serverModuleSubgraph = subgraph}
+      incrementSN ss {serverModuleSubgraph = subgraphs}
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi
@@ -86,20 +94,18 @@ moduleGraphWorker var mgi = do
           let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
           pure (clusterName, members)
 
-maxSubGraphSize :: Int
-maxSubGraphSize = 30
-
 layOutModuleSubgraph ::
   ModuleGraphInfo ->
+  DetailLevel ->
   (ModuleName, [(Int, ModuleName)]) ->
   IO (ModuleName, GraphVisInfo)
-layOutModuleSubgraph mgi (clusterName, members_) = do
+layOutModuleSubgraph mgi detailLevel (clusterName, members_) = do
   let members = fmap fst members_
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
       modBiDep = makeBiDep modDep
       largeNodes =
-        take maxSubGraphSize
+        take (maxSubGraphSize detailLevel)
           . fmap fst
           . L.sortBy (flip compare `on` (countEdges . snd))
           . filter (\(m, _) -> m `elem` members)

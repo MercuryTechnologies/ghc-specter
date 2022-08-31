@@ -38,6 +38,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
+import Control.Error.Util (note)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -327,23 +328,27 @@ renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
 renderSubModuleGraph ::
   IntMap ModuleName ->
   Map ModuleName Timer ->
-  [(ModuleName, GraphVisInfo)] ->
+  [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   -- | (main module graph UI state, sub module graph UI state)
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget HTML Event
-renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (_, subMGUI)) =
+renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI)) =
   let mainModuleClicked = modGraphUIClick mainMGUI
       subModuleHovered = modGraphUIHover subMGUI
-   in case mainModuleClicked of
-        Nothing -> text "no module cluster is selected"
-        Just selected ->
-          case L.lookup selected subgraphs of
-            Nothing ->
-              text [fmt|cannot find the subgraph for the module cluster {selected}|]
-            Just subgraph ->
-              let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
-               in SubModuleEv . SubModuleGraphEv
-                    <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
+      esubgraph = do
+        selected <-
+          note [fmt|no module cluster is selected|] mainModuleClicked
+        subgraphsAtTheLevel <-
+          note [fmt|{show detailLevel} subgraph is not computed|] (L.lookup detailLevel subgraphs)
+        subgraph <-
+          note [fmt|cannot find the subgraph for the module cluster {selected}|] (L.lookup selected subgraphsAtTheLevel)
+        pure subgraph
+   in case esubgraph of
+        Left err -> text err
+        Right subgraph ->
+          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
+           in SubModuleEv . SubModuleGraphEv
+                <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
 
 renderDetailLevel :: UIState -> Widget HTML Event
 renderDetailLevel ui =

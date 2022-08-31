@@ -55,7 +55,11 @@ data ModuleGraphEvent
   | ClickOnModuleEv (Maybe Text)
 
 data DetailLevel = UpTo30 | UpTo100 | UpTo300
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord, Generic)
+
+instance FromJSON DetailLevel
+
+instance ToJSON DetailLevel
 
 data SubModuleEvent
   = SubModuleGraphEv ModuleGraphEvent
@@ -177,7 +181,7 @@ data ServerState = ServerState
   , serverTiming :: Map ModuleName Timer
   , serverModuleGraph :: Maybe GraphVisInfo
   , serverModuleClustering :: [(ModuleName, [ModuleName])]
-  , serverModuleSubgraph :: [(ModuleName, GraphVisInfo)]
+  , serverModuleSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
   }
   deriving (Show, Generic)
 
