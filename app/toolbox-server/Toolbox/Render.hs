@@ -163,10 +163,13 @@ render (ui, ss) = do
         pure oldUI {uiMainModuleGraph = handleModuleGraphEv ev (uiMainModuleGraph oldUI)}
       handleMainPanel oldUI (SubModuleEv sev) =
         case sev of
-          SubModuleGraphEv ev ->
-            pure oldUI {uiSubModuleGraph = handleModuleGraphEv ev (uiSubModuleGraph oldUI)}
-          _ ->
-            pure oldUI
+          SubModuleGraphEv ev -> do
+            let (d, s) = uiSubModuleGraph oldUI
+                s' = handleModuleGraphEv ev s
+            pure oldUI {uiSubModuleGraph = (d, s')}
+          SubModuleLevelEv d' -> do
+            let (_, s) = uiSubModuleGraph oldUI
+            pure oldUI {uiSubModuleGraph = (d', s)}
       handleMainPanel oldUI SaveSessionEv = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->

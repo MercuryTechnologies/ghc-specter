@@ -55,6 +55,7 @@ data ModuleGraphEvent
   | ClickOnModuleEv (Maybe Text)
 
 data DetailLevel = UpTo30 | UpTo100 | UpTo300
+  deriving (Show, Eq)
 
 data SubModuleEvent
   = SubModuleGraphEv ModuleGraphEvent
@@ -81,7 +82,7 @@ data UIState = UIState
   -- ^ expanded module in CheckImports
   , uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
-  , uiSubModuleGraph :: ModuleGraphUI
+  , uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
   }
 
@@ -91,7 +92,7 @@ initUIState =
     { uiTab = TabSession
     , uiModuleExpanded = Nothing
     , uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , uiSubModuleGraph = ModuleGraphUI Nothing Nothing
+    , uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     }
 
 data Point = Point

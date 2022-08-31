@@ -24,7 +24,10 @@ import Concur.Replica
     classList,
     div,
     height,
+    input,
+    label,
     onClick,
+    onInput,
     onMouseEnter,
     onMouseLeave,
     pre,
@@ -32,6 +35,7 @@ import Concur.Replica
     textProp,
     width,
   )
+import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Monad (void)
@@ -69,7 +73,8 @@ import Toolbox.Channel
     Timer,
   )
 import Toolbox.Server.Types
-  ( Dimension (..),
+  ( DetailLevel (..),
+    Dimension (..),
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
@@ -324,9 +329,9 @@ renderSubModuleGraph ::
   Map ModuleName Timer ->
   [(ModuleName, GraphVisInfo)] ->
   -- | (main module graph UI state, sub module graph UI state)
-  (ModuleGraphUI, ModuleGraphUI) ->
+  (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget HTML Event
-renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
+renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (_, subMGUI)) =
   let mainModuleClicked = modGraphUIClick mainMGUI
       subModuleHovered = modGraphUIHover subMGUI
    in case mainModuleClicked of
@@ -339,6 +344,25 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
               let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
                in SubModuleEv . SubModuleGraphEv
                     <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
+
+renderDetailLevel :: UIState -> Widget HTML Event
+renderDetailLevel ui =
+  SubModuleEv . SubModuleLevelEv
+    <$> div
+      [classList [("control", True)]]
+      [detail30, detail100, detail300]
+  where
+    currLevel = fst $ uiSubModuleGraph ui
+    mkRadioItem ev txt isChecked =
+      label
+        [classList [("radio", True)]]
+        [ input [DP.type_ "radio", DP.name "detail", DP.checked isChecked, ev <$ onInput]
+        , text txt
+        ]
+
+    detail30 = mkRadioItem UpTo30 "< 30" (currLevel == UpTo30)
+    detail100 = mkRadioItem UpTo100 "< 100" (currLevel == UpTo100)
+    detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =
@@ -361,6 +385,7 @@ renderModuleGraphTab ui ss =
                       clustering
                       grVisInfo
                       (uiMainModuleGraph ui)
+                  , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing
