@@ -8,12 +8,12 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Data.Bifunctor (second)
-import qualified Data.Foldable as F
+import Data.Foldable qualified as F
 import Data.Function (on)
 import Data.Functor.Identity (runIdentity)
 import Data.Graph (buildG)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import PyF (fmt)
 import Toolbox.Channel

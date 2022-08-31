@@ -2,13 +2,14 @@ module Toolbox.Util.Graph.Builder
   ( makeEdges,
     makeRevDep,
     makeBiDep,
-  ) where
+  )
+where
 
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 
 -- | graph to edge list
 makeEdges :: IntMap [Int] -> [(Int, Int)]
@@ -31,4 +32,3 @@ makeBiDep dep =
         where
           joiner (i, js) (_, ks) = (i, (js, ks))
    in IM.fromList biDep
-
