@@ -1,5 +1,6 @@
 module Toolbox.Render.SourceView
   ( render,
+    splitLineColumn,
   )
 where
 
@@ -18,6 +19,7 @@ import Concur.Replica
     ul,
   )
 import Control.Lens (at, to, (^.), (^?), _Just)
+import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Foldable qualified as F
 import Data.List qualified as L
 import Data.Maybe (isJust)
@@ -61,6 +63,25 @@ renderUnqualifiedImports modu inbox =
   where
     mmsg = inbox ^? at (CheckImports, modu) . _Just
     rendered = maybe "" (\msg -> "\n----- unqualified imports -----\n" <> msg) mmsg
+
+-- | splitter based on line and column
+-- line and col are 1-based.
+splitLineColumn :: (Int, Int) -> State ((Int, Int), Text) Text
+splitLineColumn (lin, col) = do
+  ((currLin, currCol), remainingTxt) <- get
+  let lineSplittedTxt = T.lines remainingTxt
+      (linesBefore, linesAfter) = splitAt (lin - currLin) lineSplittedTxt
+      ((txtInBreakLineBefore, txtInBreakLineAfter), linesAfterBreakLine) =
+        case linesAfter of
+          [] -> (("", ""), [])
+          breakLine : xs ->
+            if null linesBefore
+              then (T.splitAt (col - currCol) breakLine, xs)
+              else (T.splitAt (col - 1) breakLine, xs)
+      txtBefore = T.intercalate "\n" (linesBefore ++ [txtInBreakLineBefore])
+      txtAfter = T.intercalate "\n" (txtInBreakLineAfter : linesAfterBreakLine)
+  put ((lin, col), txtAfter)
+  pure txtBefore
 
 -- | show source code
 renderSourceCode :: ModuleName -> HieState -> Widget HTML a
