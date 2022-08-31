@@ -24,7 +24,10 @@ import Concur.Replica
     classList,
     div,
     height,
+    input,
+    label,
     onClick,
+    onInput,
     onMouseEnter,
     onMouseLeave,
     pre,
@@ -32,8 +35,10 @@ import Concur.Replica
     textProp,
     width,
   )
+import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
+import Control.Error.Util (note)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -69,7 +74,8 @@ import Toolbox.Channel
     Timer,
   )
 import Toolbox.Server.Types
-  ( Dimension (..),
+  ( DetailLevel (..),
+    Dimension (..),
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
@@ -78,6 +84,7 @@ import Toolbox.Server.Types
     NodeLayout (..),
     Point (..),
     ServerState (..),
+    SubModuleEvent (..),
     UIState (..),
     transposeGraphVis,
   )
@@ -315,29 +322,52 @@ renderMainModuleGraph ::
 renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
   let mclicked = modGraphUIClick mgUI
       mhovered = modGraphUIHover mgUI
-   in MainModuleGraphEv
+   in MainModuleEv
         <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (mclicked, mhovered)
 
 renderSubModuleGraph ::
   IntMap ModuleName ->
   Map ModuleName Timer ->
-  [(ModuleName, GraphVisInfo)] ->
+  [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   -- | (main module graph UI state, sub module graph UI state)
-  (ModuleGraphUI, ModuleGraphUI) ->
+  (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget HTML Event
-renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
+renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI)) =
   let mainModuleClicked = modGraphUIClick mainMGUI
       subModuleHovered = modGraphUIHover subMGUI
-   in case mainModuleClicked of
-        Nothing -> text "no module cluster is selected"
-        Just selected ->
-          case L.lookup selected subgraphs of
-            Nothing ->
-              text [fmt|cannot find the subgraph for the module cluster {selected}|]
-            Just subgraph ->
-              let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
-               in SubModuleGraphEv
-                    <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
+      esubgraph = do
+        selected <-
+          note [fmt|no module cluster is selected|] mainModuleClicked
+        subgraphsAtTheLevel <-
+          note [fmt|{show detailLevel} subgraph is not computed|] (L.lookup detailLevel subgraphs)
+        subgraph <-
+          note [fmt|cannot find the subgraph for the module cluster {selected}|] (L.lookup selected subgraphsAtTheLevel)
+        pure subgraph
+   in case esubgraph of
+        Left err -> text err
+        Right subgraph ->
+          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
+           in SubModuleEv . SubModuleGraphEv
+                <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
+
+renderDetailLevel :: UIState -> Widget HTML Event
+renderDetailLevel ui =
+  SubModuleEv . SubModuleLevelEv
+    <$> div
+      [classList [("control", True)]]
+      [detail30, detail100, detail300]
+  where
+    currLevel = fst $ uiSubModuleGraph ui
+    mkRadioItem ev txt isChecked =
+      label
+        [classList [("radio", True)]]
+        [ input [DP.type_ "radio", DP.name "detail", DP.checked isChecked, ev <$ onInput]
+        , text txt
+        ]
+
+    detail30 = mkRadioItem UpTo30 "< 30" (currLevel == UpTo30)
+    detail100 = mkRadioItem UpTo100 "< 100" (currLevel == UpTo100)
+    detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =
@@ -360,6 +390,7 @@ renderModuleGraphTab ui ss =
                       clustering
                       grVisInfo
                       (uiMainModuleGraph ui)
+                  , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing

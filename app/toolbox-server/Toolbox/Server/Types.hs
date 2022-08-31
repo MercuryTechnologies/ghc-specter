@@ -6,6 +6,8 @@ module Toolbox.Server.Types
     Tab (..),
 
     -- * Event types
+    DetailLevel (..),
+    SubModuleEvent (..),
     ModuleGraphEvent (..),
     Event (..),
 
@@ -52,11 +54,22 @@ data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
 
+data DetailLevel = UpTo30 | UpTo100 | UpTo300
+  deriving (Show, Eq, Ord, Generic)
+
+instance FromJSON DetailLevel
+
+instance ToJSON DetailLevel
+
+data SubModuleEvent
+  = SubModuleGraphEv ModuleGraphEvent
+  | SubModuleLevelEv DetailLevel
+
 data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
-  | MainModuleGraphEv ModuleGraphEvent
-  | SubModuleGraphEv ModuleGraphEvent
+  | MainModuleEv ModuleGraphEvent
+  | SubModuleEv SubModuleEvent
   | SaveSessionEv
 
 data ModuleGraphUI = ModuleGraphUI
@@ -73,7 +86,7 @@ data UIState = UIState
   -- ^ expanded module in CheckImports
   , uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
-  , uiSubModuleGraph :: ModuleGraphUI
+  , uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
   }
 
@@ -83,7 +96,7 @@ initUIState =
     { uiTab = TabSession
     , uiModuleExpanded = Nothing
     , uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , uiSubModuleGraph = ModuleGraphUI Nothing Nothing
+    , uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     }
 
 data Point = Point
@@ -168,7 +181,7 @@ data ServerState = ServerState
   , serverTiming :: Map ModuleName Timer
   , serverModuleGraph :: Maybe GraphVisInfo
   , serverModuleClustering :: [(ModuleName, [ModuleName])]
-  , serverModuleSubgraph :: [(ModuleName, GraphVisInfo)]
+  , serverModuleSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
   }
   deriving (Show, Generic)
 

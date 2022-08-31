@@ -116,6 +116,7 @@ executables:
       - concur-replica
       - containers
       - discrimination
+      - errors
       - extra
       - fficxx-runtime
       - ghc-build-analyzer
