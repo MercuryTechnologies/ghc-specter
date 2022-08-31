@@ -2,15 +2,19 @@
 {-# LANGUAGE GADTs #-}
 
 module Toolbox.Channel
-  ( Channel (..),
+  ( -- * information types
     type ModuleName,
-    ChanMessage (..),
-    ChanMessageBox (..),
     SessionInfo (..),
     Timer (..),
     resetTimer,
+    HsSourceInfo (..),
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
+
+    -- * channel
+    Channel (..),
+    ChanMessage (..),
+    ChanMessageBox (..),
   )
 where
 
@@ -22,7 +26,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 
-data Channel = CheckImports | Timing | Session
+data Channel = CheckImports | Timing | Session | HsSource
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -80,17 +84,32 @@ instance ToJSON Timer
 resetTimer :: Timer
 resetTimer = Timer Nothing Nothing
 
+newtype HsSourceInfo = HsSourceInfo
+  { hsHieFile :: FilePath
+  }
+  deriving (Show, Generic)
+
+instance Binary HsSourceInfo where
+  put (HsSourceInfo hie) = put hie
+  get = HsSourceInfo <$> get
+
+instance FromJSON HsSourceInfo
+
+instance ToJSON HsSourceInfo
+
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
   CMTiming :: ModuleName -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
+  CMHsSource :: ModuleName -> HsSourceInfo -> ChanMessage 'HsSource
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
 instance Show ChanMessageBox where
-  show (CMBox (CMCheckImports _ _)) = "CMCheckImports"
-  show (CMBox (CMTiming _ _)) = "CMTiming"
-  show (CMBox (CMSession _)) = "CMSession"
+  show (CMBox (CMCheckImports {})) = "CMCheckImports"
+  show (CMBox (CMTiming {})) = "CMTiming"
+  show (CMBox (CMSession {})) = "CMSession"
+  show (CMBox (CMHsSource {})) = "CMHsSource"
 
 instance Binary ChanMessageBox where
   put (CMBox (CMCheckImports m t)) = do
@@ -102,6 +121,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMSession s)) = do
     put (fromEnum Session)
     put s
+  put (CMBox (CMHsSource m h)) = do
+    put (fromEnum HsSource)
+    put (m, h)
 
   get = do
     tag <- get
@@ -109,3 +131,4 @@ instance Binary ChanMessageBox where
       CheckImports -> CMBox . uncurry CMCheckImports <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
+      HsSource -> CMBox . uncurry CMHsSource <$> get

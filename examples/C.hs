@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fplugin Plugin.CheckImports -fplugin Plugin.Timing #-}
-
+{-# OPTIONS_GHC -fplugin Plugin.GHCSpecter #-}
 module C (test3) where
 
 import A (test)

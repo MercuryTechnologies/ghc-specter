@@ -32,6 +32,7 @@ import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    HsSourceInfo (..),
     SessionInfo (..),
   )
 import Toolbox.Comm
@@ -41,11 +42,12 @@ import Toolbox.Comm
 import Toolbox.Render (render)
 import Toolbox.Server.Types
   ( ServerState (..),
+    emptyServerState,
+    emptyUIState,
     incrementSN,
-    initServerState,
-    initUIState,
   )
-import Toolbox.Worker (moduleGraphWorker)
+import Toolbox.Worker.Hie (hieWorker)
+import Toolbox.Worker.ModuleGraph (moduleGraphWorker)
 import Prelude hiding (div)
 
 data CLIMode
@@ -54,21 +56,17 @@ data CLIMode
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
-  OA.command
-    "online"
-    ( OA.info
-        (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
-        (OA.progDesc "GHC inspection on the fly")
-    )
+  OA.command "online" $
+    OA.info
+      (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
+      (OA.progDesc "GHC inspection on the fly")
 
 viewMode :: OA.Mod OA.CommandFields CLIMode
 viewMode =
-  OA.command
-    "view"
-    ( OA.info
-        (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
-        (OA.progDesc "viewing saved session")
-    )
+  OA.command "view" $
+    OA.info
+      (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
+      (OA.progDesc "viewing saved session")
 
 optsParser :: OA.ParserInfo CLIMode
 optsParser =
@@ -81,7 +79,7 @@ main = do
   mode <- OA.execParser optsParser
   case mode of
     Online socketFile -> do
-      var <- atomically $ newTVar initServerState
+      var <- atomically $ newTVar emptyServerState
       _ <- forkIO $ listener socketFile var
       webServer var
     View sessionFile -> do
@@ -100,13 +98,15 @@ listener socketFile var =
   runServer
     socketFile
     ( \sock -> do
-        o <- receiveObject sock
+        CMBox o <- receiveObject sock
         case o of
-          CMBox (CMSession s') -> do
+          CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
+          CMHsSource modu (HsSourceInfo hiefile) -> do
+            void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
-        atomically . modifyTVar' var . updateInbox $ o
+        atomically . modifyTVar' var . updateInbox $ CMBox o
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
@@ -121,13 +121,15 @@ updateInbox chanMsg ss =
          in ss {serverTiming = M.insert modu timer' m}
       CMBox (CMSession s') ->
         ss {serverSessionInfo = s'}
+      CMBox (CMHsSource modu info) ->
+        ss
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "test" $
-    \_ -> loopM step (initUIState, ss0, initTime)
+    \_ -> loopM step (emptyUIState, ss0, initTime)
   where
     step (ui, ss, lastUIUpdate) = do
       let await = do

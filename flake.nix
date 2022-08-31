@@ -1,7 +1,12 @@
 {
   description = "ghc-build-analzyer: utility for analyzing GHC build";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/master";
+    nixpkgs = {
+      type = "github";
+      owner = "avieth";
+      repo = "nixpkgs";
+      rev = "346134b9b036a6f5c3f7239b450343c88954acea";
+    };
     flake-utils.url = "github:numtide/flake-utils";
     concur = {
       url = "github:wavewave/concur/ghc-9.2";
@@ -32,7 +37,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlayGHC = final: prev: {
-          haskellPackages = prev.haskell.packages.ghc923;
+          haskellPackages = prev.haskell.packages.ghc924;
         };
         pkgs = import nixpkgs {
           overlays = [
@@ -46,13 +51,13 @@
         hspkgs = pkgs.haskellPackages.override (old: {
           overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: { }))
             (self: super: {
+              "criterion" = pkgs.haskell.lib.dontCheck super.criterion;
               "concur-core" =
                 self.callCabal2nix "concur-core" (concur + "/concur-core") { };
               "concur-replica" =
                 self.callCabal2nix "concur-replica" concur-replica { };
               "replica" = self.callCabal2nix "replica" replica { };
               "retry" = pkgs.haskell.lib.dontCheck super.retry;
-              "PyF" = pkgs.haskell.lib.dontCheck super.PyF;
             });
         });
         hsenv = hspkgs.ghcWithPackages (p: [
@@ -64,10 +69,10 @@
           p.discrimination
           p.extra
           p.fourmolu
+          p.hiedb
           p.hpack
           p.hspec
           p.OGDF
-          p.PyF
           p.optparse-applicative
           p.replica
           p.socket

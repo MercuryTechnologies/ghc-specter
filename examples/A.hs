@@ -9,11 +9,29 @@
 -- To turn on a plugin only for a specific module, one can use the OPTIONS_GHC pragma
 -- with the plugin arguments like this example.
 --
--- In this case, the Plugin.CheckImports module will be invoked as plugin as the module
+-- In this case, the Plugin.Timing module will be invoked as plugin as the module
 -- defines a function with the reserved keyword "plugin".
-{-# OPTIONS_GHC -fplugin Plugin.CheckImports #-}
+{-# OPTIONS_GHC -fplugin Plugin.GHCSpecter #-}
 
 module A (test) where
 
+data Foo = Foo Int
+  deriving (Show)
+
+data Bar = Bar
+  { barX :: Double
+  , barY :: Double
+  }
+  deriving (Show)
+
+foo :: Foo
+foo = Foo 3
+
+bar :: Bar
+bar = Bar 1 2
+
 test :: IO ()
-test = putStrLn "test"
+test = do
+  putStrLn "hello there"
+  print foo
+  print bar

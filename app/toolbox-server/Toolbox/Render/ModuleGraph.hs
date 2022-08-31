@@ -64,9 +64,10 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
-import PyF (fmt)
+-- import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
+import Text.Printf (printf)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -80,6 +81,7 @@ import Toolbox.Server.Types
     Event (..),
     GraphVisInfo (..),
     ModuleGraphEvent (..),
+    ModuleGraphState (..),
     ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
@@ -179,7 +181,7 @@ makePolylineText :: (Point, Point) -> [Point] -> Text
 makePolylineText (p0, p1) xys =
   T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
   where
-    each (Point x y) = [fmt|{x:.2},{y:.2}|]
+    each (Point x y) = T.pack $ printf "%.2f,%.2f" x y
 
 renderModuleGraphSVG ::
   IntMap ModuleName ->
@@ -337,14 +339,16 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI))
       subModuleHovered = modGraphUIHover subMGUI
       esubgraph = do
         selected <-
-          note [fmt|no module cluster is selected|] mainModuleClicked
+          note "no module cluster is selected" mainModuleClicked
         subgraphsAtTheLevel <-
-          note [fmt|{show detailLevel} subgraph is not computed|] (L.lookup detailLevel subgraphs)
+          note (printf "%s subgraph is not computed" (show detailLevel)) (L.lookup detailLevel subgraphs)
         subgraph <-
-          note [fmt|cannot find the subgraph for the module cluster {selected}|] (L.lookup selected subgraphsAtTheLevel)
+          note
+            (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
+            (L.lookup selected subgraphsAtTheLevel)
         pure subgraph
    in case esubgraph of
-        Left err -> text err
+        Left err -> text (T.pack err)
         Right subgraph ->
           let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
            in SubModuleEv . SubModuleGraphEv
@@ -374,14 +378,15 @@ renderModuleGraphTab ui ss =
   let sessionInfo = serverSessionInfo ss
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = serverTiming ss
-      clustering = serverModuleClustering ss
+      mgs = serverModuleGraphState ss
+      clustering = mgsClustering mgs
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            ( case serverModuleGraph ss of
+            ( case mgsClusterGraph mgs of
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
@@ -394,7 +399,7 @@ renderModuleGraphTab ui ss =
                   , renderSubModuleGraph
                       nameMap
                       timing
-                      (serverModuleSubgraph ss)
+                      (mgsSubgraph mgs)
                       (uiMainModuleGraph ui, uiSubModuleGraph ui)
                   ]
             )

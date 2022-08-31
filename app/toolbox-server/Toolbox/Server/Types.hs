@@ -14,11 +14,23 @@ module Toolbox.Server.Types
     -- * UI state
     ModuleGraphUI (..),
     UIState (..),
-    initUIState,
+    emptyUIState,
+
+    -- * ModuleGraph state
+    ModuleGraphState (..),
+    emptyModuleGraphState,
+
+    -- * Hie state
+    RefRow' (..),
+    DeclRow' (..),
+    DefRow' (..),
+    ModuleHieInfo (..),
+    HieState (..),
+    emptyHieState,
 
     -- * Server state
     ServerState (..),
-    initServerState,
+    emptyServerState,
     incrementSN,
 
     -- * graph visualization information
@@ -90,8 +102,8 @@ data UIState = UIState
   -- ^ UI state of sub module graph
   }
 
-initUIState :: UIState
-initUIState =
+emptyUIState :: UIState
+emptyUIState =
   UIState
     { uiTab = TabSession
     , uiModuleExpanded = Nothing
@@ -174,14 +186,98 @@ transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
     nodeLayout' = fmap xposeNode nodeLayout
     edgeLayout' = fmap xposeEdge edgeLayout
 
+data ModuleGraphState = ModuleGraphState
+  { mgsClusterGraph :: Maybe GraphVisInfo
+  , mgsClustering :: [(ModuleName, [ModuleName])]
+  , mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  }
+  deriving (Show, Generic)
+
+instance FromJSON ModuleGraphState
+
+instance ToJSON ModuleGraphState
+
+emptyModuleGraphState :: ModuleGraphState
+emptyModuleGraphState = ModuleGraphState Nothing [] []
+
+-- | RefRow has OccName and Unit which are not JSON-serializable.
+data RefRow' = RefRow'
+  { ref'Src :: FilePath
+  , ref'NameOcc :: Text
+  , ref'NameMod :: ModuleName
+  , ref'NameUnit :: Text
+  , ref'SLine :: Int
+  , ref'SCol :: Int
+  , ref'ELine :: Int
+  , ref'ECol :: Int
+  }
+  deriving (Show, Generic)
+
+instance FromJSON RefRow'
+
+instance ToJSON RefRow'
+
+-- | DeclRow has OccName
+data DeclRow' = DeclRow'
+  { decl'Src :: FilePath
+  , decl'NameOcc :: Text
+  , decl'SLine :: Int
+  , decl'SCol :: Int
+  , decl'ELine :: Int
+  , decl'ECol :: Int
+  , decl'Root :: Bool
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DeclRow'
+
+instance ToJSON DeclRow'
+
+-- | DefRow has OccName
+data DefRow' = DefRow'
+  { def'Src :: FilePath
+  , def'NameOcc :: Text
+  , def'SLine :: Int
+  , def'SCol :: Int
+  , def'ELine :: Int
+  , def'ECol :: Int
+  }
+  deriving (Show, Generic)
+
+instance FromJSON DefRow'
+
+instance ToJSON DefRow'
+
+data ModuleHieInfo = ModuleHieInfo
+  { modHieRefs :: [RefRow']
+  , modHieDecls :: [DeclRow']
+  , modHieDefs :: [DefRow']
+  }
+  deriving (Show, Generic)
+
+instance FromJSON ModuleHieInfo
+
+instance ToJSON ModuleHieInfo
+
+newtype HieState = HieState
+  { hieModuleMap :: Map ModuleName ModuleHieInfo
+  }
+  deriving (Show, Generic)
+
+instance FromJSON HieState
+
+instance ToJSON HieState
+
+emptyHieState :: HieState
+emptyHieState = HieState mempty
+
 data ServerState = ServerState
   { serverMessageSN :: Int
   , serverInbox :: Inbox
   , serverSessionInfo :: SessionInfo
   , serverTiming :: Map ModuleName Timer
-  , serverModuleGraph :: Maybe GraphVisInfo
-  , serverModuleClustering :: [(ModuleName, [ModuleName])]
-  , serverModuleSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  , serverModuleGraphState :: ModuleGraphState
+  , serverHieState :: HieState
   }
   deriving (Show, Generic)
 
@@ -189,16 +285,15 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-initServerState :: ServerState
-initServerState =
+emptyServerState :: ServerState
+emptyServerState =
   ServerState
     { serverMessageSN = 0
     , serverInbox = mempty
     , serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
     , serverTiming = mempty
-    , serverModuleGraph = Nothing
-    , serverModuleClustering = []
-    , serverModuleSubgraph = []
+    , serverModuleGraphState = emptyModuleGraphState
+    , serverHieState = emptyHieState
     }
 
 incrementSN :: ServerState -> ServerState
