@@ -64,11 +64,13 @@
           p.discrimination
           p.extra
           p.fourmolu
+          p.hiedb
           p.hpack
           p.hspec
           p.OGDF
-          p.PyF
           p.optparse-applicative
+          p.pretty-simple
+          p.PyF
           p.replica
           p.socket
           p.text

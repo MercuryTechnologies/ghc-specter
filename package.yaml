@@ -86,7 +86,9 @@ library:
     - discrimination
     - extra
     - ghc == 9.2.*
+    - hiedb
     - network
+    - pretty-simple
     - stm
     - time
     - transformers

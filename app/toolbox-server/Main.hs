@@ -54,21 +54,17 @@ data CLIMode
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
-  OA.command
-    "online"
-    ( OA.info
-        (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
-        (OA.progDesc "GHC inspection on the fly")
-    )
+  OA.command "online" $
+    OA.info
+      (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
+      (OA.progDesc "GHC inspection on the fly")
 
 viewMode :: OA.Mod OA.CommandFields CLIMode
 viewMode =
-  OA.command
-    "view"
-    ( OA.info
-        (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
-        (OA.progDesc "viewing saved session")
-    )
+  OA.command "view" $
+    OA.info
+      (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
+      (OA.progDesc "viewing saved session")
 
 optsParser :: OA.ParserInfo CLIMode
 optsParser =

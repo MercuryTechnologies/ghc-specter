@@ -97,7 +97,36 @@ import Toolbox.Channel
     resetTimer,
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util (showPpr)
+
+import GHC.Types.Name.Cache
+import GHC.Types.SrcLoc
+import GHC.Types.Unique.Supply
+import GHC.Types.Name
+import Data.Tree
+import GHC.Iface.Ext.Binary
+import GHC.Iface.Ext.Types
+import GHC.Iface.Ext.Utils
+import Data.Maybe (fromJust)
+import GHC.Driver.Pipeline
+import GHC.Driver.Session
+import GHC.SysTools
+import qualified Data.Map as M
+import Data.Foldable
+import Toolbox.Util.GHC (printPpr)
+import GHC.Plugins hiding (ModuleName)
+import HieDb.Compat (OccName, nameModule, occNameString)
+import HieDb.Types
+import HieDb.Utils
+import Text.Pretty.Simple
+
+instance Show OccName where
+  show = occNameString
+
+deriving instance Show RefRow
+
+deriving instance Show DeclRow
+
+deriving instance Show DefRow
 
 plugin :: Plugin
 plugin =
@@ -154,7 +183,8 @@ driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   let dflags = hsc_dflags env
   startTime <- getCurrentTime
-  let modGraph = hsc_mod_graph env
+  let dflags = hsc_dflags env
+      modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
       startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
   -- NOTE: return Nothing if session info is already initiated
@@ -184,9 +214,34 @@ driver opts env = do
 
         case phase' of
           RealPhase StopLn -> do
-            mmodName <-
-              fmap (T.pack . moduleNameString . moduleName . mi_module) . iface
-                <$> getPipeState
+            pstate <- getPipeState
+            let mmi = iface pstate
+                mmod = fmap mi_module mmi
+                mmodName = fmap (T.pack . moduleNameString . moduleName) mmod
+
+            case (maybe_loc pstate, gopt Opt_WriteHie dflags, mmod) of
+              (Just modLoc, True, Just mod) -> liftIO $ do
+                let hiefile = ml_hie_file modLoc
+                uniq_supply <- mkSplitUniqSupply 'z'
+                let nc = initNameCache uniq_supply []
+                hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
+                let hf = hie_file_result hieResult
+                    asts = hie_asts hf
+                    refmap = generateReferencesMap $ getAsts asts
+                -- printPpr dflags asts
+                let -- mod = nameModule "A"
+                    refsDecls = genRefsAndDecls "" mod refmap
+                    defs = genDefRow "" mod refmap
+                -- printPpr dflags refmap
+                putStrLn "-- Refs and Decls --"
+                pPrint refsDecls
+                putStrLn "-- Defs --"
+                pPrint defs
+                -- explainEv dflags hf refmap
+                -- printPpr dflags asts
+                pure ()
+              _ -> pure ()
+
             case mmodName of
               Nothing -> pure ()
               Just modName -> liftIO $ do
