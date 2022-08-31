@@ -72,6 +72,7 @@
           p.hiedb
           p.hpack
           p.hspec
+          p.lens
           p.OGDF
           p.optparse-applicative
           p.replica

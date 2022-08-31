@@ -122,6 +122,7 @@ executables:
       - ghc
       - ghc-build-analyzer
       - hiedb
+      - lens
       - optparse-applicative
       - replica
       - resourcet

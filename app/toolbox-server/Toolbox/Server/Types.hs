@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Toolbox.Server.Types
   ( type ChanModule,
@@ -13,36 +15,53 @@ module Toolbox.Server.Types
 
     -- * UI state
     ModuleGraphUI (..),
+    HasModuleGraphUI (..),
+    emptyModuleGraphUI,
     UIState (..),
+    HasUIState (..),
     emptyUIState,
 
     -- * ModuleGraph state
     ModuleGraphState (..),
+    HasModuleGraphState (..),
     emptyModuleGraphState,
 
     -- * Hie state
     RefRow' (..),
+    HasRefRow' (..),
     DeclRow' (..),
+    HasDeclRow' (..),
     DefRow' (..),
+    HasDefRow' (..),
     ModuleHieInfo (..),
+    HasModuleHieInfo (..),
+    emptyModuleHieInfo,
     HieState (..),
+    HasHieState (..),
     emptyHieState,
 
     -- * Server state
     ServerState (..),
+    HasServerState (..),
     emptyServerState,
     incrementSN,
 
     -- * graph visualization information
     Point (..),
+    HasPoint (..),
     Dimension (..),
+    HasDimension (..),
     NodeLayout (..),
+    HasNodeLayout (..),
     EdgeLayout (..),
+    HasEdgeLayout (..),
     GraphVisInfo (..),
+    HasGraphVisInfo (..),
     transposeGraphVis,
   )
 where
 
+import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
@@ -85,88 +104,105 @@ data Event
   | SaveSessionEv
 
 data ModuleGraphUI = ModuleGraphUI
-  { modGraphUIHover :: Maybe Text
+  { _modGraphUIHover :: Maybe Text
   -- ^ module under mouse cursor in Module Graph
-  , modGraphUIClick :: Maybe Text
+  , _modGraphUIClick :: Maybe Text
   -- ^ module clicked in Module Graph
   }
 
+makeClassy ''ModuleGraphUI
+
+emptyModuleGraphUI :: ModuleGraphUI
+emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
+
 data UIState = UIState
-  { uiTab :: Tab
+  { _uiTab :: Tab
   -- ^ current tab
-  , uiModuleExpanded :: Maybe Text
+  , _uiModuleExpanded :: Maybe Text
   -- ^ expanded module in CheckImports
-  , uiMainModuleGraph :: ModuleGraphUI
+  , _uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
-  , uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
+  , _uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
   }
+
+makeClassy ''UIState
 
 emptyUIState :: UIState
 emptyUIState =
   UIState
-    { uiTab = TabSession
-    , uiModuleExpanded = Nothing
-    , uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    { _uiTab = TabSession
+    , _uiModuleExpanded = Nothing
+    , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     }
 
 data Point = Point
-  { pointX :: Double
-  , pointY :: Double
+  { _pointX :: Double
+  , _pointY :: Double
   }
   deriving (Show, Generic)
+
+makeClassy ''Point
 
 instance FromJSON Point
 
 instance ToJSON Point
 
 data Dimension = Dim
-  { dimWidth :: Double
-  , dimHeight :: Double
+  { _dimWidth :: Double
+  , _dimHeight :: Double
   }
   deriving (Show, Generic)
+
+makeClassy ''Dimension
 
 instance FromJSON Dimension
 
 instance ToJSON Dimension
 
 data NodeLayout a = NodeLayout
-  { nodePayload :: a
+  { _nodePayload :: a
   -- ^ information in node
-  , nodePosition :: Point
+  , _nodePosition :: Point
   -- ^ node center position
-  , nodeSize :: Dimension
+  , _nodeSize :: Dimension
   -- ^ node width and height
   }
   deriving (Show, Generic)
+
+makeClassy ''NodeLayout
 
 instance FromJSON a => FromJSON (NodeLayout a)
 
 instance ToJSON a => ToJSON (NodeLayout a)
 
 data EdgeLayout = EdgeLayout
-  { edgeId :: Int
+  { _edgeId :: Int
   -- ^ edge id from the graph layouter
-  , edgeEndNodes :: (Int, Int)
+  , _edgeEndNodes :: (Int, Int)
   -- ^ (source node, target node)
-  , edgeStartEndPoints :: (Point, Point)
+  , _edgeStartEndPoints :: (Point, Point)
   -- ^ edge start point, end point
-  , edgeBendPoints :: [Point]
+  , _edgeBendPoints :: [Point]
   -- ^ edge bend points
   }
   deriving (Show, Generic)
+
+makeClassy ''EdgeLayout
 
 instance FromJSON EdgeLayout
 
 instance ToJSON EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
-  { gviCanvasDim :: Dimension
-  , gviNodes :: [NodeLayout (Int, Text)]
-  , gviEdges :: [EdgeLayout]
+  { _gviCanvasDim :: Dimension
+  , _gviNodes :: [NodeLayout (Int, Text)]
+  , _gviEdges :: [EdgeLayout]
   }
   deriving (Show, Generic)
+
+makeClassy ''GraphVisInfo
 
 instance FromJSON GraphVisInfo
 
@@ -174,8 +210,8 @@ instance ToJSON GraphVisInfo
 
 -- | swap horizontal and vertical directions.
 transposeGraphVis :: GraphVisInfo -> GraphVisInfo
-transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
-  GraphVisInfo dim' nodeLayout' edgeLayout'
+transposeGraphVis (GraphVisInfo dim nodLayout edgLayout) =
+  GraphVisInfo dim' nodLayout' edgLayout'
   where
     xposeDim (Dim w h) = Dim h w
     xposePt (Point x y) = Point y x
@@ -183,15 +219,17 @@ transposeGraphVis (GraphVisInfo dim nodeLayout edgeLayout) =
     xposeEdge (EdgeLayout i (j, k) (start, end) pts) =
       EdgeLayout i (j, k) (xposePt start, xposePt end) (fmap xposePt pts)
     dim' = xposeDim dim
-    nodeLayout' = fmap xposeNode nodeLayout
-    edgeLayout' = fmap xposeEdge edgeLayout
+    nodLayout' = fmap xposeNode nodLayout
+    edgLayout' = fmap xposeEdge edgLayout
 
 data ModuleGraphState = ModuleGraphState
-  { mgsClusterGraph :: Maybe GraphVisInfo
-  , mgsClustering :: [(ModuleName, [ModuleName])]
-  , mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  { _mgsClusterGraph :: Maybe GraphVisInfo
+  , _mgsClustering :: [(ModuleName, [ModuleName])]
+  , _mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
   }
   deriving (Show, Generic)
+
+makeClassy ''ModuleGraphState
 
 instance FromJSON ModuleGraphState
 
@@ -202,16 +240,18 @@ emptyModuleGraphState = ModuleGraphState Nothing [] []
 
 -- | RefRow has OccName and Unit which are not JSON-serializable.
 data RefRow' = RefRow'
-  { ref'Src :: FilePath
-  , ref'NameOcc :: Text
-  , ref'NameMod :: ModuleName
-  , ref'NameUnit :: Text
-  , ref'SLine :: Int
-  , ref'SCol :: Int
-  , ref'ELine :: Int
-  , ref'ECol :: Int
+  { _ref'Src :: FilePath
+  , _ref'NameOcc :: Text
+  , _ref'NameMod :: ModuleName
+  , _ref'NameUnit :: Text
+  , _ref'SLine :: Int
+  , _ref'SCol :: Int
+  , _ref'ELine :: Int
+  , _ref'ECol :: Int
   }
   deriving (Show, Generic)
+
+makeClassy ''RefRow'
 
 instance FromJSON RefRow'
 
@@ -219,15 +259,17 @@ instance ToJSON RefRow'
 
 -- | DeclRow has OccName
 data DeclRow' = DeclRow'
-  { decl'Src :: FilePath
-  , decl'NameOcc :: Text
-  , decl'SLine :: Int
-  , decl'SCol :: Int
-  , decl'ELine :: Int
-  , decl'ECol :: Int
-  , decl'Root :: Bool
+  { _decl'Src :: FilePath
+  , _decl'NameOcc :: Text
+  , _decl'SLine :: Int
+  , _decl'SCol :: Int
+  , _decl'ELine :: Int
+  , _decl'ECol :: Int
+  , _decl'Root :: Bool
   }
   deriving (Show, Generic)
+
+makeClassy ''DeclRow'
 
 instance FromJSON DeclRow'
 
@@ -235,34 +277,43 @@ instance ToJSON DeclRow'
 
 -- | DefRow has OccName
 data DefRow' = DefRow'
-  { def'Src :: FilePath
-  , def'NameOcc :: Text
-  , def'SLine :: Int
-  , def'SCol :: Int
-  , def'ELine :: Int
-  , def'ECol :: Int
+  { _def'Src :: FilePath
+  , _def'NameOcc :: Text
+  , _def'SLine :: Int
+  , _def'SCol :: Int
+  , _def'ELine :: Int
+  , _def'ECol :: Int
   }
   deriving (Show, Generic)
+
+makeClassy ''DefRow'
 
 instance FromJSON DefRow'
 
 instance ToJSON DefRow'
 
 data ModuleHieInfo = ModuleHieInfo
-  { modHieRefs :: [RefRow']
-  , modHieDecls :: [DeclRow']
-  , modHieDefs :: [DefRow']
+  { _modHieRefs :: [RefRow']
+  , _modHieDecls :: [DeclRow']
+  , _modHieDefs :: [DefRow']
   }
   deriving (Show, Generic)
+
+makeClassy ''ModuleHieInfo
 
 instance FromJSON ModuleHieInfo
 
 instance ToJSON ModuleHieInfo
 
+emptyModuleHieInfo :: ModuleHieInfo
+emptyModuleHieInfo = ModuleHieInfo [] [] []
+
 newtype HieState = HieState
-  { hieModuleMap :: Map ModuleName ModuleHieInfo
+  { _hieModuleMap :: Map ModuleName ModuleHieInfo
   }
   deriving (Show, Generic)
+
+makeClassy ''HieState
 
 instance FromJSON HieState
 
@@ -272,14 +323,16 @@ emptyHieState :: HieState
 emptyHieState = HieState mempty
 
 data ServerState = ServerState
-  { serverMessageSN :: Int
-  , serverInbox :: Inbox
-  , serverSessionInfo :: SessionInfo
-  , serverTiming :: Map ModuleName Timer
-  , serverModuleGraphState :: ModuleGraphState
-  , serverHieState :: HieState
+  { _serverMessageSN :: Int
+  , _serverInbox :: Inbox
+  , _serverSessionInfo :: SessionInfo
+  , _serverTiming :: Map ModuleName Timer
+  , _serverModuleGraphState :: ModuleGraphState
+  , _serverHieState :: HieState
   }
   deriving (Show, Generic)
+
+makeClassy ''ServerState
 
 instance FromJSON ServerState
 
@@ -288,16 +341,13 @@ instance ToJSON ServerState
 emptyServerState :: ServerState
 emptyServerState =
   ServerState
-    { serverMessageSN = 0
-    , serverInbox = mempty
-    , serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
-    , serverTiming = mempty
-    , serverModuleGraphState = emptyModuleGraphState
-    , serverHieState = emptyHieState
+    { _serverMessageSN = 0
+    , _serverInbox = mempty
+    , _serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
+    , _serverTiming = mempty
+    , _serverModuleGraphState = emptyModuleGraphState
+    , _serverHieState = emptyHieState
     }
 
 incrementSN :: ServerState -> ServerState
-incrementSN ss =
-  ss
-    { serverMessageSN = serverMessageSN ss + 1
-    }
+incrementSN = serverMessageSN %~ (+ 1)

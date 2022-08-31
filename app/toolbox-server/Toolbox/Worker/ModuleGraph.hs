@@ -7,6 +7,7 @@ module Toolbox.Worker.ModuleGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Lens ((.~))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -15,7 +16,7 @@ import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Text.Printf (printf)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
@@ -25,7 +26,8 @@ import Toolbox.Render.ModuleGraph (layOutGraph)
 import Toolbox.Server.Types
   ( DetailLevel (..),
     GraphVisInfo,
-    ModuleGraphState (..),
+    HasModuleGraphState (..),
+    HasServerState (..),
     ServerState (..),
     incrementSN,
   )
@@ -50,25 +52,20 @@ moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
   atomically $
-    modifyTVar' var $ \ss ->
-      incrementSN $
-        let mgs = serverModuleGraphState ss
-            mgs' =
-              mgs
-                { mgsClusterGraph = Just grVisInfo
-                , mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
-                }
-         in ss {serverModuleGraphState = mgs'}
+    modifyTVar' var $
+      let updater =
+            (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
+              . ( serverModuleGraphState . mgsClustering
+                    .~ fmap (\(c, ms) -> (c, fmap snd ms)) clustering
+                )
+       in incrementSN . updater
   subgraphs <-
     traverse
       (\level -> (level,) <$> traverse (layOutModuleSubgraph mgi level) clustering)
       [UpTo30, UpTo100, UpTo300]
   atomically $
-    modifyTVar' var $ \ss ->
-      incrementSN $
-        let mgs = serverModuleGraphState ss
-            mgs' = mgs {mgsSubgraph = subgraphs}
-         in ss {serverModuleGraphState = mgs'}
+    modifyTVar' var $
+      incrementSN . (serverModuleGraphState . mgsSubgraph .~ subgraphs)
   where
     modNameMap = mginfoModuleNameMap mgi
     modDep = mginfoModuleDep mgi

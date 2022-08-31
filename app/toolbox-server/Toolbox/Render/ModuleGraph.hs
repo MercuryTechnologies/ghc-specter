@@ -39,6 +39,7 @@ import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
+import Control.Lens ((^.), _1)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -64,7 +65,6 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
--- import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Text.Printf (printf)
@@ -80,8 +80,13 @@ import Toolbox.Server.Types
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
+    HasGraphVisInfo (..),
+    HasModuleGraphState (..),
+    HasModuleGraphUI (..),
+    HasNodeLayout (..),
+    HasServerState (..),
+    HasUIState (..),
     ModuleGraphEvent (..),
-    ModuleGraphState (..),
     ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
@@ -192,10 +197,10 @@ renderModuleGraphSVG ::
   (Maybe Text, Maybe Text) ->
   Widget HTML ModuleGraphEvent
 renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
-  let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
+  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
       nodeLayoutMap =
-        IM.fromList $ fmap (\n -> (fst (nodePayload n), n)) $ gviNodes grVisInfo
+        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
       -- graph layout parameter
       aFactor = 0.9
       offX = -15
@@ -294,9 +299,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
           ]
           [text name]
 
-      edges = fmap edge $ gviEdges grVisInfo
+      edges = fmap edge (grVisInfo ^. gviEdges)
       nodes =
-        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (gviNodes grVisInfo)
+        concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (grVisInfo ^. gviNodes)
 
       svgElement =
         S.svg
@@ -322,8 +327,8 @@ renderMainModuleGraph ::
   ModuleGraphUI ->
   Widget HTML Event
 renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
-  let mclicked = modGraphUIClick mgUI
-      mhovered = modGraphUIHover mgUI
+  let mclicked = mgUI ^. modGraphUIClick
+      mhovered = mgUI ^. modGraphUIHover
    in MainModuleEv
         <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (mclicked, mhovered)
 
@@ -335,8 +340,8 @@ renderSubModuleGraph ::
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget HTML Event
 renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI)) =
-  let mainModuleClicked = modGraphUIClick mainMGUI
-      subModuleHovered = modGraphUIHover subMGUI
+  let mainModuleClicked = mainMGUI ^. modGraphUIClick
+      subModuleHovered = subMGUI ^. modGraphUIHover
       esubgraph = do
         selected <-
           note "no module cluster is selected" mainModuleClicked
@@ -350,7 +355,10 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, (detailLevel, subMGUI))
    in case esubgraph of
         Left err -> text (T.pack err)
         Right subgraph ->
-          let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
+          let tempclustering =
+                fmap
+                  (\(NodeLayout (_, name) _ _) -> (name, [name]))
+                  (subgraph ^. gviNodes)
            in SubModuleEv . SubModuleGraphEv
                 <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
 
@@ -361,7 +369,7 @@ renderDetailLevel ui =
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = fst $ uiSubModuleGraph ui
+    currLevel = ui ^. uiSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -375,18 +383,18 @@ renderDetailLevel ui =
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =
-  let sessionInfo = serverSessionInfo ss
+  let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-      timing = serverTiming ss
-      mgs = serverModuleGraphState ss
-      clustering = mgsClustering mgs
+      timing = ss ^. serverTiming
+      mgs = ss ^. serverModuleGraphState
+      clustering = mgs ^. mgsClustering
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            ( case mgsClusterGraph mgs of
+            ( case mgs ^. mgsClusterGraph of
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
@@ -394,13 +402,13 @@ renderModuleGraphTab ui ss =
                       timing
                       clustering
                       grVisInfo
-                      (uiMainModuleGraph ui)
+                      (ui ^. uiMainModuleGraph)
                   , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing
-                      (mgsSubgraph mgs)
-                      (uiMainModuleGraph ui, uiSubModuleGraph ui)
+                      (mgs ^. mgsSubgraph)
+                      (ui ^. uiMainModuleGraph, ui ^. uiSubModuleGraph)
                   ]
             )
 
@@ -435,21 +443,21 @@ layOutGraph nameMap graph = runGraphLayouter $ do
 
   canvasDim <- getCanvasDim ga
 
-  nodeLayout0 <- getAllNodeLayout g ga
-  let nodeLayout = mapMaybe replace nodeLayout0
+  nodLayout0 <- getAllNodeLayout g ga
+  let nodLayout = mapMaybe replace nodLayout0
         where
           replace (NodeLayout j pt dim) = do
             i <- IM.lookup j moduleNodeRevIndex
             name <- IM.lookup i nameMap
             pure $ NodeLayout (i, name) pt dim
 
-  edgeLayout0 <- getAllEdgeLayout g ga
-  let edgeLayout = mapMaybe replace edgeLayout0
+  edgLayout0 <- getAllEdgeLayout g ga
+  let edgLayout = mapMaybe replace edgLayout0
         where
           replace (EdgeLayout k (start, end) srcTgtPts vertices) = do
             startIdx <- IM.lookup start moduleNodeRevIndex
             endIdx <- IM.lookup end moduleNodeRevIndex
             pure (EdgeLayout k (startIdx, endIdx) srcTgtPts vertices)
 
-  let gvisInfo0 = GraphVisInfo canvasDim nodeLayout edgeLayout
+  let gvisInfo0 = GraphVisInfo canvasDim nodLayout edgLayout
   pure $ transposeGraphVis gvisInfo0

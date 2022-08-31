@@ -14,6 +14,7 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
+import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -41,7 +42,8 @@ import Toolbox.Comm
   )
 import Toolbox.Render (render)
 import Toolbox.Server.Types
-  ( ServerState (..),
+  ( HasServerState (..),
+    ServerState (..),
     emptyServerState,
     emptyUIState,
     incrementSN,
@@ -103,26 +105,24 @@ listener socketFile var =
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
-          CMHsSource modu (HsSourceInfo hiefile) -> do
+          CMHsSource _modu (HsSourceInfo hiefile) -> do
             void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
-updateInbox chanMsg ss =
-  incrementSN $
-    case chanMsg of
+updateInbox chanMsg = incrementSN . updater
+  where
+    updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
-        let m = serverInbox ss
-         in ss {serverInbox = M.insert (CheckImports, modu) msg m}
+        (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMTiming modu timer') ->
-        let m = serverTiming ss
-         in ss {serverTiming = M.insert modu timer' m}
+        (serverTiming %~ M.insert modu timer')
       CMBox (CMSession s') ->
-        ss {serverSessionInfo = s'}
-      CMBox (CMHsSource modu info) ->
-        ss
+        (serverSessionInfo .~ s')
+      CMBox (CMHsSource _modu _info) ->
+        id
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
@@ -141,7 +141,7 @@ webServer var = do
             -- lock until new message comes
             ss' <- liftSTM $ do
               ss' <- readTVar var
-              if (serverMessageSN ss == serverMessageSN ss')
+              if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
                 then retry
                 else pure ss'
             newUIUpdate <- liftIO getCurrentTime
