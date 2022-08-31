@@ -7,9 +7,12 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import qualified Data.Foldable as F
 import Data.Function (on)
-import Data.IntMap qualified as IM
-import Data.List qualified as L
+import Data.Graph (buildG)
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IM
+import qualified Data.List as L
 import Data.Maybe (mapMaybe)
 import PyF (fmt)
 import Toolbox.Channel
@@ -24,15 +27,29 @@ import Toolbox.Server.Types
   )
 import Toolbox.Util.Graph.Builder
   ( makeBiDep,
+    makeEdges,
     makeRevDep,
   )
 import Toolbox.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
+    filterOutSmallNodes,
     fullStep,
-    makeReducedGraphReversedFromModuleGraph,
+    makeReducedGraph,
     makeSeedState,
   )
+
+makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
+makeReducedGraphReversedFromModuleGraph mgi =
+  let modDep = mginfoModuleDep mgi
+      nVtx = F.length $ mginfoModuleNameMap mgi
+      es = makeEdges modDep
+      g = buildG (1, nVtx) es
+      seeds = filterOutSmallNodes modDep
+      tordVtxs = reverse $ mginfoModuleTopSorted mgi
+      tordSeeds = filter (`elem` seeds) tordVtxs
+      reducedGraph = makeReducedGraph g tordSeeds
+   in makeRevDep reducedGraph
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
@@ -49,6 +66,7 @@ moduleGraphWorker var mgi = do
           , clusterStateUnclustered = smallNodes
           }
       bgr = makeBiDep (mginfoModuleDep mgi)
+      -- run clustering twice
       (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
       clustering = mapMaybe convert (clusterStateClustered clustering_)
         where

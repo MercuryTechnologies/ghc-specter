@@ -57,10 +57,11 @@ testGraphInfo =
 spec :: Spec
 spec =
   describe "Toolbox.Util.Graph greedy downward clustering" $ do
-    let bgr = makeBiDep $ mginfoModuleDep testGraphInfo
+    let modDep = mginfoModuleDep testGraphInfo
+        bgr = makeBiDep modDep
         allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
         nNodes = length allNodes
-        largeNodes = filterOutSmallNodes testGraphInfo
+        largeNodes = filterOutSmallNodes modDep
         smallNodes = allNodes L.\\ largeNodes
         seeds =
           ClusterState

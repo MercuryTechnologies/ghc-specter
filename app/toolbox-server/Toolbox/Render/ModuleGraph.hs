@@ -116,7 +116,7 @@ analyze graphInfo =
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
-      larges = filterOutSmallNodes graphInfo
+      larges = filterOutSmallNodes modDep
       largeNames = mapMaybe (\i -> IM.lookup i (mginfoModuleNameMap graphInfo)) larges
    in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "

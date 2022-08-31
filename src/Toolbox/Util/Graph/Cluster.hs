@@ -11,9 +11,7 @@ module Toolbox.Util.Graph.Cluster
     filterOutSmallNodes,
     fullStep,
     makeReducedGraph,
-    makeReducedGraphReversedFromModuleGraph,
     makeSeedState,
-    reduceGraph,
 
     -- * invariant checks
     degreeInvariant,
@@ -25,15 +23,13 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
-import Data.Foldable qualified as F
-import Data.Graph (Graph, Tree (..), buildG, path)
+import Data.Graph (Graph, Tree (..), path)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
-import Toolbox.Channel (ModuleGraphInfo (..))
-import Toolbox.Util.Graph.Builder (makeBiDep, makeEdges, makeRevDep)
+import Toolbox.Util.Graph.Builder (makeBiDep)
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster {unCluster :: Int}
@@ -176,7 +172,6 @@ fullStep (clustering, graphState) =
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
-
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
@@ -192,41 +187,9 @@ makeReducedGraph g tordList = IM.fromList $ go tordList
         x : xs ->
           (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
 
-filterOutSmallNodes :: ModuleGraphInfo -> [Int]
-filterOutSmallNodes graphInfo =
+filterOutSmallNodes :: IntMap [Int] -> [Int]
+filterOutSmallNodes graph =
   IM.keys $
     IM.filter
       (\(js, ks) -> length js + length ks > nodeSizeLimit)
-      (makeBiDep (mginfoModuleDep graphInfo))
-
-reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> IntMap [Int]
-reduceGraph onlyClustered seeds graphInfo =
-  let bgr = makeBiDep (mginfoModuleDep graphInfo)
-      allNodes = IM.keys $ mginfoModuleNameMap graphInfo
-      smallNodes = allNodes L.\\ seeds
-      seedClustering =
-        ClusterState
-          { clusterStateClustered =
-              fmap (\i -> (Cluster i, [i])) seeds
-          , clusterStateUnclustered = smallNodes
-          }
-      final = fullStep $ fullStep (seedClustering, makeSeedState seeds bgr)
-      strip (Clustered (Cluster c)) = c
-      strip (Unclustered i) = i
-      finalGraphClustered = fmap (\(Cluster c, (os, _is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
-      finalGraphUnclustered = fmap (\(v, (os, _is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
-      finalGraph
-        | onlyClustered = finalGraphClustered
-        | otherwise = finalGraphClustered ++ finalGraphUnclustered
-   in IM.fromList finalGraph
-
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
-makeReducedGraphReversedFromModuleGraph mgi =
-  let nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges $ mginfoModuleDep mgi
-      g = buildG (1, nVtx) es
-      seeds = filterOutSmallNodes mgi
-      tordVtxs = reverse $ mginfoModuleTopSorted mgi
-      tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = makeReducedGraph g tordSeeds
-   in makeRevDep reducedGraph
+      (makeBiDep graph)
