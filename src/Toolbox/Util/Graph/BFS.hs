@@ -27,18 +27,27 @@ import Control.Monad.Trans.State
   )
 import Data.Bifunctor (bimap)
 import Data.Either (partitionEithers)
-import qualified Data.Foldable as F
+import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import Data.IntMap qualified as IM
 import Data.IntSet (IntSet)
-import qualified Data.IntSet as IS
+import Data.IntSet qualified as IS
 import Data.Maybe (maybeToList)
 
+-- | Global state of the BFS search holding a set of visited nodes.
 newtype BFSState = BFSState
   { bfsVisited :: IntSet
   }
   deriving (Show)
 
+-- | Staged BFS search path from a seed.
+-- The nested list represents the searched nodes per each stage, for example,
+-- [[1,2,3], [4,5]] means visited 1, 2 and 3 at the first stage and 4 and 5
+-- at the second stage. The candidates for the next stage, bfsNextStage, are
+-- not guaranteed to be included in the path yet as a search from another
+-- seed may take the node earlier.
+-- Therefore, note that this BFSPath type is a temporary data and only
+-- bfsSearchResult :: [[Int]] is the final result.
 data BFSPath = BFSPath
   { bfsSearchResult :: ![[Int]]
   , bfsNextStage :: ![Int]
@@ -50,6 +59,7 @@ stepBFS ::
   (Monad m) =>
   IntMap [Int] ->
   BFSPath ->
+  -- | Left: search in progress, as temporary BFSPath, Right: search done and result is [[Int]].
   StateT BFSState m (Either BFSPath [[Int]])
 stepBFS graph (BFSPath searched nexts) = do
   thisStage <- F.foldlM step [] nexts

@@ -15,10 +15,10 @@ import Data.Char (isAlpha)
 import Data.IORef (readIORef)
 import Data.List (foldl', sort)
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
+import Data.Map.Strict qualified as M
 import Data.Set (Set)
-import qualified Data.Set as S
-import qualified Data.Text as T
+import Data.Set qualified as S
+import Data.Text qualified as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Plugins
   ( CommandLineOption,

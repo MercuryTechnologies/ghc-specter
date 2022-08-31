@@ -1,7 +1,7 @@
 module Toolbox.Util.Graph.BFSSpec (spec) where
 
 import Data.Functor.Identity (runIdentity)
-import qualified Data.IntMap as IM
+import Data.IntMap qualified as IM
 import Test.Hspec
   ( Spec,
     describe,

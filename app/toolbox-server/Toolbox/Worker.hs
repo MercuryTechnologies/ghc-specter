@@ -8,8 +8,8 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Data.Function (on)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import PyF (fmt)
 import Toolbox.Channel

@@ -1,7 +1,7 @@
 module Toolbox.Util.GraphSpec (spec) where
 
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Test.Hspec
   ( Spec,
     describe,

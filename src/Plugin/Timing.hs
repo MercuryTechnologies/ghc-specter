@@ -26,14 +26,14 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import Data.IntMap qualified as IM
 import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map qualified as M
 import Data.Maybe (mapMaybe)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Tuple (swap)
-import qualified GHC.Data.Graph.Directed as G
+import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Hooks (runPhaseHook)
 import GHC.Driver.Make

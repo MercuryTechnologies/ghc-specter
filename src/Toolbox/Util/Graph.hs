@@ -28,11 +28,11 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
-import qualified Data.Foldable as F
+import Data.Foldable qualified as F
 import Data.Graph (Graph, Tree (..), buildG, path)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
 import Toolbox.Channel (ModuleGraphInfo (..))

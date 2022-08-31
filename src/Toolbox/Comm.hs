@@ -12,11 +12,11 @@ module Toolbox.Comm
 where
 
 import Control.Concurrent (forkFinally)
-import qualified Control.Exception as E
+import Control.Exception qualified as E
 import Control.Monad (forever, replicateM, void)
-import qualified Data.Binary as B
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as CL
+import Data.Binary qualified as B
+import Data.ByteString.Char8 qualified as C
+import Data.ByteString.Lazy.Char8 qualified as CL
 import Data.Word (Word32)
 import Network.Socket
   ( Family (AF_UNIX),

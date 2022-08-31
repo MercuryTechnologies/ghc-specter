@@ -85,9 +85,9 @@ import OGDF.GraphAttributes
     graphAttributes_y,
   )
 import OGDF.LayoutModule (ILayoutModule (call))
-import qualified OGDF.List.TH as TH
+import OGDF.List.TH qualified as TH
 import OGDF.List.Template
-import qualified OGDF.ListIterator.TH as TH
+import OGDF.ListIterator.TH qualified as TH
 import OGDF.ListIterator.Template
 import OGDF.MedianHeuristic (newMedianHeuristic)
 import OGDF.NodeElement

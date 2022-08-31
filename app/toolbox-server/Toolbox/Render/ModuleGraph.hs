@@ -32,22 +32,22 @@ import Concur.Replica
     textProp,
     width,
   )
-import qualified Concur.Replica.SVG as S
-import qualified Concur.Replica.SVG.Props as SP
+import Concur.Replica.SVG qualified as S
+import Concur.Replica.SVG.Props qualified as SP
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (allocate)
 import Data.Bits ((.|.))
-import qualified Data.Foldable as F
+import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map qualified as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Tuple (swap)
 import OGDF.Graph
   ( Graph,
