@@ -1,6 +1,7 @@
 module Toolbox.Render.SourceView
   ( render,
     splitLineColumn,
+    tempWorker,
   )
 where
 
@@ -18,13 +19,14 @@ import Concur.Replica
     text,
     ul,
   )
-import Control.Lens (at, to, (^.), (^?), _Just)
-import Control.Monad.Trans.State (State, get, put, runState)
+import Control.Lens (at, to, (^.), (^..), (^?), _Just)
+import Control.Monad.Trans.State (State, evalState, get, put, runState)
 import Data.Foldable qualified as F
 import Data.List qualified as L
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel
   ( Channel (..),
@@ -35,12 +37,14 @@ import Toolbox.Channel
   )
 import Toolbox.Server.Types
   ( Event (..),
+    HasDeclRow' (..),
     HasHieState (..),
     HasModuleHieInfo (..),
     HasServerState (..),
     HasSourceViewUI (..),
     HieState (..),
     Inbox,
+    ModuleHieInfo,
     ServerState (..),
     SourceViewUI (..),
   )
@@ -83,12 +87,31 @@ splitLineColumn (lin, col) = do
   put ((lin, col), txtAfter)
   pure txtBefore
 
+tempWorker :: ServerState -> IO ()
+tempWorker ss = do
+  case mmodHieInfo of
+    Nothing -> putStrLn "No Hie file"
+    Just modHieInfo -> do
+      F.traverse_ (\t -> TIO.putStrLn "########" >> TIO.putStrLn t) (breakSourceText modHieInfo)
+  where
+    hie = ss ^. serverHieState
+    modu = "Mercury.Banking.Ach.Builder.Core"
+    mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+
+breakSourceText :: ModuleHieInfo -> [Text]
+breakSourceText modHieInfo = txts ++ [txt]
+  where
+    src = modHieInfo ^. modHieSource
+    decls = modHieInfo ^.. modHieDecls . traverse . to (\decl -> (decl ^. decl'SLine, decl ^. decl'SCol))
+    sortedDecls = L.sort decls
+    (txts, (_, txt)) = runState (traverse (splitLineColumn) sortedDecls) ((1, 1), src)
+
 -- | show source code
 renderSourceCode :: ModuleName -> HieState -> Widget HTML a
 renderSourceCode modu hie =
   div [] [pre [] rendered]
   where
-    msrc = hie ^? hieModuleMap . at modu . _Just . modHieSource
+    mmodHieSource = hie ^? hieModuleMap . at modu . _Just
     theicon =
       span
         [style [("position", "relative"), ("width", "0"), ("height", "0")]]
@@ -100,7 +123,8 @@ renderSourceCode modu hie =
         ]
     rendered =
       L.intersperse theicon $
-        fmap text $ maybe [] (T.chunksOf 20) msrc
+        fmap text $
+          maybe [] breakSourceText mmodHieSource
 
 -- | Top-level render function for the Source View tab
 render :: SourceViewUI -> ServerState -> Widget HTML Event
@@ -123,8 +147,8 @@ render srcUI ss =
           modinfo
             | mexpandedModu == Just modu =
                 [ ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
-                , -- , renderUnqualifiedImports modu inbox
-                  renderSourceCode modu hie
+                , renderUnqualifiedImports modu inbox
+                , renderSourceCode modu hie
                 ]
             | otherwise =
                 [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
