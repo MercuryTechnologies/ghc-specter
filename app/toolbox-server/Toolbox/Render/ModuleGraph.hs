@@ -81,10 +81,8 @@ import Toolbox.Server.Types
     UIState (..),
     transposeGraphVis,
   )
-import Toolbox.Util.Graph
-  ( filterOutSmallNodes,
-    makeRevDep,
-  )
+import Toolbox.Util.Graph.Builder (makeRevDep)
+import Toolbox.Util.Graph.Cluster (filterOutSmallNodes)
 import Toolbox.Util.OGDF
   ( appendText,
     doSugiyamaLayout,
@@ -118,7 +116,7 @@ analyze graphInfo =
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
-      larges = filterOutSmallNodes graphInfo
+      larges = filterOutSmallNodes modDep
       largeNames = mapMaybe (\i -> IM.lookup i (mginfoModuleNameMap graphInfo)) larges
    in "intials: " <> (T.pack $ show initials) <> ",\n"
         <> "terminals: "
@@ -181,9 +179,10 @@ renderModuleGraphSVG ::
   Map Text Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  Maybe Text ->
+  -- | (focused (clicked), hinted (hovered))
+  (Maybe Text, Maybe Text) ->
   Widget HTML ModuleGraphEvent
-renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
+renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
   let Dim canvasWidth canvasHeight = gviCanvasDim grVisInfo
       revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
       nodeLayoutMap =
@@ -200,12 +199,12 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
         Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
       edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
         let (color, swidth) = fromMaybe ("gray", "1") $ do
-              hovered <- mhovered
-              hoveredIdx_ <- M.lookup hovered revNameMap
-              hoveredIdx <- Just hoveredIdx_
+              hinted <- mhinted
+              hintedIdx_ <- M.lookup hinted revNameMap
+              hintedIdx <- Just hintedIdx_
               if
-                  | src == hoveredIdx -> pure ("black", "2")
-                  | tgt == hoveredIdx -> pure ("black", "2")
+                  | src == hintedIdx -> pure ("black", "2")
+                  | tgt == hintedIdx -> pure ("black", "2")
                   | otherwise -> Nothing
             -- if source and target nodes cannot be found,
             -- just use coordinates recorded in edge.
@@ -224,18 +223,22 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered =
               []
 
       box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
-        S.rect
-          [ HoverOnModuleEv (Just name) <$ onMouseEnter
-          , HoverOnModuleEv Nothing <$ onMouseLeave
-          , ClickOnModuleEv (Just name) <$ onClick
-          , SP.x (T.pack $ show (x + offX))
-          , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
-          , width (T.pack $ show (w * aFactor))
-          , height "13"
-          , SP.stroke "dimgray"
-          , SP.fill $ if Just name == mhovered then "honeydew" else "ivory"
-          ]
-          []
+        let color
+              | Just name == mfocused = "orange"
+              | Just name == mhinted = "honeydew"
+              | otherwise = "ivory"
+         in S.rect
+              [ HoverOnModuleEv (Just name) <$ onMouseEnter
+              , HoverOnModuleEv Nothing <$ onMouseLeave
+              , ClickOnModuleEv (Just name) <$ onClick
+              , SP.x (T.pack $ show (x + offX))
+              , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
+              , width (T.pack $ show (w * aFactor))
+              , height "13"
+              , SP.stroke "dimgray"
+              , SP.fill color
+              ]
+              []
       box1 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
           [ HoverOnModuleEv (Just name) <$ onMouseEnter
@@ -310,8 +313,10 @@ renderMainModuleGraph ::
   ModuleGraphUI ->
   Widget HTML Event
 renderMainModuleGraph nameMap timing clustering grVisInfo mgUI =
-  let mhovered = modGraphUIHover mgUI
-   in MainModuleGraphEv <$> renderModuleGraphSVG nameMap timing clustering grVisInfo mhovered
+  let mclicked = modGraphUIClick mgUI
+      mhovered = modGraphUIHover mgUI
+   in MainModuleGraphEv
+        <$> renderModuleGraphSVG nameMap timing clustering grVisInfo (mclicked, mhovered)
 
 renderSubModuleGraph ::
   IntMap ModuleName ->
@@ -332,7 +337,7 @@ renderSubModuleGraph nameMap timing subgraphs (mainMGUI, subMGUI) =
             Just subgraph ->
               let tempclustering = fmap (\(NodeLayout (_, name) _ _) -> (name, [name])) $ gviNodes subgraph
                in SubModuleGraphEv
-                    <$> renderModuleGraphSVG nameMap timing tempclustering subgraph subModuleHovered
+                    <$> renderModuleGraphSVG nameMap timing tempclustering subgraph (mainModuleClicked, subModuleHovered)
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =

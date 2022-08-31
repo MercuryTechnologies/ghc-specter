@@ -1,26 +1,26 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Toolbox.Util.Graph
+module Toolbox.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     GraphState (..),
     ICVertex (..),
     annotateLevel,
+
+    -- * invariant checks
     degreeInvariant,
+    totalNumberInvariant,
+
+    -- * reduction without clustering
+    reduceGraphByPath,
+
+    -- * reduction with clustering
     diffCluster,
     filterOutSmallNodes,
     fullStep,
-    makeEdges,
-    makeReducedGraph,
-    makeReducedGraphReversedFromModuleGraph,
     makeSeedState,
-    reduceGraph,
-    totalNumberInvariant,
-
-    -- * reverse, bidep
-    makeRevDep,
-    makeBiDep,
+    makeDivisionsInOrder,
   )
 where
 
@@ -28,14 +28,13 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
-import Data.Foldable qualified as F
-import Data.Graph (Graph, Tree (..), buildG, path)
+import Data.Graph (Graph, Tree (..), path)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
-import Toolbox.Channel (ModuleGraphInfo (..))
+import Toolbox.Util.Graph.Builder (makeBiDep)
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster {unCluster :: Int}
@@ -91,6 +90,18 @@ totalNumberInvariant clustering =
   let clustered = clusterStateClustered clustering
       unclustered = clusterStateUnclustered clustering
    in sum (fmap (length . snd) clustered) + length unclustered
+
+-- | Strip down graph to a given topologically ordered subset
+--   with edges by path-connectedness
+reduceGraphByPath :: Graph -> [Int] -> IntMap [Int]
+reduceGraphByPath g tordList = IM.fromList $ go tordList
+  where
+    go ys =
+      case ys of
+        [] -> []
+        x : [] -> [(x, [])]
+        x : xs ->
+          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
 
 makeSeedState ::
   [Int] ->
@@ -178,82 +189,32 @@ fullStep (clustering, graphState) =
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
 
--- | graph to edge list
-makeEdges :: IntMap [Int] -> [(Int, Int)]
-makeEdges = concatMap (\(i, js) -> fmap (i,) js) . IM.toList
-
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
 
--- | strip down graph to a given topologically ordered subset
-makeReducedGraph :: Graph -> [Int] -> IntMap [Int]
-makeReducedGraph g tordList = IM.fromList $ go tordList
-  where
-    go ys =
-      case ys of
-        [] -> []
-        x : [] -> [(x, [])]
-        x : xs ->
-          (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
-
-filterOutSmallNodes :: ModuleGraphInfo -> [Int]
-filterOutSmallNodes graphInfo =
+filterOutSmallNodes :: IntMap [Int] -> [Int]
+filterOutSmallNodes graph =
   IM.keys $
     IM.filter
       (\(js, ks) -> length js + length ks > nodeSizeLimit)
-      (makeBiDep (mginfoModuleDep graphInfo))
+      (makeBiDep graph)
 
-reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> IntMap [Int]
-reduceGraph onlyClustered seeds graphInfo =
-  let bgr = makeBiDep (mginfoModuleDep graphInfo)
-      allNodes = IM.keys $ mginfoModuleNameMap graphInfo
-      smallNodes = allNodes L.\\ seeds
-      seedClustering =
-        ClusterState
-          { clusterStateClustered =
-              fmap (\i -> (Cluster i, [i])) seeds
-          , clusterStateUnclustered = smallNodes
-          }
-      final = fullStep $ fullStep (seedClustering, makeSeedState seeds bgr)
-      strip (Clustered (Cluster c)) = c
-      strip (Unclustered i) = i
-      finalGraphClustered = fmap (\(Cluster c, (os, _is)) -> (c, fmap strip os)) $ graphStateClustered $ snd final
-      finalGraphUnclustered = fmap (\(v, (os, _is)) -> (v, fmap strip os)) $ graphStateUnclustered $ snd final
-      finalGraph
-        | onlyClustered = finalGraphClustered
-        | otherwise = finalGraphClustered ++ finalGraphUnclustered
-   in IM.fromList finalGraph
-
-makeReducedGraphReversedFromModuleGraph :: ModuleGraphInfo -> IntMap [Int]
-makeReducedGraphReversedFromModuleGraph mgi =
-  let nVtx = F.length $ mginfoModuleNameMap mgi
-      es = makeEdges $ mginfoModuleDep mgi
-      g = buildG (1, nVtx) es
-      seeds = filterOutSmallNodes mgi
-      tordVtxs = reverse $ mginfoModuleTopSorted mgi
-      tordSeeds = filter (`elem` seeds) tordVtxs
-      reducedGraph = makeReducedGraph g tordSeeds
-   in makeRevDep reducedGraph
-
---
--- rev-dep, bi-dep
---
-
--- | reverse dependency graph
-makeRevDep :: IntMap [Int] -> IntMap [Int]
-makeRevDep deps = IM.foldlWithKey step emptyMap deps
-  where
-    emptyMap = fmap (const []) deps
-    step !acc i js =
-      L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
-
--- | bi-dependency graph: (dep, revdep) per each vertex
-makeBiDep :: IntMap [Int] -> IntMap ([Int], [Int])
-makeBiDep dep =
-  let revDep = makeRevDep dep
-      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
-      biDep = concat $ inner grouping joiner fst fst (IM.toList dep) (IM.toList revDep)
-        where
-          joiner (i, js) (_, ks) = (i, (js, ks))
-   in IM.fromList biDep
+-- | Make division per seed, which contains vertices that do not pass the previous
+--   and the next seeds in a given order.
+makeDivisionsInOrder ::
+  -- | sorted vertices
+  [Int] ->
+  -- | seed in order
+  [Int] ->
+  [(Int, [Int])]
+makeDivisionsInOrder sorted seedsInOrder =
+  let seedsInOrder' = (Nothing : fmap Just seedsInOrder) ++ [Nothing]
+      iranges = zip seedsInOrder (zip seedsInOrder' (tail (tail seedsInOrder')))
+      filterByRange :: (Maybe Int, Maybe Int) -> [Int] -> [Int]
+      filterByRange (Nothing, Nothing) xs = xs
+      filterByRange (Nothing, Just z) xs = fst $ break (== z) xs
+      filterByRange (Just y, Nothing) xs = tail $ snd $ break (== y) xs
+      filterByRange (Just y, Just z) xs =
+        filterByRange (Nothing, Just z) . filterByRange (Just y, Nothing) $ xs
+   in fmap (\(i, range) -> (i, filterByRange range sorted)) iranges

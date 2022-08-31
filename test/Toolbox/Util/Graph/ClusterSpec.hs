@@ -1,4 +1,4 @@
-module Toolbox.Util.GraphSpec (spec) where
+module Toolbox.Util.Graph.ClusterSpec (spec) where
 
 import Data.IntMap qualified as IM
 import Data.List qualified as L
@@ -9,13 +9,13 @@ import Test.Hspec
     shouldBe,
   )
 import Toolbox.Channel (ModuleGraphInfo (..))
-import Toolbox.Util.Graph
+import Toolbox.Util.Graph.Builder (makeBiDep)
+import Toolbox.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     degreeInvariant,
     filterOutSmallNodes,
     fullStep,
-    makeBiDep,
     makeSeedState,
     totalNumberInvariant,
   )
@@ -57,10 +57,11 @@ testGraphInfo =
 spec :: Spec
 spec =
   describe "Toolbox.Util.Graph greedy downward clustering" $ do
-    let bgr = makeBiDep $ mginfoModuleDep testGraphInfo
+    let modDep = mginfoModuleDep testGraphInfo
+        bgr = makeBiDep modDep
         allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
         nNodes = length allNodes
-        largeNodes = filterOutSmallNodes testGraphInfo
+        largeNodes = filterOutSmallNodes modDep
         smallNodes = allNodes L.\\ largeNodes
         seeds =
           ClusterState

@@ -7,7 +7,11 @@ module Toolbox.Worker
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Data.Bifunctor (second)
+import Data.Foldable qualified as F
 import Data.Function (on)
+import Data.Functor.Identity (runIdentity)
+import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
@@ -22,38 +26,21 @@ import Toolbox.Server.Types
     ServerState (..),
     incrementSN,
   )
-import Toolbox.Util.Graph
-  ( ClusterState (..),
-    ClusterVertex (..),
-    fullStep,
-    makeBiDep,
-    makeReducedGraphReversedFromModuleGraph,
+import Toolbox.Util.Graph.BFS (runMultiseedStagedBFS)
+import Toolbox.Util.Graph.Builder
+  ( makeBiDep,
+    makeEdges,
     makeRevDep,
-    makeSeedState,
+  )
+import Toolbox.Util.Graph.Cluster
+  ( filterOutSmallNodes,
+    makeDivisionsInOrder,
+    reduceGraphByPath,
   )
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
-  let modNameMap = mginfoModuleNameMap mgi
-      reducedGraphReversed =
-        makeReducedGraphReversedFromModuleGraph mgi
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
-  let allNodes = IM.keys modNameMap
-      largeNodes = IM.keys reducedGraphReversed
-      smallNodes = allNodes L.\\ largeNodes
-      seedClustering =
-        ClusterState
-          { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
-          , clusterStateUnclustered = smallNodes
-          }
-      bgr = makeBiDep (mginfoModuleDep mgi)
-      (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
-      clustering = mapMaybe convert (clusterStateClustered clustering_)
-        where
-          convert (Cluster i, js) = do
-            clusterName <- IM.lookup i modNameMap
-            let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
-            pure (clusterName, members)
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN $
@@ -61,12 +48,43 @@ moduleGraphWorker var mgi = do
           { serverModuleGraph = Just grVisInfo
           , serverModuleClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
           }
-
   subgraph <-
     traverse (layOutModuleSubgraph mgi) clustering
   atomically $
     modifyTVar' var $ \ss ->
       incrementSN ss {serverModuleSubgraph = subgraph}
+  where
+    modNameMap = mginfoModuleNameMap mgi
+    modDep = mginfoModuleDep mgi
+    modBiDep = makeBiDep modDep
+    nVtx = F.length $ mginfoModuleNameMap mgi
+    -- separate large/small nodes
+    largeNodes = filterOutSmallNodes modDep
+    -- compute reduced graph
+    es = makeEdges modDep
+    g = buildG (1, nVtx) es
+    tordVtxs = reverse $ mginfoModuleTopSorted mgi
+    tordSeeds = filter (`elem` largeNodes) tordVtxs
+    reducedGraph = reduceGraphByPath g tordSeeds
+    reducedGraphReversed = makeRevDep reducedGraph
+    -- compute clustering
+    -- as we use modRevDep as the graph, the greediness has precedence towards upper dependencies.
+    divisions = makeDivisionsInOrder tordVtxs tordSeeds
+    seedsWithWhiteList = fmap (second Just) divisions
+    modUndirDep = fmap (\(outs, ins) -> outs ++ ins) $ modBiDep
+    bfsResult =
+      runIdentity $
+        runMultiseedStagedBFS
+          (\_ -> pure ())
+          modUndirDep
+          seedsWithWhiteList
+    clustering = mapMaybe convert bfsResult
+      where
+        convert (i, stages) = do
+          let js = concat stages
+          clusterName <- IM.lookup i modNameMap
+          let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
+          pure (clusterName, members)
 
 maxSubGraphSize :: Int
 maxSubGraphSize = 30
