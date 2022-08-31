@@ -1,7 +1,6 @@
 module Toolbox.Render.SourceView
   ( render,
     splitLineColumn,
-    tempWorker,
   )
 where
 
@@ -86,18 +85,6 @@ splitLineColumn (lin, col) = do
       txtAfter = T.intercalate "\n" (txtInBreakLineAfter : linesAfterBreakLine)
   put ((lin, col), txtAfter)
   pure txtBefore
-
-tempWorker :: ServerState -> IO ()
-tempWorker ss = do
-  case mmodHieInfo of
-    Nothing -> putStrLn "No Hie file"
-    Just modHieInfo -> do
-      let topLevelDecls = getTopLevelDecls modHieInfo
-      F.traverse_ print topLevelDecls
-  where
-    hie = ss ^. serverHieState
-    modu = "AWS.Types"
-    mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
 
 isContainedIn :: ((Int, Int), (Int, Int)) -> ((Int, Int), (Int, Int)) -> Bool
 (s1, e1) `isContainedIn` (s2, e2) = s1 >= s2 && e1 <= e2
