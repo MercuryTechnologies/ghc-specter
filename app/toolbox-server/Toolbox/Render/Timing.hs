@@ -17,6 +17,7 @@ import Concur.Replica
   )
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
+import Control.Lens (to, (^.))
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
@@ -33,7 +34,10 @@ import Toolbox.Channel
     Timer (..),
     type ModuleName,
   )
-import Toolbox.Server.Types (ServerState (..))
+import Toolbox.Server.Types
+  ( HasServerState (..),
+    ServerState (..),
+  )
 import Prelude hiding (div)
 
 xmlns :: Props a
@@ -100,7 +104,7 @@ renderTimingChart timingInfos =
 
 renderTiming :: ServerState -> Widget HTML a
 renderTiming ss =
-  case sessionStartTime (_serverSessionInfo ss) of
+  case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->
       let subtractTime (modName, Timer mstart mend) = do
@@ -110,5 +114,5 @@ renderTiming ss =
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
             pure (modName, (modStartTimeDiff, modEndTimeDiff))
           timingInfos =
-            L.sortOn (fst . snd) $ mapMaybe subtractTime $ M.toList $ _serverTiming ss
+            L.sortOn (fst . snd) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
        in renderTimingChart timingInfos

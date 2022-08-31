@@ -39,6 +39,7 @@ import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
+import Control.Lens ((^.), _1)
 import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
@@ -64,7 +65,6 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
--- import PyF (fmt)
 import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Text.Printf (printf)
@@ -80,8 +80,10 @@ import Toolbox.Server.Types
     EdgeLayout (..),
     Event (..),
     GraphVisInfo (..),
+    HasModuleGraphState (..),
+    HasServerState (..),
+    HasUIState (..),
     ModuleGraphEvent (..),
-    ModuleGraphState (..),
     ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
@@ -361,7 +363,7 @@ renderDetailLevel ui =
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = fst $ _uiSubModuleGraph ui
+    currLevel = ui ^. uiSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -375,18 +377,18 @@ renderDetailLevel ui =
 
 renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
 renderModuleGraphTab ui ss =
-  let sessionInfo = _serverSessionInfo ss
+  let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-      timing = _serverTiming ss
-      mgs = _serverModuleGraphState ss
-      clustering = _mgsClustering mgs
+      timing = ss ^. serverTiming
+      mgs = ss ^. serverModuleGraphState
+      clustering = mgs ^. mgsClustering
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
             []
-            ( case _mgsClusterGraph mgs of
+            ( case mgs ^. mgsClusterGraph of
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
@@ -394,13 +396,13 @@ renderModuleGraphTab ui ss =
                       timing
                       clustering
                       grVisInfo
-                      (_uiMainModuleGraph ui)
+                      (ui ^. uiMainModuleGraph)
                   , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing
-                      (_mgsSubgraph mgs)
-                      (_uiMainModuleGraph ui, _uiSubModuleGraph ui)
+                      (mgs ^. mgsSubgraph)
+                      (ui ^. uiMainModuleGraph, ui ^. uiSubModuleGraph)
                   ]
             )
 

@@ -16,6 +16,7 @@ module Toolbox.Server.Types
     -- * UI state
     ModuleGraphUI (..),
     HasModuleGraphUI (..),
+    emptyModuleGraphUI,
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -34,6 +35,7 @@ module Toolbox.Server.Types
     HasDefRow' (..),
     ModuleHieInfo (..),
     HasModuleHieInfo (..),
+    emptyModuleHieInfo,
     HieState (..),
     HasHieState (..),
     emptyHieState,
@@ -59,7 +61,7 @@ module Toolbox.Server.Types
   )
 where
 
-import Control.Lens (makeClassy)
+import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
@@ -109,6 +111,9 @@ data ModuleGraphUI = ModuleGraphUI
   }
 
 makeClassy ''ModuleGraphUI
+
+emptyModuleGraphUI :: ModuleGraphUI
+emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
 
 data UIState = UIState
   { _uiTab :: Tab
@@ -300,6 +305,9 @@ instance FromJSON ModuleHieInfo
 
 instance ToJSON ModuleHieInfo
 
+emptyModuleHieInfo :: ModuleHieInfo
+emptyModuleHieInfo = ModuleHieInfo [] [] []
+
 newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
   }
@@ -342,7 +350,4 @@ emptyServerState =
     }
 
 incrementSN :: ServerState -> ServerState
-incrementSN ss =
-  ss
-    { _serverMessageSN = _serverMessageSN ss + 1
-    }
+incrementSN = serverMessageSN %~ (+ 1)

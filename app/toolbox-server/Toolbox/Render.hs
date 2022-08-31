@@ -25,7 +25,7 @@ import Concur.Replica
     textProp,
     ul,
   )
-import Control.Lens ((.~))
+import Control.Lens (to, (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -40,6 +40,7 @@ import Toolbox.Render.Session (renderSession)
 import Toolbox.Render.Timing (renderTiming)
 import Toolbox.Server.Types
   ( Event (..),
+    HasServerState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
     ServerState (..),
@@ -49,7 +50,6 @@ import Toolbox.Server.Types
     type ChanModule,
     type Inbox,
   )
-import qualified Toolbox.Server.Types as S
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
@@ -97,7 +97,7 @@ renderMainPanel ui ss =
   case _uiTab ui of
     TabSession -> renderSession ss
     TabModuleGraph -> renderModuleGraphTab ui ss
-    TabCheckImports -> renderInbox ui (_serverInbox ss)
+    TabCheckImports -> renderInbox ui (ss ^. serverInbox)
     TabTiming -> renderTiming ss
 
 cssLink :: Text -> Widget HTML a
@@ -137,7 +137,7 @@ render ::
   Widget HTML UIState
 render (ui, ss) = do
   let (mainPanel, bottomPanel)
-        | _serverMessageSN ss == 0 =
+        | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
             , divClass "box" [] [text "No Messages"]
             )
@@ -147,7 +147,7 @@ render (ui, ss) = do
                 [renderMainPanel ui ss]
             , section
                 []
-                [divClass "box" [] [text $ "message: " <> T.pack (show (_serverMessageSN ss))]]
+                [divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]]
             )
 
   let handleNavbar :: UIState -> Event -> UIState

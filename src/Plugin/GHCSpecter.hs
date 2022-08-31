@@ -105,7 +105,6 @@ import Toolbox.Channel
     resetTimer,
   )
 import Toolbox.Comm (runClient, sendObject)
-import Toolbox.Util.GHC (showPpr)
 
 plugin :: Plugin
 plugin =
@@ -171,7 +170,6 @@ extractModuleGraphInfo modGraph = do
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
-  let dflags = hsc_dflags env
   startTime <- getCurrentTime
   let dflags = hsc_dflags env
       modGraph = hsc_mod_graph env

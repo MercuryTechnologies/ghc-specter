@@ -12,20 +12,22 @@ import Concur.Replica
     pre,
     text,
   )
+import Control.Lens ((^.))
 import Data.Map qualified as M
 import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (SessionInfo (..))
 import Toolbox.Server.Types
   ( Event (SaveSessionEv),
+    HasServerState (..),
     ServerState (..),
   )
 import Prelude hiding (div)
 
 renderSession :: ServerState -> Widget HTML Event
 renderSession ss =
-  let sessionInfo = _serverSessionInfo ss
-      timing = _serverTiming ss
+  let sessionInfo = ss ^. serverSessionInfo
+      timing = ss ^. serverTiming
       msg = "# of compiled module now : " <> T.pack (show (M.size timing))
    in case sessionStartTime sessionInfo of
         Nothing ->

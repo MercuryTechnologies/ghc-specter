@@ -6,8 +6,9 @@ module Toolbox.Worker.Hie
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import qualified Data.Map as M
-import qualified Data.Text as T
+import Control.Lens ((%~))
+import Data.Map qualified as M
+import Data.Text qualified as T
 import GHC.Iface.Ext.Binary
   ( HieFileResult (..),
     NameCacheUpdater (NCU),
@@ -27,7 +28,8 @@ import HieDb.Utils (genDefRow, genRefsAndDecls)
 import Toolbox.Server.Types
   ( DeclRow' (..),
     DefRow' (..),
-    HieState (..),
+    HasHieState (..),
+    HasServerState (..),
     ModuleHieInfo (..),
     RefRow' (..),
     ServerState (..),
@@ -81,14 +83,14 @@ hieWorker var hiefile = do
       refmap = generateReferencesMap $ getAsts asts
       (refs, decls) = genRefsAndDecls "" modu refmap
       defs = genDefRow "" modu refmap
+      modHie =
+        ModuleHieInfo
+          { _modHieRefs = fmap convertRefRow refs
+          , _modHieDecls = fmap convertDeclRow decls
+          , _modHieDefs = fmap convertDefRow defs
+          }
+
   atomically $
-    modifyTVar' var $ \ss ->
-      let HieState hieModMap = _serverHieState ss
-          modHie =
-            ModuleHieInfo
-              { _modHieRefs = fmap convertRefRow refs
-              , _modHieDecls = fmap convertDeclRow decls
-              , _modHieDefs = fmap convertDefRow defs
-              }
-          hieModMap' = M.insert modName modHie hieModMap
-       in ss {_serverHieState = HieState hieModMap'}
+    modifyTVar' var $
+      serverHieState . hieModuleMap
+        %~ M.insert modName modHie

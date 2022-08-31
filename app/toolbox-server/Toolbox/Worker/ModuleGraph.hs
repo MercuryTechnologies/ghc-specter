@@ -15,7 +15,7 @@ import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Text.Printf (printf)
 import Toolbox.Channel
   ( ModuleGraphInfo (..),
