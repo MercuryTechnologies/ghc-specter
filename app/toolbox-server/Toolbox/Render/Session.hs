@@ -14,8 +14,8 @@ import Concur.Replica
     pre,
     text,
   )
-import qualified Data.Map as M
-import qualified Data.Text as T
+import Data.Map qualified as M
+import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import Toolbox.Channel (SessionInfo (..))
 import Toolbox.Server.Types
@@ -39,7 +39,7 @@ renderSession ss =
             , pre [] [text msg]
             , button
                 [ SaveSessionEv <$ onClick
-                , classList [("button is-primary is-size-7 m-1 p-1",True)]
+                , classList [("button is-primary is-size-7 m-1 p-1", True)]
                 ]
                 [text "Save Session"]
             ]

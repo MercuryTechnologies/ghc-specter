@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module Toolbox.Worker
@@ -7,8 +8,8 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Data.Function (on)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import PyF (fmt)
 import Toolbox.Channel
@@ -25,10 +26,10 @@ import Toolbox.Util.Graph
   ( ClusterState (..),
     ClusterVertex (..),
     fullStep,
-    getBiDepGraph,
+    makeBiDep,
     makeReducedGraphReversedFromModuleGraph,
+    makeRevDep,
     makeSeedState,
-    mkRevDep,
   )
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
@@ -45,7 +46,7 @@ moduleGraphWorker var mgi = do
           { clusterStateClustered = fmap (\i -> (Cluster i, [i])) largeNodes
           , clusterStateUnclustered = smallNodes
           }
-      bgr = getBiDepGraph mgi
+      bgr = makeBiDep (mginfoModuleDep mgi)
       (clustering_, _) = fullStep . fullStep $ (seedClustering, makeSeedState largeNodes bgr)
       clustering = mapMaybe convert (clusterStateClustered clustering_)
         where
@@ -78,20 +79,20 @@ layOutModuleSubgraph mgi (clusterName, members_) = do
   let members = fmap fst members_
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
-      modBiDep = getBiDepGraph mgi
+      modBiDep = makeBiDep modDep
       largeNodes =
-          take maxSubGraphSize
-            . fmap fst
-            . L.sortBy (flip compare `on` (countEdges . snd))
-            . filter (\(m, _) -> m `elem` members)
-            . IM.toList
-            $ modBiDep
+        take maxSubGraphSize
+          . fmap fst
+          . L.sortBy (flip compare `on` (countEdges . snd))
+          . filter (\(m, _) -> m `elem` members)
+          . IM.toList
+          $ modBiDep
         where
           countEdges (os, is) = length os + length is
       subModDep =
         fmap (\ns -> filter (\n -> n `elem` largeNodes) ns) $
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
-      subModDepReversed = mkRevDep subModDep
+      subModDepReversed = makeRevDep subModDep
   grVisInfo <- layOutGraph modNameMap subModDepReversed
   putStrLn [fmt|Cluster {clusterName} subgraph layout has been calculated.|]
   pure (clusterName, grVisInfo)

@@ -1,7 +1,7 @@
 module Toolbox.Util.GraphSpec (spec) where
 
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Test.Hspec
   ( Spec,
     describe,
@@ -15,7 +15,7 @@ import Toolbox.Util.Graph
     degreeInvariant,
     filterOutSmallNodes,
     fullStep,
-    getBiDepGraph,
+    makeBiDep,
     makeSeedState,
     totalNumberInvariant,
   )
@@ -56,8 +56,8 @@ testGraphInfo =
 
 spec :: Spec
 spec =
-  describe "Toolbox.Util.Graph greedy clustering" $ do
-    let bgr = getBiDepGraph testGraphInfo
+  describe "Toolbox.Util.Graph greedy downward clustering" $ do
+    let bgr = makeBiDep $ mginfoModuleDep testGraphInfo
         allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
         nNodes = length allNodes
         largeNodes = filterOutSmallNodes testGraphInfo

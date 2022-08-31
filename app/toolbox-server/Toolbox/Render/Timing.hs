@@ -15,12 +15,12 @@ import Concur.Replica
     textProp,
     width,
   )
-import qualified Concur.Replica.SVG as S
-import qualified Concur.Replica.SVG.Props as SP
-import qualified Data.List as L
-import qualified Data.Map.Strict as M
+import Concur.Replica.SVG qualified as S
+import Concur.Replica.SVG.Props qualified as SP
+import Data.List qualified as L
+import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,

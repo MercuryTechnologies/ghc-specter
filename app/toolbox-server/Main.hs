@@ -18,8 +18,8 @@ import Control.Monad (void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode')
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map.Strict as M
+import Data.ByteString.Lazy qualified as BL
+import Data.Map.Strict qualified as M
 import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,
@@ -27,7 +27,7 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import qualified Options.Applicative as OA
+import Options.Applicative qualified as OA
 import Toolbox.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -72,7 +72,9 @@ viewMode =
 
 optsParser :: OA.ParserInfo CLIMode
 optsParser =
-  OA.info (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper) OA.fullDesc
+  OA.info
+    (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
+    OA.fullDesc
 
 main :: IO ()
 main = do

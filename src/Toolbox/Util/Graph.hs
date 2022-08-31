@@ -10,15 +10,17 @@ module Toolbox.Util.Graph
     degreeInvariant,
     diffCluster,
     filterOutSmallNodes,
-    getBiDepGraph,
     fullStep,
     makeEdges,
     makeReducedGraph,
     makeReducedGraphReversedFromModuleGraph,
     makeSeedState,
-    mkRevDep,
     reduceGraph,
     totalNumberInvariant,
+
+    -- * reverse, bidep
+    makeRevDep,
+    makeBiDep,
   )
 where
 
@@ -26,11 +28,11 @@ import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)
 import Data.Either (partitionEithers)
-import qualified Data.Foldable as F
-import Data.Graph (Graph, Tree (..), buildG, path, topSort)
+import Data.Foldable qualified as F
+import Data.Graph (Graph, Tree (..), buildG, path)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import Data.IntMap qualified as IM
+import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
 import Toolbox.Channel (ModuleGraphInfo (..))
@@ -172,13 +174,6 @@ fullStep (clustering, graphState) =
       clustering' = clusterStep graphState2 clustering
    in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
-mkRevDep :: IntMap [Int] -> IntMap [Int]
-mkRevDep deps = IM.foldlWithKey step emptyMap deps
-  where
-    emptyMap = fmap (const []) deps
-    step !acc i js =
-      L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
-
 -- TODO: Place this to some common module for constants
 nodeSizeLimit :: Int
 nodeSizeLimit = 150
@@ -202,28 +197,16 @@ makeReducedGraph g tordList = IM.fromList $ go tordList
         x : xs ->
           (x, concatMap (\y -> if path g x y then [y] else []) xs) : go xs
 
--- (dep, revdep) per each vertex
-getBiDepGraph :: ModuleGraphInfo -> IntMap ([Int], [Int])
-getBiDepGraph graphInfo =
-  let modDep = mginfoModuleDep graphInfo
-      modRevDep = mkRevDep modDep
-      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
-      modBiDep = concat $ inner grouping joiner fst fst (IM.toList modDep) (IM.toList modRevDep)
-        where
-          joiner (i, js) (_, ks) = (i, (js, ks))
-   in IM.fromList modBiDep
-
 filterOutSmallNodes :: ModuleGraphInfo -> [Int]
 filterOutSmallNodes graphInfo =
-  let modBiDep = getBiDepGraph graphInfo
-   in IM.keys $
-        IM.filter
-          (\(js, ks) -> length js + length ks > nodeSizeLimit)
-          modBiDep
+  IM.keys $
+    IM.filter
+      (\(js, ks) -> length js + length ks > nodeSizeLimit)
+      (makeBiDep (mginfoModuleDep graphInfo))
 
 reduceGraph :: Bool -> [Int] -> ModuleGraphInfo -> IntMap [Int]
 reduceGraph onlyClustered seeds graphInfo =
-  let bgr = getBiDepGraph graphInfo
+  let bgr = makeBiDep (mginfoModuleDep graphInfo)
       allNodes = IM.keys $ mginfoModuleNameMap graphInfo
       smallNodes = allNodes L.\\ seeds
       seedClustering =
@@ -248,7 +231,29 @@ makeReducedGraphReversedFromModuleGraph mgi =
       es = makeEdges $ mginfoModuleDep mgi
       g = buildG (1, nVtx) es
       seeds = filterOutSmallNodes mgi
-      tordVtxs = topSort g
+      tordVtxs = reverse $ mginfoModuleTopSorted mgi
       tordSeeds = filter (`elem` seeds) tordVtxs
       reducedGraph = makeReducedGraph g tordSeeds
-   in mkRevDep reducedGraph
+   in makeRevDep reducedGraph
+
+--
+-- rev-dep, bi-dep
+--
+
+-- | reverse dependency graph
+makeRevDep :: IntMap [Int] -> IntMap [Int]
+makeRevDep deps = IM.foldlWithKey step emptyMap deps
+  where
+    emptyMap = fmap (const []) deps
+    step !acc i js =
+      L.foldl' (\(!acc') j -> IM.insertWith (<>) j [i] acc') acc js
+
+-- | bi-dependency graph: (dep, revdep) per each vertex
+makeBiDep :: IntMap [Int] -> IntMap ([Int], [Int])
+makeBiDep dep =
+  let revDep = makeRevDep dep
+      -- NOTE: The @inner@ join function has O(n) complexity using radix sort.
+      biDep = concat $ inner grouping joiner fst fst (IM.toList dep) (IM.toList revDep)
+        where
+          joiner (i, js) (_, ks) = (i, (js, ks))
+   in IM.fromList biDep

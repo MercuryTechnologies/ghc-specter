@@ -27,10 +27,10 @@ import Concur.Replica
   )
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Map.Strict as M
+import Data.ByteString.Lazy qualified as BL
+import Data.Map.Strict qualified as M
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
 import Toolbox.Channel (Channel (..))
