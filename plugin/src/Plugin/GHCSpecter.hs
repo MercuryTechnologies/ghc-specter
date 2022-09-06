@@ -6,6 +6,8 @@ module Plugin.GHCSpecter
 
     -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
+    -- NOTE: The name "frontendPlugin" should be used as a GHC frontend plugin.
+    frontendPlugin,
 
     -- * Global variable for the session information
     sessionRef,
@@ -38,29 +40,47 @@ import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Tuple (swap)
+import GHC
+  ( failed,
+    getSessionDynFlags,
+    guessTarget,
+    load,
+    setSessionDynFlags,
+    setTargets,
+  )
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
 import GHC.Driver.Make
-  ( moduleGraphNodes,
+  ( LoadHowMuch (LoadAllTargets),
+    moduleGraphNodes,
     topSortModuleGraph,
   )
-import GHC.Driver.Phases (Phase (StopLn))
+import GHC.Driver.Monad (Ghc, getSession, setSession)
+import GHC.Driver.Phases
+  ( Phase (StopLn),
+    isHaskellishTarget,
+  )
 import GHC.Driver.Pipeline
   ( PhasePlus (RealPhase),
     PipeState (iface),
+    compileFile,
     getPipeState,
     maybe_loc,
     runPhase,
   )
 import GHC.Driver.Plugins
-  ( Plugin (..),
+  ( FrontendPlugin (..),
+    Plugin (..),
+    defaultFrontendPlugin,
     defaultPlugin,
     type CommandLineOption,
   )
 import GHC.Driver.Session
-  ( DynFlags,
+  ( DynFlags (..),
+    GhcMode (CompManager),
+    Option (FileOption),
     getDynFlags,
     gopt,
   )
@@ -70,6 +90,7 @@ import GHC.Plugins
     localiseName,
     showSDoc,
   )
+import GHC.Runtime.Loader (initializePlugins)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Types.Name.Reader
   ( GlobalRdrElt (..),
@@ -88,7 +109,7 @@ import GHC.Unit.Module.ModSummary
   ( ExtendedModSummary (..),
     ModSummary (..),
   )
-import GHC.Unit.Module.Name (moduleNameString)
+import GHC.Unit.Module.Name (mkModuleName, moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel
@@ -103,7 +124,9 @@ import GHCSpecter.Channel
     resetTimer,
   )
 import GHCSpecter.Comm (runClient, sendObject)
+import GHCSpecter.Util.GHC (printPpr)
 import System.Directory (canonicalizePath, doesFileExist)
+import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO.Unsafe (unsafePerformIO)
 
 plugin :: Plugin
@@ -283,6 +306,44 @@ typecheckPlugin opts modsummary tc = do
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
 
+  liftIO $ print rendered
+
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $ sendMsgToDaemon opts (CMCheckImports modName (T.pack rendered))
   pure tc
+
+-- front-end plugin
+frontendPlugin :: FrontendPlugin
+frontendPlugin =
+  defaultFrontendPlugin
+    { frontend = \opts srcs -> do
+        liftIO $ print opts
+        -- following code is copied from doMake in ghc/ghc/Main.hs
+        let (hs_srcs, non_hs_srcs) = L.partition isHaskellishTarget srcs
+        hsc_env <- getSession
+        o_files <-
+          mapM
+            (\x -> liftIO $ compileFile hsc_env StopLn x)
+            non_hs_srcs
+        dflags <- getSessionDynFlags
+        -- hijack the plugin with this module
+        let thisModule = mkModuleName "Plugin.GHCSpecter"
+            otherPlugins = pluginModNames dflags
+            otherPluginOpts = pluginModNameOpts dflags
+            dflags' =
+              dflags
+                { ldInputs =
+                    map (FileOption "") o_files
+                      ++ ldInputs dflags
+                , -- frontend plugin is OneShot by default, so change it.
+                  ghcMode = CompManager
+                , pluginModNames = thisModule : otherPlugins
+                , pluginModNameOpts = fmap (thisModule,) opts ++ otherPluginOpts
+                }
+        _ <- setSessionDynFlags dflags'
+        targets <- mapM (uncurry guessTarget) hs_srcs
+        setTargets targets
+        ok_flag <- load LoadAllTargets
+        when (failed ok_flag) (liftIO $ exitWith (ExitFailure 1))
+        pure ()
+    }
