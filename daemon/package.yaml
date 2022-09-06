@@ -76,32 +76,46 @@ ghc-options:
 extra-source-files:
   - README.md
 
+library:
+  source-dirs: src
+  dependencies:
+    - OGDF
+    - concur-core
+    - concur-replica
+    - containers
+    - discrimination
+    - errors
+    - extra
+    - fficxx-runtime
+    - ghc
+    - ghc-specter-plugin
+    - hiedb
+    - lens
+    - optparse-applicative
+    - replica
+    - resourcet
+    - stdcxx
+    - stm
+    - time
+    - transformers
+    - unliftio
+
 executables:
-  toolbox-server:
+  ghc-specter-daemon:
     main: Main.hs
-    source-dirs: app/toolbox-server
+    source-dirs: app
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - OGDF
       - concur-core
       - concur-replica
       - containers
-      - discrimination
-      - errors
       - extra
-      - fficxx-runtime
-      - ghc
       - ghc-specter-plugin
-      - hiedb
+      - ghc-specter-daemon
       - lens
       - optparse-applicative
-      - replica
-      - resourcet
-      - stdcxx
       - stm
       - time
-      - transformers
-      - unliftio

@@ -78,24 +78,11 @@ extra-source-files:
 
 library:
   source-dirs: src
-  dependencies:
-    - binary
-    - binary-instances
-    - containers
-    - directory
-    - discrimination
-    - extra
-    - ghc == 9.2.*
-    - hiedb
-    - network
-    - stm
-    - time
-    - transformers
 
 executables:
   ghc-build-analyzer-exe:
     main: Main.hs
-    source-dirs: app/ghc-build-analyzer-exe
+    source-dirs: app
     ghc-options:
       - -threaded
       - -rtsopts
