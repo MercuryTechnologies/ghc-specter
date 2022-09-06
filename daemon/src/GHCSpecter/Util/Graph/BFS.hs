@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
 -- | Breadth-First-Search (BFS)
-module Toolbox.Util.Graph.BFS
+module GHCSpecter.Util.Graph.BFS
   ( -- * internal state for BFS
     BFSState (..),
     BFSPath (..),

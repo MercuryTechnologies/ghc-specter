@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Toolbox.Comm
+module GHCSpecter.Comm
   ( Message (..),
     runServer,
     runClient,

@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Toolbox.Render.ModuleGraph
+module GHCSpecter.Render.ModuleGraph
   ( -- * Make a visual module graph layout
     layOutGraph,
 
@@ -55,26 +55,13 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import OGDF.Graph
-  ( Graph,
-    graph_newEdge,
-    newGraph,
-  )
-import OGDF.GraphAttributes
-  ( GraphAttributes,
-    newGraphAttributes,
-  )
-import OGDF.NodeElement (nodeElement_index)
-import Replica.VDOM.Types (HTML)
-import STD.Deletable (delete)
-import Text.Printf (printf)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
     Timer,
   )
-import Toolbox.Server.Types
+import GHCSpecter.Server.Types
   ( DetailLevel (..),
     Dimension (..),
     EdgeLayout (..),
@@ -95,9 +82,9 @@ import Toolbox.Server.Types
     UIState (..),
     transposeGraphVis,
   )
-import Toolbox.Util.Graph.Builder (makeRevDep)
-import Toolbox.Util.Graph.Cluster (filterOutSmallNodes)
-import Toolbox.Util.OGDF
+import GHCSpecter.Util.Graph.Builder (makeRevDep)
+import GHCSpecter.Util.Graph.Cluster (filterOutSmallNodes)
+import GHCSpecter.Util.OGDF
   ( appendText,
     doSugiyamaLayout,
     edgeGraphics,
@@ -110,6 +97,19 @@ import Toolbox.Util.OGDF
     nodeStyle,
     runGraphLayouter,
   )
+import OGDF.Graph
+  ( Graph,
+    graph_newEdge,
+    newGraph,
+  )
+import OGDF.GraphAttributes
+  ( GraphAttributes,
+    newGraphAttributes,
+  )
+import OGDF.NodeElement (nodeElement_index)
+import Replica.VDOM.Types (HTML)
+import STD.Deletable (delete)
+import Text.Printf (printf)
 import Prelude hiding (div)
 
 xmlns :: Props a

@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Toolbox.Util.OGDF
+module GHCSpecter.Util.OGDF
   ( nodeGraphics,
     edgeGraphics,
     edgeIntWeight,
@@ -56,6 +56,12 @@ import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
 import Foreign.C.Types (CBool (..), CLong)
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable (Storable (peek, poke))
+import GHCSpecter.Server.Types
+  ( Dimension (..),
+    EdgeLayout (..),
+    NodeLayout (..),
+    Point (..),
+  )
 import OGDF.Color (color_fromString)
 import OGDF.DPoint
 import OGDF.DPoint.Implementation (dPoint_m_x_get, dPoint_m_y_get)
@@ -110,12 +116,6 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
-import Toolbox.Server.Types
-  ( Dimension (..),
-    EdgeLayout (..),
-    NodeLayout (..),
-    Point (..),
-  )
 import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Toolbox.Worker.ModuleGraph
+module GHCSpecter.Worker.ModuleGraph
   ( moduleGraphWorker,
   )
 where
@@ -17,13 +17,12 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
-import Text.Printf (printf)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
   )
-import Toolbox.Render.ModuleGraph (layOutGraph)
-import Toolbox.Server.Types
+import GHCSpecter.Render.ModuleGraph (layOutGraph)
+import GHCSpecter.Server.Types
   ( DetailLevel (..),
     GraphVisInfo,
     HasModuleGraphState (..),
@@ -31,17 +30,18 @@ import Toolbox.Server.Types
     ServerState (..),
     incrementSN,
   )
-import Toolbox.Util.Graph.BFS (runMultiseedStagedBFS)
-import Toolbox.Util.Graph.Builder
+import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)
+import GHCSpecter.Util.Graph.Builder
   ( makeBiDep,
     makeEdges,
     makeRevDep,
   )
-import Toolbox.Util.Graph.Cluster
+import GHCSpecter.Util.Graph.Cluster
   ( filterOutSmallNodes,
     makeDivisionsInOrder,
     reduceGraphByPath,
   )
+import Text.Printf (printf)
 
 maxSubGraphSize :: DetailLevel -> Int
 maxSubGraphSize UpTo30 = 30

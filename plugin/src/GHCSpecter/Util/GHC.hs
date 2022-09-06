@@ -1,4 +1,4 @@
-module Toolbox.Util.GHC
+module GHCSpecter.Util.GHC
   ( showPpr,
     printPpr,
   )
