@@ -1,11 +1,11 @@
 ---
 spec-version: 0.30.0
-name: ghc-build-analyzer
+name: ghc-specter-plugin
 version: 0.1.0.0
-github: MercuryTechnologies/ghc-build-analyzer
-synopsis: Extract build timing data from GHC output
+github: MercuryTechnologies/ghc-specter
+synopsis: GHC pipeline inspecter plugin
 description: Please see the README on GitHub at
-  <https://github.com/MercuryTechnologies/ghc-build-analyzer#readme>
+  <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category: Development
 author:
   - Rebecca Turner <rebeccat@mercury.com>
@@ -92,14 +92,15 @@ library:
     - time
     - transformers
 
-executables:
-  ghc-build-analyzer-exe:
-    main: Main.hs
-    source-dirs: app/ghc-build-analyzer-exe
+tests:
+  ghc-specter-plugin-test:
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - ghc-build-analyzer
-      - optparse-applicative
+      - containers
+      - ghc-specter-plugin
+      - hspec

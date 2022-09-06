@@ -1,11 +1,11 @@
 ---
 spec-version: 0.30.0
-name: ghc-build-analyzer
+name: ghc-specter-daemon
 version: 0.1.0.0
-github: MercuryTechnologies/ghc-build-analyzer
-synopsis: Extract build timing data from GHC output
+github: MercuryTechnologies/ghc-specter
+synopsis: Daemon process for ghc-specter
 description: Please see the README on GitHub at
-  <https://github.com/MercuryTechnologies/ghc-build-analyzer#readme>
+  <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category: Development
 author:
   - Rebecca Turner <rebeccat@mercury.com>
@@ -76,30 +76,32 @@ ghc-options:
 extra-source-files:
   - README.md
 
-library:
-  source-dirs: src
-  dependencies:
-    - binary
-    - binary-instances
-    - containers
-    - directory
-    - discrimination
-    - extra
-    - ghc == 9.2.*
-    - hiedb
-    - network
-    - stm
-    - time
-    - transformers
-
 executables:
-  ghc-build-analyzer-exe:
+  toolbox-server:
     main: Main.hs
-    source-dirs: app/ghc-build-analyzer-exe
+    source-dirs: app/toolbox-server
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - ghc-build-analyzer
+      - OGDF
+      - concur-core
+      - concur-replica
+      - containers
+      - discrimination
+      - errors
+      - extra
+      - fficxx-runtime
+      - ghc
+      - ghc-specter-plugin
+      - hiedb
+      - lens
       - optparse-applicative
+      - replica
+      - resourcet
+      - stdcxx
+      - stm
+      - time
+      - transformers
+      - unliftio
