@@ -2,46 +2,40 @@
 
 module Toolbox.Render
   ( ChanModule,
-    Inbox,
     render,
   )
 where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( MouseEvent,
-    Props,
+  ( Props,
     classList,
     div,
     el,
-    li,
     nav,
     onClick,
-    pre,
     section,
-    span,
     style,
     text,
     textProp,
-    ul,
   )
 import Control.Lens (to, (%~), (.~), (^.), _1, _2)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
-import Data.Map.Strict qualified as M
 import Data.Text (Text)
 import Data.Text qualified as T
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
-import Toolbox.Channel (Channel (..))
-import Toolbox.Render.ModuleGraph (renderModuleGraphTab)
-import Toolbox.Render.Session (renderSession)
-import Toolbox.Render.Timing (renderTiming)
+import Toolbox.Render.ModuleGraph qualified as ModuleGraph
+import Toolbox.Render.Session qualified as Session
+import Toolbox.Render.SourceView qualified as SourceView
+import Toolbox.Render.Timing qualified as Timing
 import Toolbox.Server.Types
   ( Event (..),
     HasModuleGraphUI (..),
     HasServerState (..),
+    HasSourceViewUI (..),
     HasUIState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
@@ -50,46 +44,11 @@ import Toolbox.Server.Types
     Tab (..),
     UIState (..),
     type ChanModule,
-    type Inbox,
   )
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
 divClass cls props = div (classList [(cls, True)] : props)
-
-iconText :: Text -> Text -> Widget HTML MouseEvent
-iconText ico txt =
-  let iconCls = classList [("fas", True), (ico, True)]
-      iconProps = [iconCls, onClick]
-   in span
-        [classList [("icon-text", True)]]
-        [ span [classList [("icon", True)]] [el "i" iconProps []]
-        , span [onClick] [text txt]
-        ]
-
-renderInbox :: UIState -> Inbox -> Widget HTML Event
-renderInbox ui m =
-  ul [] $ map eachRender filtered
-  where
-    tab = ui ^. uiTab
-    mexpandedModu = ui ^. uiModuleExpanded
-    chan = case tab of
-      TabSession -> Session
-      TabModuleGraph -> Session
-      TabCheckImports -> CheckImports
-      TabTiming -> Timing
-    filtered = M.toList $ M.filterWithKey (\(c, _) _ -> chan == c) m
-
-    eachRender :: (ChanModule, Text) -> Widget HTML Event
-    eachRender ((_, modu), v) =
-      let modinfo
-            | mexpandedModu == Just modu =
-                [ ExpandModuleEv Nothing <$ iconText "fa-minus" modu
-                , pre [] [text v]
-                ]
-            | otherwise =
-                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" modu]
-       in li [] modinfo
 
 renderMainPanel ::
   UIState ->
@@ -97,10 +56,10 @@ renderMainPanel ::
   Widget HTML Event
 renderMainPanel ui ss =
   case ui ^. uiTab of
-    TabSession -> renderSession ss
-    TabModuleGraph -> renderModuleGraphTab ui ss
-    TabCheckImports -> renderInbox ui (ss ^. serverInbox)
-    TabTiming -> renderTiming ss
+    TabSession -> Session.render ss
+    TabModuleGraph -> ModuleGraph.render ui ss
+    TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
+    TabTiming -> Timing.render ss
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
@@ -119,7 +78,7 @@ renderNavbar tab =
         [ navbarStart
             [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
             , TabEv TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , TabEv TabCheckImports <$ navItem (tab == TabCheckImports) [text "CheckImports"]
+            , TabEv TabSourceView <$ navItem (tab == TabSourceView) [text "Source View"]
             , TabEv TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
@@ -162,7 +121,7 @@ render (ui, ss) = do
 
       handleMainPanel :: UIState -> Event -> Widget HTML UIState
       handleMainPanel oldUI (ExpandModuleEv mexpandedModu') =
-        pure $ (uiModuleExpanded .~ mexpandedModu') oldUI
+        pure $ (uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI
       handleMainPanel oldUI (MainModuleEv ev) =
         pure $ (uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI
       handleMainPanel oldUI (SubModuleEv sev) =

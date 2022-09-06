@@ -7,7 +7,7 @@ module Toolbox.Render.ModuleGraph
     layOutGraph,
 
     -- * Render HTML for the Module Graph tab
-    renderModuleGraphTab,
+    render,
 
     -- * show textual info:
 
@@ -381,8 +381,9 @@ renderDetailLevel ui =
     detail100 = mkRadioItem UpTo100 "< 100" (currLevel == UpTo100)
     detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
-renderModuleGraphTab :: UIState -> ServerState -> Widget HTML Event
-renderModuleGraphTab ui ss =
+-- | top-level render function for Module Graph tab
+render :: UIState -> ServerState -> Widget HTML Event
+render ui ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming
