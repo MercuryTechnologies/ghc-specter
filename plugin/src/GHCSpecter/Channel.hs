@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
-module Toolbox.Channel
+module GHCSpecter.Channel
   ( -- * information types
     type ModuleName,
     SessionInfo (..),

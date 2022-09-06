@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Toolbox.Worker.Hie
+module GHCSpecter.Worker.Hie
   ( hieWorker,
   )
 where
@@ -18,15 +18,7 @@ import GHC.Iface.Ext.Binary
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
 import GHC.Iface.Ext.Utils (generateReferencesMap)
 import GHC.Types.Name.Cache (initNameCache)
-import HieDb.Compat
-  ( mkSplitUniqSupply,
-    moduleName,
-    moduleNameString,
-    occNameString,
-  )
-import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
-import HieDb.Utils (genDefRow, genRefsAndDecls)
-import Toolbox.Server.Types
+import GHCSpecter.Server.Types
   ( DeclRow' (..),
     DefRow' (..),
     HasHieState (..),
@@ -36,6 +28,14 @@ import Toolbox.Server.Types
     ServerState (..),
     emptyModuleHieInfo,
   )
+import HieDb.Compat
+  ( mkSplitUniqSupply,
+    moduleName,
+    moduleNameString,
+    occNameString,
+  )
+import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
+import HieDb.Utils (genDefRow, genRefsAndDecls)
 
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =

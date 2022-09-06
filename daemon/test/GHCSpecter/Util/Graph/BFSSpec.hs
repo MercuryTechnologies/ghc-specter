@@ -1,18 +1,18 @@
-module Toolbox.Util.Graph.BFSSpec (spec) where
+module GHCSpecter.Util.Graph.BFSSpec (spec) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.IntMap qualified as IM
+import GHCSpecter.Util.Graph.BFS
+  ( runMultiseedStagedBFS,
+    runStagedBFS,
+  )
+import GHCSpecter.Util.Graph.Builder (makeBiDep)
 import Test.Hspec
   ( Spec,
     describe,
     it,
     shouldBe,
   )
-import Toolbox.Util.Graph.BFS
-  ( runMultiseedStagedBFS,
-    runStagedBFS,
-  )
-import Toolbox.Util.Graph.Builder (makeBiDep)
 
 testGraph :: [(Int, [Int])]
 testGraph =
@@ -30,7 +30,7 @@ testGraph =
 
 spec :: Spec
 spec =
-  describe "Toolbox.Util.Graph.BFS greedy BFS clustering" $ do
+  describe "GHCSpecter.Util.Graph.BFS greedy BFS clustering" $ do
     let directedGraph = IM.fromList testGraph
         undirectedGraph = fmap (\(outs, ins) -> outs ++ ins) $ makeBiDep directedGraph
     it "should get correct BFS search result for directed graph" $ do

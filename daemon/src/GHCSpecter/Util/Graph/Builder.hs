@@ -1,4 +1,4 @@
-module Toolbox.Util.Graph.Builder
+module GHCSpecter.Util.Graph.Builder
   ( makeEdges,
     makeRevDep,
     makeBiDep,

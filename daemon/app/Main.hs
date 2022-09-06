@@ -28,28 +28,28 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import Options.Applicative qualified as OA
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
     HsSourceInfo (..),
     SessionInfo (..),
   )
-import Toolbox.Comm
+import GHCSpecter.Comm
   ( receiveObject,
     runServer,
   )
-import Toolbox.Render (render)
-import Toolbox.Server.Types
+import GHCSpecter.Render (render)
+import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
     emptyServerState,
     emptyUIState,
     incrementSN,
   )
-import Toolbox.Worker.Hie (hieWorker)
-import Toolbox.Worker.ModuleGraph (moduleGraphWorker)
+import GHCSpecter.Worker.Hie (hieWorker)
+import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
+import Options.Applicative qualified as OA
 import Prelude hiding (div)
 
 data CLIMode

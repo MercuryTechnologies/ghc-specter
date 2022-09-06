@@ -91,9 +91,7 @@ import GHC.Unit.Module.ModSummary
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
-import System.Directory (canonicalizePath, doesFileExist)
-import System.IO.Unsafe (unsafePerformIO)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
     HsSourceInfo (..),
@@ -104,7 +102,9 @@ import Toolbox.Channel
     emptyModuleGraphInfo,
     resetTimer,
   )
-import Toolbox.Comm (runClient, sendObject)
+import GHCSpecter.Comm (runClient, sendObject)
+import System.Directory (canonicalizePath, doesFileExist)
+import System.IO.Unsafe (unsafePerformIO)
 
 plugin :: Plugin
 plugin =

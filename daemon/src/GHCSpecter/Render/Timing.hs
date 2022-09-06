@@ -1,4 +1,4 @@
-module Toolbox.Render.Timing
+module GHCSpecter.Render.Timing
   ( render,
     renderTimingChart,
   )
@@ -28,16 +28,16 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import Replica.VDOM.Types (HTML)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( SessionInfo (..),
     Timer (..),
     type ModuleName,
   )
-import Toolbox.Server.Types
+import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
+import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
 xmlns :: Props a

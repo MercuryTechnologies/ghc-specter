@@ -2,7 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Toolbox.Server.Types
+module GHCSpecter.Server.Types
   ( type ChanModule,
     type Inbox,
     Tab (..),
@@ -69,7 +69,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( Channel,
     SessionInfo (..),
     Timer,

@@ -1,4 +1,4 @@
-module Toolbox.Render.SourceView
+module GHCSpecter.Render.SourceView
   ( render,
     splitLineColumn,
   )
@@ -27,15 +27,14 @@ import Data.List qualified as L
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Replica.VDOM.Types (HTML)
-import Toolbox.Channel
+import GHCSpecter.Channel
   ( Channel (..),
     ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
     Timer (..),
   )
-import Toolbox.Server.Types
+import GHCSpecter.Server.Types
   ( Event (..),
     HasDeclRow' (..),
     HasHieState (..),
@@ -47,6 +46,7 @@ import Toolbox.Server.Types
     ServerState (..),
     SourceViewUI (..),
   )
+import Replica.VDOM.Types (HTML)
 import Prelude hiding (div, span)
 
 iconText :: Text -> Text -> Text -> Widget HTML MouseEvent

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Toolbox.Util.Graph.Cluster
+module GHCSpecter.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     GraphState (..),
@@ -34,7 +34,7 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Monoid (First (..))
-import Toolbox.Util.Graph.Builder (makeBiDep)
+import GHCSpecter.Util.Graph.Builder (makeBiDep)
 
 -- | representative vertex, other vertices that belong to this cluster
 newtype ClusterVertex = Cluster {unCluster :: Int}

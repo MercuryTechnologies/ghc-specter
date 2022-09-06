@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Toolbox.Render
+module GHCSpecter.Render
   ( ChanModule,
     render,
   )
@@ -25,13 +25,11 @@ import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.Text (Text)
 import Data.Text qualified as T
-import Replica.VDOM.Types (HTML)
-import System.IO (IOMode (WriteMode), withFile)
-import Toolbox.Render.ModuleGraph qualified as ModuleGraph
-import Toolbox.Render.Session qualified as Session
-import Toolbox.Render.SourceView qualified as SourceView
-import Toolbox.Render.Timing qualified as Timing
-import Toolbox.Server.Types
+import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Render.Session qualified as Session
+import GHCSpecter.Render.SourceView qualified as SourceView
+import GHCSpecter.Render.Timing qualified as Timing
+import GHCSpecter.Server.Types
   ( Event (..),
     HasModuleGraphUI (..),
     HasServerState (..),
@@ -45,6 +43,8 @@ import Toolbox.Server.Types
     UIState (..),
     type ChanModule,
   )
+import Replica.VDOM.Types (HTML)
+import System.IO (IOMode (WriteMode), withFile)
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a

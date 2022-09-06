@@ -1,4 +1,4 @@
-module Toolbox.Render.Session
+module GHCSpecter.Render.Session
   ( render,
   )
 where
@@ -15,13 +15,13 @@ import Concur.Replica
 import Control.Lens ((^.))
 import Data.Map qualified as M
 import Data.Text qualified as T
-import Replica.VDOM.Types (HTML)
-import Toolbox.Channel (SessionInfo (..))
-import Toolbox.Server.Types
+import GHCSpecter.Channel (SessionInfo (..))
+import GHCSpecter.Server.Types
   ( Event (SaveSessionEv),
     HasServerState (..),
     ServerState (..),
   )
+import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
 -- | Top-level render function for the Session tab.

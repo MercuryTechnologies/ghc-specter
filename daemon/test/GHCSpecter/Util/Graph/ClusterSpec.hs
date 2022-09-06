@@ -1,16 +1,10 @@
-module Toolbox.Util.Graph.ClusterSpec (spec) where
+module GHCSpecter.Util.Graph.ClusterSpec (spec) where
 
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import Test.Hspec
-  ( Spec,
-    describe,
-    it,
-    shouldBe,
-  )
-import Toolbox.Channel (ModuleGraphInfo (..))
-import Toolbox.Util.Graph.Builder (makeBiDep)
-import Toolbox.Util.Graph.Cluster
+import GHCSpecter.Channel (ModuleGraphInfo (..))
+import GHCSpecter.Util.Graph.Builder (makeBiDep)
+import GHCSpecter.Util.Graph.Cluster
   ( ClusterState (..),
     ClusterVertex (..),
     degreeInvariant,
@@ -18,6 +12,12 @@ import Toolbox.Util.Graph.Cluster
     fullStep,
     makeSeedState,
     totalNumberInvariant,
+  )
+import Test.Hspec
+  ( Spec,
+    describe,
+    it,
+    shouldBe,
   )
 
 testGraph :: [(Int, [Int])]
@@ -56,7 +56,7 @@ testGraphInfo =
 
 spec :: Spec
 spec =
-  describe "Toolbox.Util.Graph greedy downward clustering" $ do
+  describe "GHCSpecter.Util.Graph greedy downward clustering" $ do
     let modDep = mginfoModuleDep testGraphInfo
         bgr = makeBiDep modDep
         allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
