@@ -32,7 +32,7 @@ import GHCSpecter.Channel
     ModuleGraphInfo (..),
     ModuleName,
     SessionInfo (..),
-    Timer (..),
+    getEndTime,
   )
 import GHCSpecter.Server.Types
   ( Event (..),
@@ -157,7 +157,7 @@ render srcUI ss =
 
     eachRender :: ModuleName -> Widget HTML Event
     eachRender modu =
-      let isCompiled = isJust (timing ^? at modu . _Just . to timerEnd . _Just)
+      let isCompiled = isJust (timing ^? at modu . _Just . to getEndTime . _Just)
           colorTxt
             | isCompiled = "has-text-success-dark"
             | otherwise = "has-text-grey"

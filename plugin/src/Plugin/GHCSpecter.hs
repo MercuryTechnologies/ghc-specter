@@ -99,8 +99,8 @@ import GHCSpecter.Channel
     ModuleName,
     SessionInfo (..),
     Timer (..),
+    TimerTag (..),
     emptyModuleGraphInfo,
-    resetTimer,
   )
 import GHCSpecter.Comm (runClient, sendObject)
 import System.Directory (canonicalizePath, doesFileExist)
@@ -192,8 +192,7 @@ driver opts env = do
           runClient ipcfile $ \sock ->
             sendObject sock $ CMBox (CMSession newStartedSession)
       _ -> pure ()
-  let timer0 = resetTimer {timerStart = Just startTime}
-      hooks = hsc_hooks env
+  let hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         (phase', fp') <- runPhase phase fp
         case phase' of
@@ -215,7 +214,11 @@ driver opts env = do
               Nothing -> pure ()
               Just modName -> liftIO $ do
                 endTime <- getCurrentTime
-                let timer = timer0 {timerEnd = Just endTime}
+                let timer =
+                      Timer
+                        [ (TimerStart, startTime)
+                        , (TimerEnd, endTime)
+                        ]
                 sendMsgToDaemon opts (CMTiming modName timer)
           _ -> pure ()
 

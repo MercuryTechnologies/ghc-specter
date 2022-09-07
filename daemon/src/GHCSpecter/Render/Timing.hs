@@ -30,7 +30,8 @@ import Data.Time.Clock
   )
 import GHCSpecter.Channel
   ( SessionInfo (..),
-    Timer (..),
+    getEndTime,
+    getStartTime,
     type ModuleName,
   )
 import GHCSpecter.Server.Types
@@ -108,9 +109,9 @@ render ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->
-      let subtractTime (modName, Timer mstart mend) = do
-            modStartTime <- mstart
-            modEndTime <- mend
+      let subtractTime (modName, timer) = do
+            modStartTime <- getStartTime timer
+            modEndTime <- getEndTime timer
             let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
             pure (modName, (modStartTimeDiff, modEndTimeDiff))
