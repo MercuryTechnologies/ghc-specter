@@ -6,13 +6,11 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
     div,
     height,
     pre,
     text,
-    textProp,
     width,
   )
 import Concur.Replica.SVG qualified as S
@@ -35,15 +33,13 @@ import GHCSpecter.Channel
     getStartTime,
     type ModuleName,
   )
+import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
-
-xmlns :: Props a
-xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 
 maxWidth :: (Num a) => a
 maxWidth = 10240
@@ -62,8 +58,6 @@ renderTimingChart timingInfos =
       topOfBox i = 5 * i + 1
       leftOfBox (_, (startTime, _, _)) =
         floor (startTime / totalTime * maxWidth) :: Int
-      middleOfBox (_, (_, hscOutTime, _)) =
-        floor (hscOutTime / totalTime * maxWidth) :: Int
       rightOfBox (_, (_, _, endTime)) =
         floor (endTime / totalTime * maxWidth) :: Int
       widthOfBox (_, (startTime, _, endTime)) =
@@ -76,7 +70,7 @@ renderTimingChart timingInfos =
           , SP.y (T.pack $ show (topOfBox i))
           , width (T.pack $ show (widthOfBox item))
           , height "3"
-          , SP.fill "red"
+          , SP.fill "lightskyblue"
           ]
           []
       box1 (i, item) =
@@ -85,7 +79,7 @@ renderTimingChart timingInfos =
           , SP.y (T.pack $ show (topOfBox i))
           , width (T.pack $ show (width1OfBox item))
           , height "3"
-          , SP.fill "blue"
+          , SP.fill "royalblue"
           ]
           []
       sec2X sec =

@@ -61,6 +61,7 @@ import GHCSpecter.Channel
     SessionInfo (..),
     Timer,
   )
+import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( DetailLevel (..),
     Dimension (..),
@@ -111,9 +112,6 @@ import Replica.VDOM.Types (HTML)
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Prelude hiding (div)
-
-xmlns :: Props a
-xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
