@@ -26,7 +26,7 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Char (isAlpha)
 import Data.Foldable (for_)
-import Data.IORef (readIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
@@ -36,7 +36,7 @@ import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Data.Time.Clock (getCurrentTime)
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Tuple (swap)
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Env (HscEnv (..))
@@ -48,7 +48,8 @@ import GHC.Driver.Make
   )
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
-  ( PhasePlus (RealPhase),
+  ( CompPipeline,
+    PhasePlus (RealPhase),
     PipeState (iface),
     getPipeState,
     maybe_loc,
@@ -169,11 +170,17 @@ extractModuleGraphInfo modGraph = do
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
 
-driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
-driver opts env = do
+getModuleNameFromPipeState :: PipeState -> Maybe ModuleName
+getModuleNameFromPipeState pstate =
+  let mmi = iface pstate
+      mmod = fmap mi_module mmi
+   in fmap (T.pack . moduleNameString . moduleName) mmod
+
+-- | Called only once for sending session information
+sendSessionStart :: [CommandLineOption] -> HscEnv -> IO ()
+sendSessionStart opts env = do
   startTime <- getCurrentTime
-  let dflags = hsc_dflags env
-      modGraph = hsc_mod_graph env
+  let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
       startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
   -- NOTE: return Nothing if session info is already initiated
@@ -187,37 +194,70 @@ driver opts env = do
         Just _ -> pure Nothing
   for_ mNewStartedSession $ \(!newStartedSession) ->
     sendMsgToDaemon opts (CMSession newStartedSession)
-  let hooks = hsc_hooks env
+
+sendModuleStart ::
+  [CommandLineOption] ->
+  IORef (Maybe ModuleName) ->
+  UTCTime ->
+  CompPipeline (Maybe ModuleName)
+sendModuleStart opts modNameRef startTime = do
+  pstate <- getPipeState
+  mmodName_ <- liftIO $ readIORef modNameRef
+  let mmodName = getModuleNameFromPipeState pstate
+  liftIO $ writeIORef modNameRef mmodName
+  case (mmodName_, mmodName) of
+    (Nothing, Just modName) -> do
+      let timer = Timer [(TimerStart, startTime)]
+      liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+    _ -> pure ()
+  pure mmodName
+
+sendCompStateOnPhase ::
+  [CommandLineOption] ->
+  DynFlags ->
+  ModuleName ->
+  PhasePlus ->
+  UTCTime ->
+  CompPipeline ()
+sendCompStateOnPhase opts dflags modName phase startTime = do
+  pstate <- getPipeState
+  case phase of
+    RealPhase StopLn -> do
+      -- send timing information
+      endTime <- liftIO getCurrentTime
+      let timer =
+            Timer
+              [ (TimerStart, startTime)
+              , (TimerEnd, endTime)
+              ]
+      liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+      -- send HIE file information to the daemon after compilation
+      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
+        (Just modLoc, True) -> do
+          let hiefile = ml_hie_file modLoc
+          liftIO $ do
+            hiefile' <- canonicalizePath hiefile
+            sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
+        _ -> pure ()
+    _ -> pure ()
+
+driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
+driver opts env = do
+  sendSessionStart opts env
+  startTime <- getCurrentTime
+  -- Module name is unknown when this driver plugin is called.
+  -- Therefore, we save the module name when it is available
+  -- in the actual compilation runPhase.
+  modNameRef <- newIORef Nothing
+  let dflags = hsc_dflags env
+      hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         (phase', fp') <- runPhase phase fp
-        printPpr dflags phase'
-        case phase' of
-          RealPhase StopLn -> do
-            pstate <- getPipeState
-            let mmi = iface pstate
-                mmod = fmap mi_module mmi
-                mmodName = fmap (T.pack . moduleNameString . moduleName) mmod
-            -- send HIE file information to the daemon after compilation
-            case (maybe_loc pstate, gopt Opt_WriteHie dflags, mmodName) of
-              (Just modLoc, True, Just modName) -> do
-                let hiefile = ml_hie_file modLoc
-                liftIO $ do
-                  hiefile' <- canonicalizePath hiefile
-                  sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
-              _ -> pure ()
-
-            case mmodName of
-              Nothing -> pure ()
-              Just modName -> liftIO $ do
-                endTime <- getCurrentTime
-                let timer =
-                      Timer
-                        [ (TimerStart, startTime)
-                        , (TimerEnd, endTime)
-                        ]
-                sendMsgToDaemon opts (CMTiming modName timer)
-          _ -> pure ()
-
+        mmodName <- sendModuleStart opts modNameRef startTime
+        case mmodName of
+          Nothing -> pure ()
+          Just modName ->
+            sendCompStateOnPhase opts dflags modName phase' startTime
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
