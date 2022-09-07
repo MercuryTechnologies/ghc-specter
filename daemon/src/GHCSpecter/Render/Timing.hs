@@ -1,3 +1,6 @@
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module GHCSpecter.Render.Timing
   ( render,
     renderTimingChart,
@@ -15,7 +18,7 @@ import Concur.Replica
   )
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (to, (^.), _1, _2, _3)
+import Control.Lens (makeClassy, to, (^.), _2)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
@@ -41,13 +44,21 @@ import GHCSpecter.Server.Types
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
+data TimingInfo a = TimingInfo
+  { _timingStart :: a
+  , _timingHscOut :: a
+  , _timingEnd :: a
+  }
+
+makeClassy ''TimingInfo
+
 maxWidth :: (Num a) => a
 maxWidth = 10240
 
-renderTimingChart :: [(ModuleName, (NominalDiffTime, NominalDiffTime, NominalDiffTime))] -> Widget HTML a
+renderTimingChart :: [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
 renderTimingChart timingInfos =
   let nMods = length timingInfos
-      modEndTimes = fmap (^. _2 . _3) timingInfos
+      modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
@@ -56,14 +67,20 @@ renderTimingChart timingInfos =
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
-      leftOfBox (_, (startTime, _, _)) =
-        floor (startTime / totalTime * maxWidth) :: Int
-      rightOfBox (_, (_, _, endTime)) =
-        floor (endTime / totalTime * maxWidth) :: Int
-      widthOfBox (_, (startTime, _, endTime)) =
-        floor ((endTime - startTime) / totalTime * maxWidth) :: Int
-      width1OfBox (_, (startTime, hscOutTime, _)) =
-        floor ((hscOutTime - startTime) / totalTime * maxWidth) :: Int
+      leftOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+         in floor (startTime / totalTime * maxWidth) :: Int
+      rightOfBox (_, tinfo) =
+        let endTime = tinfo ^. timingEnd
+         in floor (endTime / totalTime * maxWidth) :: Int
+      widthOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            endTime = tinfo ^. timingEnd
+         in floor ((endTime - startTime) / totalTime * maxWidth) :: Int
+      width1OfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            hscOutTime = tinfo ^. timingHscOut
+         in floor ((hscOutTime - startTime) / totalTime * maxWidth) :: Int
       box (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
@@ -124,7 +141,8 @@ render ss =
             let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
                 modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-            pure (modName, (modStartTimeDiff, modHscOutTimeDiff, modEndTimeDiff))
+                tinfo = TimingInfo modStartTimeDiff modHscOutTimeDiff modEndTimeDiff
+            pure (modName, tinfo)
           timingInfos =
-            L.sortOn (^. _2 . _1) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
+            L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
        in renderTimingChart timingInfos
