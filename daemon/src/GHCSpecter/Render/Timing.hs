@@ -1,3 +1,6 @@
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module GHCSpecter.Render.Timing
   ( render,
     renderTimingChart,
@@ -6,18 +9,16 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
     div,
     height,
     pre,
     text,
-    textProp,
     width,
   )
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (to, (^.))
+import Control.Lens (makeClassy, to, (^.), _2)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
@@ -30,9 +31,13 @@ import Data.Time.Clock
   )
 import GHCSpecter.Channel
   ( SessionInfo (..),
-    Timer (..),
+    getAsTime,
+    getEndTime,
+    getHscOutTime,
+    getStartTime,
     type ModuleName,
   )
+import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -40,16 +45,23 @@ import GHCSpecter.Server.Types
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
-xmlns :: Props a
-xmlns = textProp "xmlns" "http://www.w3.org/2000/svg"
+data TimingInfo a = TimingInfo
+  { _timingStart :: a
+  , _timingHscOut :: a
+  , _timingAs :: a
+  , _timingEnd :: a
+  }
+  deriving (Show)
+
+makeClassy ''TimingInfo
 
 maxWidth :: (Num a) => a
 maxWidth = 10240
 
-renderTimingChart :: [(ModuleName, (NominalDiffTime, NominalDiffTime))] -> Widget HTML a
+renderTimingChart :: [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
 renderTimingChart timingInfos =
   let nMods = length timingInfos
-      modEndTimes = fmap (snd . snd) timingInfos
+      modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
@@ -58,19 +70,49 @@ renderTimingChart timingInfos =
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
-      leftOfBox (_, (startTime, _)) =
-        floor (startTime / totalTime * maxWidth) :: Int
-      rightOfBox (_, (_, endTime)) =
-        floor (endTime / totalTime * maxWidth) :: Int
-      widthOfBox (_, (startTime, endTime)) =
-        floor ((endTime - startTime) / totalTime * maxWidth) :: Int
+      leftOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+         in floor (startTime / totalTime * maxWidth) :: Int
+      rightOfBox (_, tinfo) =
+        let endTime = tinfo ^. timingEnd
+         in floor (endTime / totalTime * maxWidth) :: Int
+      widthOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            endTime = tinfo ^. timingEnd
+         in floor ((endTime - startTime) / totalTime * maxWidth) :: Int
+      widthHscOutOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            hscOutTime = tinfo ^. timingHscOut
+         in floor ((hscOutTime - startTime) / totalTime * maxWidth) :: Int
+      widthAsOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            asTime = tinfo ^. timingAs
+         in floor ((asTime - startTime) / totalTime * maxWidth) :: Int
       box (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
           , SP.y (T.pack $ show (topOfBox i))
           , width (T.pack $ show (widthOfBox item))
           , height "3"
-          , SP.fill "red"
+          , SP.fill "lightslategray"
+          ]
+          []
+      boxHscOut (i, item) =
+        S.rect
+          [ SP.x (T.pack $ show (leftOfBox item))
+          , SP.y (T.pack $ show (topOfBox i))
+          , width (T.pack $ show (widthHscOutOfBox item))
+          , height "3"
+          , SP.fill "royalblue"
+          ]
+          []
+      boxAs (i, item) =
+        S.rect
+          [ SP.x (T.pack $ show (leftOfBox item))
+          , SP.y (T.pack $ show (topOfBox i))
+          , width (T.pack $ show (widthAsOfBox item))
+          , height "3"
+          , SP.fill "deepskyblue"
           ]
           []
       sec2X sec =
@@ -92,12 +134,18 @@ renderTimingChart timingInfos =
           , classList [("small", True)]
           ]
           [text modu]
+      makeItems x =
+        [ box x
+        , boxAs x
+        , boxHscOut x
+        , moduleText x
+        ]
       svgElement =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
             ( fmap line [0, 1 .. totalTimeInSec]
-                ++ (concatMap (\x -> [box x, moduleText x]) $ zip [0 ..] timingInfos)
+                ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
    in div [] [svgElement]
@@ -108,12 +156,23 @@ render ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->
-      let subtractTime (modName, Timer mstart mend) = do
-            modStartTime <- mstart
-            modEndTime <- mend
+      let subtractTime (modName, timer) = do
+            modStartTime <- getStartTime timer
+            modHscOutTime <- getHscOutTime timer
+            modAsTime <- getAsTime timer
+            modEndTime <- getEndTime timer
             let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
+                modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
+                modAsTimeDiff = modAsTime `diffUTCTime` sessionStartTime
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-            pure (modName, (modStartTimeDiff, modEndTimeDiff))
+                tinfo =
+                  TimingInfo
+                    { _timingStart = modStartTimeDiff
+                    , _timingHscOut = modHscOutTimeDiff
+                    , _timingAs = modAsTimeDiff
+                    , _timingEnd = modEndTimeDiff
+                    }
+            pure (modName, tinfo)
           timingInfos =
-            L.sortOn (fst . snd) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
+            L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
        in renderTimingChart timingInfos

@@ -34,6 +34,7 @@ import GHCSpecter.Channel
     Channel (..),
     HsSourceInfo (..),
     SessionInfo (..),
+    Timer (..),
   )
 import GHCSpecter.Comm
   ( receiveObject,
@@ -118,7 +119,10 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMTiming modu timer') ->
-        (serverTiming %~ M.insert modu timer')
+        let f Nothing = Just timer'
+            f (Just timer0) =
+              Just $ Timer (unTimer timer0 ++ unTimer timer')
+         in (serverTiming %~ M.alter f modu)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->

@@ -5,8 +5,12 @@ module GHCSpecter.Channel
   ( -- * information types
     type ModuleName,
     SessionInfo (..),
+    TimerTag (..),
     Timer (..),
-    resetTimer,
+    getStartTime,
+    getHscOutTime,
+    getAsTime,
+    getEndTime,
     HsSourceInfo (..),
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
@@ -22,6 +26,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
 import Data.IntMap (IntMap)
+import Data.List qualified as L
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
@@ -67,22 +72,39 @@ instance FromJSON SessionInfo
 
 instance ToJSON SessionInfo
 
-data Timer = Timer
-  { timerStart :: Maybe UTCTime
-  , timerEnd :: Maybe UTCTime
-  }
-  deriving (Show, Generic)
+data TimerTag
+  = -- | start
+    TimerStart
+  | -- | Haskell compiler finished
+    TimerHscOut
+  | -- | Assembler phase
+    TimerAs
+  | -- | StopLn phase
+    TimerEnd
+  deriving (Enum, Eq, Ord, Generic, Show)
 
-instance Binary Timer where
-  put (Timer s t) = put (s, t)
-  get = uncurry Timer <$> get
+instance FromJSON TimerTag
 
-instance FromJSON Timer
+instance ToJSON TimerTag
 
-instance ToJSON Timer
+instance Binary TimerTag where
+  put tag = put (fromEnum tag)
+  get = toEnum <$> get
 
-resetTimer :: Timer
-resetTimer = Timer Nothing Nothing
+newtype Timer = Timer {unTimer :: [(TimerTag, UTCTime)]}
+  deriving (Show, Generic, Binary, FromJSON, ToJSON)
+
+getStartTime :: Timer -> Maybe UTCTime
+getStartTime (Timer ts) = L.lookup TimerStart ts
+
+getHscOutTime :: Timer -> Maybe UTCTime
+getHscOutTime (Timer ts) = L.lookup TimerHscOut ts
+
+getAsTime :: Timer -> Maybe UTCTime
+getAsTime (Timer ts) = L.lookup TimerAs ts
+
+getEndTime :: Timer -> Maybe UTCTime
+getEndTime (Timer ts) = L.lookup TimerEnd ts
 
 newtype HsSourceInfo = HsSourceInfo
   { hsHieFile :: FilePath
