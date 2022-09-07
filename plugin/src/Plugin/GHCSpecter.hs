@@ -217,19 +217,14 @@ sendCompStateOnPhase ::
   DynFlags ->
   ModuleName ->
   PhasePlus ->
-  UTCTime ->
   CompPipeline ()
-sendCompStateOnPhase opts dflags modName phase startTime = do
+sendCompStateOnPhase opts dflags modName phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> do
       -- send timing information
       endTime <- liftIO getCurrentTime
-      let timer =
-            Timer
-              [ (TimerStart, startTime)
-              , (TimerEnd, endTime)
-              ]
+      let timer = Timer [(TimerEnd, endTime)]
       liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
       -- send HIE file information to the daemon after compilation
       case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
@@ -254,10 +249,8 @@ driver opts env = do
       runPhaseHook' phase fp = do
         (phase', fp') <- runPhase phase fp
         mmodName <- sendModuleStart opts modNameRef startTime
-        case mmodName of
-          Nothing -> pure ()
-          Just modName ->
-            sendCompStateOnPhase opts dflags modName phase' startTime
+        for_ mmodName $ \modName ->
+          sendCompStateOnPhase opts dflags modName phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
