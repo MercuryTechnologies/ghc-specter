@@ -103,6 +103,7 @@ import GHCSpecter.Channel
     emptyModuleGraphInfo,
   )
 import GHCSpecter.Comm (runClient, sendObject)
+import GHCSpecter.Util.GHC (printPpr)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -185,16 +186,11 @@ driver opts env = do
           pure (Just startedSession)
         Just _ -> pure Nothing
   for_ mNewStartedSession $ \(!newStartedSession) ->
-    case opts of
-      ipcfile : _ -> liftIO $ do
-        socketExists <- doesFileExist ipcfile
-        when socketExists $
-          runClient ipcfile $ \sock ->
-            sendObject sock $ CMBox (CMSession newStartedSession)
-      _ -> pure ()
+    sendMsgToDaemon opts (CMSession newStartedSession)
   let hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         (phase', fp') <- runPhase phase fp
+        printPpr dflags phase'
         case phase' of
           RealPhase StopLn -> do
             pstate <- getPipeState
