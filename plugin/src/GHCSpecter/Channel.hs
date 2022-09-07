@@ -9,6 +9,7 @@ module GHCSpecter.Channel
     Timer (..),
     getStartTime,
     getHscOutTime,
+    getAsTime,
     getEndTime,
     HsSourceInfo (..),
     ModuleGraphInfo (..),
@@ -71,7 +72,15 @@ instance FromJSON SessionInfo
 
 instance ToJSON SessionInfo
 
-data TimerTag = TimerStart | TimerHscOut | TimerEnd
+data TimerTag
+  = -- | start
+    TimerStart
+  | -- | Haskell compiler finished
+    TimerHscOut
+  | -- | Assembler phase
+    TimerAs
+  | -- | StopLn phase
+    TimerEnd
   deriving (Enum, Eq, Ord, Generic, Show)
 
 instance FromJSON TimerTag
@@ -90,6 +99,9 @@ getStartTime (Timer ts) = L.lookup TimerStart ts
 
 getHscOutTime :: Timer -> Maybe UTCTime
 getHscOutTime (Timer ts) = L.lookup TimerHscOut ts
+
+getAsTime :: Timer -> Maybe UTCTime
+getAsTime (Timer ts) = L.lookup TimerAs ts
 
 getEndTime :: Timer -> Maybe UTCTime
 getEndTime (Timer ts) = L.lookup TimerEnd ts

@@ -46,7 +46,7 @@ import GHC.Driver.Make
   ( moduleGraphNodes,
     topSortModuleGraph,
   )
-import GHC.Driver.Phases (Phase (StopLn))
+import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
     PhasePlus (HscOut, RealPhase),
@@ -104,7 +104,6 @@ import GHCSpecter.Channel
     emptyModuleGraphInfo,
   )
 import GHCSpecter.Comm (runClient, sendObject)
-import GHCSpecter.Util.GHC (printPpr)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -237,9 +236,16 @@ sendCompStateOnPhase opts dflags mmodName phase = do
                 hiefile' <- canonicalizePath hiefile
                 sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
             _ -> pure ()
+    RealPhase (As _) -> do
+      case mmodName of
+        Nothing -> pure ()
+        Just modName -> do
+          -- send timing information
+          endTime <- liftIO getCurrentTime
+          let timer = Timer [(TimerAs, endTime)]
+          liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
     HscOut _ modName0 _ -> do
       let modName = T.pack . moduleNameString $ modName0
-      liftIO $ putStrLn "HscOut hit here"
       -- send timing information
       hscOutTime <- liftIO getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
@@ -258,15 +264,15 @@ driver opts env = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName <- sendModuleStart opts modNameRef startTime
-        sendCompStateOnPhase opts dflags mmodName phase
+        mmodName0 <- sendModuleStart opts modNameRef startTime
+        sendCompStateOnPhase opts dflags mmodName0 phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         -- NOTE: we need to run sendModuleStart twice as the first one is not guaranteed
         -- to have module name information.
-        mmodName <- sendModuleStart opts modNameRef startTime
-        sendCompStateOnPhase opts dflags mmodName phase'
+        mmodName1 <- sendModuleStart opts modNameRef startTime
+        sendCompStateOnPhase opts dflags mmodName1 phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}

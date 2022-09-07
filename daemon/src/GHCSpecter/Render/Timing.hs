@@ -31,6 +31,7 @@ import Data.Time.Clock
   )
 import GHCSpecter.Channel
   ( SessionInfo (..),
+    getAsTime,
     getEndTime,
     getHscOutTime,
     getStartTime,
@@ -47,8 +48,10 @@ import Prelude hiding (div)
 data TimingInfo a = TimingInfo
   { _timingStart :: a
   , _timingHscOut :: a
+  , _timingAs :: a
   , _timingEnd :: a
   }
+  deriving (Show)
 
 makeClassy ''TimingInfo
 
@@ -77,26 +80,39 @@ renderTimingChart timingInfos =
         let startTime = tinfo ^. timingStart
             endTime = tinfo ^. timingEnd
          in floor ((endTime - startTime) / totalTime * maxWidth) :: Int
-      width1OfBox (_, tinfo) =
+      widthHscOutOfBox (_, tinfo) =
         let startTime = tinfo ^. timingStart
             hscOutTime = tinfo ^. timingHscOut
          in floor ((hscOutTime - startTime) / totalTime * maxWidth) :: Int
+      widthAsOfBox (_, tinfo) =
+        let startTime = tinfo ^. timingStart
+            asTime = tinfo ^. timingAs
+         in floor ((asTime - startTime) / totalTime * maxWidth) :: Int
       box (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
           , SP.y (T.pack $ show (topOfBox i))
           , width (T.pack $ show (widthOfBox item))
           , height "3"
-          , SP.fill "lightskyblue"
+          , SP.fill "lightslategray"
           ]
           []
-      box1 (i, item) =
+      boxHscOut (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
           , SP.y (T.pack $ show (topOfBox i))
-          , width (T.pack $ show (width1OfBox item))
+          , width (T.pack $ show (widthHscOutOfBox item))
           , height "3"
           , SP.fill "royalblue"
+          ]
+          []
+      boxAs (i, item) =
+        S.rect
+          [ SP.x (T.pack $ show (leftOfBox item))
+          , SP.y (T.pack $ show (topOfBox i))
+          , width (T.pack $ show (widthAsOfBox item))
+          , height "3"
+          , SP.fill "deepskyblue"
           ]
           []
       sec2X sec =
@@ -118,12 +134,18 @@ renderTimingChart timingInfos =
           , classList [("small", True)]
           ]
           [text modu]
+      makeItems x =
+        [ box x
+        , boxAs x
+        , boxHscOut x
+        , moduleText x
+        ]
       svgElement =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
             ( fmap line [0, 1 .. totalTimeInSec]
-                ++ (concatMap (\x -> [box x, box1 x, moduleText x]) $ zip [0 ..] timingInfos)
+                ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
    in div [] [svgElement]
@@ -137,11 +159,19 @@ render ss =
       let subtractTime (modName, timer) = do
             modStartTime <- getStartTime timer
             modHscOutTime <- getHscOutTime timer
+            modAsTime <- getAsTime timer
             modEndTime <- getEndTime timer
             let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
                 modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
+                modAsTimeDiff = modAsTime `diffUTCTime` sessionStartTime
                 modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-                tinfo = TimingInfo modStartTimeDiff modHscOutTimeDiff modEndTimeDiff
+                tinfo =
+                  TimingInfo
+                    { _timingStart = modStartTimeDiff
+                    , _timingHscOut = modHscOutTimeDiff
+                    , _timingAs = modAsTimeDiff
+                    , _timingEnd = modEndTimeDiff
+                    }
             pure (modName, tinfo)
           timingInfos =
             L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
