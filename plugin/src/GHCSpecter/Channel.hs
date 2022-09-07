@@ -8,6 +8,7 @@ module GHCSpecter.Channel
     TimerTag (..),
     Timer (..),
     getStartTime,
+    getHscOutTime,
     getEndTime,
     HsSourceInfo (..),
     ModuleGraphInfo (..),
@@ -70,7 +71,7 @@ instance FromJSON SessionInfo
 
 instance ToJSON SessionInfo
 
-data TimerTag = TimerStart | TimerEnd
+data TimerTag = TimerStart | TimerHscOut | TimerEnd
   deriving (Enum, Eq, Ord, Generic, Show)
 
 instance FromJSON TimerTag
@@ -78,17 +79,17 @@ instance FromJSON TimerTag
 instance ToJSON TimerTag
 
 instance Binary TimerTag where
-  put TimerStart = put (0 :: Int)
-  put TimerEnd = put (1 :: Int)
-  get = do
-    tag <- get
-    pure (toEnum tag)
+  put tag = put (fromEnum tag)
+  get = toEnum <$> get
 
 newtype Timer = Timer {unTimer :: [(TimerTag, UTCTime)]}
   deriving (Show, Generic, Binary, FromJSON, ToJSON)
 
 getStartTime :: Timer -> Maybe UTCTime
 getStartTime (Timer ts) = L.lookup TimerStart ts
+
+getHscOutTime :: Timer -> Maybe UTCTime
+getHscOutTime (Timer ts) = L.lookup TimerHscOut ts
 
 getEndTime :: Timer -> Maybe UTCTime
 getEndTime (Timer ts) = L.lookup TimerEnd ts

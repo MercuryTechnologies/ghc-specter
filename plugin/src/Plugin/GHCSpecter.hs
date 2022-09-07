@@ -49,7 +49,7 @@ import GHC.Driver.Make
 import GHC.Driver.Phases (Phase (StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
-    PhasePlus (RealPhase),
+    PhasePlus (HscOut, RealPhase),
     PipeState (iface),
     getPipeState,
     maybe_loc,
@@ -215,25 +215,35 @@ sendModuleStart opts modNameRef startTime = do
 sendCompStateOnPhase ::
   [CommandLineOption] ->
   DynFlags ->
-  ModuleName ->
+  Maybe ModuleName ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase opts dflags modName phase = do
+sendCompStateOnPhase opts dflags mmodName phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> do
+      case mmodName of
+        Nothing -> pure ()
+        Just modName -> do
+          -- send timing information
+          endTime <- liftIO getCurrentTime
+          let timer = Timer [(TimerEnd, endTime)]
+          liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+          -- send HIE file information to the daemon after compilation
+          case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
+            (Just modLoc, True) -> do
+              let hiefile = ml_hie_file modLoc
+              liftIO $ do
+                hiefile' <- canonicalizePath hiefile
+                sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
+            _ -> pure ()
+    HscOut _ modName0 _ -> do
+      let modName = T.pack . moduleNameString $ modName0
+      liftIO $ putStrLn "HscOut hit here"
       -- send timing information
-      endTime <- liftIO getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
+      hscOutTime <- liftIO getCurrentTime
+      let timer = Timer [(TimerHscOut, hscOutTime)]
       liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
-      -- send HIE file information to the daemon after compilation
-      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
-        (Just modLoc, True) -> do
-          let hiefile = ml_hie_file modLoc
-          liftIO $ do
-            hiefile' <- canonicalizePath hiefile
-            sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
-        _ -> pure ()
     _ -> pure ()
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
@@ -247,10 +257,16 @@ driver opts env = do
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
-        (phase', fp') <- runPhase phase fp
+        -- pre phase timing
         mmodName <- sendModuleStart opts modNameRef startTime
-        for_ mmodName $ \modName ->
-          sendCompStateOnPhase opts dflags modName phase'
+        sendCompStateOnPhase opts dflags mmodName phase
+        -- actual runPhase
+        (phase', fp') <- runPhase phase fp
+        -- post phase timing
+        -- NOTE: we need to run sendModuleStart twice as the first one is not guaranteed
+        -- to have module name information.
+        mmodName <- sendModuleStart opts modNameRef startTime
+        sendCompStateOnPhase opts dflags mmodName phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
