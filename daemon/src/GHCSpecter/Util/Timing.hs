@@ -6,6 +6,9 @@ module GHCSpecter.Util.Timing
     TimingInfo (..),
     HasTimingInfo (..),
 
+    -- * timing info utilities
+    isInProgress,
+
     -- * construct timing info table
     makeTimingTable,
   )
@@ -41,6 +44,10 @@ data TimingInfo a = TimingInfo
   deriving (Show)
 
 makeClassy ''TimingInfo
+
+isInProgress :: (Ord a) => a -> TimingInfo a -> Bool
+isInProgress x tinfo =
+  x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
 
 makeTimingTable :: ServerState -> [(ModuleName, TimingInfo NominalDiffTime)]
 makeTimingTable ss =

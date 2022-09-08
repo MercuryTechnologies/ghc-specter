@@ -22,7 +22,8 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens ((^.), _2)
+import Control.Lens (to, (^.), _2)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
   ( NominalDiffTime,
@@ -43,6 +44,7 @@ import GHCSpecter.Server.Types
 import GHCSpecter.Util.Timing
   ( HasTimingInfo (..),
     TimingInfo,
+    isInProgress,
     makeTimingTable,
   )
 import Replica.VDOM.Types (HTML)
@@ -50,6 +52,62 @@ import Prelude hiding (div)
 
 maxWidth :: (Num a) => a
 maxWidth = 10240
+
+colorCodes :: [Text]
+colorCodes =
+  [ "#EC7063"
+  , "#F1948A"
+  , "#F5B7B1"
+  , "#FADBD8"
+  , "#FDEDEC"
+  , "#FFFFFF"
+  ]
+
+renderRules ::
+  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  Int ->
+  NominalDiffTime ->
+  [Widget HTML a]
+renderRules table totalHeight totalTime =
+  fmap box rangesWithCPUUsage ++ fmap line ruleTimes
+  where
+    totalTimeInSec = nominalDiffTimeToSeconds totalTime
+    ruleTimes = [0, 1 .. totalTimeInSec]
+    ranges = zip ruleTimes (tail ruleTimes)
+    getParallelCompilation (sec1, sec2) =
+      let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
+          filtered = filter (\x -> x ^. _2 . to (isInProgress avg)) table
+       in length filtered
+    rangesWithCPUUsage =
+      fmap (\range -> (range, getParallelCompilation range)) ranges
+    nCPU2Color n
+      | n <= 2 = colorCodes !! 0
+      | n > 2 && n <= 4 = colorCodes !! 1
+      | n > 4 && n <= 6 = colorCodes !! 2
+      | n > 6 && n <= 8 = colorCodes !! 3
+      | n > 8 && n <= 10 = colorCodes !! 4
+      | otherwise = colorCodes !! 5
+    line sec =
+      S.line
+        [ SP.x1 (T.pack $ show $ sec2X sec)
+        , SP.x2 (T.pack $ show $ sec2X sec)
+        , SP.y1 "0"
+        , SP.y2 (T.pack $ show totalHeight)
+        , SP.stroke "gray"
+        , SP.strokeWidth "0.25"
+        ]
+        []
+    sec2X sec =
+      floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
+    box ((sec1, _), n) =
+      S.rect
+        [ SP.x (T.pack $ show $ sec2X sec1)
+        , SP.y "0"
+        , SP.width (T.pack $ show $ sec2X (1.01))
+        , SP.height (T.pack $ show totalHeight)
+        , SP.fill (nCPU2Color n)
+        ]
+        []
 
 renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
 renderTimingChart tui timingInfos =
@@ -59,7 +117,6 @@ renderTimingChart tui timingInfos =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
           _ -> maximum modEndTimes
-      totalTimeInSec = nominalDiffTimeToSeconds totalTime
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
@@ -108,18 +165,6 @@ renderTimingChart tui timingInfos =
           , SP.fill "deepskyblue"
           ]
           []
-      sec2X sec =
-        floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
-      line sec =
-        S.line
-          [ SP.x1 (T.pack $ show $ sec2X sec)
-          , SP.x2 (T.pack $ show $ sec2X sec)
-          , SP.y1 "0"
-          , SP.y2 (T.pack $ show totalHeight)
-          , SP.stroke "gray"
-          , SP.strokeWidth "0.25"
-          ]
-          []
       moduleText (i, item@(modu, _)) =
         S.text
           [ SP.x (T.pack $ show (rightOfBox item))
@@ -139,7 +184,7 @@ renderTimingChart tui timingInfos =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
-            ( fmap line [0, 1 .. totalTimeInSec]
+            ( renderRules timingInfos totalHeight totalTime
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
