@@ -106,6 +106,7 @@ data SubModuleEvent
 data TimingEvent
   = UpdateSticky Bool
   | UpdatePartition Bool
+  | UpdateParallel Bool
 
 data Event
   = TabEv Tab
@@ -142,12 +143,14 @@ data TimingUI = TimingUI
   -- ^ Whether the timing view is sticky to the current time or not
   , _timingUIPartition :: Bool
   -- ^ Whether each module timing is partitioned into division
+  , _timingUIHowParallel :: Bool
+  -- ^ Whether showing color-coded parallel processes
   }
 
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False
+emptyTimingUI = TimingUI False False False
 
 data UIState = UIState
   { _uiTab :: Tab

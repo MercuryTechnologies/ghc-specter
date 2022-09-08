@@ -14,8 +14,7 @@ import Concur.Replica
     height,
     input,
     label,
-    onInput,
-    pre,
+    onChange,
     style,
     text,
     width,
@@ -23,29 +22,18 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (makeClassy, to, (^.), _2)
-import Data.List qualified as L
-import Data.Map.Strict qualified as M
-import Data.Maybe (mapMaybe)
+import Control.Lens (to, (^.), _2)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
   ( NominalDiffTime,
-    diffUTCTime,
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel
-  ( SessionInfo (..),
-    getAsTime,
-    getEndTime,
-    getHscOutTime,
-    getStartTime,
-    type ModuleName,
-  )
+import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( Event (TimingEv),
-    HasServerState (..),
     HasTimingUI (..),
     HasUIState (..),
     ServerState (..),
@@ -53,21 +41,78 @@ import GHCSpecter.Server.Types
     TimingUI,
     UIState,
   )
+import GHCSpecter.Util.Timing
+  ( HasTimingInfo (..),
+    TimingInfo,
+    isInProgress,
+    makeTimingTable,
+  )
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
-data TimingInfo a = TimingInfo
-  { _timingStart :: a
-  , _timingHscOut :: a
-  , _timingAs :: a
-  , _timingEnd :: a
-  }
-  deriving (Show)
-
-makeClassy ''TimingInfo
-
 maxWidth :: (Num a) => a
 maxWidth = 10240
+
+colorCodes :: [Text]
+colorCodes =
+  [ "#EC7063"
+  , "#F1948A"
+  , "#F5B7B1"
+  , "#FADBD8"
+  , "#FDEDEC"
+  , "#FFFFFF"
+  ]
+
+renderRules ::
+  Bool ->
+  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  Int ->
+  NominalDiffTime ->
+  [Widget HTML a]
+renderRules showParallel table totalHeight totalTime =
+  ( if showParallel
+      then fmap box rangesWithCPUUsage
+      else []
+  )
+    ++ fmap line ruleTimes
+  where
+    totalTimeInSec = nominalDiffTimeToSeconds totalTime
+    ruleTimes = [0, 1 .. totalTimeInSec]
+    ranges = zip ruleTimes (tail ruleTimes)
+    getParallelCompilation (sec1, sec2) =
+      let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
+          filtered = filter (\x -> x ^. _2 . to (isInProgress avg)) table
+       in length filtered
+    rangesWithCPUUsage =
+      fmap (\range -> (range, getParallelCompilation range)) ranges
+    nCPU2Color n
+      | n <= 2 = colorCodes !! 0
+      | n > 2 && n <= 4 = colorCodes !! 1
+      | n > 4 && n <= 6 = colorCodes !! 2
+      | n > 6 && n <= 8 = colorCodes !! 3
+      | n > 8 && n <= 10 = colorCodes !! 4
+      | otherwise = colorCodes !! 5
+    line sec =
+      S.line
+        [ SP.x1 (T.pack $ show $ sec2X sec)
+        , SP.x2 (T.pack $ show $ sec2X sec)
+        , SP.y1 "0"
+        , SP.y2 (T.pack $ show totalHeight)
+        , SP.stroke "gray"
+        , SP.strokeWidth "0.25"
+        ]
+        []
+    sec2X sec =
+      floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
+    box ((sec1, _), n) =
+      S.rect
+        [ SP.x (T.pack $ show $ sec2X sec1)
+        , SP.y "0"
+        , SP.width (T.pack $ show $ sec2X (1.01))
+        , SP.height (T.pack $ show totalHeight)
+        , SP.fill (nCPU2Color n)
+        ]
+        []
 
 renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
 renderTimingChart tui timingInfos =
@@ -77,7 +122,6 @@ renderTimingChart tui timingInfos =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
           _ -> maximum modEndTimes
-      totalTimeInSec = nominalDiffTimeToSeconds totalTime
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
       topOfBox i = 5 * i + 1
@@ -126,18 +170,6 @@ renderTimingChart tui timingInfos =
           , SP.fill "deepskyblue"
           ]
           []
-      sec2X sec =
-        floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
-      line sec =
-        S.line
-          [ SP.x1 (T.pack $ show $ sec2X sec)
-          , SP.x2 (T.pack $ show $ sec2X sec)
-          , SP.y1 "0"
-          , SP.y2 (T.pack $ show totalHeight)
-          , SP.stroke "gray"
-          , SP.strokeWidth "0.25"
-          ]
-          []
       moduleText (i, item@(modu, _)) =
         S.text
           [ SP.x (T.pack $ show (rightOfBox item))
@@ -157,7 +189,7 @@ renderTimingChart tui timingInfos =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
-            ( fmap line [0, 1 .. totalTimeInSec]
+            ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
@@ -169,10 +201,12 @@ renderTimingChart tui timingInfos =
         else div [] [svgElement]
 
 renderCheckbox :: TimingUI -> Widget HTML Event
-renderCheckbox tui = div [] [checkSticky, checkPartition]
+renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
   where
     isSticky = tui ^. timingUISticky
     isPartitioned = tui ^. timingUIPartition
+    howParallel = tui ^. timingUIHowParallel
+    mkEvent f b = TimingEv (f (not b)) <$ onChange
     checkSticky =
       div
         [classList [("control", True)]]
@@ -182,7 +216,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition]
                 [ DP.type_ "checkbox"
                 , DP.name "sticky"
                 , DP.checked isSticky
-                , TimingEv (UpdateSticky (not isSticky)) <$ onInput
+                , mkEvent UpdateSticky isSticky
                 ]
             , text "Sticky"
             ]
@@ -196,41 +230,34 @@ renderCheckbox tui = div [] [checkSticky, checkPartition]
                 [ DP.type_ "checkbox"
                 , DP.name "partition"
                 , DP.checked isPartitioned
-                , TimingEv (UpdatePartition (not isPartitioned)) <$ onInput
+                , mkEvent UpdatePartition isPartitioned
                 ]
             , text "Partition"
+            ]
+        ]
+    checkHowParallel =
+      div
+        [classList [("control", True)]]
+        [ label
+            [classList [("checkbox", True)]]
+            [ input
+                [ DP.type_ "checkbox"
+                , DP.name "howparallel"
+                , DP.checked howParallel
+                , mkEvent UpdateParallel howParallel
+                ]
+            , text "Parallel"
             ]
         ]
 
 -- | Top-level render function for the Timing tab
 render :: UIState -> ServerState -> Widget HTML Event
 render ui ss =
-  case ss ^. serverSessionInfo . to sessionStartTime of
-    Nothing -> pre [] [text "GHC Session has not been started"]
-    Just sessionStartTime ->
-      let subtractTime (modName, timer) = do
-            modStartTime <- getStartTime timer
-            modHscOutTime <- getHscOutTime timer
-            modAsTime <- getAsTime timer
-            modEndTime <- getEndTime timer
-            let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
-                modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
-                modAsTimeDiff = modAsTime `diffUTCTime` sessionStartTime
-                modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-                tinfo =
-                  TimingInfo
-                    { _timingStart = modStartTimeDiff
-                    , _timingHscOut = modHscOutTimeDiff
-                    , _timingAs = modAsTimeDiff
-                    , _timingEnd = modEndTimeDiff
-                    }
-            pure (modName, tinfo)
-          timingInfos =
-            L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
-       in div
-            [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
-            [ renderTimingChart (ui ^. uiTiming) timingInfos
-            , div
-                [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-                [renderCheckbox (ui ^. uiTiming)]
-            ]
+  let timingInfos = makeTimingTable ss
+   in div
+        [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
+        [ renderTimingChart (ui ^. uiTiming) timingInfos
+        , div
+            [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+            [renderCheckbox (ui ^. uiTiming)]
+        ]
