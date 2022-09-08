@@ -14,7 +14,7 @@ import Concur.Replica
     height,
     input,
     label,
-    onInput,
+    onChange,
     style,
     text,
     width,
@@ -70,11 +70,11 @@ renderRules ::
   NominalDiffTime ->
   [Widget HTML a]
 renderRules showParallel table totalHeight totalTime =
-  if showParallel
-    then fmap box rangesWithCPUUsage
-    else
-      []
-        ++ fmap line ruleTimes
+  ( if showParallel
+      then fmap box rangesWithCPUUsage
+      else []
+  )
+    ++ fmap line ruleTimes
   where
     totalTimeInSec = nominalDiffTimeToSeconds totalTime
     ruleTimes = [0, 1 .. totalTimeInSec]
@@ -206,6 +206,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
     isSticky = tui ^. timingUISticky
     isPartitioned = tui ^. timingUIPartition
     howParallel = tui ^. timingUIHowParallel
+    mkEvent f b = TimingEv (f (not b)) <$ onChange
     checkSticky =
       div
         [classList [("control", True)]]
@@ -215,7 +216,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
                 [ DP.type_ "checkbox"
                 , DP.name "sticky"
                 , DP.checked isSticky
-                , TimingEv (UpdateSticky (not isSticky)) <$ onInput
+                , mkEvent UpdateSticky isSticky
                 ]
             , text "Sticky"
             ]
@@ -229,7 +230,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
                 [ DP.type_ "checkbox"
                 , DP.name "partition"
                 , DP.checked isPartitioned
-                , TimingEv (UpdatePartition (not isPartitioned)) <$ onInput
+                , mkEvent UpdatePartition isPartitioned
                 ]
             , text "Partition"
             ]
@@ -243,7 +244,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
                 [ DP.type_ "checkbox"
                 , DP.name "howparallel"
                 , DP.checked howParallel
-                , TimingEv (UpdateParallel (not howParallel)) <$ onInput
+                , mkEvent UpdateParallel howParallel
                 ]
             , text "Parallel"
             ]
