@@ -64,12 +64,17 @@ colorCodes =
   ]
 
 renderRules ::
+  Bool ->
   [(ModuleName, TimingInfo NominalDiffTime)] ->
   Int ->
   NominalDiffTime ->
   [Widget HTML a]
-renderRules table totalHeight totalTime =
-  fmap box rangesWithCPUUsage ++ fmap line ruleTimes
+renderRules showParallel table totalHeight totalTime =
+  if showParallel
+    then fmap box rangesWithCPUUsage
+    else
+      []
+        ++ fmap line ruleTimes
   where
     totalTimeInSec = nominalDiffTimeToSeconds totalTime
     ruleTimes = [0, 1 .. totalTimeInSec]
@@ -184,7 +189,7 @@ renderTimingChart tui timingInfos =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
-            ( renderRules timingInfos totalHeight totalTime
+            ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
@@ -196,10 +201,11 @@ renderTimingChart tui timingInfos =
         else div [] [svgElement]
 
 renderCheckbox :: TimingUI -> Widget HTML Event
-renderCheckbox tui = div [] [checkSticky, checkPartition]
+renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
   where
     isSticky = tui ^. timingUISticky
     isPartitioned = tui ^. timingUIPartition
+    howParallel = tui ^. timingUIHowParallel
     checkSticky =
       div
         [classList [("control", True)]]
@@ -226,6 +232,20 @@ renderCheckbox tui = div [] [checkSticky, checkPartition]
                 , TimingEv (UpdatePartition (not isPartitioned)) <$ onInput
                 ]
             , text "Partition"
+            ]
+        ]
+    checkHowParallel =
+      div
+        [classList [("control", True)]]
+        [ label
+            [classList [("checkbox", True)]]
+            [ input
+                [ DP.type_ "checkbox"
+                , DP.name "howparallel"
+                , DP.checked howParallel
+                , TimingEv (UpdateParallel (not howParallel)) <$ onInput
+                ]
+            , text "Parallel"
             ]
         ]
 

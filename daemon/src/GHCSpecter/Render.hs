@@ -141,6 +141,8 @@ render (ui, ss) = do
         pure $ (uiTiming . timingUISticky .~ b) oldUI
       handleMainPanel oldUI (TimingEv (UpdatePartition b)) =
         pure $ (uiTiming . timingUIPartition .~ b) oldUI
+      handleMainPanel oldUI (TimingEv (UpdateParallel b)) =
+        pure $ (uiTiming . timingUIHowParallel .~ b) oldUI
       handleMainPanel oldUI _ = pure oldUI
 
   ui' <-
