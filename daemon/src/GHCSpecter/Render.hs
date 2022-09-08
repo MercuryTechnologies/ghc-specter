@@ -135,9 +135,7 @@ render (ui, ss) = do
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)
         pure oldUI
-      handleMainPanel oldUI (TimingPanelEv b) = do
-        liftIO $
-          putStrLn $ "TimingPanelEv:" ++ show b
+      handleMainPanel oldUI (TimingPanelEv b) =
         pure $ (uiTimingSticky .~ b) oldUI
       handleMainPanel oldUI _ = pure oldUI
 

@@ -159,11 +159,8 @@ renderTimingChart isSticky timingInfos =
    in if isSticky
         then
           div
-            [style [("width", "100%"), ("height", "100%"), ("overflow", "hidden"), ("position", "relative")]]
-            [ div
-                [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
-                [svgElement]
-            ]
+            [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
+            [svgElement]
         else div [] [svgElement]
 
 renderCheckbox :: Bool -> Widget HTML Event
@@ -208,7 +205,9 @@ render ui ss =
           timingInfos =
             L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
        in div
-            [style [("height", "100%")]]
+            [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
             [ renderTimingChart (ui ^. uiTimingSticky) timingInfos
-            , renderCheckbox (ui ^. uiTimingSticky)
+            , div
+                [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+                [renderCheckbox (ui ^. uiTimingSticky)]
             ]
