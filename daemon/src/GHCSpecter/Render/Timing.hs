@@ -15,7 +15,6 @@ import Concur.Replica
     input,
     label,
     onInput,
-    pre,
     style,
     text,
     width,
@@ -23,29 +22,17 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (makeClassy, to, (^.), _2)
-import Data.List qualified as L
-import Data.Map.Strict qualified as M
-import Data.Maybe (mapMaybe)
+import Control.Lens ((^.), _2)
 import Data.Text qualified as T
 import Data.Time.Clock
   ( NominalDiffTime,
-    diffUTCTime,
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel
-  ( SessionInfo (..),
-    getAsTime,
-    getEndTime,
-    getHscOutTime,
-    getStartTime,
-    type ModuleName,
-  )
+import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( Event (TimingEv),
-    HasServerState (..),
     HasTimingUI (..),
     HasUIState (..),
     ServerState (..),
@@ -53,18 +40,13 @@ import GHCSpecter.Server.Types
     TimingUI,
     UIState,
   )
+import GHCSpecter.Util.Timing
+  ( HasTimingInfo (..),
+    TimingInfo,
+    makeTimingTable,
+  )
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
-
-data TimingInfo a = TimingInfo
-  { _timingStart :: a
-  , _timingHscOut :: a
-  , _timingAs :: a
-  , _timingEnd :: a
-  }
-  deriving (Show)
-
-makeClassy ''TimingInfo
 
 maxWidth :: (Num a) => a
 maxWidth = 10240
@@ -205,32 +187,11 @@ renderCheckbox tui = div [] [checkSticky, checkPartition]
 -- | Top-level render function for the Timing tab
 render :: UIState -> ServerState -> Widget HTML Event
 render ui ss =
-  case ss ^. serverSessionInfo . to sessionStartTime of
-    Nothing -> pre [] [text "GHC Session has not been started"]
-    Just sessionStartTime ->
-      let subtractTime (modName, timer) = do
-            modStartTime <- getStartTime timer
-            modHscOutTime <- getHscOutTime timer
-            modAsTime <- getAsTime timer
-            modEndTime <- getEndTime timer
-            let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
-                modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
-                modAsTimeDiff = modAsTime `diffUTCTime` sessionStartTime
-                modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-                tinfo =
-                  TimingInfo
-                    { _timingStart = modStartTimeDiff
-                    , _timingHscOut = modHscOutTimeDiff
-                    , _timingAs = modAsTimeDiff
-                    , _timingEnd = modEndTimeDiff
-                    }
-            pure (modName, tinfo)
-          timingInfos =
-            L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
-       in div
-            [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
-            [ renderTimingChart (ui ^. uiTiming) timingInfos
-            , div
-                [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-                [renderCheckbox (ui ^. uiTiming)]
-            ]
+  let timingInfos = makeTimingTable ss
+   in div
+        [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
+        [ renderTimingChart (ui ^. uiTiming) timingInfos
+        , div
+            [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+            [renderCheckbox (ui ^. uiTiming)]
+        ]
