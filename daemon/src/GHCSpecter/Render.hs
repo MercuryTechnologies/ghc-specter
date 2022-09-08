@@ -34,12 +34,14 @@ import GHCSpecter.Server.Types
     HasModuleGraphUI (..),
     HasServerState (..),
     HasSourceViewUI (..),
+    HasTimingUI (..),
     HasUIState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
     ServerState (..),
     SubModuleEvent (..),
     Tab (..),
+    TimingEvent (..),
     UIState (..),
     type ChanModule,
   )
@@ -135,8 +137,10 @@ render (ui, ss) = do
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)
         pure oldUI
-      handleMainPanel oldUI (TimingPanelEv b) =
-        pure $ (uiTimingSticky .~ b) oldUI
+      handleMainPanel oldUI (TimingEv (UpdateSticky b)) =
+        pure $ (uiTiming . timingUISticky .~ b) oldUI
+      handleMainPanel oldUI (TimingEv (UpdatePartition b)) =
+        pure $ (uiTiming . timingUIPartition .~ b) oldUI
       handleMainPanel oldUI _ = pure oldUI
 
   ui' <-

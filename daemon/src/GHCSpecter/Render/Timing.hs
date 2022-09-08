@@ -44,10 +44,13 @@ import GHCSpecter.Channel
   )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
-  ( Event (TimingPanelEv),
+  ( Event (TimingEv),
     HasServerState (..),
+    HasTimingUI (..),
     HasUIState (..),
     ServerState (..),
+    TimingEvent (..),
+    TimingUI,
     UIState,
   )
 import Replica.VDOM.Types (HTML)
@@ -66,8 +69,8 @@ makeClassy ''TimingInfo
 maxWidth :: (Num a) => a
 maxWidth = 10240
 
-renderTimingChart :: Bool -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
-renderTimingChart isSticky timingInfos =
+renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
+renderTimingChart tui timingInfos =
   let nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
@@ -142,12 +145,14 @@ renderTimingChart isSticky timingInfos =
           , classList [("small", True)]
           ]
           [text modu]
-      makeItems x =
-        [ box x
-        , boxAs x
-        , boxHscOut x
-        , moduleText x
-        ]
+      makeItems x
+        | tui ^. timingUIPartition =
+            [ box x
+            , boxAs x
+            , boxHscOut x
+            , moduleText x
+            ]
+        | otherwise = [box x, moduleText x]
       svgElement =
         S.svg
           [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
@@ -156,28 +161,46 @@ renderTimingChart isSticky timingInfos =
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
-   in if isSticky
+   in if tui ^. timingUISticky
         then
           div
             [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
             [svgElement]
         else div [] [svgElement]
 
-renderCheckbox :: Bool -> Widget HTML Event
-renderCheckbox b =
-  div
-    [classList [("control", True)]]
-    [ label
-        [classList [("checkbox", True)]]
-        [ input
-            [ DP.type_ "checkbox"
-            , DP.name "sticky"
-            , DP.checked b
-            , TimingPanelEv (not b) <$ onInput
+renderCheckbox :: TimingUI -> Widget HTML Event
+renderCheckbox tui = div [] [checkSticky, checkPartition]
+  where
+    isSticky = tui ^. timingUISticky
+    isPartitioned = tui ^. timingUIPartition
+    checkSticky =
+      div
+        [classList [("control", True)]]
+        [ label
+            [classList [("checkbox", True)]]
+            [ input
+                [ DP.type_ "checkbox"
+                , DP.name "sticky"
+                , DP.checked isSticky
+                , TimingEv (UpdateSticky (not isSticky)) <$ onInput
+                ]
+            , text "Sticky"
             ]
-        , text "Sticky"
         ]
-    ]
+    checkPartition =
+      div
+        [classList [("control", True)]]
+        [ label
+            [classList [("checkbox", True)]]
+            [ input
+                [ DP.type_ "checkbox"
+                , DP.name "partition"
+                , DP.checked isPartitioned
+                , TimingEv (UpdatePartition (not isPartitioned)) <$ onInput
+                ]
+            , text "Partition"
+            ]
+        ]
 
 -- | Top-level render function for the Timing tab
 render :: UIState -> ServerState -> Widget HTML Event
@@ -206,8 +229,8 @@ render ui ss =
             L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
        in div
             [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
-            [ renderTimingChart (ui ^. uiTimingSticky) timingInfos
+            [ renderTimingChart (ui ^. uiTiming) timingInfos
             , div
                 [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-                [renderCheckbox (ui ^. uiTimingSticky)]
+                [renderCheckbox (ui ^. uiTiming)]
             ]

@@ -11,6 +11,7 @@ module GHCSpecter.Server.Types
     DetailLevel (..),
     SubModuleEvent (..),
     ModuleGraphEvent (..),
+    TimingEvent (..),
     Event (..),
 
     -- * UI state
@@ -20,6 +21,9 @@ module GHCSpecter.Server.Types
     SourceViewUI (..),
     HasSourceViewUI (..),
     emptySourceViewUI,
+    TimingUI,
+    HasTimingUI (..),
+    emptyTimingUI,
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -99,13 +103,17 @@ data SubModuleEvent
   = SubModuleGraphEv ModuleGraphEvent
   | SubModuleLevelEv DetailLevel
 
+data TimingEvent
+  = UpdateSticky Bool
+  | UpdatePartition Bool
+
 data Event
   = TabEv Tab
   | ExpandModuleEv (Maybe Text)
   | MainModuleEv ModuleGraphEvent
   | SubModuleEv SubModuleEvent
   | SaveSessionEv
-  | TimingPanelEv Bool
+  | TimingEv TimingEvent
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -129,6 +137,18 @@ makeClassy ''SourceViewUI
 emptySourceViewUI :: SourceViewUI
 emptySourceViewUI = SourceViewUI Nothing
 
+data TimingUI = TimingUI
+  { _timingUISticky :: Bool
+  -- ^ Whether the timing view is sticky to the current time or not
+  , _timingUIPartition :: Bool
+  -- ^ Whether each module timing is partitioned into division
+  }
+
+makeClassy ''TimingUI
+
+emptyTimingUI :: TimingUI
+emptyTimingUI = TimingUI False False
+
 data UIState = UIState
   { _uiTab :: Tab
   -- ^ current tab
@@ -138,8 +158,8 @@ data UIState = UIState
   -- ^ UI state of sub module graph
   , _uiSourceView :: SourceViewUI
   -- ^ UI state of source view UI
-  , _uiTimingSticky :: Bool
-  -- ^ Whether the timing view is sticky to the current time or not
+  , _uiTiming :: TimingUI
+  -- ^ UI state of Timing UI
   }
 
 makeClassy ''UIState
@@ -151,7 +171,7 @@ emptyUIState =
     , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _uiSourceView = emptySourceViewUI
-    , _uiTimingSticky = True
+    , _uiTiming = emptyTimingUI
     }
 
 data Point = Point
