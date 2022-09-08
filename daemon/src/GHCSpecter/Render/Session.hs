@@ -17,10 +17,10 @@ import Data.Map qualified as M
 import Data.Text qualified as T
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Server.Types
-  ( Event (SaveSessionEv),
-    HasServerState (..),
+  ( HasServerState (..),
     ServerState (..),
   )
+import GHCSpecter.UI.Types (Event (SaveSessionEv))
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 

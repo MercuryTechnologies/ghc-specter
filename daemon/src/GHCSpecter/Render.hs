@@ -30,20 +30,22 @@ import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
 import GHCSpecter.Render.Timing qualified as Timing
 import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    ServerState (..),
+    type ChanModule,
+  )
+import GHCSpecter.UI.Types
   ( Event (..),
     HasModuleGraphUI (..),
-    HasServerState (..),
     HasSourceViewUI (..),
     HasTimingUI (..),
     HasUIState (..),
     ModuleGraphEvent (..),
     ModuleGraphUI (..),
-    ServerState (..),
     SubModuleEvent (..),
     Tab (..),
     TimingEvent (..),
     UIState (..),
-    type ChanModule,
   )
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)

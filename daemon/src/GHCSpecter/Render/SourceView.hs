@@ -35,15 +35,17 @@ import GHCSpecter.Channel
     getEndTime,
   )
 import GHCSpecter.Server.Types
-  ( Event (..),
-    HasDeclRow' (..),
+  ( HasDeclRow' (..),
     HasHieState (..),
     HasModuleHieInfo (..),
     HasServerState (..),
-    HasSourceViewUI (..),
     Inbox,
     ModuleHieInfo,
     ServerState (..),
+  )
+import GHCSpecter.UI.Types
+  ( Event (..),
+    HasSourceViewUI (..),
     SourceViewUI (..),
   )
 import Replica.VDOM.Types (HTML)

@@ -61,25 +61,27 @@ import GHCSpecter.Channel
   )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
-  ( DetailLevel (..),
-    Dimension (..),
+  ( Dimension (..),
     EdgeLayout (..),
-    Event (..),
     GraphVisInfo (..),
     HasGraphVisInfo (..),
     HasModuleGraphState (..),
-    HasModuleGraphUI (..),
     HasNodeLayout (..),
     HasServerState (..),
-    HasUIState (..),
-    ModuleGraphEvent (..),
-    ModuleGraphUI (..),
     NodeLayout (..),
     Point (..),
     ServerState (..),
+    transposeGraphVis,
+  )
+import GHCSpecter.UI.Types
+  ( DetailLevel (..),
+    Event (..),
+    HasModuleGraphUI (..),
+    HasUIState (..),
+    ModuleGraphEvent (..),
+    ModuleGraphUI (..),
     SubModuleEvent (..),
     UIState (..),
-    transposeGraphVis,
   )
 import GHCSpecter.Util.Graph.Builder (makeRevDep)
 import GHCSpecter.Util.Graph.Cluster (filterOutSmallNodes)
