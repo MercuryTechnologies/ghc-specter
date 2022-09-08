@@ -13,6 +13,7 @@ import Concur.Replica
     div,
     height,
     pre,
+    style,
     text,
     width,
   )
@@ -148,7 +149,12 @@ renderTimingChart timingInfos =
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
-   in div [] [svgElement]
+   in div
+        [style [("width", "100%"), ("height", "100%"), ("overflow", "hidden"), ("position", "relative")]]
+        [div
+           [style [("position", "absolute"), ("bottom","0"), ("right", "0")]]
+           [svgElement]
+        ]
 
 -- | Top-level render function for the Timing tab
 render :: ServerState -> Widget HTML a
