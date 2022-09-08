@@ -105,6 +105,7 @@ data Event
   | MainModuleEv ModuleGraphEvent
   | SubModuleEv SubModuleEvent
   | SaveSessionEv
+  | TimingPanelEv Bool
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -137,6 +138,8 @@ data UIState = UIState
   -- ^ UI state of sub module graph
   , _uiSourceView :: SourceViewUI
   -- ^ UI state of source view UI
+  , _uiTimingSticky :: Bool
+  -- ^ Whether the timing view is sticky to the current time or not
   }
 
 makeClassy ''UIState
@@ -148,6 +151,7 @@ emptyUIState =
     , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _uiSourceView = emptySourceViewUI
+    , _uiTimingSticky = True
     }
 
 data Point = Point

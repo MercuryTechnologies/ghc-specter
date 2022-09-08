@@ -12,11 +12,15 @@ import Concur.Replica
   ( classList,
     div,
     height,
+    input,
+    label,
+    onInput,
     pre,
     style,
     text,
     width,
   )
+import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (makeClassy, to, (^.), _2)
@@ -40,8 +44,11 @@ import GHCSpecter.Channel
   )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
+  ( Event (TimingPanelEv),
+    HasServerState (..),
+    HasUIState (..),
     ServerState (..),
+    UIState,
   )
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
@@ -59,8 +66,8 @@ makeClassy ''TimingInfo
 maxWidth :: (Num a) => a
 maxWidth = 10240
 
-renderTimingChart :: [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
-renderTimingChart timingInfos =
+renderTimingChart :: Bool -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
+renderTimingChart isSticky timingInfos =
   let nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
@@ -149,16 +156,35 @@ renderTimingChart timingInfos =
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
-   in div
-        [style [("width", "100%"), ("height", "100%"), ("overflow", "hidden"), ("position", "relative")]]
-        [div
-           [style [("position", "absolute"), ("bottom","0"), ("right", "0")]]
-           [svgElement]
+   in if isSticky
+        then
+          div
+            [style [("width", "100%"), ("height", "100%"), ("overflow", "hidden"), ("position", "relative")]]
+            [ div
+                [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
+                [svgElement]
+            ]
+        else div [] [svgElement]
+
+renderCheckbox :: Bool -> Widget HTML Event
+renderCheckbox b =
+  div
+    [classList [("control", True)]]
+    [ label
+        [classList [("checkbox", True)]]
+        [ input
+            [ DP.type_ "checkbox"
+            , DP.name "sticky"
+            , DP.checked b
+            , TimingPanelEv (not b) <$ onInput
+            ]
+        , text "Sticky"
         ]
+    ]
 
 -- | Top-level render function for the Timing tab
-render :: ServerState -> Widget HTML a
-render ss =
+render :: UIState -> ServerState -> Widget HTML Event
+render ui ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> pre [] [text "GHC Session has not been started"]
     Just sessionStartTime ->
@@ -181,4 +207,8 @@ render ss =
             pure (modName, tinfo)
           timingInfos =
             L.sortOn (^. _2 . timingStart) $ mapMaybe subtractTime $ M.toList $ ss ^. serverTiming
-       in renderTimingChart timingInfos
+       in div
+            [style [("height", "100%")]]
+            [ renderTimingChart (ui ^. uiTimingSticky) timingInfos
+            , renderCheckbox (ui ^. uiTimingSticky)
+            ]

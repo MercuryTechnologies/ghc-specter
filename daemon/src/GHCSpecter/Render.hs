@@ -59,7 +59,7 @@ renderMainPanel ui ss =
     TabSession -> Session.render ss
     TabModuleGraph -> ModuleGraph.render ui ss
     TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
-    TabTiming -> Timing.render ss
+    TabTiming -> Timing.render ui ss
 
 cssLink :: Text -> Widget HTML a
 cssLink url =
@@ -135,6 +135,10 @@ render (ui, ss) = do
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)
         pure oldUI
+      handleMainPanel oldUI (TimingPanelEv b) = do
+        liftIO $
+          putStrLn $ "TimingPanelEv:" ++ show b
+        pure $ (uiTimingSticky .~ b) oldUI
       handleMainPanel oldUI _ = pure oldUI
 
   ui' <-

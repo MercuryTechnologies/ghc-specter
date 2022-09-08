@@ -20,8 +20,7 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
     div,
     height,
     input,
@@ -32,7 +31,6 @@ import Concur.Replica
     onMouseLeave,
     pre,
     text,
-    textProp,
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
