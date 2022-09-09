@@ -5,7 +5,7 @@ module Main (main) where
 import Concur.Core (liftSTM)
 import Concur.Replica (runDefault)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkOS, threadDelay)
+import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -107,11 +107,9 @@ listener socketFile var =
           case o of
             CMSession s' -> do
               let mgi = sessionModuleGraph s'
-              void $ forkOS (moduleGraphWorker var mgi)
-              pure ()
+              void $ forkIO (moduleGraphWorker var mgi)
             CMHsSource _modu (HsSourceInfo hiefile) -> do
-              void $ forkOS (hieWorker var hiefile)
-              pure ()
+              void $ forkIO (hieWorker var hiefile)
             _ -> pure ()
           atomically . modifyTVar' var . updateInbox $ CMBox o
     )
