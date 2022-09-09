@@ -44,10 +44,10 @@ import GHCSpecter.Server.Types
     ServerState (..),
   )
 import GHCSpecter.UI.Types
-  ( Event (..),
-    HasSourceViewUI (..),
+  ( HasSourceViewUI (..),
     SourceViewUI (..),
   )
+import GHCSpecter.UI.Types.Event (Event (..))
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div, span)
 

@@ -1,15 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types
-  ( -- * Event types
-    DetailLevel (..),
-    SubModuleEvent (..),
-    ModuleGraphEvent (..),
-    TimingEvent (..),
-    Event (..),
-
-    -- * UI state
-    Tab (..),
+  ( -- * UI state
     ModuleGraphUI (..),
     HasModuleGraphUI (..),
     emptyModuleGraphUI,
@@ -29,37 +21,7 @@ import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-
-data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
-  deriving (Eq)
-
-data ModuleGraphEvent
-  = HoverOnModuleEv (Maybe Text)
-  | ClickOnModuleEv (Maybe Text)
-
-data DetailLevel = UpTo30 | UpTo100 | UpTo300
-  deriving (Show, Eq, Ord, Generic)
-
-instance FromJSON DetailLevel
-
-instance ToJSON DetailLevel
-
-data SubModuleEvent
-  = SubModuleGraphEv ModuleGraphEvent
-  | SubModuleLevelEv DetailLevel
-
-data TimingEvent
-  = UpdateSticky Bool
-  | UpdatePartition Bool
-  | UpdateParallel Bool
-
-data Event
-  = TabEv Tab
-  | ExpandModuleEv (Maybe Text)
-  | MainModuleEv ModuleGraphEvent
-  | SubModuleEv SubModuleEvent
-  | SaveSessionEv
-  | TimingEv TimingEvent
+import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text

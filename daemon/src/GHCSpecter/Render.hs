@@ -35,17 +35,20 @@ import GHCSpecter.Server.Types
     type ChanModule,
   )
 import GHCSpecter.UI.Types
-  ( Event (..),
-    HasModuleGraphUI (..),
+  ( HasModuleGraphUI (..),
     HasSourceViewUI (..),
     HasTimingUI (..),
     HasUIState (..),
-    ModuleGraphEvent (..),
     ModuleGraphUI (..),
+    UIState (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    ModuleGraphEvent (..),
+    SessionEvent (..),
     SubModuleEvent (..),
     Tab (..),
     TimingEvent (..),
-    UIState (..),
   )
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
@@ -134,7 +137,7 @@ render (ui, ss) = do
             pure $ (uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI
           SubModuleLevelEv d' ->
             pure $ (uiSubModuleGraph . _1 .~ d') oldUI
-      handleMainPanel oldUI SaveSessionEv = do
+      handleMainPanel oldUI (SessionEv SaveSessionEv) = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)

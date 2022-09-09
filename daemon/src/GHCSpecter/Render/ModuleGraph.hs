@@ -74,14 +74,16 @@ import GHCSpecter.Server.Types
     transposeGraphVis,
   )
 import GHCSpecter.UI.Types
+  ( HasModuleGraphUI (..),
+    HasUIState (..),
+    ModuleGraphUI (..),
+    UIState (..),
+  )
+import GHCSpecter.UI.Types.Event
   ( DetailLevel (..),
     Event (..),
-    HasModuleGraphUI (..),
-    HasUIState (..),
     ModuleGraphEvent (..),
-    ModuleGraphUI (..),
     SubModuleEvent (..),
-    UIState (..),
   )
 import GHCSpecter.Util.Graph.Builder (makeRevDep)
 import GHCSpecter.Util.Graph.Cluster (filterOutSmallNodes)

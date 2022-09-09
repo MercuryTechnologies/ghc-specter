@@ -29,7 +29,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     incrementSN,
   )
-import GHCSpecter.UI.Types (DetailLevel (..))
+import GHCSpecter.UI.Types.Event (DetailLevel (..))
 import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)
 import GHCSpecter.Util.Graph.Builder
   ( makeBiDep,

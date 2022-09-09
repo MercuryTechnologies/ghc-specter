@@ -58,7 +58,7 @@ import GHCSpecter.Channel
     emptyModuleGraphInfo,
     type ModuleName,
   )
-import GHCSpecter.UI.Types (DetailLevel)
+import GHCSpecter.UI.Types.Event (DetailLevel)
 
 type ChanModule = (Channel, Text)
 

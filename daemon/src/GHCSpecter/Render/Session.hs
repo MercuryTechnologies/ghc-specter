@@ -20,7 +20,10 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
-import GHCSpecter.UI.Types (Event (SaveSessionEv))
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    SessionEvent (..),
+  )
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
@@ -39,7 +42,7 @@ render ss =
             [ pre [] [text $ T.pack $ show sessionStartTime]
             , pre [] [text msg]
             , button
-                [ SaveSessionEv <$ onClick
+                [ SessionEv SaveSessionEv <$ onClick
                 , classList [("button is-primary is-size-7 m-1 p-1", True)]
                 ]
                 [text "Save Session"]
