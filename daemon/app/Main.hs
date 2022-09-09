@@ -21,8 +21,6 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Map.Strict qualified as M
-import Data.Text (Text)
-import Data.Text.IO qualified as TIO
 import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,
@@ -86,7 +84,6 @@ main = do
     Online socketFile -> do
       var <- atomically $ newTVar emptyServerState
       _ <- forkIO $ listener socketFile var
-      _ <- forkIO $ testListener
       webServer var
     View sessionFile -> do
       lbs <- BL.readFile sessionFile
@@ -103,7 +100,7 @@ listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
   runServer
     socketFile
-    ( \sock -> do
+    ( \sock -> forever $ do
         CMBox o <- receiveObject sock
         case o of
           CMSession s' -> do
@@ -113,15 +110,6 @@ listener socketFile var =
             void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
-    )
-
-testListener :: IO ()
-testListener =
-  runServer
-    "/tmp/test.ipc"
-    ( \sock -> forever $ do
-        txt :: Text <- receiveObject sock
-        TIO.putStrLn ("message received: " <> txt)
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState

@@ -180,24 +180,30 @@ getModuleNameFromPipeState pstate =
       mmod = fmap mi_module mmi
    in fmap (T.pack . moduleNameString . moduleName) mmod
 
-runMessageQueue :: TVar (Seq T.Text) -> IO ()
-runMessageQueue queue =
-  runClient "/tmp/test.ipc" $ \sock -> forever $ do
-    msgs <- atomically $ do
-      queued <- readTVar queue
-      if Seq.null queued
-        then retry
-        else writeTVar queue Seq.empty >> pure queued
-    for_ msgs $ \msg ->
-      msg `seq` sendObject sock msg
+type MsgQueue = TVar (Seq ChanMessageBox)
 
-queueMessage :: TVar (Seq T.Text) -> T.Text -> IO ()
+runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
+runMessageQueue opts queue =
+  case opts of
+    ipcfile : _ -> liftIO $ do
+      socketExists <- doesFileExist ipcfile
+      when socketExists $
+        runClient ipcfile $ \sock -> forever $ do
+          msgs <- atomically $ do
+            queued <- readTVar queue
+            if Seq.null queued
+              then retry
+              else writeTVar queue Seq.empty >> pure queued
+          for_ msgs $ \msg ->
+            msg `seq` sendObject sock msg
+
+queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue msg =
-  msg `seq` atomically $ modifyTVar' queue (|> msg)
+  msg `seq` atomically $ modifyTVar' queue (|> (CMBox msg))
 
 -- | Called only once for sending session information
-sendSessionStart :: [CommandLineOption] -> HscEnv -> IO ()
-sendSessionStart opts env = do
+sendSessionStart :: MsgQueue -> HscEnv -> IO ()
+sendSessionStart queue env = do
   startTime <- getCurrentTime
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
@@ -212,14 +218,14 @@ sendSessionStart opts env = do
           pure (Just startedSession)
         Just _ -> pure Nothing
   for_ mNewStartedSession $ \(!newStartedSession) ->
-    sendMsgToDaemon opts (CMSession newStartedSession)
+    queueMessage queue (CMSession newStartedSession)
 
 sendModuleStart ::
-  [CommandLineOption] ->
+  MsgQueue ->
   IORef (Maybe ModuleName) ->
   UTCTime ->
   CompPipeline (Maybe ModuleName)
-sendModuleStart opts modNameRef startTime = do
+sendModuleStart queue modNameRef startTime = do
   pstate <- getPipeState
   mmodName_ <- liftIO $ readIORef modNameRef
   let mmodName = getModuleNameFromPipeState pstate
@@ -227,17 +233,18 @@ sendModuleStart opts modNameRef startTime = do
   case (mmodName_, mmodName) of
     (Nothing, Just modName) -> do
       let timer = Timer [(TimerStart, startTime)]
-      liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+      liftIO $
+        queueMessage queue (CMTiming modName timer)
     _ -> pure ()
   pure mmodName
 
 sendCompStateOnPhase ::
-  [CommandLineOption] ->
+  MsgQueue ->
   DynFlags ->
   Maybe ModuleName ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase opts dflags mmodName phase = do
+sendCompStateOnPhase queue dflags mmodName phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> do
@@ -247,14 +254,15 @@ sendCompStateOnPhase opts dflags mmodName phase = do
           -- send timing information
           endTime <- liftIO getCurrentTime
           let timer = Timer [(TimerEnd, endTime)]
-          liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+          liftIO $
+            queueMessage queue (CMTiming modName timer)
           -- send HIE file information to the daemon after compilation
           case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
             (Just modLoc, True) -> do
               let hiefile = ml_hie_file modLoc
               liftIO $ do
                 hiefile' <- canonicalizePath hiefile
-                sendMsgToDaemon opts (CMHsSource modName (HsSourceInfo hiefile'))
+                queueMessage queue (CMHsSource modName (HsSourceInfo hiefile'))
             _ -> pure ()
     RealPhase (As _) -> do
       case mmodName of
@@ -263,43 +271,40 @@ sendCompStateOnPhase opts dflags mmodName phase = do
           -- send timing information
           endTime <- liftIO getCurrentTime
           let timer = Timer [(TimerAs, endTime)]
-          liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+          liftIO $
+            queueMessage queue (CMTiming modName timer)
     HscOut _ modName0 _ -> do
       let modName = T.pack . moduleNameString $ modName0
       -- send timing information
       hscOutTime <- liftIO getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
-      liftIO $ sendMsgToDaemon opts (CMTiming modName timer)
+      liftIO $
+        queueMessage queue (CMTiming modName timer)
     _ -> pure ()
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   queue <- newTVarIO Seq.empty
-  _ <- forkIO $ runMessageQueue queue
-  queueMessage queue "driver start"
-  sendSessionStart opts env
+  _ <- forkIO $ runMessageQueue opts queue
+  sendSessionStart queue env
   startTime <- getCurrentTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
   modNameRef <- newIORef Nothing
-  queueMessage queue "driver start 2"
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName0 <- sendModuleStart opts modNameRef startTime
-        sendCompStateOnPhase opts dflags mmodName0 phase
+        mmodName0 <- sendModuleStart queue modNameRef startTime
+        sendCompStateOnPhase queue dflags mmodName0 phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         -- NOTE: we need to run sendModuleStart twice as the first one is not guaranteed
         -- to have module name information.
-        mmodName1 <- sendModuleStart opts modNameRef startTime
-        sendCompStateOnPhase opts dflags mmodName1 phase'
-
-        liftIO $ queueMessage queue "postphase"
-
+        mmodName1 <- sendModuleStart queue modNameRef startTime
+        sendCompStateOnPhase queue dflags mmodName1 phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
@@ -365,5 +370,7 @@ typecheckPlugin opts modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ sendMsgToDaemon opts (CMCheckImports modName (T.pack rendered))
+  -- for now
+  -- liftIO $
+  --   queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
