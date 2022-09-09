@@ -15,14 +15,17 @@ module Plugin.GHCSpecter
   )
 where
 
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
+    modifyTVar',
     newTVarIO,
     readTVar,
+    retry,
     writeTVar,
   )
-import Control.Monad (when)
+import Control.Monad (forever, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Char (isAlpha)
 import Data.Foldable (for_)
@@ -33,6 +36,8 @@ import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (mapMaybe)
+import Data.Sequence (Seq, (|>))
+import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
@@ -175,6 +180,21 @@ getModuleNameFromPipeState pstate =
       mmod = fmap mi_module mmi
    in fmap (T.pack . moduleNameString . moduleName) mmod
 
+runMessageQueue :: TVar (Seq T.Text) -> IO ()
+runMessageQueue queue =
+  runClient "/tmp/test.ipc" $ \sock -> forever $ do
+    msgs <- atomically $ do
+      queued <- readTVar queue
+      if Seq.null queued
+        then retry
+        else writeTVar queue Seq.empty >> pure queued
+    for_ msgs $ \msg ->
+      msg `seq` sendObject sock msg
+
+queueMessage :: TVar (Seq T.Text) -> T.Text -> IO ()
+queueMessage queue msg =
+  msg `seq` atomically $ modifyTVar' queue (|> msg)
+
 -- | Called only once for sending session information
 sendSessionStart :: [CommandLineOption] -> HscEnv -> IO ()
 sendSessionStart opts env = do
@@ -254,12 +274,16 @@ sendCompStateOnPhase opts dflags mmodName phase = do
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
+  queue <- newTVarIO Seq.empty
+  _ <- forkIO $ runMessageQueue queue
+  queueMessage queue "driver start"
   sendSessionStart opts env
   startTime <- getCurrentTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
   modNameRef <- newIORef Nothing
+  queueMessage queue "driver start 2"
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
@@ -273,6 +297,9 @@ driver opts env = do
         -- to have module name information.
         mmodName1 <- sendModuleStart opts modNameRef startTime
         sendCompStateOnPhase opts dflags mmodName1 phase'
+
+        liftIO $ queueMessage queue "postphase"
+
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}

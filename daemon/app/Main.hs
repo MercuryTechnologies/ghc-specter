@@ -15,12 +15,14 @@ import Control.Concurrent.STM
     retry,
   )
 import Control.Lens ((%~), (.~), (^.))
-import Control.Monad (void, when)
+import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Map.Strict qualified as M
+import Data.Text (Text)
+import Data.Text.IO qualified as TIO
 import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,
@@ -84,6 +86,7 @@ main = do
     Online socketFile -> do
       var <- atomically $ newTVar emptyServerState
       _ <- forkIO $ listener socketFile var
+      _ <- forkIO $ testListener
       webServer var
     View sessionFile -> do
       lbs <- BL.readFile sessionFile
@@ -110,6 +113,15 @@ listener socketFile var =
             void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o
+    )
+
+testListener :: IO ()
+testListener =
+  runServer
+    "/tmp/test.ipc"
+    ( \sock -> forever $ do
+        txt :: Text <- receiveObject sock
+        TIO.putStrLn ("message received: " <> txt)
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
