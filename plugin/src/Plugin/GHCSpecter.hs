@@ -218,9 +218,9 @@ startSession opts env = do
           modifyTVar' sessionRef (first (const startedSession))
           pure (Just startedSession, queue, willStartMsgQueue)
         Just _ -> pure (Nothing, queue, willStartMsgQueue)
-
-  when willStartMsgQueue $ do
-    putStrLn "this is called"
+  -- If session connection was never initiated, then make connection
+  -- and start receiving message from the queue.
+  when willStartMsgQueue $
     void $ forkOS $ runMessageQueue opts queue'
   for_ mNewStartedSession $ \newStartedSession ->
     queueMessage queue (CMSession newStartedSession)
