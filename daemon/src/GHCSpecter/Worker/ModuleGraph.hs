@@ -123,5 +123,5 @@ layOutModuleSubgraph mgi detailLevel (clusterName, members_) = do
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
       subModDepReversed = makeRevDep subModDep
   grVisInfo <- layOutGraph modNameMap subModDepReversed
-  printf "Cluster %s subgraph layout has been calculated." (T.unpack clusterName)
+  printf "Cluster %s subgraph layout has been calculated.\n" (T.unpack clusterName)
   pure (clusterName, grVisInfo)
