@@ -40,6 +40,7 @@ import GHCSpecter.Channel
 import GHCSpecter.Comm
   ( receiveObject,
     runServer,
+    sendObject,
   )
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
@@ -99,20 +100,28 @@ updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var =
-  runServer
-    socketFile
-    ( \sock -> forever $ do
-        msgs :: [ChanMessageBox] <- receiveObject sock
-        F.for_ msgs $ \(CMBox o) -> do
-          case o of
-            CMSession s' -> do
-              let mgi = sessionModuleGraph s'
-              void $ forkIO (moduleGraphWorker var mgi)
-            CMHsSource _modu (HsSourceInfo hiefile) -> do
-              void $ forkIO (hieWorker var hiefile)
-            _ -> pure ()
-          atomically . modifyTVar' var . updateInbox $ CMBox o
-    )
+  runServer socketFile $ \sock -> do
+    _ <- forkIO $ sender sock
+    receiver sock
+  where
+    sender sock = go 0
+      where
+        go :: Int -> IO ()
+        go n = do
+          threadDelay 1_000_000
+          sendObject sock n
+          go (n + 1)
+    receiver sock = forever $ do
+      msgs :: [ChanMessageBox] <- receiveObject sock
+      F.for_ msgs $ \(CMBox o) -> do
+        case o of
+          CMSession s' -> do
+            let mgi = sessionModuleGraph s'
+            void $ forkIO (moduleGraphWorker var mgi)
+          CMHsSource _modu (HsSourceInfo hiefile) -> do
+            void $ forkIO (hieWorker var hiefile)
+          _ -> pure ()
+        atomically . modifyTVar' var . updateInbox $ CMBox o
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater

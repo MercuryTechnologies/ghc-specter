@@ -15,7 +15,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkOS)
+import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -110,7 +110,12 @@ import GHCSpecter.Channel
     TimerTag (..),
     emptyModuleGraphInfo,
   )
-import GHCSpecter.Comm (runClient, sendObject)
+import GHCSpecter.Comm
+  ( receiveObject,
+    runClient,
+    sendObject,
+  )
+import Network.Socket (Socket)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -181,15 +186,25 @@ runMessageQueue opts queue =
     ipcfile : _ -> liftIO $ do
       socketExists <- doesFileExist ipcfile
       when socketExists $
-        runClient ipcfile $ \sock -> forever $ do
-          msgs <- atomically $ do
-            queued <- readTVar queue
-            if Seq.null queued
-              then retry
-              else writeTVar queue Seq.empty >> pure queued
-          let msgList = F.toList msgs
-          msgList `seq` sendObject sock msgList
+        runClient ipcfile $ \sock -> do
+          _ <- forkIO $ receiver sock
+          sender sock
     _ -> pure ()
+  where
+    sender :: Socket -> IO ()
+    sender sock = forever $ do
+      msgs <- atomically $ do
+        queued <- readTVar queue
+        if Seq.null queued
+          then retry
+          else writeTVar queue Seq.empty >> pure queued
+      let msgList = F.toList msgs
+      msgList `seq` sendObject sock msgList
+
+    receiver :: Socket -> IO ()
+    receiver sock = forever $ do
+      msg :: Int <- receiveObject sock
+      putStrLn $ "message received: " ++ show msg
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue msg =
