@@ -5,7 +5,7 @@ module Main (main) where
 import Concur.Core (liftSTM)
 import Concur.Replica (runDefault)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -20,6 +20,7 @@ import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
+import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Time.Clock
   ( NominalDiffTime,
@@ -83,7 +84,7 @@ main = do
   case mode of
     Online socketFile -> do
       var <- atomically $ newTVar emptyServerState
-      _ <- forkIO $ listener socketFile var
+      _ <- forkOS $ listener socketFile var
       webServer var
     View sessionFile -> do
       lbs <- BL.readFile sessionFile
@@ -101,15 +102,18 @@ listener socketFile var =
   runServer
     socketFile
     ( \sock -> forever $ do
-        CMBox o <- receiveObject sock
-        case o of
-          CMSession s' -> do
-            let mgi = sessionModuleGraph s'
-            void $ forkIO (moduleGraphWorker var mgi)
-          CMHsSource _modu (HsSourceInfo hiefile) -> do
-            void $ forkIO (hieWorker var hiefile)
-          _ -> pure ()
-        atomically . modifyTVar' var . updateInbox $ CMBox o
+        msgs :: [ChanMessageBox] <- receiveObject sock
+        F.for_ msgs $ \(CMBox o) -> do
+          case o of
+            CMSession s' -> do
+              let mgi = sessionModuleGraph s'
+              void $ forkOS (moduleGraphWorker var mgi)
+              pure ()
+            CMHsSource _modu (HsSourceInfo hiefile) -> do
+              void $ forkOS (hieWorker var hiefile)
+              pure ()
+            _ -> pure ()
+          atomically . modifyTVar' var . updateInbox $ CMBox o
     )
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState

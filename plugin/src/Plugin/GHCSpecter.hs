@@ -15,7 +15,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkOS)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -25,10 +25,12 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
-import Control.Monad (forever, when)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
+import Data.Bifunctor (first, second)
 import Data.Char (isAlpha)
 import Data.Foldable (for_)
+import Data.Foldable qualified as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -112,6 +114,8 @@ import GHCSpecter.Comm (runClient, sendObject)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
+type MsgQueue = TVar (Seq ChanMessageBox)
+
 plugin :: Plugin
 plugin =
   defaultPlugin
@@ -120,20 +124,11 @@ plugin =
     }
 
 -- | Global variable shared across the session
-sessionRef :: TVar SessionInfo
+sessionRef :: TVar (SessionInfo, Maybe MsgQueue)
 {-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newTVarIO (SessionInfo Nothing emptyModuleGraphInfo))
-
--- | send message to the web daemon
-sendMsgToDaemon :: [CommandLineOption] -> ChanMessage a -> IO ()
-sendMsgToDaemon opts msg =
-  case opts of
-    ipcfile : _ -> liftIO $ do
-      socketExists <- doesFileExist ipcfile
-      when socketExists $
-        runClient ipcfile $ \sock ->
-          sendObject sock (CMBox msg)
-    _ -> pure ()
+sessionRef =
+  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo, Nothing)
+   in unsafePerformIO (newTVarIO newSessionState)
 
 --
 -- driver plugin
@@ -180,8 +175,6 @@ getModuleNameFromPipeState pstate =
       mmod = fmap mi_module mmi
    in fmap (T.pack . moduleNameString . moduleName) mmod
 
-type MsgQueue = TVar (Seq ChanMessageBox)
-
 runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
 runMessageQueue opts queue =
   case opts of
@@ -194,31 +187,44 @@ runMessageQueue opts queue =
             if Seq.null queued
               then retry
               else writeTVar queue Seq.empty >> pure queued
-          for_ msgs $ \msg ->
-            msg `seq` sendObject sock msg
+          let msgList = F.toList msgs
+          msgList `seq` sendObject sock msgList
+    _ -> pure ()
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue msg =
   msg `seq` atomically $ modifyTVar' queue (|> (CMBox msg))
 
 -- | Called only once for sending session information
-sendSessionStart :: MsgQueue -> HscEnv -> IO ()
-sendSessionStart queue env = do
+startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
+startSession opts env = do
   startTime <- getCurrentTime
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
       startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
   -- NOTE: return Nothing if session info is already initiated
-  mNewStartedSession <-
+  queue' <- newTVarIO Seq.empty
+  (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
-      SessionInfo msessionStart _ <- readTVar sessionRef
+      (SessionInfo msessionStart _, mqueue) <- readTVar sessionRef
+      (queue, willStartMsgQueue) <-
+        case mqueue of
+          Nothing -> do
+            modifyTVar' sessionRef (second (const (Just queue')))
+            pure (queue', True)
+          Just queue_ -> pure (queue_, False)
       case msessionStart of
         Nothing -> do
-          writeTVar sessionRef startedSession
-          pure (Just startedSession)
-        Just _ -> pure Nothing
-  for_ mNewStartedSession $ \(!newStartedSession) ->
+          modifyTVar' sessionRef (first (const startedSession))
+          pure (Just startedSession, queue, willStartMsgQueue)
+        Just _ -> pure (Nothing, queue, willStartMsgQueue)
+
+  when willStartMsgQueue $ do
+    putStrLn "this is called"
+    void $ forkOS $ runMessageQueue opts queue'
+  for_ mNewStartedSession $ \newStartedSession ->
     queueMessage queue (CMSession newStartedSession)
+  pure queue
 
 sendModuleStart ::
   MsgQueue ->
@@ -284,9 +290,7 @@ sendCompStateOnPhase queue dflags mmodName phase = do
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
-  queue <- newTVarIO Seq.empty
-  _ <- forkIO $ runMessageQueue opts queue
-  sendSessionStart queue env
+  queue <- startSession opts env
   startTime <- getCurrentTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
@@ -354,7 +358,7 @@ typecheckPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin opts modsummary tc = do
+typecheckPlugin _opts modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -370,7 +374,8 @@ typecheckPlugin opts modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
   let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  -- for now
-  -- liftIO $
-  --   queueMessage queue (CMCheckImports modName (T.pack rendered))
+  liftIO $ do
+    (_, mqueue) <- atomically $ readTVar sessionRef
+    for_ mqueue $ \queue ->
+      queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc

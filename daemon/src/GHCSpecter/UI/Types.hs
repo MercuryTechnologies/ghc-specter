@@ -18,9 +18,7 @@ module GHCSpecter.UI.Types
 where
 
 import Control.Lens (makeClassy)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
-import GHC.Generics (Generic)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
