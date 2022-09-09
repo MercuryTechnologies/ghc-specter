@@ -32,14 +32,16 @@ import Data.Time.Clock
   )
 import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
-import GHCSpecter.Server.Types
-  ( Event (TimingEv),
-    HasTimingUI (..),
+import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.Types
+  ( HasTimingUI (..),
     HasUIState (..),
-    ServerState (..),
-    TimingEvent (..),
     TimingUI,
     UIState,
+  )
+import GHCSpecter.UI.Types.Event
+  ( Event (TimingEv),
+    TimingEvent (..),
   )
 import GHCSpecter.Util.Timing
   ( HasTimingInfo (..),

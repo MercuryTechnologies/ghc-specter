@@ -35,17 +35,19 @@ import GHCSpecter.Channel
     getEndTime,
   )
 import GHCSpecter.Server.Types
-  ( Event (..),
-    HasDeclRow' (..),
+  ( HasDeclRow' (..),
     HasHieState (..),
     HasModuleHieInfo (..),
     HasServerState (..),
-    HasSourceViewUI (..),
     Inbox,
     ModuleHieInfo,
     ServerState (..),
+  )
+import GHCSpecter.UI.Types
+  ( HasSourceViewUI (..),
     SourceViewUI (..),
   )
+import GHCSpecter.UI.Types.Event (Event (..))
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div, span)
 

@@ -23,13 +23,13 @@ import GHCSpecter.Channel
   )
 import GHCSpecter.Render.ModuleGraph (layOutGraph)
 import GHCSpecter.Server.Types
-  ( DetailLevel (..),
-    GraphVisInfo,
+  ( GraphVisInfo,
     HasModuleGraphState (..),
     HasServerState (..),
     ServerState (..),
     incrementSN,
   )
+import GHCSpecter.UI.Types.Event (DetailLevel (..))
 import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)
 import GHCSpecter.Util.Graph.Builder
   ( makeBiDep,

@@ -45,9 +45,9 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
     emptyServerState,
-    emptyUIState,
     incrementSN,
   )
+import GHCSpecter.UI.Types (emptyUIState)
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
