@@ -104,13 +104,13 @@ listener socketFile var =
     _ <- forkIO $ sender sock
     receiver sock
   where
-    sender sock = go 0
+    sender sock = go True
       where
-        go :: Int -> IO ()
-        go n = do
-          threadDelay 1_000_000
-          sendObject sock n
-          go (n + 1)
+        go :: Bool -> IO ()
+        go b = do
+          threadDelay 10_000_000
+          sendObject sock b
+          go (not b)
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \(CMBox o) -> do
