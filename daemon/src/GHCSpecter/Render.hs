@@ -142,6 +142,7 @@ render (ui, ss) = do
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)
         pure oldUI
+      handleMainPanel oldUI (SessionEv _) = pure oldUI
       handleMainPanel oldUI (TimingEv (UpdateSticky b)) =
         pure $ (uiTiming . timingUISticky .~ b) oldUI
       handleMainPanel oldUI (TimingEv (UpdatePartition b)) =

@@ -127,7 +127,7 @@ plugin =
 sessionRef :: TVar (SessionInfo, Maybe MsgQueue)
 {-# NOINLINE sessionRef #-}
 sessionRef =
-  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo, Nothing)
+  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo False, Nothing)
    in unsafePerformIO (newTVarIO newSessionState)
 
 --
@@ -201,12 +201,13 @@ startSession opts env = do
   startTime <- getCurrentTime
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
-      startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
+      startedSession =
+        modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
   queue' <- newTVarIO Seq.empty
   (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
-      (SessionInfo msessionStart _, mqueue) <- readTVar sessionRef
+      (SessionInfo msessionStart _ _, mqueue) <- readTVar sessionRef
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
