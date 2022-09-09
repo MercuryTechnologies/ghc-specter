@@ -17,6 +17,7 @@ import Control.Monad (forever, replicateM, void)
 import Data.Binary qualified as B
 import Data.ByteString.Char8 qualified as C
 import Data.ByteString.Lazy.Char8 qualified as CL
+import Data.Foldable (for_)
 import Data.Word (Word32)
 import Network.Socket
   ( Family (AF_UNIX),
@@ -33,7 +34,7 @@ import Network.Socket
     socket,
     withSocketsDo,
   )
-import Network.Socket.ByteString (recv, send, sendMany)
+import Network.Socket.ByteString (recv, sendAll)
 
 newtype Message = Message {unMessage :: C.ByteString}
 
@@ -77,8 +78,10 @@ sendMessage :: Socket -> Message -> IO ()
 sendMessage sock (Message !payload) = do
   let sz :: Word32 = fromIntegral (C.length payload)
       !chunked = chunksOf 1024 payload
-  _ <- send sock (CL.toStrict (B.encode sz))
-  sendMany sock chunked
+  -- NOTE: send and sendMany suffer from the vanishing resource problem.
+  sendAll sock (CL.toStrict (B.encode sz))
+  for_ chunked $ \chunk ->
+    sendAll sock chunk
 
 receiveMessage :: Socket -> IO Message
 receiveMessage sock = do
