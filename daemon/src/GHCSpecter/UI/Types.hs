@@ -2,7 +2,6 @@
 
 module GHCSpecter.UI.Types
   ( -- * UI state
-    Tab (..),
     ModuleGraphUI (..),
     HasModuleGraphUI (..),
     emptyModuleGraphUI,
