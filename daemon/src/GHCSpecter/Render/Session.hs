@@ -27,6 +27,30 @@ import GHCSpecter.UI.Types.Event
 import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
+renderSessionButtons :: SessionInfo -> Widget HTML Event
+renderSessionButtons session =
+  div
+    []
+    [ buttonSaveSession
+    , buttonPauseResumeSession
+    ]
+  where
+    buttonSaveSession =
+      button
+        [ SessionEv SaveSessionEv <$ onClick
+        , classList [("button is-primary is-size-7 m-1 p-1", True)]
+        ]
+        [text "Save Session"]
+    buttonPauseResumeSession =
+      let (txt, ev)
+            | sessionIsPaused session = ("Resume Session", ResumeSessionEv)
+            | otherwise = ("Pause Session", PauseSessionEv)
+       in button
+            [ SessionEv ev <$ onClick
+            , classList [("button is-primary is-size-7 m-1 p-1", True)]
+            ]
+            [text txt]
+
 -- | Top-level render function for the Session tab.
 render :: ServerState -> Widget HTML Event
 render ss =
@@ -41,9 +65,5 @@ render ss =
             []
             [ pre [] [text $ T.pack $ show sessionStartTime]
             , pre [] [text msg]
-            , button
-                [ SessionEv SaveSessionEv <$ onClick
-                , classList [("button is-primary is-size-7 m-1 p-1", True)]
-                ]
-                [text "Save Session"]
+            , renderSessionButtons sessionInfo
             ]

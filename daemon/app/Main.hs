@@ -13,8 +13,9 @@ import Control.Concurrent.STM
     newTVar,
     readTVar,
     retry,
+    writeTVar,
   )
-import Control.Lens ((%~), (.~), (^.))
+import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -40,6 +41,7 @@ import GHCSpecter.Channel
 import GHCSpecter.Comm
   ( receiveObject,
     runServer,
+    sendObject,
   )
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
@@ -98,21 +100,33 @@ updateInterval :: NominalDiffTime
 updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
 listener :: FilePath -> TVar ServerState -> IO ()
-listener socketFile var =
-  runServer
-    socketFile
-    ( \sock -> forever $ do
-        msgs :: [ChanMessageBox] <- receiveObject sock
-        F.for_ msgs $ \(CMBox o) -> do
-          case o of
-            CMSession s' -> do
-              let mgi = sessionModuleGraph s'
-              void $ forkIO (moduleGraphWorker var mgi)
-            CMHsSource _modu (HsSourceInfo hiefile) -> do
-              void $ forkIO (hieWorker var hiefile)
-            _ -> pure ()
-          atomically . modifyTVar' var . updateInbox $ CMBox o
-    )
+listener socketFile var = do
+  ss <- atomically $ readTVar var
+  runServer socketFile $ \sock -> do
+    _ <- forkIO $ sender sock (ss ^. serverSessionInfo . to sessionIsPaused)
+    receiver sock
+  where
+    sender sock lastState = do
+      newState <-
+        atomically $ do
+          ss' <- readTVar var
+          let newState = ss' ^. serverSessionInfo . to sessionIsPaused
+          if newState == lastState
+            then retry
+            else pure newState
+      sendObject sock newState
+      sender sock newState
+    receiver sock = forever $ do
+      msgs :: [ChanMessageBox] <- receiveObject sock
+      F.for_ msgs $ \(CMBox o) -> do
+        case o of
+          CMSession s' -> do
+            let mgi = sessionModuleGraph s'
+            void $ forkIO (moduleGraphWorker var mgi)
+          CMHsSource _modu (HsSourceInfo hiefile) -> do
+            void $ forkIO (hieWorker var hiefile)
+          _ -> pure ()
+        atomically . modifyTVar' var . updateInbox $ CMBox o
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -152,5 +166,8 @@ webServer var = do
                 else pure ss'
             newUIUpdate <- liftIO getCurrentTime
             pure (ui, ss', newUIUpdate)
-      (Left . (,ss,lastUIUpdate) <$> render (ui, ss))
-        <|> (Left <$> await)
+          updateSS (ui', (ss', b)) = do
+            when b $
+              liftSTM $ writeTVar var ss'
+            pure (Left (ui', ss', lastUIUpdate))
+      (render (ui, ss) >>= updateSS) <|> (Left <$> await)

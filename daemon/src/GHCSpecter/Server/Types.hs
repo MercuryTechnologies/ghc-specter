@@ -271,7 +271,7 @@ emptyServerState =
   ServerState
     { _serverMessageSN = 0
     , _serverInbox = mempty
-    , _serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo
+    , _serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo False
     , _serverTiming = mempty
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState

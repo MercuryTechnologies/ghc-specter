@@ -15,7 +15,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkOS)
+import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -25,6 +25,7 @@ import Control.Concurrent.STM
     retry,
     writeTVar,
   )
+import Control.Concurrent.STM qualified as STM
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (first, second)
@@ -110,11 +111,24 @@ import GHCSpecter.Channel
     TimerTag (..),
     emptyModuleGraphInfo,
   )
-import GHCSpecter.Comm (runClient, sendObject)
+import GHCSpecter.Comm
+  ( receiveObject,
+    runClient,
+    sendObject,
+  )
+import Network.Socket (Socket)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
-type MsgQueue = TVar (Seq ChanMessageBox)
+data MsgQueueState = MsgQueueState
+  { msgSenderQueue :: Seq ChanMessageBox
+  , msgIsPaused :: Bool
+  }
+
+emptyMsgQueueState :: MsgQueueState
+emptyMsgQueueState = MsgQueueState Seq.empty False
+
+type MsgQueue = TVar MsgQueueState
 
 plugin :: Plugin
 plugin =
@@ -127,7 +141,7 @@ plugin =
 sessionRef :: TVar (SessionInfo, Maybe MsgQueue)
 {-# NOINLINE sessionRef #-}
 sessionRef =
-  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo, Nothing)
+  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo False, Nothing)
    in unsafePerformIO (newTVarIO newSessionState)
 
 --
@@ -181,19 +195,43 @@ runMessageQueue opts queue =
     ipcfile : _ -> liftIO $ do
       socketExists <- doesFileExist ipcfile
       when socketExists $
-        runClient ipcfile $ \sock -> forever $ do
-          msgs <- atomically $ do
-            queued <- readTVar queue
-            if Seq.null queued
-              then retry
-              else writeTVar queue Seq.empty >> pure queued
-          let msgList = F.toList msgs
-          msgList `seq` sendObject sock msgList
+        runClient ipcfile $ \sock -> do
+          _ <- forkIO $ receiver sock
+          sender sock
     _ -> pure ()
+  where
+    sender :: Socket -> IO ()
+    sender sock = forever $ do
+      msgs <- atomically $ do
+        s <- readTVar queue
+        let queued = msgSenderQueue s
+        if Seq.null queued
+          then retry
+          else do
+            writeTVar queue s {msgSenderQueue = Seq.empty}
+            pure queued
+      let msgList = F.toList msgs
+      msgList `seq` sendObject sock msgList
+
+    receiver :: Socket -> IO ()
+    receiver sock = forever $ do
+      msg :: Bool <- receiveObject sock
+      putStrLn $ "message received: " ++ show msg
+      atomically $
+        modifyTVar' queue $ \s -> s {msgIsPaused = msg}
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
-queueMessage queue msg =
-  msg `seq` atomically $ modifyTVar' queue (|> (CMBox msg))
+queueMessage queue !msg =
+  atomically $
+    modifyTVar' queue $ \s ->
+      let q = msgSenderQueue s
+       in s {msgSenderQueue = q |> CMBox msg}
+
+breakPoint :: MsgQueue -> IO ()
+breakPoint queue = do
+  atomically $ do
+    s <- readTVar queue
+    STM.check (not (msgIsPaused s))
 
 -- | Called only once for sending session information
 startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
@@ -201,12 +239,13 @@ startSession opts env = do
   startTime <- getCurrentTime
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
-      startedSession = modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo
+      startedSession =
+        modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
-  queue' <- newTVarIO Seq.empty
+  queue' <- newTVarIO emptyMsgQueueState
   (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
-      (SessionInfo msessionStart _, mqueue) <- readTVar sessionRef
+      (SessionInfo msessionStart _ _, mqueue) <- readTVar sessionRef
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
@@ -291,6 +330,7 @@ sendCompStateOnPhase queue dflags mmodName phase = do
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env = do
   queue <- startSession opts env
+  breakPoint queue
   startTime <- getCurrentTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
