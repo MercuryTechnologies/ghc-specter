@@ -166,7 +166,8 @@ webServer var = do
                 else pure ss'
             newUIUpdate <- liftIO getCurrentTime
             pure (ui, ss', newUIUpdate)
-          updateSS (ui', ss') = do
-            liftSTM $ writeTVar var ss'
+          updateSS (ui', (ss', b)) = do
+            when b $
+              liftSTM $ writeTVar var ss'
             pure (Left (ui', ss', lastUIUpdate))
       (render (ui, ss) >>= updateSS) <|> (Left <$> await)

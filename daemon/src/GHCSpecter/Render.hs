@@ -103,7 +103,7 @@ renderNavbar tab =
 
 render ::
   (UIState, ServerState) ->
-  Widget HTML (UIState, ServerState)
+  Widget HTML (UIState, (ServerState, Bool))
 render (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
@@ -127,54 +127,54 @@ render (ui, ss) = do
       handleModuleGraphEv (HoverOnModuleEv mhovered) = modGraphUIHover .~ mhovered
       handleModuleGraphEv (ClickOnModuleEv mclicked) = modGraphUIClick .~ mclicked
 
-      handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, ServerState)
+      handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
         pure
-          ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, oldSS)
+          ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (MainModuleEv ev) =
         pure
-          ((uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI, oldSS)
+          ((uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
           SubModuleGraphEv ev ->
             pure
-              ((uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI, oldSS)
+              ((uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
           SubModuleLevelEv d' ->
             pure
-              ((uiSubModuleGraph . _1 .~ d') oldUI, oldSS)
+              ((uiSubModuleGraph . _1 .~ d') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SessionEv SaveSessionEv) = do
         liftIO $
           withFile "session.json" WriteMode $ \h ->
             BL.hPutStr h (encode ss)
-        pure (oldUI, oldSS)
+        pure (oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SessionEv ResumeSessionEv) = do
         let sinfo = oldSS ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = False}
             newSS = (serverSessionInfo .~ sinfo') oldSS
-        pure (oldUI, newSS)
+        pure (oldUI, (newSS, True))
       handleMainPanel (oldUI, oldSS) (SessionEv PauseSessionEv) = do
         let sinfo = oldSS ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = True}
         let newSS = (serverSessionInfo .~ sinfo') oldSS
-        pure (oldUI, newSS)
+        pure (oldUI, (newSS, True))
       handleMainPanel (oldUI, oldSS) (TimingEv (UpdateSticky b)) =
         pure
-          ((uiTiming . timingUISticky .~ b) oldUI, oldSS)
+          ((uiTiming . timingUISticky .~ b) oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (TimingEv (UpdatePartition b)) =
         pure
-          ((uiTiming . timingUIPartition .~ b) oldUI, oldSS)
+          ((uiTiming . timingUIPartition .~ b) oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (TimingEv (UpdateParallel b)) =
         pure
-          ((uiTiming . timingUIHowParallel .~ b) oldUI, oldSS)
-      handleMainPanel (oldUI, oldSS) _ = pure (oldUI, oldSS)
+          ((uiTiming . timingUIHowParallel .~ b) oldUI, (oldSS, False))
+      handleMainPanel (oldUI, oldSS) _ = pure (oldUI, (oldSS, False))
 
-  (ui', ss') <-
+  (ui', (ss', shouldUpdate)) <-
     div
       [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , (,ss) <$> (`handleNavbar` ui) <$> renderNavbar (ui ^. uiTab)
+      , (, (ss, False)) <$> (`handleNavbar` ui) <$> renderNavbar (ui ^. uiTab)
       , handleMainPanel (ui, ss) =<< mainPanel
       , bottomPanel
       ]
-  pure (ui', ss')
+  pure (ui', (ss', shouldUpdate))
