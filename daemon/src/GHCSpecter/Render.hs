@@ -173,7 +173,7 @@ render (ui, ss) = do
       [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
       [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
       , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , (, (ss, False)) <$> (`handleNavbar` ui) <$> renderNavbar (ui ^. uiTab)
+      , (,(ss, False)) <$> (`handleNavbar` ui) <$> renderNavbar (ui ^. uiTab)
       , handleMainPanel (ui, ss) =<< mainPanel
       , bottomPanel
       ]
