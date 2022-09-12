@@ -212,7 +212,6 @@ runMessageQueue opts queue =
             pure queued
       let msgList = F.toList msgs
       msgList `seq` sendObject sock msgList
-
     receiver :: Socket -> IO ()
     receiver sock = forever $ do
       msg :: Bool <- receiveObject sock
