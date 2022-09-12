@@ -76,7 +76,7 @@ chunksOf n bs = go [] bs
 
 sendMessage :: Socket -> Message -> IO ()
 sendMessage sock (Message !payload) = do
-  let sz :: Word32 = fromIntegral (C.length payload)
+  let !sz :: Word32 = fromIntegral (C.length payload)
       !chunked = chunksOf 1024 payload
   -- NOTE: send and sendMany suffer from the vanishing resource problem.
   sendAll sock (CL.toStrict (B.encode sz))
@@ -85,11 +85,16 @@ sendMessage sock (Message !payload) = do
 
 receiveMessage :: Socket -> IO Message
 receiveMessage sock = do
-  sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
+  !sz :: Word32 <- B.decode . CL.fromStrict <$> recv sock 4
   let (n, m) = divMod sz 1024
   ps <- replicateM (fromIntegral n) (recv sock 1024)
-  p <- recv sock (fromIntegral m)
-  let payload = C.concat (ps ++ [p])
+  remainder <-
+    if (m == 0)
+      then pure []
+      else do
+        p <- recv sock (fromIntegral m)
+        pure [p]
+  let payload = C.concat (ps ++ remainder)
   pure (Message payload)
 
 sendObject :: (B.Binary a) => Socket -> a -> IO ()
