@@ -27,12 +27,15 @@ import Concur.Replica
     label,
     onClick,
     onInput,
+    onKeyPress,
     onMouseEnter,
     onMouseLeave,
     pre,
     text,
     width,
   )
+import Concur.Replica.DOM.Events (MouseEvent, extractResult)
+import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
@@ -42,6 +45,7 @@ import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (allocate)
+import Data.Aeson qualified as A
 import Data.Bits ((.|.))
 import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
@@ -110,10 +114,13 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
-import Replica.VDOM.Types (HTML)
+import Replica.VDOM.Types (DOMEvent (getDOMEvent), HTML)
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Prelude hiding (div)
+
+onMouseMove :: Props MouseEvent
+onMouseMove = Props "onMouseMove" (PropEvent (extractResult . A.fromJSON . getDOMEvent))
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
@@ -242,9 +249,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
               | Just name == mhinted = "honeydew"
               | otherwise = "ivory"
          in S.rect
-              [ HoverOnModuleEv (Just name) <$ onMouseEnter
-              , HoverOnModuleEv Nothing <$ onMouseLeave
-              , ClickOnModuleEv (Just name) <$ onClick
+              [ -- HoverOnModuleEv (Just name) <$ onMouseEnter
+                -- , HoverOnModuleEv Nothing <$ onMouseLeave
+                ClickOnModuleEv (Just name) <$ onClick
               , SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
               , width (T.pack $ show (w * aFactor))
@@ -255,9 +262,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
               []
       box1 (NodeLayout (_, name) (Point x y) (Dim w h)) =
         S.rect
-          [ HoverOnModuleEv (Just name) <$ onMouseEnter
-          , HoverOnModuleEv Nothing <$ onMouseLeave
-          , ClickOnModuleEv (Just name) <$ onClick
+          [ --  HoverOnModuleEv (Just name) <$ onMouseEnter
+            -- , HoverOnModuleEv Nothing <$ onMouseLeave
+            ClickOnModuleEv (Just name) <$ onClick
           , SP.x (T.pack $ show (x + offX))
           , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
           , width (T.pack $ show (w * aFactor))
@@ -278,9 +285,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
                   pure (fromIntegral nCompiled / fromIntegral nTot)
             w' = ratio * w
          in S.rect
-              [ HoverOnModuleEv (Just name) <$ onMouseEnter
-              , HoverOnModuleEv Nothing <$ onMouseLeave
-              , ClickOnModuleEv (Just name) <$ onClick
+              [ -- HoverOnModuleEv (Just name) <$ onMouseEnter
+                -- , HoverOnModuleEv Nothing <$ onMouseLeave
+                ClickOnModuleEv (Just name) <$ onClick
               , SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
               , width (T.pack $ show (w' * aFactor))
@@ -290,9 +297,9 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
               []
       moduleText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
         S.text
-          [ HoverOnModuleEv (Just name) <$ onMouseEnter
-          , HoverOnModuleEv Nothing <$ onMouseLeave
-          , ClickOnModuleEv (Just name) <$ onClick
+          [ -- HoverOnModuleEv (Just name) <$ onMouseEnter
+            -- , HoverOnModuleEv Nothing <$ onMouseLeave
+            ClickOnModuleEv (Just name) <$ onClick
           , SP.x (T.pack $ show (x + offX + 2))
           , SP.y (T.pack $ show (y + h * offYFactor + h))
           , classList [("small", True)]
@@ -314,6 +321,7 @@ renderModuleGraphSVG nameMap timing clustering grVisInfo (mfocused, mhinted) =
               )
           , SP.version "1.1"
           , xmlns
+          , DummyEv <$ onMouseMove -- onKeyPress
           ]
           (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]

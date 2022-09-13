@@ -29,6 +29,7 @@ instance ToJSON DetailLevel
 data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
+  | DummyEv
 
 data SubModuleEvent
   = SubModuleGraphEv ModuleGraphEvent

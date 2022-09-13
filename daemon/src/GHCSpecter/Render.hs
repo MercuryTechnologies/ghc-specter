@@ -123,22 +123,31 @@ render (ui, ss) = do
       handleNavbar (TabEv tab') = (uiTab .~ tab')
       handleNavbar _ = id
 
-      handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
-      handleModuleGraphEv (HoverOnModuleEv mhovered) = modGraphUIHover .~ mhovered
-      handleModuleGraphEv (ClickOnModuleEv mclicked) = modGraphUIClick .~ mclicked
+      handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> Widget HTML ModuleGraphUI
+      handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
+        pure $ (modGraphUIHover .~ mhovered) mgui
+      handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
+        pure $ (modGraphUIClick .~ mclicked) mgui
+      handleModuleGraphEv DummyEv mgui = do
+        liftIO $ putStrLn "DummyEv"
+        pure mgui
 
       handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
         pure
           ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
-      handleMainPanel (oldUI, oldSS) (MainModuleEv ev) =
-        pure
-          ((uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
+      handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do
+        let mgui = oldUI ^. uiMainModuleGraph
+        mgui' <- handleModuleGraphEv ev mgui
+        let newUI = (uiMainModuleGraph .~ mgui') oldUI
+        pure (newUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
-          SubModuleGraphEv ev ->
-            pure
-              ((uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
+          SubModuleGraphEv ev -> do
+            let mgui = oldUI ^. uiSubModuleGraph . _2
+            mgui' <- handleModuleGraphEv ev mgui
+            let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
+            pure (newUI, (oldSS, False))
           SubModuleLevelEv d' ->
             pure
               ((uiSubModuleGraph . _1 .~ d') oldUI, (oldSS, False))
