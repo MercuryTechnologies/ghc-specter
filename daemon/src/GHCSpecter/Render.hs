@@ -116,21 +116,29 @@ render (ui, ss) = do
                 [renderMainPanel ui ss]
             , section
                 []
-                [divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]]
+                [ divClass
+                    "box"
+                    []
+                    [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
+                    , text $ "(x,y): " <> (ui ^. uiMousePosition . to (T.pack . show))
+                    ]
+                ]
             )
 
   let handleNavbar :: Event -> UIState -> UIState
       handleNavbar (TabEv tab') = (uiTab .~ tab')
       handleNavbar _ = id
 
-      handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> Widget HTML ModuleGraphUI
+      handleModuleGraphEv ::
+        ModuleGraphEvent ->
+        ModuleGraphUI ->
+        (ModuleGraphUI, Maybe (Double, Double))
       handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
-        pure $ (modGraphUIHover .~ mhovered) mgui
+        ((modGraphUIHover .~ mhovered) mgui, Nothing)
       handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
-        pure $ (modGraphUIClick .~ mclicked) mgui
-      handleModuleGraphEv DummyEv mgui = do
-        liftIO $ putStrLn "DummyEv"
-        pure mgui
+        ((modGraphUIClick .~ mclicked) mgui, Nothing)
+      handleModuleGraphEv (DummyEv mxy) mgui =
+        (mgui, mxy)
 
       handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
@@ -138,16 +146,22 @@ render (ui, ss) = do
           ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do
         let mgui = oldUI ^. uiMainModuleGraph
-        mgui' <- handleModuleGraphEv ev mgui
-        let newUI = (uiMainModuleGraph .~ mgui') oldUI
-        pure (newUI, (oldSS, False))
+            (mgui', mxy) = handleModuleGraphEv ev mgui
+            newUI = (uiMainModuleGraph .~ mgui') oldUI
+            newUI' = case mxy of
+              Nothing -> newUI
+              Just xy -> (uiMousePosition .~ xy) newUI
+        pure (newUI', (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
           SubModuleGraphEv ev -> do
             let mgui = oldUI ^. uiSubModuleGraph . _2
-            mgui' <- handleModuleGraphEv ev mgui
-            let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
-            pure (newUI, (oldSS, False))
+                (mgui', mxy) = handleModuleGraphEv ev mgui
+                newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
+                newUI' = case mxy of
+                  Nothing -> newUI
+                  Just xy -> (uiMousePosition .~ xy) newUI
+            pure (newUI', (oldSS, False))
           SubModuleLevelEv d' ->
             pure
               ((uiSubModuleGraph . _1 .~ d') oldUI, (oldSS, False))

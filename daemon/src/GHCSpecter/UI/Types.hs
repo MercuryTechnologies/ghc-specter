@@ -68,6 +68,8 @@ data UIState = UIState
   -- ^ UI state of source view UI
   , _uiTiming :: TimingUI
   -- ^ UI state of Timing UI
+  , _uiMousePosition :: (Double, Double)
+  -- ^ mouse position
   }
 
 makeClassy ''UIState
@@ -80,4 +82,5 @@ emptyUIState =
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _uiSourceView = emptySourceViewUI
     , _uiTiming = emptyTimingUI
+    , _uiMousePosition = (0, 0)
     }
