@@ -6,7 +6,7 @@ module GHCSpecter.Render
   )
 where
 
-import Concur.Core (Widget)
+import Concur.Core (Widget, unsafeBlockingIO)
 import Concur.Replica
   ( Props,
     classList,
@@ -132,13 +132,14 @@ render (ui, ss) = do
       handleModuleGraphEv ::
         ModuleGraphEvent ->
         ModuleGraphUI ->
-        (ModuleGraphUI, Maybe (Double, Double))
+        Widget HTML (ModuleGraphUI, Maybe (Double, Double))
       handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
-        ((modGraphUIHover .~ mhovered) mgui, Nothing)
+        pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
       handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
-        ((modGraphUIClick .~ mclicked) mgui, Nothing)
-      handleModuleGraphEv (DummyEv mxy) mgui =
-        (mgui, mxy)
+        pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
+      handleModuleGraphEv (DummyEv mxy) mgui = do
+        unsafeBlockingIO $ print mxy
+        pure (mgui, mxy)
 
       handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
@@ -146,8 +147,8 @@ render (ui, ss) = do
           ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do
         let mgui = oldUI ^. uiMainModuleGraph
-            (mgui', mxy) = handleModuleGraphEv ev mgui
-            newUI = (uiMainModuleGraph .~ mgui') oldUI
+        (mgui', mxy) <- handleModuleGraphEv ev mgui
+        let newUI = (uiMainModuleGraph .~ mgui') oldUI
             newUI' = case mxy of
               Nothing -> newUI
               Just xy -> (uiMousePosition .~ xy) newUI
@@ -156,8 +157,8 @@ render (ui, ss) = do
         case sev of
           SubModuleGraphEv ev -> do
             let mgui = oldUI ^. uiSubModuleGraph . _2
-                (mgui', mxy) = handleModuleGraphEv ev mgui
-                newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
+            (mgui', mxy) <- handleModuleGraphEv ev mgui
+            let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
                 newUI' = case mxy of
                   Nothing -> newUI
                   Just xy -> (uiMousePosition .~ xy) newUI

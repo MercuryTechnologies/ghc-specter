@@ -18,7 +18,7 @@ module GHCSpecter.Render.ModuleGraph
   )
 where
 
-import Concur.Core (Widget)
+import Concur.Core (Widget, unsafeBlockingIO)
 import Concur.Replica
   ( classList,
     div,
@@ -121,11 +121,11 @@ import STD.Deletable (delete)
 import Text.Printf (printf)
 import Prelude hiding (div)
 
-traceShow x = trace (show x) x
+-- traceShow x = trace (show x) x
 
 -- | MouseEvent has a bug since "value" can be missing
 onMouseMove :: Props (Maybe (Double, Double))
-onMouseMove = Props "onMouseMove" (PropEvent (traceShow . getClientXY . getDOMEvent))
+onMouseMove = Props "onMouseMove" (PropEvent (getClientXY . getDOMEvent))
   where
     getClientXY (A.Object m) = do
       cX <- A.lookup "clientX" m

@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Concur.Core (Widget, liftSTM)
+import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Concur.Replica (HTML, runDefault)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
@@ -159,8 +159,9 @@ webServer var = do
     step (ui, ss) = do
       let await = do
             -- wait for update interval, not to have too frequent update
-            currentTime_ <- liftIO getCurrentTime
+            currentTime_ <- unsafeBlockingIO getCurrentTime
             when (currentTime_ `diffUTCTime` (ui ^. uiLastUpdated) < updateInterval) $
+              -- note: liftIO yields.
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
             -- lock until new message comes
@@ -169,7 +170,7 @@ webServer var = do
               if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
                 then retry
                 else pure ss'
-            now <- liftIO getCurrentTime
+            now <- unsafeBlockingIO getCurrentTime
             let ui' = (uiLastUpdated .~ now) ui
             pure (ui', ss')
           --
