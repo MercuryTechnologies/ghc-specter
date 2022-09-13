@@ -2,8 +2,8 @@
 
 module Main (main) where
 
-import Concur.Core (liftSTM)
-import Concur.Replica (runDefault)
+import Concur.Core (Widget, liftSTM)
+import Concur.Replica (HTML, runDefault)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
@@ -50,7 +50,11 @@ import GHCSpecter.Server.Types
     emptyServerState,
     incrementSN,
   )
-import GHCSpecter.UI.Types (emptyUIState)
+import GHCSpecter.UI.Types
+  ( HasUIState (..),
+    UIState,
+    emptyUIState,
+  )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -149,13 +153,14 @@ webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "test" $
-    \_ -> loopM step (emptyUIState, ss0, initTime)
+    \_ -> loopM step (emptyUIState initTime, ss0)
   where
-    step (ui, ss, lastUIUpdate) = do
+    step :: (UIState, ServerState) -> Widget HTML (Either (UIState, ServerState) ())
+    step (ui, ss) = do
       let await = do
             -- wait for update interval, not to have too frequent update
             currentTime_ <- liftIO getCurrentTime
-            when (currentTime_ `diffUTCTime` lastUIUpdate < updateInterval) $
+            when (currentTime_ `diffUTCTime` (ui ^. uiLastUpdated) < updateInterval) $
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
             -- lock until new message comes
@@ -164,10 +169,12 @@ webServer var = do
               if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
                 then retry
                 else pure ss'
-            newUIUpdate <- liftIO getCurrentTime
-            pure (ui, ss', newUIUpdate)
+            now <- liftIO getCurrentTime
+            let ui' = (uiLastUpdated .~ now) ui
+            pure (ui', ss')
+          --
           updateSS (ui', (ss', b)) = do
             when b $
               liftSTM $ writeTVar var ss'
-            pure (Left (ui', ss', lastUIUpdate))
+            pure (Left (ui', ss'))
       (render (ui, ss) >>= updateSS) <|> (Left <$> await)

@@ -19,6 +19,7 @@ where
 
 import Control.Lens (makeClassy)
 import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
@@ -58,7 +59,9 @@ emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False
 
 data UIState = UIState
-  { _uiTab :: Tab
+  { _uiLastUpdated :: UTCTime
+  -- ^ last updated time
+  , _uiTab :: Tab
   -- ^ current tab
   , _uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
@@ -74,10 +77,11 @@ data UIState = UIState
 
 makeClassy ''UIState
 
-emptyUIState :: UIState
-emptyUIState =
+emptyUIState :: UTCTime -> UIState
+emptyUIState now =
   UIState
-    { _uiTab = TabSession
+    { _uiLastUpdated = now
+    , _uiTab = TabSession
     , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _uiSourceView = emptySourceViewUI
