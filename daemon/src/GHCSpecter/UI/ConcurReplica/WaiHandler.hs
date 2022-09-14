@@ -25,7 +25,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder qualified as TB
 import Debug.Trace (traceIO)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML, project)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
 import Network.HTTP.Types (status200)
 import Network.Wai (Application, Middleware, responseLBS)
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -195,19 +195,33 @@ websocketApp initial step pendingConn = do
   where
     closeCodeInternalError = 1011
 
-    go :: Connection -> Context -> TVar (Maybe (Event -> Maybe (IO ()))) -> TVar (Maybe Int) -> Maybe IHTML -> st -> Int -> IO ()
+    go ::
+      Connection ->
+      Context ->
+      TVar (Maybe (Event -> Maybe (IO ()))) ->
+      TVar (Maybe Int) ->
+      Maybe IHTML ->
+      st ->
+      Int ->
+      IO ()
     go conn ctx chan cf oldDom st serverFrame = do
       r <- step ctx st
       case r of
         Nothing -> pure ()
-        Just (newDom, next, fire) -> do
+        -- for Left case, we do not update client frame
+        Just (IHTML (Left newDom), next, fire) -> do
+          atomically $ writeTVar chan (Just fire)
+          go conn ctx chan cf (Just (IHTML (Left newDom))) next (serverFrame + 1)
+        -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)
+        -- and server frame
+        Just (IHTML (Right newDom), next, fire) -> do
           clientFrame <- atomically $ do
             a <- readTVar cf
             writeTVar cf Nothing
             pure a
 
           -- Throw exceptions here
-          newDom' <- evaluate (project newDom)
+          newDom' <- evaluate newDom
 
           case oldDom of
             Nothing -> sendTextData conn $ A.encode $ ReplaceDOM newDom'
@@ -218,4 +232,4 @@ websocketApp initial step pendingConn = do
 
           atomically $ writeTVar chan (Just fire)
 
-          go conn ctx chan cf (Just newDom) next (serverFrame + 1)
+          go conn ctx chan cf (Just (IHTML (Right newDom))) next (serverFrame + 1)
