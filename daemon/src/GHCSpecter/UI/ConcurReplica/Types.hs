@@ -6,7 +6,6 @@ module GHCSpecter.UI.ConcurReplica.Types
 
     -- * IHTML <-> HTML
     project,
-    embed,
 
     -- * block / unblock DOM
     blockDOMUpdate,
@@ -45,9 +44,6 @@ project :: IHTML -> HTML
 project (NoUpdate a) = a
 project (Update a) = a
 
-embed :: HTML -> IHTML
-embed a = Update a
-
 instance ShiftMap (Widget HTML) (Widget IHTML) where
   shiftMap f t =
     let -- stepT :: Free (SuspendF IHTML) a
@@ -61,7 +57,7 @@ instance ShiftMap (Widget HTML) (Widget IHTML) where
         to Forever = Forever
 
         fro :: SuspendF HTML a -> SuspendF IHTML a
-        fro (StepView v next) = StepView (embed v) next
+        fro (StepView v next) = StepView (Update v) next
         fro (StepBlock a next) = StepBlock a next
         fro (StepSTM a next) = StepSTM a next
         fro (StepIO a next) = StepIO a next

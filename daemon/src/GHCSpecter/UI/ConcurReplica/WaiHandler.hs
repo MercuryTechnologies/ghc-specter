@@ -119,7 +119,7 @@ data Context = Context
 
 app ::
   forall st.
-  IHTML ->
+  V.HTML ->
   ConnectionOptions ->
   Middleware ->
   st ->
@@ -128,7 +128,7 @@ app ::
 app index options middleware initial step =
   websocketsOr options (websocketApp initial step) (middleware backupApp)
   where
-    indexBS = BL.fromStrict $ TE.encodeUtf8 $ TL.toStrict $ TB.toLazyText $ R.renderHTML (project index)
+    indexBS = BL.fromStrict $ TE.encodeUtf8 $ TL.toStrict $ TB.toLazyText $ R.renderHTML index
 
     backupApp :: Application
     backupApp _ respond = respond $ responseLBS status200 [("content-type", "text/html")] indexBS
@@ -212,9 +212,9 @@ websocketApp initial step pendingConn = do
       case r of
         Nothing -> pure ()
         -- for Left case, we do not update client frame
-        Just (NoUpdate newDom, next, fire) -> do
+        Just (NoUpdate _, next, fire) -> do
           atomically $ writeTVar chan (Just fire)
-          go conn ctx chan cf (Just (NoUpdate newDom)) next (serverFrame + 1)
+          go conn ctx chan cf oldDom next (serverFrame + 1)
         -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)
         -- and server frame
         Just (Update newDom, next, fire) -> do

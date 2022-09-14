@@ -9,15 +9,15 @@ import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Wi
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Free (Free (Free, Pure))
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), embed, project)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
 import GHCSpecter.UI.ConcurReplica.WaiHandler qualified as R
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
 import Network.WebSockets.Connection (ConnectionOptions, defaultConnectionOptions)
 import Replica.VDOM (defaultIndex, fireEvent)
-import Replica.VDOM.Types (DOMEvent (DOMEvent))
+import Replica.VDOM.Types (DOMEvent (DOMEvent), HTML)
 
-run :: Int -> IHTML -> ConnectionOptions -> Middleware -> (R.Context -> Widget IHTML a) -> IO ()
+run :: Int -> HTML -> ConnectionOptions -> Middleware -> (R.Context -> Widget IHTML a) -> IO ()
 run port index connectionOptions middleware widget =
   W.run port $
     R.app index connectionOptions middleware (step <$> widget) stepWidget
@@ -25,7 +25,7 @@ run port index connectionOptions middleware widget =
 runDefault :: Int -> T.Text -> (R.Context -> Widget IHTML a) -> IO ()
 runDefault port title widget =
   W.run port $
-    R.app (embed (defaultIndex title [])) defaultConnectionOptions id (step <$> widget) stepWidget
+    R.app (defaultIndex title []) defaultConnectionOptions id (step <$> widget) stepWidget
 
 -- | No need to use this directly if you're using 'run' or 'runDefault'.
 stepWidget ::
