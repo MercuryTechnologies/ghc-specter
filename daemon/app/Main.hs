@@ -50,7 +50,11 @@ import GHCSpecter.Server.Types
     incrementSN,
   )
 import GHCSpecter.UI.ConcurReplica.Run (runDefault)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.ConcurReplica.Types
+  ( IHTML,
+    blockDOMUpdate,
+    unblockDOMUpdate,
+  )
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     UIState,
@@ -161,8 +165,9 @@ webServer var = do
   where
     step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
     step (ui, ss) = do
-      let await stepStartTime = do
-            when (stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < chanUpdateInterval) $
+      let lastUpdated = ui ^. uiLastUpdated
+          await stepStartTime = do
+            when (stepStartTime `diffUTCTime` lastUpdated < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
@@ -180,15 +185,18 @@ webServer var = do
             when b $
               liftSTM $ writeTVar var ss'
             pure (Left (ui', ss'))
-      -- wait for update interval, not to have too frequent update
-      stepStartTime <- unsafeBlockingIO getCurrentTime
-      (render stepStartTime (ui, ss) >>= updateSS)
-        <|> (Left <$> await stepStartTime)
 
-{-
-      if stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < uiUpdateInterval
-        then
-          (onlyEvent >> pure (Left (ui, ss)))
-            <|> (Left <$> await stepStartTime)
-        else
--}
+      stepStartTime <- unsafeBlockingIO getCurrentTime
+
+      let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
+          -- wait for update interval, not to have too frequent update
+          renderUI =
+            if stepStartTime `diffUTCTime` lastUpdated < uiUpdateInterval
+              then blockDOMUpdate $ do
+                unsafeBlockingIO $ print "blocked"
+                renderUI0
+              else unblockDOMUpdate $ do
+                unsafeBlockingIO $ print "unblocked"
+                renderUI0
+
+      renderUI <|> (Left <$> await stepStartTime)

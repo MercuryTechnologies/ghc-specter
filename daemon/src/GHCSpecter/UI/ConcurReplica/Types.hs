@@ -1,13 +1,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module GHCSpecter.UI.ConcurReplica.Types
-  ( IHTML (..),
+  ( -- * IHTML type
+    IHTML (..),
+
+    -- * IHTML <-> HTML
     project,
     embed,
+
+    -- * block / unblock DOM
+    blockDOMUpdate,
+    unblockDOMUpdate,
   )
 where
 
-import Concur.Core (SuspendF (..), Widget (Widget, step))
+import Concur.Core
+  ( SuspendF (..),
+    Widget (Widget, step),
+    mapView,
+  )
 import Control.Monad.Free (hoistFree)
 import Control.ShiftMap (ShiftMap (..))
 import Replica.VDOM (HTML)
@@ -55,3 +66,9 @@ instance ShiftMap (Widget HTML) (Widget IHTML) where
         stepS' = step (f (Widget stepS))
         stepT' = hoistFree fro stepS'
      in Widget stepT'
+
+blockDOMUpdate :: Widget IHTML a -> Widget IHTML a
+blockDOMUpdate = mapView (\x -> IHTML (Left (project x)))
+
+unblockDOMUpdate :: Widget IHTML a -> Widget IHTML a
+unblockDOMUpdate = mapView (\x -> IHTML (Right (project x)))
