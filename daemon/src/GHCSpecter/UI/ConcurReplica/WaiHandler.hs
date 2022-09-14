@@ -25,7 +25,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder qualified as TB
 import Debug.Trace (traceIO)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML, project)
 import Network.HTTP.Types (status200)
 import Network.Wai (Application, Middleware, responseLBS)
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -125,7 +125,7 @@ app ::
 app index options middleware initial step =
   websocketsOr options (websocketApp initial step) (middleware backupApp)
   where
-    indexBS = BL.fromStrict $ TE.encodeUtf8 $ TL.toStrict $ TB.toLazyText $ R.renderHTML (unIHTML index)
+    indexBS = BL.fromStrict $ TE.encodeUtf8 $ TL.toStrict $ TB.toLazyText $ R.renderHTML (project index)
 
     backupApp :: Application
     backupApp _ respond = respond $ responseLBS status200 [("content-type", "text/html")] indexBS
@@ -207,13 +207,13 @@ websocketApp initial step pendingConn = do
             pure a
 
           -- Throw exceptions here
-          newDom' <- evaluate (unIHTML newDom)
+          newDom' <- evaluate (project newDom)
 
           case oldDom of
             Nothing -> sendTextData conn $ A.encode $ ReplaceDOM newDom'
-            Just (IHTML oldDom') -> do
+            Just oldDom' -> do
               -- Throw exceptions here
-              diff <- evaluate (V.diff oldDom' newDom')
+              diff <- evaluate (V.diff (project oldDom') newDom')
               sendTextData conn $ A.encode $ UpdateDOM serverFrame clientFrame diff
 
           atomically $ writeTVar chan (Just fire)

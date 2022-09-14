@@ -8,7 +8,7 @@ import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Wi
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Free (Free (Free, Pure))
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), embed, project)
 import GHCSpecter.UI.ConcurReplica.WaiHandler qualified as R
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
@@ -24,7 +24,7 @@ run port index connectionOptions middleware widget =
 runDefault :: Int -> T.Text -> (R.Context -> Widget IHTML a) -> IO ()
 runDefault port title widget =
   W.run port $
-    R.app (IHTML (defaultIndex title [])) defaultConnectionOptions id (step <$> widget) stepWidget
+    R.app (embed (defaultIndex title [])) defaultConnectionOptions id (step <$> widget) stepWidget
 
 -- | No need to use this directly if you're using 'run' or 'runDefault'.
 stepWidget ::
@@ -44,7 +44,7 @@ stepWidget ctx v = case v ctx of
       Just
         ( new
         , const next
-        , \event -> fireEvent (unIHTML new) (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
+        , \event -> fireEvent (project new) (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
         )
   Free (StepIO io next) ->
     io >>= stepWidget ctx . \r _ -> next r

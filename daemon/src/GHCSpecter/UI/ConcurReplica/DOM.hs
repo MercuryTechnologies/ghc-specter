@@ -5,8 +5,8 @@ where
 
 import Concur.Core (Widget, display)
 import Data.Text (Text)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), embed)
 import Replica.VDOM (VDOM (..))
 
 text :: Text -> Widget IHTML a
-text txt = display (IHTML [VText txt])
+text txt = display (embed [VText txt])

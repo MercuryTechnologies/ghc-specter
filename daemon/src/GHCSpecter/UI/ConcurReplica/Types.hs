@@ -2,6 +2,8 @@
 
 module GHCSpecter.UI.ConcurReplica.Types
   ( IHTML (..),
+    project,
+    embed,
   )
 where
 
@@ -10,8 +12,24 @@ import Control.Monad.Free (hoistFree)
 import Control.ShiftMap (ShiftMap (..))
 import Replica.VDOM (HTML)
 
-newtype IHTML = IHTML {unIHTML :: HTML}
-  deriving (Semigroup, Monoid)
+-- | Left: no need for update, Right: need for update
+newtype IHTML = IHTML {unIHTML :: Either HTML HTML}
+
+instance Semigroup IHTML where
+  IHTML (Left e1) <> IHTML (Left e2) = IHTML (Left (e1 <> e2))
+  IHTML (Left e1) <> IHTML (Right e2) = IHTML (Right (e1 <> e2))
+  IHTML (Right e1) <> IHTML (Left e2) = IHTML (Right (e1 <> e2))
+  IHTML (Right e1) <> IHTML (Right e2) = IHTML (Right (e1 <> e2))
+
+instance Monoid IHTML where
+  mempty = IHTML (Left mempty)
+
+project :: IHTML -> HTML
+project (IHTML (Left a)) = a
+project (IHTML (Right a)) = a
+
+embed :: HTML -> IHTML
+embed a = IHTML (Right a)
 
 instance ShiftMap (Widget HTML) (Widget IHTML) where
   shiftMap f t =
@@ -19,14 +37,14 @@ instance ShiftMap (Widget HTML) (Widget IHTML) where
         stepT = step t
 
         to :: SuspendF IHTML a -> SuspendF HTML a
-        to (StepView v next) = StepView (unIHTML v) next
+        to (StepView v next) = StepView (project v) next
         to (StepBlock a next) = StepBlock a next
         to (StepSTM a next) = StepSTM a next
         to (StepIO a next) = StepIO a next
         to Forever = Forever
 
         fro :: SuspendF HTML a -> SuspendF IHTML a
-        fro (StepView v next) = StepView (IHTML v) next
+        fro (StepView v next) = StepView (embed v) next
         fro (StepBlock a next) = StepBlock a next
         fro (StepSTM a next) = StepSTM a next
         fro (StepIO a next) = StepIO a next
