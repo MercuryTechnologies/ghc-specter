@@ -16,7 +16,6 @@ import Concur.Replica
     pre,
     span,
     style,
-    text,
     ul,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
@@ -43,15 +42,16 @@ import GHCSpecter.Server.Types
     ModuleHieInfo,
     ServerState (..),
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
     SourceViewUI (..),
   )
 import GHCSpecter.UI.Types.Event (Event (..))
-import Replica.VDOM.Types (HTML)
 import Prelude hiding (div, span)
 
-iconText :: Text -> Text -> Text -> Widget HTML MouseEvent
+iconText :: Text -> Text -> Text -> Widget IHTML MouseEvent
 iconText ico cls txt =
   let iconCls = classList [("fas", True), (ico, True)]
       iconProps = [iconCls, onClick]
@@ -62,7 +62,7 @@ iconText ico cls txt =
         ]
 
 -- | show information on unqualified imports
-renderUnqualifiedImports :: ModuleName -> Inbox -> Widget HTML a
+renderUnqualifiedImports :: ModuleName -> Inbox -> Widget IHTML a
 renderUnqualifiedImports modu inbox =
   div [] [pre [] [text rendered]]
   where
@@ -124,7 +124,7 @@ breakSourceText modHieInfo = txts ++ [txt]
     (txts, (_, txt)) = runState (traverse (splitLineColumn . (^. _1 . _1)) topLevelDecls) ((1, 1), src)
 
 -- | show source code with declaration positions
-renderSourceCode :: ModuleHieInfo -> Widget HTML a
+renderSourceCode :: ModuleHieInfo -> Widget IHTML a
 renderSourceCode modHieInfo = pre [] rendered
   where
     theicon =
@@ -140,13 +140,13 @@ renderSourceCode modHieInfo = pre [] rendered
       L.intersperse theicon $ fmap text $ breakSourceText modHieInfo
 
 -- | list decls
-renderDecls :: ModuleHieInfo -> Widget HTML a
+renderDecls :: ModuleHieInfo -> Widget IHTML a
 renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLevelDecls)
   where
     topLevelDecls = getTopLevelDecls modHieInfo
 
 -- | Top-level render function for the Source View tab
-render :: SourceViewUI -> ServerState -> Widget HTML Event
+render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
   ul [] $ map eachRender allModules
   where
@@ -157,7 +157,7 @@ render srcUI ss =
     allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
 
-    eachRender :: ModuleName -> Widget HTML Event
+    eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
       let isCompiled = isJust (timing ^? at modu . _Just . to getEndTime . _Just)
           colorTxt

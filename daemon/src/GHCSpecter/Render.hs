@@ -6,7 +6,11 @@ module GHCSpecter.Render
   )
 where
 
-import Concur.Core (Widget)
+import Concur.Core
+  ( SuspendF (..),
+    Widget (..),
+    unsafeBlockingIO,
+  )
 import Concur.Replica
   ( Props,
     classList,
@@ -16,15 +20,17 @@ import Concur.Replica
     onClick,
     section,
     style,
-    text,
     textProp,
   )
-import Control.Lens (to, (%~), (.~), (^.), _1, _2)
+import Control.Lens (to, (.~), (^.), _1, _2)
+import Control.Monad.Free (liftF)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
@@ -35,6 +41,8 @@ import GHCSpecter.Server.Types
     ServerState (..),
     type ChanModule,
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasSourceViewUI (..),
@@ -51,25 +59,26 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
-import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
+import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (div, span)
 
-divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
+divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
+  UTCTime ->
   UIState ->
   ServerState ->
-  Widget HTML Event
-renderMainPanel ui ss =
+  Widget IHTML Event
+renderMainPanel stepStartTime ui ss =
   case ui ^. uiTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render ui ss
+    TabModuleGraph -> ModuleGraph.render stepStartTime ui ss
     TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
     TabTiming -> Timing.render ui ss
 
-cssLink :: Text -> Widget HTML a
+cssLink :: Text -> Widget IHTML a
 cssLink url =
   el
     "link"
@@ -78,7 +87,7 @@ cssLink url =
     ]
     []
 
-renderNavbar :: Tab -> Widget HTML Event
+renderNavbar :: Tab -> Widget IHTML Event
 renderNavbar tab =
   nav
     [classList [("navbar m-0 p-0", True)]]
@@ -101,10 +110,15 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
+tempRef :: IORef Int
+tempRef = unsafePerformIO (newIORef 0)
+{-# NOINLINE tempRef #-}
+
 render ::
+  UTCTime ->
   (UIState, ServerState) ->
-  Widget HTML (UIState, (ServerState, Bool))
-render (ui, ss) = do
+  Widget IHTML (UIState, (ServerState, Bool))
+render stepStartTime (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -113,32 +127,63 @@ render (ui, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel ui ss]
+                [renderMainPanel stepStartTime ui ss]
             , section
                 []
-                [divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]]
+                [ divClass
+                    "box"
+                    []
+                    [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
+                    , text $ "(x,y): " <> (ui ^. uiMousePosition . to (T.pack . show))
+                    ]
+                ]
             )
 
   let handleNavbar :: Event -> UIState -> UIState
       handleNavbar (TabEv tab') = (uiTab .~ tab')
       handleNavbar _ = id
 
-      handleModuleGraphEv :: ModuleGraphEvent -> ModuleGraphUI -> ModuleGraphUI
-      handleModuleGraphEv (HoverOnModuleEv mhovered) = modGraphUIHover .~ mhovered
-      handleModuleGraphEv (ClickOnModuleEv mclicked) = modGraphUIClick .~ mclicked
+      handleModuleGraphEv ::
+        ModuleGraphEvent ->
+        ModuleGraphUI ->
+        Widget IHTML (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
+      handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
+        pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
+      handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
+        pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
+      handleModuleGraphEv (DummyEv mxy) mgui = do
+        t <-
+          unsafeBlockingIO $ do
+            n <- readIORef tempRef
+            modifyIORef' tempRef (+ 1)
+            t <- getCurrentTime
+            print (n, stepStartTime, t, mxy)
+            pure t
+        pure (mgui, (t,) <$> mxy)
 
-      handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
+      handleMainPanel :: (UIState, ServerState) -> Event -> Widget IHTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
-        pure
-          ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
-      handleMainPanel (oldUI, oldSS) (MainModuleEv ev) =
-        pure
-          ((uiMainModuleGraph %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
+        pure ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
+      handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do
+        let mgui = oldUI ^. uiMainModuleGraph
+        (mgui', mxy) <- handleModuleGraphEv ev mgui
+        let newUI = (uiMainModuleGraph .~ mgui') oldUI
+            newUI' = case mxy of
+              Nothing -> newUI
+              Just (t, xy) ->
+                (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
+        pure (newUI', (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
-          SubModuleGraphEv ev ->
-            pure
-              ((uiSubModuleGraph . _2 %~ handleModuleGraphEv ev) oldUI, (oldSS, False))
+          SubModuleGraphEv ev -> do
+            let mgui = oldUI ^. uiSubModuleGraph . _2
+            (mgui', mxy) <- handleModuleGraphEv ev mgui
+            let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
+                newUI' = case mxy of
+                  Nothing -> newUI
+                  Just (t, xy) ->
+                    (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
+            pure (newUI', (oldSS, False))
           SubModuleLevelEv d' ->
             pure
               ((uiSubModuleGraph . _1 .~ d') oldUI, (oldSS, False))

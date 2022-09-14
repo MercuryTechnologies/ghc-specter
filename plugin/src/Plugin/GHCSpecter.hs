@@ -7,9 +7,6 @@ module Plugin.GHCSpecter
     -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
 
-    -- * Global variable for the session information
-    sessionRef,
-
     -- * Utilities
     getTopSortedModules,
   )

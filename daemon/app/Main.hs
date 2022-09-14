@@ -2,8 +2,7 @@
 
 module Main (main) where
 
-import Concur.Core (liftSTM)
-import Concur.Replica (runDefault)
+import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
@@ -50,7 +49,17 @@ import GHCSpecter.Server.Types
     emptyServerState,
     incrementSN,
   )
-import GHCSpecter.UI.Types (emptyUIState)
+import GHCSpecter.UI.ConcurReplica.Run (runDefault)
+import GHCSpecter.UI.ConcurReplica.Types
+  ( IHTML,
+    blockDOMUpdate,
+    unblockDOMUpdate,
+  )
+import GHCSpecter.UI.Types
+  ( HasUIState (..),
+    UIState,
+    emptyUIState,
+  )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -85,7 +94,8 @@ main = do
   mode <- OA.execParser optsParser
   case mode of
     Online socketFile -> do
-      var <- atomically $ newTVar emptyServerState
+      now <- getCurrentTime
+      var <- atomically $ newTVar (emptyServerState now)
       _ <- forkOS $ listener socketFile var
       webServer var
     View sessionFile -> do
@@ -96,8 +106,11 @@ main = do
           var <- atomically $ newTVar ss
           webServer var
 
-updateInterval :: NominalDiffTime
-updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
+chanUpdateInterval :: NominalDiffTime
+chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
+
+uiUpdateInterval :: NominalDiffTime
+uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
@@ -149,25 +162,38 @@ webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "test" $
-    \_ -> loopM step (emptyUIState, ss0, initTime)
+    \_ -> loopM step (emptyUIState initTime, ss0)
   where
-    step (ui, ss, lastUIUpdate) = do
-      let await = do
-            -- wait for update interval, not to have too frequent update
-            currentTime_ <- liftIO getCurrentTime
-            when (currentTime_ `diffUTCTime` lastUIUpdate < updateInterval) $
+    step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
+    step (ui, ss) = do
+      let lastUpdatedUI = ui ^. uiLastUpdated
+          lastUpdatedServer = ss ^. serverLastUpdated
+          await stepStartTime = do
+            when (stepStartTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
+              -- note: liftIO yields.
               liftIO $
-                threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
+                threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
             -- lock until new message comes
             ss' <- liftSTM $ do
               ss' <- readTVar var
               if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
                 then retry
                 else pure ss'
-            newUIUpdate <- liftIO getCurrentTime
-            pure (ui, ss', newUIUpdate)
+            now <- unsafeBlockingIO getCurrentTime
+            let ss'' = (serverLastUpdated .~ now) ss'
+            pure (ui, ss'')
+          --
           updateSS (ui', (ss', b)) = do
             when b $
               liftSTM $ writeTVar var ss'
-            pure (Left (ui', ss', lastUIUpdate))
-      (render (ui, ss) >>= updateSS) <|> (Left <$> await)
+            pure (Left (ui', ss'))
+
+      stepStartTime <- unsafeBlockingIO getCurrentTime
+      unsafeBlockingIO $ print stepStartTime
+      let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
+          -- wait for update interval, not to have too frequent update
+          renderUI =
+            if stepStartTime `diffUTCTime` lastUpdatedUI < uiUpdateInterval
+              then blockDOMUpdate renderUI0
+              else unblockDOMUpdate renderUI0
+      renderUI <|> (Left <$> await stepStartTime)

@@ -10,7 +10,6 @@ import Concur.Replica
     div,
     onClick,
     pre,
-    text,
   )
 import Control.Lens ((^.))
 import Data.Map qualified as M
@@ -20,14 +19,15 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
-import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
-renderSessionButtons :: SessionInfo -> Widget HTML Event
+renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =
   div
     []
@@ -52,7 +52,7 @@ renderSessionButtons session =
             [text txt]
 
 -- | Top-level render function for the Session tab.
-render :: ServerState -> Widget HTML Event
+render :: ServerState -> Widget IHTML Event
 render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
