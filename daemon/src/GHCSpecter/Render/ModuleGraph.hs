@@ -83,6 +83,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     transposeGraphVis,
   )
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasUIState (..),
@@ -120,7 +121,7 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
-import Replica.VDOM.Types (DOMEvent (getDOMEvent), HTML)
+import Replica.VDOM.Types (DOMEvent (getDOMEvent))
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Prelude hiding (div)
@@ -221,7 +222,7 @@ renderModuleGraphSVG ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Widget HTML ModuleGraphEvent
+  Widget IHTML ModuleGraphEvent
 renderModuleGraphSVG
   (stepStartTime, lastUpdatedTime)
   nameMap
@@ -362,7 +363,7 @@ renderMainModuleGraph ::
   GraphVisInfo ->
   -- | main module graph UI state
   ModuleGraphUI ->
-  Widget HTML Event
+  Widget IHTML Event
 renderMainModuleGraph
   (stepStartTime, lastUpdatedTime)
   nameMap
@@ -388,7 +389,7 @@ renderSubModuleGraph ::
   [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   -- | (main module graph UI state, sub module graph UI state)
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
-  Widget HTML Event
+  Widget IHTML Event
 renderSubModuleGraph
   (stepStartTime, lastUpdatedTime)
   nameMap
@@ -423,7 +424,7 @@ renderSubModuleGraph
                     subgraph
                     (mainModuleClicked, subModuleHovered)
 
-renderDetailLevel :: UIState -> Widget HTML Event
+renderDetailLevel :: UIState -> Widget IHTML Event
 renderDetailLevel ui =
   SubModuleEv . SubModuleLevelEv
     <$> div
@@ -443,7 +444,7 @@ renderDetailLevel ui =
     detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 -- | top-level render function for Module Graph tab
-render :: UTCTime -> UIState -> ServerState -> Widget HTML Event
+render :: UTCTime -> UIState -> ServerState -> Widget IHTML Event
 render stepStartTime ui ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo

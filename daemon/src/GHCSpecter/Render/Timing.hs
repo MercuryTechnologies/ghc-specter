@@ -33,6 +33,7 @@ import Data.Time.Clock
 import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
     HasUIState (..),
@@ -49,7 +50,6 @@ import GHCSpecter.Util.Timing
     isInProgress,
     makeTimingTable,
   )
-import Replica.VDOM.Types (HTML)
 import Prelude hiding (div)
 
 maxWidth :: (Num a) => a
@@ -70,7 +70,7 @@ renderRules ::
   [(ModuleName, TimingInfo NominalDiffTime)] ->
   Int ->
   NominalDiffTime ->
-  [Widget HTML a]
+  [Widget IHTML a]
 renderRules showParallel table totalHeight totalTime =
   ( if showParallel
       then fmap box rangesWithCPUUsage
@@ -116,7 +116,7 @@ renderRules showParallel table totalHeight totalTime =
         ]
         []
 
-renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget HTML a
+renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget IHTML a
 renderTimingChart tui timingInfos =
   let nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
@@ -202,7 +202,7 @@ renderTimingChart tui timingInfos =
             [svgElement]
         else div [] [svgElement]
 
-renderCheckbox :: TimingUI -> Widget HTML Event
+renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
   where
     isSticky = tui ^. timingUISticky
@@ -253,7 +253,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
         ]
 
 -- | Top-level render function for the Timing tab
-render :: UIState -> ServerState -> Widget HTML Event
+render :: UIState -> ServerState -> Widget IHTML Event
 render ui ss =
   let timingInfos = makeTimingTable ss
    in div

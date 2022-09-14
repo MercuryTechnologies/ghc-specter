@@ -3,8 +3,6 @@
 module GHCSpecter.Render
   ( ChanModule,
     render,
-    --
-    onlyEvent,
   )
 where
 
@@ -44,6 +42,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     type ChanModule,
   )
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasSourceViewUI (..),
@@ -60,22 +59,18 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
-import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (div, span)
 
-onlyEvent :: Widget HTML ()
-onlyEvent = Widget $ liftF $ StepOnlyEvent ()
-
-divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
+divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
   UTCTime ->
   UIState ->
   ServerState ->
-  Widget HTML Event
+  Widget IHTML Event
 renderMainPanel stepStartTime ui ss =
   case ui ^. uiTab of
     TabSession -> Session.render ss
@@ -83,7 +78,7 @@ renderMainPanel stepStartTime ui ss =
     TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
     TabTiming -> Timing.render ui ss
 
-cssLink :: Text -> Widget HTML a
+cssLink :: Text -> Widget IHTML a
 cssLink url =
   el
     "link"
@@ -92,7 +87,7 @@ cssLink url =
     ]
     []
 
-renderNavbar :: Tab -> Widget HTML Event
+renderNavbar :: Tab -> Widget IHTML Event
 renderNavbar tab =
   nav
     [classList [("navbar m-0 p-0", True)]]
@@ -122,7 +117,7 @@ tempRef = unsafePerformIO (newIORef 0)
 render ::
   UTCTime ->
   (UIState, ServerState) ->
-  Widget HTML (UIState, (ServerState, Bool))
+  Widget IHTML (UIState, (ServerState, Bool))
 render stepStartTime (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
@@ -151,7 +146,7 @@ render stepStartTime (ui, ss) = do
       handleModuleGraphEv ::
         ModuleGraphEvent ->
         ModuleGraphUI ->
-        Widget HTML (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
+        Widget IHTML (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
       handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
         pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
       handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
@@ -166,7 +161,7 @@ render stepStartTime (ui, ss) = do
             pure t
         pure (mgui, (t,) <$> mxy)
 
-      handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
+      handleMainPanel :: (UIState, ServerState) -> Event -> Widget IHTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
         pure ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do

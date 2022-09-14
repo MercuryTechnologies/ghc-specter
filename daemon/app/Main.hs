@@ -43,7 +43,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Render (onlyEvent, render)
+import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -181,11 +181,13 @@ webServer var = do
             pure (Left (ui', ss'))
       -- wait for update interval, not to have too frequent update
       stepStartTime <- unsafeBlockingIO getCurrentTime
+      (render stepStartTime (ui, ss) >>= updateSS)
+        <|> (Left <$> await stepStartTime)
+
+{-
       if stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < uiUpdateInterval
         then
           (onlyEvent >> pure (Left (ui, ss)))
             <|> (Left <$> await stepStartTime)
         else
-          (render stepStartTime (ui, ss) >>= updateSS)
-            <|> (Left <$> await stepStartTime)
-            -- <|> (Left <$> tickTock)
+-}
