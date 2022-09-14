@@ -83,6 +83,7 @@ import GHCSpecter.Server.Types
     transposeGraphVis,
   )
 import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
@@ -121,22 +122,9 @@ import OGDF.GraphAttributes
     newGraphAttributes,
   )
 import OGDF.NodeElement (nodeElement_index)
-import Replica.VDOM.Types (DOMEvent (getDOMEvent))
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Prelude hiding (div)
-
--- | MouseEvent has a bug since "value" can be missing
-onMouseMove :: Props (Maybe (Double, Double))
-onMouseMove = Props "onMouseMove" (PropEvent (getClientXY . getDOMEvent))
-  where
-    getClientXY (A.Object m) = do
-      cX <- A.lookup "clientX" m
-      cY <- A.lookup "clientY" m
-      case (cX, cY) of
-        (A.Number x, A.Number y) -> pure (toRealFloat x, toRealFloat y)
-        _ -> Nothing
-    getClientXY _ = Nothing
 
 analyze :: ModuleGraphInfo -> Text
 analyze graphInfo =
