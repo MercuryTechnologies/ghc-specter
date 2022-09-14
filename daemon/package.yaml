@@ -87,6 +87,7 @@ library:
     - errors
     - extra
     - fficxx-runtime
+    - free
     - ghc
     - ghc-specter-plugin
     - hiedb

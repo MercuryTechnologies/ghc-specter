@@ -100,8 +100,11 @@ main = do
           var <- atomically $ newTVar ss
           webServer var
 
-updateInterval :: NominalDiffTime
-updateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
+chanUpdateInterval :: NominalDiffTime
+chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
+
+uiUpdateInterval :: NominalDiffTime
+uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
@@ -157,13 +160,16 @@ webServer var = do
   where
     step :: (UIState, ServerState) -> Widget HTML (Either (UIState, ServerState) ())
     step (ui, ss) = do
-      let await = do
-            -- wait for update interval, not to have too frequent update
-            currentTime_ <- unsafeBlockingIO getCurrentTime
-            when (currentTime_ `diffUTCTime` (ui ^. uiLastUpdated) < updateInterval) $
+      let tickTock = do
+            liftIO $
+              threadDelay (floor (nominalDiffTimeToSeconds uiUpdateInterval * 1_000_000))
+            pure (ui, ss)
+
+          await stepStartTime = do
+            when (stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
-                threadDelay (floor (nominalDiffTimeToSeconds updateInterval * 1_000_000))
+                threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
             -- lock until new message comes
             ss' <- liftSTM $ do
               ss' <- readTVar var
@@ -178,4 +184,8 @@ webServer var = do
             when b $
               liftSTM $ writeTVar var ss'
             pure (Left (ui', ss'))
-      (render (ui, ss) >>= updateSS) <|> (Left <$> await)
+      -- wait for update interval, not to have too frequent update
+      stepStartTime <- unsafeBlockingIO getCurrentTime
+      (render stepStartTime (ui, ss) >>= updateSS)
+        <|> (Left <$> await stepStartTime)
+        <|> (Left <$> tickTock)

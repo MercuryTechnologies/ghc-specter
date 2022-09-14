@@ -6,7 +6,11 @@ module GHCSpecter.Render
   )
 where
 
-import Concur.Core (Widget, unsafeBlockingIO)
+import Concur.Core
+  ( SuspendF (Forever),
+    Widget (..),
+    unsafeBlockingIO,
+  )
 import Concur.Replica
   ( Props,
     classList,
@@ -19,12 +23,15 @@ import Concur.Replica
     text,
     textProp,
   )
-import Control.Lens (to, (%~), (.~), (^.), _1, _2)
+import Control.Lens (to, (.~), (^.), _1, _2)
+import Control.Monad.Free (liftF)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
@@ -53,19 +60,21 @@ import GHCSpecter.UI.Types.Event
   )
 import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
+import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
+  UTCTime ->
   UIState ->
   ServerState ->
   Widget HTML Event
-renderMainPanel ui ss =
+renderMainPanel stepStartTime ui ss =
   case ui ^. uiTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render ui ss
+    TabModuleGraph -> ModuleGraph.render stepStartTime ui ss
     TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
     TabTiming -> Timing.render ui ss
 
@@ -101,10 +110,15 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
+tempRef :: IORef Int
+tempRef = unsafePerformIO (newIORef 0)
+{-# NOINLINE tempRef #-}
+
 render ::
+  UTCTime ->
   (UIState, ServerState) ->
   Widget HTML (UIState, (ServerState, Bool))
-render (ui, ss) = do
+render stepStartTime (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -113,7 +127,7 @@ render (ui, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel ui ss]
+                [renderMainPanel stepStartTime ui ss]
             , section
                 []
                 [ divClass
@@ -132,26 +146,32 @@ render (ui, ss) = do
       handleModuleGraphEv ::
         ModuleGraphEvent ->
         ModuleGraphUI ->
-        Widget HTML (ModuleGraphUI, Maybe (Double, Double))
+        Widget HTML (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
       handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
         pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
       handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
         pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
       handleModuleGraphEv (DummyEv mxy) mgui = do
-        unsafeBlockingIO $ print mxy
-        pure (mgui, mxy)
+        t <-
+          unsafeBlockingIO $ do
+            n <- readIORef tempRef
+            modifyIORef' tempRef (+ 1)
+            t <- getCurrentTime
+            print (n, stepStartTime, t, mxy)
+            pure t
+        pure (mgui, (t,) <$> mxy)
 
       handleMainPanel :: (UIState, ServerState) -> Event -> Widget HTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
-        pure
-          ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
+        pure ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
       handleMainPanel (oldUI, oldSS) (MainModuleEv ev) = do
         let mgui = oldUI ^. uiMainModuleGraph
         (mgui', mxy) <- handleModuleGraphEv ev mgui
         let newUI = (uiMainModuleGraph .~ mgui') oldUI
             newUI' = case mxy of
               Nothing -> newUI
-              Just xy -> (uiMousePosition .~ xy) newUI
+              Just (t, xy) ->
+                (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
         pure (newUI', (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
@@ -161,7 +181,8 @@ render (ui, ss) = do
             let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
                 newUI' = case mxy of
                   Nothing -> newUI
-                  Just xy -> (uiMousePosition .~ xy) newUI
+                  Just (t, xy) ->
+                    (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
             pure (newUI', (oldSS, False))
           SubModuleLevelEv d' ->
             pure
