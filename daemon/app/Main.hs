@@ -181,7 +181,6 @@ webServer var = do
                 else pure ss'
             now <- unsafeBlockingIO getCurrentTime
             let ss'' = (serverLastUpdated .~ now) ss'
-            -- let ui' = -- (uiLastUpdated .~ now) ui
             pure (ui, ss'')
           --
           updateSS (ui', (ss', b)) = do
@@ -195,10 +194,6 @@ webServer var = do
           -- wait for update interval, not to have too frequent update
           renderUI =
             if stepStartTime `diffUTCTime` lastUpdatedUI < uiUpdateInterval
-              then blockDOMUpdate $ do
-                unsafeBlockingIO $ print "blocked"
-                renderUI0
-              else unblockDOMUpdate $ do
-                unsafeBlockingIO $ print "unblocked"
-                renderUI0
+              then blockDOMUpdate renderUI0
+              else unblockDOMUpdate renderUI0
       renderUI <|> (Left <$> await stepStartTime)

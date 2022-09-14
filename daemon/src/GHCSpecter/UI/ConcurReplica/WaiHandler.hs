@@ -3,6 +3,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | This module is originated from Network.Wai.Handler.Replica.
+-- When IHTML can be marked with the non-update (the Left case) directive,
+-- the DOM diff updating is bypassed.
 module GHCSpecter.UI.ConcurReplica.WaiHandler
   ( Event (..),
     Callback (..),

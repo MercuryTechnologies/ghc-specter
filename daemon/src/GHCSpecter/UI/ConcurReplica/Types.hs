@@ -23,7 +23,11 @@ import Control.Monad.Free (hoistFree)
 import Control.ShiftMap (ShiftMap (..))
 import Replica.VDOM (HTML)
 
--- | Left: no need for update, Right: need for update
+-- | IHTML has additional tag about whether one wants to bypass DOM update.
+-- For example, onMouseMove events are fired too frequently, and most of the handling action
+-- is just to update internal state, not leading to DOM changes.
+-- With IHTML, we tag the HTML content as non-update and bypass expensive websocket diff update steps.
+-- Left: no need for update, Right: need for update
 newtype IHTML = IHTML {unIHTML :: Either HTML HTML}
 
 instance Semigroup IHTML where

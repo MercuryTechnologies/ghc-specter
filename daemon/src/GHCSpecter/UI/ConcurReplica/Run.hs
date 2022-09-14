@@ -1,3 +1,4 @@
+-- | This module is originated from Concur.Replica.Run. However, we use IHTML instead of HTML.
 module GHCSpecter.UI.ConcurReplica.Run
   ( run,
     runDefault,
