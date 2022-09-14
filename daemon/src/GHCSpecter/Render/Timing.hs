@@ -16,7 +16,6 @@ import Concur.Replica
     label,
     onChange,
     style,
-    text,
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
@@ -33,6 +32,7 @@ import Data.Time.Clock
 import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),

@@ -30,7 +30,6 @@ import Concur.Replica
     onMouseEnter,
     onMouseLeave,
     pre,
-    text,
     width,
   )
 import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
@@ -83,6 +82,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     transposeGraphVis,
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),

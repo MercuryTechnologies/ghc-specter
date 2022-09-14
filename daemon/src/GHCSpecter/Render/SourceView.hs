@@ -16,7 +16,6 @@ import Concur.Replica
     pre,
     span,
     style,
-    text,
     ul,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
@@ -43,6 +42,7 @@ import GHCSpecter.Server.Types
     ModuleHieInfo,
     ServerState (..),
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),

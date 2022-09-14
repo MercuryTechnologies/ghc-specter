@@ -20,7 +20,6 @@ import Concur.Replica
     onClick,
     section,
     style,
-    text,
     textProp,
   )
 import Control.Lens (to, (.~), (^.), _1, _2)
@@ -42,6 +41,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     type ChanModule,
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),

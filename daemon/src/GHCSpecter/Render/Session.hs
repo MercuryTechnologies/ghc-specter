@@ -10,7 +10,6 @@ import Concur.Replica
     div,
     onClick,
     pre,
-    text,
   )
 import Control.Lens ((^.))
 import Data.Map qualified as M
@@ -20,6 +19,7 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
