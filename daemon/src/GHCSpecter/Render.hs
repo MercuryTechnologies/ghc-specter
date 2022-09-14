@@ -3,11 +3,13 @@
 module GHCSpecter.Render
   ( ChanModule,
     render,
+    --
+    onlyEvent,
   )
 where
 
 import Concur.Core
-  ( SuspendF (Forever),
+  ( SuspendF (..),
     Widget (..),
     unsafeBlockingIO,
   )
@@ -62,6 +64,9 @@ import Replica.VDOM.Types (HTML)
 import System.IO (IOMode (WriteMode), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (div, span)
+
+onlyEvent :: Widget HTML ()
+onlyEvent = Widget $ liftF $ StepOnlyEvent ()
 
 divClass :: Text -> [Props a] -> [Widget HTML a] -> Widget HTML a
 divClass cls props = div (classList [(cls, True)] : props)

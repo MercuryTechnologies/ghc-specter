@@ -9,15 +9,15 @@
     };
     flake-utils.url = "github:numtide/flake-utils";
     concur = {
-      url = "github:wavewave/concur/ghc-9.2";
+      url = "github:wavewave/concur/skippable";
       flake = false;
     };
     concur-replica = {
-      url = "github:wavewave/concur-replica/ghc-9.2";
+      url = "github:wavewave/concur-replica/skippable";
       flake = false;
     };
     replica = {
-      url = "github:wavewave/replica/ghc-9.2";
+      url = "github:wavewave/replica/skippable";
       flake = false;
     };
     fficxx = {

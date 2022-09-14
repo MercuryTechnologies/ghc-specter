@@ -43,7 +43,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Render (render)
+import GHCSpecter.Render (onlyEvent, render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -160,12 +160,7 @@ webServer var = do
   where
     step :: (UIState, ServerState) -> Widget HTML (Either (UIState, ServerState) ())
     step (ui, ss) = do
-      let tickTock = do
-            liftIO $
-              threadDelay (floor (nominalDiffTimeToSeconds uiUpdateInterval * 1_000_000))
-            pure (ui, ss)
-
-          await stepStartTime = do
+      let await stepStartTime = do
             when (stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
@@ -186,6 +181,11 @@ webServer var = do
             pure (Left (ui', ss'))
       -- wait for update interval, not to have too frequent update
       stepStartTime <- unsafeBlockingIO getCurrentTime
-      (render stepStartTime (ui, ss) >>= updateSS)
-        <|> (Left <$> await stepStartTime)
-        <|> (Left <$> tickTock)
+      if stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < uiUpdateInterval
+        then
+          (onlyEvent >> pure (Left (ui, ss)))
+            <|> (Left <$> await stepStartTime)
+        else
+          (render stepStartTime (ui, ss) >>= updateSS)
+            <|> (Left <$> await stepStartTime)
+            -- <|> (Left <$> tickTock)

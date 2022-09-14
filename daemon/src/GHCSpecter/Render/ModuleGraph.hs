@@ -335,8 +335,6 @@ renderModuleGraphSVG
         nodes =
           concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (grVisInfo ^. gviNodes)
 
-        timeDiff = stepStartTime `diffUTCTime` lastUpdatedTime
-
         svgProps =
           let svgProps0 =
                 [ width (T.pack (show (canvasWidth + 100)))
@@ -349,10 +347,7 @@ renderModuleGraphSVG
                 , SP.version "1.1"
                 , xmlns
                 ]
-           in if timeDiff > minTimeDiff
-                then (DummyEv <$> onMouseMove) : svgProps0
-                else svgProps0
-
+           in (DummyEv <$> onMouseMove) : svgProps0
         svgElement =
           S.svg
             svgProps
