@@ -94,7 +94,8 @@ main = do
   mode <- OA.execParser optsParser
   case mode of
     Online socketFile -> do
-      var <- atomically $ newTVar emptyServerState
+      now <- getCurrentTime
+      var <- atomically $ newTVar (emptyServerState now)
       _ <- forkOS $ listener socketFile var
       webServer var
     View sessionFile -> do
@@ -165,9 +166,10 @@ webServer var = do
   where
     step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
     step (ui, ss) = do
-      let lastUpdated = ui ^. uiLastUpdated
+      let lastUpdatedUI = ui ^. uiLastUpdated
+          lastUpdatedServer = ss ^. serverLastUpdated
           await stepStartTime = do
-            when (stepStartTime `diffUTCTime` lastUpdated < chanUpdateInterval) $
+            when (stepStartTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
@@ -178,8 +180,9 @@ webServer var = do
                 then retry
                 else pure ss'
             now <- unsafeBlockingIO getCurrentTime
-            let ui' = (uiLastUpdated .~ now) ui
-            pure (ui', ss')
+            let ss'' = (serverLastUpdated .~ now) ss'
+            -- let ui' = -- (uiLastUpdated .~ now) ui
+            pure (ui, ss'')
           --
           updateSS (ui', (ss', b)) = do
             when b $
@@ -187,16 +190,15 @@ webServer var = do
             pure (Left (ui', ss'))
 
       stepStartTime <- unsafeBlockingIO getCurrentTime
-
+      unsafeBlockingIO $ print stepStartTime
       let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
           -- wait for update interval, not to have too frequent update
           renderUI =
-            if stepStartTime `diffUTCTime` lastUpdated < uiUpdateInterval
+            if stepStartTime `diffUTCTime` lastUpdatedUI < uiUpdateInterval
               then blockDOMUpdate $ do
                 unsafeBlockingIO $ print "blocked"
                 renderUI0
               else unblockDOMUpdate $ do
                 unsafeBlockingIO $ print "unblocked"
                 renderUI0
-
       renderUI <|> (Left <$> await stepStartTime)
