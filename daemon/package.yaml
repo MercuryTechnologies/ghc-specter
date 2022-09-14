@@ -91,6 +91,7 @@ library:
     - ghc
     - ghc-specter-plugin
     - hiedb
+    - http-types
     - lens
     - optparse-applicative
     - replica
@@ -101,6 +102,10 @@ library:
     - time
     - transformers
     - unliftio
+    - wai
+    - wai-websockets
+    - warp
+    - websockets
 
 executables:
   ghc-specter-daemon:

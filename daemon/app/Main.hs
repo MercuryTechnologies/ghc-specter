@@ -3,7 +3,6 @@
 module Main (main) where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
-import Concur.Replica (HTML, runDefault)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
@@ -50,6 +49,8 @@ import GHCSpecter.Server.Types
     emptyServerState,
     incrementSN,
   )
+import GHCSpecter.UI.ConcurReplica.Run (runDefault)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     UIState,
@@ -158,7 +159,7 @@ webServer var = do
   runDefault 8080 "test" $
     \_ -> loopM step (emptyUIState initTime, ss0)
   where
-    step :: (UIState, ServerState) -> Widget HTML (Either (UIState, ServerState) ())
+    step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
     step (ui, ss) = do
       let await stepStartTime = do
             when (stepStartTime `diffUTCTime` (ui ^. uiLastUpdated) < chanUpdateInterval) $
