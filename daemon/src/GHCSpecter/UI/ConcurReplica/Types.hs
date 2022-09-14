@@ -28,23 +28,25 @@ import Replica.VDOM (HTML)
 -- is just to update internal state, not leading to DOM changes.
 -- With IHTML, we tag the HTML content as non-update and bypass expensive websocket diff update steps.
 -- Left: no need for update, Right: need for update
-newtype IHTML = IHTML {unIHTML :: Either HTML HTML}
+data IHTML
+  = NoUpdate HTML
+  | Update HTML
 
 instance Semigroup IHTML where
-  IHTML (Left e1) <> IHTML (Left e2) = IHTML (Left (e1 <> e2))
-  IHTML (Left e1) <> IHTML (Right e2) = IHTML (Right (e1 <> e2))
-  IHTML (Right e1) <> IHTML (Left e2) = IHTML (Right (e1 <> e2))
-  IHTML (Right e1) <> IHTML (Right e2) = IHTML (Right (e1 <> e2))
+  NoUpdate e1 <> NoUpdate e2 = NoUpdate (e1 <> e2)
+  NoUpdate e1 <> Update e2 = Update (e1 <> e2)
+  Update e1 <> NoUpdate e2 = Update (e1 <> e2)
+  Update e1 <> Update e2 = Update (e1 <> e2)
 
 instance Monoid IHTML where
-  mempty = IHTML (Left mempty)
+  mempty = NoUpdate mempty
 
 project :: IHTML -> HTML
-project (IHTML (Left a)) = a
-project (IHTML (Right a)) = a
+project (NoUpdate a) = a
+project (Update a) = a
 
 embed :: HTML -> IHTML
-embed a = IHTML (Right a)
+embed a = Update a
 
 instance ShiftMap (Widget HTML) (Widget IHTML) where
   shiftMap f t =
@@ -72,7 +74,7 @@ instance ShiftMap (Widget HTML) (Widget IHTML) where
      in Widget stepT'
 
 blockDOMUpdate :: Widget IHTML a -> Widget IHTML a
-blockDOMUpdate = mapView (\x -> IHTML (Left (project x)))
+blockDOMUpdate = mapView (\x -> NoUpdate (project x))
 
 unblockDOMUpdate :: Widget IHTML a -> Widget IHTML a
-unblockDOMUpdate = mapView (\x -> IHTML (Right (project x)))
+unblockDOMUpdate = mapView (\x -> Update (project x))
