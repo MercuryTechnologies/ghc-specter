@@ -29,6 +29,8 @@ data IHTML
   | -- | no update
     NoUpdate HTML
 
+-- NOTE: NoUpdate is the upper bound of IHTML and Update [] is mempty, so once meeting NoUpate,
+-- the DOM is not updated after that.
 instance Semigroup IHTML where
   Update e1 <> Update e2 = Update (e1 <> e2)
   Update e1 <> NoUpdate e2 = NoUpdate (e1 <> e2)
