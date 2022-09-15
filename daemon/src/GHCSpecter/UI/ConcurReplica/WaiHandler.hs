@@ -213,9 +213,8 @@ websocketApp initial step pendingConn = do
       case r of
         Nothing -> pure ()
         -- for Left case, we do not update client frame
-        Just (NoUpdate, next, fire_) -> do
-          for_ oldDom $ \oldDom' ->
-            atomically $ writeTVar chan (Just (fire_ oldDom'))
+        Just (NoUpdate newDom, next, fire_) -> do
+          atomically $ writeTVar chan (Just (fire_ newDom))
           go conn ctx chan cf oldDom next (serverFrame + 1)
         -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)
         -- and server frame

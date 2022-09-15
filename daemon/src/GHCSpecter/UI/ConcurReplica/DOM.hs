@@ -150,7 +150,7 @@ elWithNamespace mNamespace e attrs children = do
   where
     f :: [(T.Text, Attr)] -> IHTML -> IHTML
     f xs (Update ys) = Update [VNode e (M.fromList xs) mNamespace ys]
-    f _ NoUpdate = NoUpdate
+    f xs (NoUpdate ys) = NoUpdate [VNode e (M.fromList xs) mNamespace ys]
 
     toAttr :: Props a -> IO ((T.Text, Attr), [m a])
     toAttr (Props k (PropText v)) = pure ((k, AText v), [])
