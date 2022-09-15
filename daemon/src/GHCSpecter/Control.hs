@@ -1,5 +1,6 @@
 module GHCSpecter.Control
-  ( control,
+  ( Control,
+    control,
     stepControl,
   )
 where

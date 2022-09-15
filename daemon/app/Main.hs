@@ -18,6 +18,13 @@ import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State
+  ( StateT (..),
+    get,
+    put,
+    runStateT,
+  )
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
@@ -42,7 +49,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Control (control, stepControl)
+import GHCSpecter.Control (Control, control, stepControl)
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -158,28 +165,30 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMHsSource _modu _info) ->
         id
 
+-- NOTE:
+-- server state: shared across the session
+-- ui state: per web view.
+-- control: per web view
+
 webServer :: TVar ServerState -> IO ()
 webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
-    \_ -> loopM step (control, emptyUIState initTime, ss0)
+    \_ -> runStateT (loopM step control) (emptyUIState initTime, ss0)
   where
-    step (c, u, s) = do
-      ec <- stepControl c
+    step :: Control () -> StateT (UIState, ServerState) (Widget IHTML) (Either (Control ()) ())
+    step c = do
+      ec <- lift $ stepControl c
       case ec of
         Right r -> pure (Right r)
-        Left c' -> do
-          eus <- stepRender (u, s)
-          case eus of
-            Right r' -> pure (Right r')
-            Left (u', s') -> pure (Left (c', u', s'))
-
-    stepRender :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
-    stepRender (ui0, ss) = do
+        Left c' -> stepRender >> pure (Left c')
+    stepRender :: StateT (UIState, ServerState) (Widget IHTML) ()
+    stepRender = do
+      (ui0, ss) <- get
       let lastUpdatedUI = ui0 ^. uiLastUpdated
-      stepStartTime <- unsafeBlockingIO getCurrentTime
-      unsafeBlockingIO $ print stepStartTime
+      stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
+      lift $ unsafeBlockingIO $ print stepStartTime
       let ui
             | (stepStartTime `diffUTCTime` lastUpdatedUI > uiUpdateInterval) = (uiShouldUpdate .~ True) ui0
             | otherwise = (uiShouldUpdate .~ False) ui0
@@ -191,28 +200,25 @@ webServer var = do
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
             -- lock until new message comes
-            ss' <- liftSTM $ do
-              ss' <- readTVar var
-              if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
-                then retry
-                else pure ss'
-            postMessageTime <- unsafeBlockingIO getCurrentTime
+            ss' <- lift $
+              liftSTM $ do
+                ss' <- readTVar var
+                if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
+                  then retry
+                  else pure ss'
+            postMessageTime <- lift $ unsafeBlockingIO getCurrentTime
             let ss'' = (serverLastUpdated .~ postMessageTime) ss'
-            pure (ui, ss'')
+            put (ui, ss'')
           --
           updateSS (ui', (ss', b)) = do
             when b $
-              liftSTM $ writeTVar var ss'
-            pure (Left (ui', ss'))
+              lift $ liftSTM $ writeTVar var ss'
+            put (ui', ss')
 
-      let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
+      let renderUI0 = render stepStartTime (ui, ss)
           -- wait for update interval, not to have too frequent update
           renderUI =
             if ui ^. uiShouldUpdate
-              then do
-                -- unsafeBlockingIO $ putStrLn "unblocking"
-                unblockDOMUpdate renderUI0
-              else do
-                -- unsafeBlockingIO $ putStrLn "blocking"
-                blockDOMUpdate renderUI0
-      renderUI <|> (Left <$> await stepStartTime)
+              then lift (unblockDOMUpdate renderUI0) >>= updateSS
+              else lift (blockDOMUpdate renderUI0) >>= updateSS
+      renderUI <|> await stepStartTime

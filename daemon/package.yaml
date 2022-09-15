@@ -126,6 +126,7 @@ executables:
       - optparse-applicative
       - stm
       - time
+      - transformers
 
 tests:
   ghc-specter-daemon-test:
