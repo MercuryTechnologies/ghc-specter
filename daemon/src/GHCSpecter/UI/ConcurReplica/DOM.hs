@@ -149,8 +149,8 @@ elWithNamespace mNamespace e attrs children = do
     $ orr (children <> concatMap snd attrs')
   where
     f :: [(T.Text, Attr)] -> IHTML -> IHTML
-    f _ NoUpdate = NoUpdate
     f xs (Update ys) = Update [VNode e (M.fromList xs) mNamespace ys]
+    f _ NoUpdate = NoUpdate
 
     toAttr :: Props a -> IO ((T.Text, Attr), [m a])
     toAttr (Props k (PropText v)) = pure ((k, AText v), [])

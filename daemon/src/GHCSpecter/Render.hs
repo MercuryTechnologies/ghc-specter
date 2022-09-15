@@ -40,6 +40,7 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
+    link,
     nav,
     section,
     text,
@@ -82,12 +83,10 @@ renderMainPanel stepStartTime ui ss =
 
 cssLink :: Text -> Widget IHTML a
 cssLink url =
-  el
-    "link"
+  link
     [ textProp "rel" "stylesheet"
     , textProp "href" url
     ]
-    []
 
 renderNavbar :: Tab -> Widget IHTML Event
 renderNavbar tab =

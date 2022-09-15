@@ -23,19 +23,20 @@ import Replica.VDOM (HTML)
 -- For example, onMouseMove events are fired too frequently, and most of the handling action
 -- is just to update internal state, not leading to DOM changes.
 -- With IHTML, we tag the HTML content as non-update and bypass expensive websocket diff update steps.
--- Left: no need for update, Right: need for update
 data IHTML
-  = NoUpdate
-  | Update HTML
+  = -- | update
+    Update HTML
+  | -- | no update
+    NoUpdate
 
 instance Semigroup IHTML where
-  NoUpdate <> NoUpdate = NoUpdate
-  NoUpdate <> Update e2 = Update e2
-  Update e1 <> NoUpdate = Update e1
   Update e1 <> Update e2 = Update (e1 <> e2)
+  Update e1 <> NoUpdate = NoUpdate
+  NoUpdate <> Update e2 = NoUpdate
+  NoUpdate <> NoUpdate = NoUpdate
 
 instance Monoid IHTML where
-  mempty = NoUpdate
+  mempty = Update []
 
 -- instance ShiftMap (Widget IHTML) (Widget IHTML) where
 --   shiftMap f = f
