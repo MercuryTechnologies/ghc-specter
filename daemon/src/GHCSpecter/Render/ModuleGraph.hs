@@ -21,15 +21,11 @@ where
 import Concur.Core (Widget)
 import Concur.Replica
   ( classList,
-    div,
     height,
-    input,
-    label,
     onClick,
     onInput,
     onMouseEnter,
     onMouseLeave,
-    pre,
     width,
   )
 import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
@@ -82,7 +78,13 @@ import GHCSpecter.Server.Types
     ServerState (..),
     transposeGraphVis,
   )
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( div,
+    input,
+    label,
+    pre,
+    text,
+  )
 import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types

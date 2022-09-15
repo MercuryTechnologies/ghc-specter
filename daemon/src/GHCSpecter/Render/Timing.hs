@@ -10,10 +10,7 @@ where
 import Concur.Core (Widget)
 import Concur.Replica
   ( classList,
-    div,
     height,
-    input,
-    label,
     onChange,
     style,
     width,
@@ -32,7 +29,12 @@ import Data.Time.Clock
 import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (ServerState (..))
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( div,
+    input,
+    label,
+    text,
+  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),

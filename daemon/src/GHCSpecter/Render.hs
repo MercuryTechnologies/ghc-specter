@@ -14,11 +14,7 @@ import Concur.Core
 import Concur.Replica
   ( Props,
     classList,
-    div,
-    el,
-    nav,
     onClick,
-    section,
     style,
     textProp,
   )
@@ -41,7 +37,13 @@ import GHCSpecter.Server.Types
     ServerState (..),
     type ChanModule,
   )
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( div,
+    el,
+    nav,
+    section,
+    text,
+  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),

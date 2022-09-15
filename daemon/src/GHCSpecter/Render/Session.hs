@@ -5,11 +5,8 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( button,
-    classList,
-    div,
+  ( classList,
     onClick,
-    pre,
   )
 import Control.Lens ((^.))
 import Data.Map qualified as M
@@ -19,7 +16,12 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
   )
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( button,
+    div,
+    pre,
+    text,
+  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
