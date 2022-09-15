@@ -9,7 +9,7 @@ import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Wi
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Free (Free (Free, Pure))
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
 import GHCSpecter.UI.ConcurReplica.WaiHandler qualified as R
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
@@ -35,7 +35,7 @@ stepWidget ::
     ( Maybe
         ( IHTML
         , R.Context -> Free (SuspendF IHTML) a
-        , HTML -> R.Event -> Maybe (IO ())
+        , R.Event -> Maybe (IO ())
         )
     )
 stepWidget ctx v = case v ctx of
@@ -45,7 +45,7 @@ stepWidget ctx v = case v ctx of
       Just
         ( new
         , const next
-        , \html event -> fireEvent html (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
+        , \event -> fireEvent (project new) (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
         )
   Free (StepIO io next) ->
     io >>= stepWidget ctx . \r _ -> next r

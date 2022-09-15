@@ -124,7 +124,7 @@ app ::
   ConnectionOptions ->
   Middleware ->
   st ->
-  (Context -> st -> IO (Maybe (IHTML, st, V.HTML -> Event -> Maybe (IO ())))) ->
+  (Context -> st -> IO (Maybe (IHTML, st, Event -> Maybe (IO ())))) ->
   Application
 app index options middleware initial step =
   websocketsOr options (websocketApp initial step) (middleware backupApp)
@@ -137,7 +137,7 @@ app index options middleware initial step =
 websocketApp ::
   forall st.
   st ->
-  (Context -> st -> IO (Maybe (IHTML, st, V.HTML -> Event -> Maybe (IO ())))) ->
+  (Context -> st -> IO (Maybe (IHTML, st, Event -> Maybe (IO ())))) ->
   ServerApp
 websocketApp initial step pendingConn = do
   conn <- acceptRequest pendingConn
@@ -213,12 +213,12 @@ websocketApp initial step pendingConn = do
       case r of
         Nothing -> pure ()
         -- for Left case, we do not update client frame
-        Just (NoUpdate newDom, next, fire_) -> do
-          atomically $ writeTVar chan (Just (fire_ newDom))
+        Just (NoUpdate newDom, next, fire) -> do
+          atomically $ writeTVar chan (Just fire)
           go conn ctx chan cf oldDom next (serverFrame + 1)
         -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)
         -- and server frame
-        Just (Update newDom, next, fire_) -> do
+        Just (Update newDom, next, fire) -> do
           clientFrame <- atomically $ do
             a <- readTVar cf
             writeTVar cf Nothing
@@ -234,6 +234,6 @@ websocketApp initial step pendingConn = do
               diff <- evaluate (V.diff oldDom' newDom')
               sendTextData conn $ A.encode $ UpdateDOM serverFrame clientFrame diff
 
-          atomically $ writeTVar chan (Just (fire_ newDom))
+          atomically $ writeTVar chan (Just fire)
 
           go conn ctx chan cf (Just newDom) next (serverFrame + 1)
