@@ -21,7 +21,6 @@ import Control.Monad (forever, join)
 import Data.Aeson ((.:), (.=))
 import Data.Aeson qualified as A
 import Data.ByteString.Lazy qualified as BL
-import Data.Foldable (for_)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.Map qualified as M
 import Data.Text qualified as T
@@ -213,7 +212,7 @@ websocketApp initial step pendingConn = do
       case r of
         Nothing -> pure ()
         -- for Left case, we do not update client frame
-        Just (NoUpdate newDom, next, fire) -> do
+        Just (NoUpdate _, next, fire) -> do
           atomically $ writeTVar chan (Just fire)
           go conn ctx chan cf oldDom next (serverFrame + 1)
         -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)

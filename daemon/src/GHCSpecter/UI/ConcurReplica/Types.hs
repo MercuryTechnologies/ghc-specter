@@ -14,13 +14,9 @@ module GHCSpecter.UI.ConcurReplica.Types
 where
 
 import Concur.Core
-  ( SuspendF (..),
-    Widget (Widget, step),
-    awaitViewAction,
+  ( Widget,
     mapView,
   )
-import Control.Monad.Free (Free (..), hoistFree)
-import Control.ShiftMap (ShiftMap (..))
 import Replica.VDOM (HTML)
 
 -- | IHTML has additional tag about whether one wants to bypass DOM update.

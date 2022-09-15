@@ -28,7 +28,6 @@ import Concur.Replica
     onMouseLeave,
     width,
   )
-import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
@@ -37,8 +36,6 @@ import Control.Monad (void)
 import Control.Monad.Extra (loop)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Resource (allocate)
-import Data.Aeson qualified as A
-import Data.Aeson.KeyMap qualified as A
 import Data.Bits ((.|.))
 import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
@@ -47,13 +44,11 @@ import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
   ( NominalDiffTime,
     UTCTime,
-    diffUTCTime,
     secondsToNominalDiffTime,
   )
 import Data.Tuple (swap)
@@ -201,11 +196,7 @@ makePolylineText (p0, p1) xys =
   where
     each (Point x y) = T.pack $ printf "%.2f,%.2f" x y
 
-minTimeDiff :: NominalDiffTime
-minTimeDiff = secondsToNominalDiffTime 0.1
-
 renderModuleGraphSVG ::
-  (UTCTime, UTCTime) ->
   IntMap ModuleName ->
   Map Text Timer ->
   [(Text, [Text])] ->
@@ -214,7 +205,6 @@ renderModuleGraphSVG ::
   (Maybe Text, Maybe Text) ->
   Widget IHTML ModuleGraphEvent
 renderModuleGraphSVG
-  (stepStartTime, lastUpdatedTime)
   nameMap
   timing
   clustering
@@ -346,7 +336,6 @@ renderModuleGraphSVG
      in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderMainModuleGraph ::
-  (UTCTime, UTCTime) ->
   IntMap ModuleName ->
   Map ModuleName Timer ->
   [(Text, [Text])] ->
@@ -355,7 +344,6 @@ renderMainModuleGraph ::
   ModuleGraphUI ->
   Widget IHTML Event
 renderMainModuleGraph
-  (stepStartTime, lastUpdatedTime)
   nameMap
   timing
   clustering
@@ -365,7 +353,6 @@ renderMainModuleGraph
         mhovered = mgUI ^. modGraphUIHover
      in MainModuleEv
           <$> renderModuleGraphSVG
-            (stepStartTime, lastUpdatedTime)
             nameMap
             timing
             clustering
@@ -373,7 +360,6 @@ renderMainModuleGraph
             (mclicked, mhovered)
 
 renderSubModuleGraph ::
-  (UTCTime, UTCTime) ->
   IntMap ModuleName ->
   Map ModuleName Timer ->
   [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
@@ -381,7 +367,6 @@ renderSubModuleGraph ::
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget IHTML Event
 renderSubModuleGraph
-  (stepStartTime, lastUpdatedTime)
   nameMap
   timing
   subgraphs
@@ -407,7 +392,6 @@ renderSubModuleGraph
                     (subgraph ^. gviNodes)
              in SubModuleEv . SubModuleGraphEv
                   <$> renderModuleGraphSVG
-                    (stepStartTime, lastUpdatedTime)
                     nameMap
                     timing
                     tempclustering
@@ -451,7 +435,6 @@ render stepStartTime ui ss =
                 Nothing -> []
                 Just grVisInfo ->
                   [ renderMainModuleGraph
-                      (stepStartTime, ui ^. uiLastUpdated)
                       nameMap
                       timing
                       clustering
@@ -459,7 +442,6 @@ render stepStartTime ui ss =
                       (ui ^. uiMainModuleGraph)
                   , renderDetailLevel ui
                   , renderSubModuleGraph
-                      (stepStartTime, ui ^. uiLastUpdated)
                       nameMap
                       timing
                       (mgs ^. mgsSubgraph)
