@@ -7,8 +7,7 @@ module GHCSpecter.Render
 where
 
 import Concur.Core
-  ( SuspendF (..),
-    Widget (..),
+  ( Widget (..),
     unsafeBlockingIO,
   )
 import Concur.Replica
@@ -19,7 +18,6 @@ import Concur.Replica
     textProp,
   )
 import Control.Lens (to, (.~), (^.), _1, _2)
-import Control.Monad.Free (liftF)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -70,14 +68,13 @@ divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
-  UTCTime ->
   UIState ->
   ServerState ->
   Widget IHTML Event
-renderMainPanel stepStartTime ui ss =
+renderMainPanel ui ss =
   case ui ^. uiTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render stepStartTime ui ss
+    TabModuleGraph -> ModuleGraph.render ui ss
     TabSourceView -> SourceView.render (ui ^. uiSourceView) ss
     TabTiming -> Timing.render ui ss
 
@@ -128,7 +125,7 @@ render stepStartTime (ui, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel stepStartTime ui ss]
+                [renderMainPanel ui ss]
             , section
                 []
                 [ divClass

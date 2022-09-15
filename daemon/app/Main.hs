@@ -174,8 +174,8 @@ webServer var = do
             | otherwise = (uiShouldUpdate .~ False) ui0
 
       let lastUpdatedServer = ss ^. serverLastUpdated
-          await stepStartTime = do
-            when (stepStartTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
+          await preMessageTime = do
+            when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
@@ -185,8 +185,8 @@ webServer var = do
               if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
                 then retry
                 else pure ss'
-            now <- unsafeBlockingIO getCurrentTime
-            let ss'' = (serverLastUpdated .~ now) ss'
+            postMessageTime <- unsafeBlockingIO getCurrentTime
+            let ss'' = (serverLastUpdated .~ postMessageTime) ss'
             pure (ui, ss'')
           --
           updateSS (ui', (ss', b)) = do
@@ -199,9 +199,9 @@ webServer var = do
           renderUI =
             if ui ^. uiShouldUpdate
               then do
-                unsafeBlockingIO $ print "unblocking"
+                unsafeBlockingIO $ putStrLn "unblocking"
                 unblockDOMUpdate renderUI0
               else do
-                unsafeBlockingIO $ print "blocking"
+                unsafeBlockingIO $ putStrLn "blocking"
                 blockDOMUpdate renderUI0
       renderUI <|> (Left <$> await stepStartTime)
