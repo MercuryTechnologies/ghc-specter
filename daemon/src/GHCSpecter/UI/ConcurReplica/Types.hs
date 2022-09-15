@@ -4,21 +4,18 @@ module GHCSpecter.UI.ConcurReplica.Types
   ( -- * IHTML type
     IHTML (..),
 
-    -- * IHTML <-> HTML
-    project,
-
-    -- * block / unblock DOM
+    -- * block
     blockDOMUpdate,
-    unblockDOMUpdate,
   )
 where
 
 import Concur.Core
   ( SuspendF (..),
     Widget (Widget, step),
+    awaitViewAction,
     mapView,
   )
-import Control.Monad.Free (hoistFree)
+import Control.Monad.Free (Free (..), hoistFree)
 import Control.ShiftMap (ShiftMap (..))
 import Replica.VDOM (HTML)
 
@@ -28,49 +25,48 @@ import Replica.VDOM (HTML)
 -- With IHTML, we tag the HTML content as non-update and bypass expensive websocket diff update steps.
 -- Left: no need for update, Right: need for update
 data IHTML
-  = NoUpdate HTML
+  = NoUpdate
   | Update HTML
 
 instance Semigroup IHTML where
-  NoUpdate e1 <> NoUpdate e2 = NoUpdate (e1 <> e2)
-  NoUpdate e1 <> Update e2 = Update (e1 <> e2)
-  Update e1 <> NoUpdate e2 = Update (e1 <> e2)
+  NoUpdate <> NoUpdate = NoUpdate
+  NoUpdate <> Update e2 = Update e2
+  Update e1 <> NoUpdate = Update e1
   Update e1 <> Update e2 = Update (e1 <> e2)
 
 instance Monoid IHTML where
-  mempty = NoUpdate mempty
-
-project :: IHTML -> HTML
-project (NoUpdate a) = a
-project (Update a) = a
+  mempty = NoUpdate
 
 instance ShiftMap (Widget HTML) (Widget IHTML) where
+  -- shiftMap ::
+  --    (forall a. Widget HTML a -> Widget HTML a) ->
+  --    (forall b. Widget IHTML b -> Widget IHTML b)
   shiftMap f t =
-    let -- stepT :: Free (SuspendF IHTML) a
+    let f' = step . f . Widget
+
+        -- stepT :: Free (SuspendF IHTML) a
         stepT = step t
 
-        to :: SuspendF IHTML a -> SuspendF HTML a
-        to (StepView v next) = StepView (project v) next
-        to (StepBlock a next) = StepBlock a next
-        to (StepSTM a next) = StepSTM a next
-        to (StepIO a next) = StepIO a next
-        to Forever = Forever
+        convert :: Free (SuspendF IHTML) a -> Free (SuspendF IHTML) a
+        convert s =
+          case s of
+            Pure r -> Pure r
+            Free (StepView NoUpdate next) -> Free (StepView NoUpdate next)
+            Free (StepView (Update v) next) ->
+              let stepS = Free (StepView v (Pure ()))
+                  stepS' = f' stepS
+               in case stepS' of
+                    -- NOTE (IWK): This seems very ad hoc, but I couldn't find
+                    -- any better solution yet
+                    Free (StepView v' _) -> Free (StepView (Update v') (convert next))
+                    _ -> Free Forever
+            Free (StepBlock a next) -> Free (StepBlock a next)
+            Free (StepSTM a next) -> Free (StepSTM a next)
+            Free (StepIO a next) -> Free (StepIO a next)
+            Free Forever -> Free Forever
 
-        fro :: SuspendF HTML a -> SuspendF IHTML a
-        fro (StepView v next) = StepView (Update v) next
-        fro (StepBlock a next) = StepBlock a next
-        fro (StepSTM a next) = StepSTM a next
-        fro (StepIO a next) = StepIO a next
-        fro Forever = Forever
-
-        -- stepS :: Free (SuspendF HTML) a
-        stepS = hoistFree to stepT
-        stepS' = step (f (Widget stepS))
-        stepT' = hoistFree fro stepS'
+        stepT' = convert stepT
      in Widget stepT'
 
-blockDOMUpdate :: Widget IHTML a -> Widget IHTML a
-blockDOMUpdate = mapView (\x -> NoUpdate (project x))
-
-unblockDOMUpdate :: Widget IHTML a -> Widget IHTML a
-unblockDOMUpdate = mapView (\x -> Update (project x))
+blockDOMUpdate :: Widget IHTML a
+blockDOMUpdate = awaitViewAction (\_ -> NoUpdate)

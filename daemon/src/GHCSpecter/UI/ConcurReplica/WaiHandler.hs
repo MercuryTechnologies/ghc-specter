@@ -21,6 +21,7 @@ import Control.Monad (forever, join)
 import Data.Aeson ((.:), (.=))
 import Data.Aeson qualified as A
 import Data.ByteString.Lazy qualified as BL
+import Data.Foldable (for_)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.Map qualified as M
 import Data.Text qualified as T
@@ -28,7 +29,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder qualified as TB
 import Debug.Trace (traceIO)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
+import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
 import Network.HTTP.Types (status200)
 import Network.Wai (Application, Middleware, responseLBS)
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -123,7 +124,7 @@ app ::
   ConnectionOptions ->
   Middleware ->
   st ->
-  (Context -> st -> IO (Maybe (IHTML, st, Event -> Maybe (IO ())))) ->
+  (Context -> st -> IO (Maybe (IHTML, st, V.HTML -> Event -> Maybe (IO ())))) ->
   Application
 app index options middleware initial step =
   websocketsOr options (websocketApp initial step) (middleware backupApp)
@@ -136,7 +137,7 @@ app index options middleware initial step =
 websocketApp ::
   forall st.
   st ->
-  (Context -> st -> IO (Maybe (IHTML, st, Event -> Maybe (IO ())))) ->
+  (Context -> st -> IO (Maybe (IHTML, st, V.HTML -> Event -> Maybe (IO ())))) ->
   ServerApp
 websocketApp initial step pendingConn = do
   conn <- acceptRequest pendingConn
@@ -203,7 +204,7 @@ websocketApp initial step pendingConn = do
       Context ->
       TVar (Maybe (Event -> Maybe (IO ()))) ->
       TVar (Maybe Int) ->
-      Maybe IHTML ->
+      Maybe V.HTML ->
       st ->
       Int ->
       IO ()
@@ -212,12 +213,13 @@ websocketApp initial step pendingConn = do
       case r of
         Nothing -> pure ()
         -- for Left case, we do not update client frame
-        Just (NoUpdate _, next, fire) -> do
-          atomically $ writeTVar chan (Just fire)
+        Just (NoUpdate, next, fire_) -> do
+          for_ oldDom $ \oldDom' ->
+            atomically $ writeTVar chan (Just (fire_ oldDom'))
           go conn ctx chan cf oldDom next (serverFrame + 1)
         -- for Right case, we update both the client frame (i.e. sending DOM diff to the websocket)
         -- and server frame
-        Just (Update newDom, next, fire) -> do
+        Just (Update newDom, next, fire_) -> do
           clientFrame <- atomically $ do
             a <- readTVar cf
             writeTVar cf Nothing
@@ -230,9 +232,9 @@ websocketApp initial step pendingConn = do
             Nothing -> sendTextData conn $ A.encode $ ReplaceDOM newDom'
             Just oldDom' -> do
               -- Throw exceptions here
-              diff <- evaluate (V.diff (project oldDom') newDom')
+              diff <- evaluate (V.diff oldDom' newDom')
               sendTextData conn $ A.encode $ UpdateDOM serverFrame clientFrame diff
 
-          atomically $ writeTVar chan (Just fire)
+          atomically $ writeTVar chan (Just (fire_ newDom))
 
-          go conn ctx chan cf (Just (Update newDom)) next (serverFrame + 1)
+          go conn ctx chan cf (Just newDom) next (serverFrame + 1)

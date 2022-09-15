@@ -53,7 +53,6 @@ import GHCSpecter.UI.ConcurReplica.Run (runDefault)
 import GHCSpecter.UI.ConcurReplica.Types
   ( IHTML,
     blockDOMUpdate,
-    unblockDOMUpdate,
   )
 import GHCSpecter.UI.Types
   ( HasUIState (..),
@@ -200,8 +199,8 @@ webServer var = do
             if ui ^. uiShouldUpdate
               then do
                 unsafeBlockingIO $ print "unblocking"
-                unblockDOMUpdate renderUI0
+                renderUI0
               else do
                 unsafeBlockingIO $ print "blocking"
-                blockDOMUpdate renderUI0
+                blockDOMUpdate
       renderUI <|> (Left <$> await stepStartTime)
