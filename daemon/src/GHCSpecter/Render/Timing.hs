@@ -10,16 +10,12 @@ where
 import Concur.Core (Widget)
 import Concur.Replica
   ( classList,
-    div,
     height,
-    input,
-    label,
     onChange,
     style,
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
-import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _2)
 import Data.Text (Text)
@@ -32,7 +28,13 @@ import Data.Time.Clock
 import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (ServerState (..))
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( div,
+    input,
+    label,
+    text,
+  )
+import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),

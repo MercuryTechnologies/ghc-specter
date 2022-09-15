@@ -165,9 +165,15 @@ webServer var = do
     \_ -> loopM step (emptyUIState initTime, ss0)
   where
     step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
-    step (ui, ss) = do
-      let lastUpdatedUI = ui ^. uiLastUpdated
-          lastUpdatedServer = ss ^. serverLastUpdated
+    step (ui0, ss) = do
+      let lastUpdatedUI = ui0 ^. uiLastUpdated
+      stepStartTime <- unsafeBlockingIO getCurrentTime
+      unsafeBlockingIO $ print stepStartTime
+      let ui
+            | (stepStartTime `diffUTCTime` lastUpdatedUI > uiUpdateInterval) = (uiShouldUpdate .~ True) ui0
+            | otherwise = (uiShouldUpdate .~ False) ui0
+
+      let lastUpdatedServer = ss ^. serverLastUpdated
           await stepStartTime = do
             when (stepStartTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
@@ -188,12 +194,14 @@ webServer var = do
               liftSTM $ writeTVar var ss'
             pure (Left (ui', ss'))
 
-      stepStartTime <- unsafeBlockingIO getCurrentTime
-      unsafeBlockingIO $ print stepStartTime
       let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
           -- wait for update interval, not to have too frequent update
           renderUI =
-            if stepStartTime `diffUTCTime` lastUpdatedUI < uiUpdateInterval
-              then blockDOMUpdate renderUI0
-              else unblockDOMUpdate renderUI0
+            if ui ^. uiShouldUpdate
+              then do
+                unsafeBlockingIO $ print "unblocking"
+                unblockDOMUpdate renderUI0
+              else do
+                unsafeBlockingIO $ print "blocking"
+                blockDOMUpdate renderUI0
       renderUI <|> (Left <$> await stepStartTime)

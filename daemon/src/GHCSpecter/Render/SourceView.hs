@@ -8,15 +8,8 @@ import Concur.Core (Widget)
 import Concur.Replica
   ( MouseEvent,
     classList,
-    div,
-    el,
-    hr,
-    li,
     onClick,
-    pre,
-    span,
     style,
-    ul,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad.Trans.State (State, get, put, runState)
@@ -42,7 +35,16 @@ import GHCSpecter.Server.Types
     ModuleHieInfo,
     ServerState (..),
   )
-import GHCSpecter.UI.ConcurReplica.DOM (text)
+import GHCSpecter.UI.ConcurReplica.DOM
+  ( div,
+    el,
+    hr,
+    li,
+    pre,
+    span,
+    text,
+    ul,
+  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
