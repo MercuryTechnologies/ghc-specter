@@ -161,6 +161,14 @@ render stepStartTime (ui, ss) = do
             pure t
         pure (mgui, (t,) <$> mxy)
 
+      handleMouseMove ui_ mxy =
+        case mxy of
+          Nothing -> ui_
+          Just (t, xy) ->
+            if ui_ ^. uiShouldUpdate
+              then (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ ui_
+              else uiMousePosition .~ xy $ ui_
+
       handleMainPanel :: (UIState, ServerState) -> Event -> Widget IHTML (UIState, (ServerState, Bool))
       handleMainPanel (oldUI, oldSS) (ExpandModuleEv mexpandedModu') =
         pure ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
@@ -168,10 +176,7 @@ render stepStartTime (ui, ss) = do
         let mgui = oldUI ^. uiMainModuleGraph
         (mgui', mxy) <- handleModuleGraphEv ev mgui
         let newUI = (uiMainModuleGraph .~ mgui') oldUI
-            newUI' = case mxy of
-              Nothing -> newUI
-              Just (t, xy) ->
-                (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
+            newUI' = handleMouseMove newUI mxy
         pure (newUI', (oldSS, False))
       handleMainPanel (oldUI, oldSS) (SubModuleEv sev) =
         case sev of
@@ -179,10 +184,7 @@ render stepStartTime (ui, ss) = do
             let mgui = oldUI ^. uiSubModuleGraph . _2
             (mgui', mxy) <- handleModuleGraphEv ev mgui
             let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
-                newUI' = case mxy of
-                  Nothing -> newUI
-                  Just (t, xy) ->
-                    (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ newUI
+                newUI' = handleMouseMove newUI mxy
             pure (newUI', (oldSS, False))
           SubModuleLevelEv d' ->
             pure

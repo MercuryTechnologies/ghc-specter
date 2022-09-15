@@ -59,7 +59,9 @@ emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False
 
 data UIState = UIState
-  { _uiLastUpdated :: UTCTime
+  { _uiShouldUpdate :: Bool
+  -- ^ should update?
+  , _uiLastUpdated :: UTCTime
   -- ^ last updated time
   , _uiTab :: Tab
   -- ^ current tab
@@ -80,7 +82,8 @@ makeClassy ''UIState
 emptyUIState :: UTCTime -> UIState
 emptyUIState now =
   UIState
-    { _uiLastUpdated = now
+    { _uiShouldUpdate = True
+    , _uiLastUpdated = now
     , _uiTab = TabSession
     , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
     , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
