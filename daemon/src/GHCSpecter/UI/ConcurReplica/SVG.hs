@@ -87,9 +87,9 @@ where
 -- Note that this module is auto-generated.
 -- See @./misc/gen-svg-modules@ for details.
 
-import Concur.Replica.DOM (WidgetConstraints, elWithNamespace)
 import Concur.Replica.DOM.Props (Props)
 import Data.Text qualified as T
+import GHCSpecter.UI.ConcurReplica.DOM (WidgetConstraints, elWithNamespace)
 import Replica.VDOM.Types (Namespace (Namespace))
 import Prelude hiding (filter)
 

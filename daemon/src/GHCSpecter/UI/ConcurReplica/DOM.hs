@@ -116,7 +116,16 @@ module GHCSpecter.UI.ConcurReplica.DOM
   )
 where
 
-import Concur.Core (MonadSafeBlockingIO (liftSafeBlockingIO), MonadUnsafeBlockingIO (liftUnsafeBlockingIO), MultiAlternative, Widget, display, orr, wrapView)
+import Concur.Core
+  ( MonadSafeBlockingIO (liftSafeBlockingIO),
+    MonadUnsafeBlockingIO (liftUnsafeBlockingIO),
+    MultiAlternative,
+    Widget,
+    display,
+    mapView,
+    orr,
+    wrapView,
+  )
 import Concur.Replica.DOM.Props (Prop (PropBool, PropEvent, PropMap, PropText), Props (Props), key)
 import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.ShiftMap (ShiftMap (shiftMap))
@@ -127,7 +136,7 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
 import Replica.VDOM (Attr (ABool, AEvent, AMap, AText), HTML, Namespace, VDOM (VNode, VText))
 import Prelude hiding (div, span)
 
-type WidgetConstraints m = (ShiftMap (Widget HTML) m, Monad m, MonadSafeBlockingIO m, MonadUnsafeBlockingIO m, MultiAlternative m)
+type WidgetConstraints m = (ShiftMap (Widget IHTML) m, Monad m, MonadSafeBlockingIO m, MonadUnsafeBlockingIO m, MultiAlternative m)
 
 el :: forall m a. WidgetConstraints m => T.Text -> [Props a] -> [m a] -> m a
 el = elWithNamespace Nothing
@@ -135,8 +144,14 @@ el = elWithNamespace Nothing
 elWithNamespace :: forall m a. WidgetConstraints m => Maybe Namespace -> T.Text -> [Props a] -> [m a] -> m a
 elWithNamespace mNamespace e attrs children = do
   attrs' <- liftUnsafeBlockingIO $ mapM toAttr attrs
-  shiftMap (wrapView (VNode e (M.fromList $ fmap fst attrs') mNamespace)) $ orr (children <> concatMap snd attrs')
+  shiftMap
+    (mapView (f (fmap fst attrs')))
+    $ orr (children <> concatMap snd attrs')
   where
+    f :: [(T.Text, Attr)] -> IHTML -> IHTML
+    f _ NoUpdate = NoUpdate
+    f xs (Update ys) = Update [VNode e (M.fromList xs) mNamespace ys]
+
     toAttr :: Props a -> IO ((T.Text, Attr), [m a])
     toAttr (Props k (PropText v)) = pure ((k, AText v), [])
     toAttr (Props k (PropBool v)) = pure ((k, ABool v), [])

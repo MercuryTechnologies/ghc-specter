@@ -37,6 +37,10 @@ instance Semigroup IHTML where
 instance Monoid IHTML where
   mempty = NoUpdate
 
+-- instance ShiftMap (Widget IHTML) (Widget IHTML) where
+--   shiftMap f = f
+
+{-
 instance ShiftMap (Widget HTML) (Widget IHTML) where
   -- shiftMap ::
   --    (forall a. Widget HTML a -> Widget HTML a) ->
@@ -67,6 +71,7 @@ instance ShiftMap (Widget HTML) (Widget IHTML) where
 
         stepT' = convert stepT
      in Widget stepT'
+-}
 
 blockDOMUpdate :: Widget IHTML a
 blockDOMUpdate = awaitViewAction (\_ -> NoUpdate)

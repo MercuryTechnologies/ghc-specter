@@ -34,7 +34,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     label,
     text,
   )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S  
+import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
