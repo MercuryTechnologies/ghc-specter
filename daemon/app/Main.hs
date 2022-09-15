@@ -117,9 +117,6 @@ main = do
 chanUpdateInterval :: NominalDiffTime
 chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
-uiUpdateInterval :: NominalDiffTime
-uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
-
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
   ss <- atomically $ readTVar var
@@ -178,20 +175,12 @@ webServer var = do
     \_ -> runStateT (loopM step control) (emptyUIState initTime, ss0)
   where
     step :: Control () -> StateT (UIState, ServerState) (Widget IHTML) (Either (Control ()) ())
-    step c = do
-      ec <- lift $ stepControl c
-      case ec of
-        Right r -> pure (Right r)
-        Left c' -> stepRender >> pure (Left c')
+    step c = stepControl c <* stepRender
+
     stepRender :: StateT (UIState, ServerState) (Widget IHTML) ()
     stepRender = do
-      (ui0, ss) <- get
-      let lastUpdatedUI = ui0 ^. uiLastUpdated
+      (ui, ss) <- get
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
-      lift $ unsafeBlockingIO $ print stepStartTime
-      let ui
-            | (stepStartTime `diffUTCTime` lastUpdatedUI > uiUpdateInterval) = (uiShouldUpdate .~ True) ui0
-            | otherwise = (uiShouldUpdate .~ False) ui0
 
       let lastUpdatedServer = ss ^. serverLastUpdated
           await preMessageTime = do
