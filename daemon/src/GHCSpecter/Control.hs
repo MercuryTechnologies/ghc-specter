@@ -1,14 +1,16 @@
 module GHCSpecter.Control
   ( control,
-    runControl,
+    stepControl,
   )
 where
 
-import Control.Monad.Extra (loopM)
+import Concur.Core (Widget, unsafeBlockingIO)
+import Control.Monad (forever)
 import Control.Monad.Free (Free (..), liftF)
 import Data.Text (Text)
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event (Event)
 
@@ -34,18 +36,17 @@ printMsg :: Text -> Control ()
 printMsg txt = liftF (PrintMsg txt ())
 
 -- | step interpretation
-stepControl :: Control r -> IO (Either (Control r) r)
+stepControl :: Control r -> Widget IHTML (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
 stepControl (Free (CommitUI _ next)) = pure (Left next)
 stepControl (Free (CommitServer _ next)) = pure (Left next)
 stepControl (Free (NextEvent cont)) = pure (Left (cont undefined))
-stepControl (Free (PrintMsg txt next)) = TIO.putStrLn txt >> pure (Left next)
-
-runControl :: Control r -> IO r
-runControl action = loopM stepControl action
+stepControl (Free (PrintMsg txt next)) = do
+  unsafeBlockingIO (TIO.putStrLn txt)
+  pure (Left next)
 
 control :: Control ()
-control = do
+control = forever $ do
   commitUI undefined
   printMsg "message1"
   commitServer undefined

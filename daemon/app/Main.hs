@@ -42,7 +42,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Control (control, runControl)
+import GHCSpecter.Control (control, stepControl)
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -160,15 +160,23 @@ updateInbox chanMsg = incrementSN . updater
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
-  runControl control
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
-  runDefault 8080 "test" $
-    \_ -> loopM step (emptyUIState initTime, ss0)
+  runDefault 8080 "ghc-specter" $
+    \_ -> loopM step (control, emptyUIState initTime, ss0)
   where
-    step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
-    step (ui0, ss) = do
-      -- unsafeBlockingIO control
+    step (c, u, s) = do
+      ec <- stepControl c
+      case ec of
+        Right r -> pure (Right r)
+        Left c' -> do
+          eus <- stepRender (u, s)
+          case eus of
+            Right r' -> pure (Right r')
+            Left (u', s') -> pure (Left (c', u', s'))
+
+    stepRender :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
+    stepRender (ui0, ss) = do
       let lastUpdatedUI = ui0 ^. uiLastUpdated
       stepStartTime <- unsafeBlockingIO getCurrentTime
       unsafeBlockingIO $ print stepStartTime
