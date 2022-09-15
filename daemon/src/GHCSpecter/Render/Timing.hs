@@ -16,7 +16,6 @@ import Concur.Replica
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
-import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _2)
 import Data.Text (Text)
@@ -35,6 +34,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     label,
     text,
   )
+import GHCSpecter.UI.ConcurReplica.SVG qualified as S  
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),

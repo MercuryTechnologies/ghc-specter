@@ -30,7 +30,6 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
-import Concur.Replica.SVG qualified as S
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
 import Control.Lens ((^.), _1)
@@ -86,6 +85,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
+import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
