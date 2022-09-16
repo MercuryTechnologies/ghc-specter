@@ -29,11 +29,9 @@ import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Time.Clock
-  ( NominalDiffTime,
-    diffUTCTime,
+  ( diffUTCTime,
     getCurrentTime,
     nominalDiffTimeToSeconds,
-    secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel
   ( ChanMessage (..),
@@ -66,6 +64,7 @@ import GHCSpecter.UI.ConcurReplica.Types
   ( blockDOMUpdate,
     unblockDOMUpdate,
   )
+import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     emptyUIState,
@@ -116,9 +115,6 @@ main = do
         Right ss -> do
           var <- atomically $ newTVar ss
           webServer var
-
-chanUpdateInterval :: NominalDiffTime
-chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do

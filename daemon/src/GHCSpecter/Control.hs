@@ -29,6 +29,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants (uiUpdateInterval)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasSourceViewUI (..),
@@ -163,9 +164,6 @@ stepControlUpToEvent ::
   (Event -> Control r) ->
   Runner (Either (Event -> Control r) r)
 stepControlUpToEvent ev cont0 = loopM stepControl (cont0 ev)
-
-uiUpdateInterval :: NominalDiffTime
-uiUpdateInterval = Clock.secondsToNominalDiffTime (fromRational (1 / 10))
 
 handleEvent :: Event -> UTCTime -> Control ()
 handleEvent topEv stepStartTime = do
