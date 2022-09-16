@@ -47,11 +47,11 @@ import GHCSpecter.Comm
     sendObject,
   )
 import GHCSpecter.Control
-  ( Control,
-    Runner,
+  ( Runner,
     control,
     stepControlUpToEvent,
   )
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),

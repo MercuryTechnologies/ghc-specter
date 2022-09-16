@@ -1,6 +1,5 @@
 module GHCSpecter.Control
-  ( Control,
-    type Runner,
+  ( type Runner,
     control,
     stepControl,
     stepControlUpToEvent,
@@ -11,19 +10,30 @@ import Concur.Core (Widget, unsafeBlockingIO)
 import Control.Lens ((.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
-import Control.Monad.Free (Free (..), liftF)
+import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State (StateT (..), get, modify', put)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import Data.Time.Clock (NominalDiffTime, UTCTime)
+import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel (SessionInfo (..))
+import GHCSpecter.Control.Types
+  ( ControlF (..),
+    getCurrentTime,
+    getLastUpdatedUI,
+    getState,
+    nextEvent,
+    printMsg,
+    putState,
+    saveSession,
+    shouldUpdate,
+    type Control,
+  )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -47,43 +57,6 @@ import GHCSpecter.UI.Types.Event
   )
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
-
-data ControlF r
-  = GetState ((UIState, ServerState) -> r)
-  | PutState (UIState, ServerState) r
-  | NextEvent (Event -> r)
-  | PrintMsg Text r
-  | GetCurrentTime (UTCTime -> r)
-  | GetLastUpdatedUI (UTCTime -> r)
-  | ShouldUpdate Bool r
-  | SaveSession r
-  deriving (Functor)
-
-type Control = Free ControlF
-
-getState :: Control (UIState, ServerState)
-getState = liftF (GetState id)
-
-putState :: (UIState, ServerState) -> Control ()
-putState (ui, ss) = liftF (PutState (ui, ss) ())
-
-nextEvent :: Control Event
-nextEvent = liftF (NextEvent id)
-
-printMsg :: Text -> Control ()
-printMsg txt = liftF (PrintMsg txt ())
-
-getCurrentTime :: Control UTCTime
-getCurrentTime = liftF (GetCurrentTime id)
-
-getLastUpdatedUI :: Control UTCTime
-getLastUpdatedUI = liftF (GetLastUpdatedUI id)
-
-shouldUpdate :: Bool -> Control ()
-shouldUpdate b = liftF (ShouldUpdate b ())
-
-saveSession :: Control ()
-saveSession = liftF (SaveSession ())
 
 -- TODO: remove this
 tempRef :: IORef Int

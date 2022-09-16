@@ -11,4 +11,3 @@ chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
 
 uiUpdateInterval :: NominalDiffTime
 uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
-
