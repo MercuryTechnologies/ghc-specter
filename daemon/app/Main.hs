@@ -50,7 +50,7 @@ import GHCSpecter.Comm
   )
 import GHCSpecter.Control
   ( Control,
-    ControlRunner,
+    Runner,
     control,
     stepControlUpToEvent,
   )
@@ -179,7 +179,7 @@ webServer var = do
   where
     step ::
       (Event, Event -> Control ()) ->
-      ControlRunner (Either (Event, Event -> Control ()) ())
+      Runner (Either (Event, Event -> Control ()) ())
     step (ev, c) = do
       result <- stepControlUpToEvent ev c
       ev' <- stepRender
@@ -187,7 +187,7 @@ webServer var = do
         Left c' -> pure (Left (ev', c'))
         Right r -> pure (Right r)
 
-    stepRender :: ControlRunner Event
+    stepRender :: Runner Event
     stepRender = do
       (ui, ss) <- get
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime

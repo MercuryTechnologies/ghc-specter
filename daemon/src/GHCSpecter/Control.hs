@@ -1,6 +1,6 @@
 module GHCSpecter.Control
   ( Control,
-    ControlRunner,
+    type Runner,
     control,
     stepControl,
     stepControlUpToEvent,
@@ -89,12 +89,12 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type ControlRunner = StateT (UIState, ServerState) (Widget IHTML)
+type Runner = StateT (UIState, ServerState) (Widget IHTML)
 
 -- | step interpretation
 stepControl ::
   Control r ->
-  ControlRunner
+  Runner
     ( Either
         (Control r)
         ( Either
@@ -138,7 +138,7 @@ stepControl (Free (SaveSession next)) = do
 stepControlUpToEvent ::
   Event ->
   (Event -> Control r) ->
-  ControlRunner (Either (Event -> Control r) r)
+  Runner (Either (Event -> Control r) r)
 stepControlUpToEvent ev cont0 = loopM stepControl (cont0 ev)
 
 uiUpdateInterval :: NominalDiffTime
