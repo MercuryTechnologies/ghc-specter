@@ -49,7 +49,12 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Control (Control, control, stepControl)
+import GHCSpecter.Control
+  ( Control,
+    ControlRunner,
+    control,
+    stepControlUpToEvent,
+  )
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -68,6 +73,7 @@ import GHCSpecter.UI.Types
     UIState,
     emptyUIState,
   )
+import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated))
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -172,12 +178,19 @@ webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
-    \_ -> runStateT (loopM step control) (emptyUIState initTime, ss0)
+    \_ -> runStateT (loopM step (MessageChanUpdated, \_ -> control)) (emptyUIState initTime, ss0)
   where
-    step :: Control () -> StateT (UIState, ServerState) (Widget IHTML) (Either (Control ()) ())
-    step c = stepControl c <* stepRender
+    step ::
+      (Event, Event -> Control ()) ->
+      ControlRunner (Either (Event, Event -> Control ()) ())
+    step (ev, c) = do
+      result <- stepControlUpToEvent ev c
+      ev' <- stepRender
+      case result of
+        Left c' -> pure (Left (ev', c'))
+        Right r -> pure (Right r)
 
-    stepRender :: StateT (UIState, ServerState) (Widget IHTML) ()
+    stepRender :: ControlRunner Event
     stepRender = do
       (ui, ss) <- get
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
@@ -198,16 +211,12 @@ webServer var = do
             postMessageTime <- lift $ unsafeBlockingIO getCurrentTime
             let ss'' = (serverLastUpdated .~ postMessageTime) ss'
             put (ui, ss'')
-          --
-          updateSS (ui', (ss', b)) = do
-            when b $
-              lift $ liftSTM $ writeTVar var ss'
-            put (ui', ss')
+            pure MessageChanUpdated
 
       let renderUI0 = render stepStartTime (ui, ss)
           -- wait for update interval, not to have too frequent update
           renderUI =
             if ui ^. uiShouldUpdate
-              then lift (unblockDOMUpdate renderUI0) >>= updateSS
-              else lift (blockDOMUpdate renderUI0) >>= updateSS
+              then lift (unblockDOMUpdate renderUI0) -- >>= updateSS
+              else lift (blockDOMUpdate renderUI0) -- >>= updateSS
       renderUI <|> await stepStartTime

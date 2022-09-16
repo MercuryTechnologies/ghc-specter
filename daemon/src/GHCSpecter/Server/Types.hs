@@ -253,6 +253,7 @@ emptyHieState = HieState mempty
 
 data ServerState = ServerState
   { _serverMessageSN :: Int
+  , _serverShouldUpdate :: Bool
   , _serverLastUpdated :: UTCTime
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
@@ -272,6 +273,7 @@ emptyServerState :: UTCTime -> ServerState
 emptyServerState now =
   ServerState
     { _serverMessageSN = 0
+    , _serverShouldUpdate = True
     , _serverLastUpdated = now
     , _serverInbox = mempty
     , _serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo False

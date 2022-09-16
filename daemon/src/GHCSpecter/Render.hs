@@ -108,90 +108,11 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
-tempRef :: IORef Int
-tempRef = unsafePerformIO (newIORef 0)
-{-# NOINLINE tempRef #-}
-
-handleEvent :: Event -> UTCTime -> (UIState, ServerState) -> Widget IHTML (UIState, (ServerState, Bool))
-handleEvent topEv stepStartTime (oldUI, oldSS) =
-  case topEv of
-    TabEv tab' ->
-      pure ((uiTab .~ tab') oldUI, (oldSS, False))
-    ExpandModuleEv mexpandedModu' ->
-      pure ((uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI, (oldSS, False))
-    MainModuleEv ev -> do
-      let mgui = oldUI ^. uiMainModuleGraph
-      (mgui', mxy) <- handleModuleGraphEv ev mgui
-      let newUI = (uiMainModuleGraph .~ mgui') oldUI
-          newUI' = handleMouseMove newUI mxy
-      pure (newUI', (oldSS, False))
-    SubModuleEv sev ->
-      case sev of
-        SubModuleGraphEv ev -> do
-          let mgui = oldUI ^. uiSubModuleGraph . _2
-          (mgui', mxy) <- handleModuleGraphEv ev mgui
-          let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
-              newUI' = handleMouseMove newUI mxy
-          pure (newUI', (oldSS, False))
-        SubModuleLevelEv d' ->
-          pure
-            ((uiSubModuleGraph . _1 .~ d') oldUI, (oldSS, False))
-    SessionEv SaveSessionEv -> do
-      -- TODO: use asynchronous worker
-      liftIO $
-        withFile "session.json" WriteMode $ \h ->
-          BL.hPutStr h (encode oldSS)
-      pure (oldUI, (oldSS, False))
-    SessionEv ResumeSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = False}
-          newSS = (serverSessionInfo .~ sinfo') oldSS
-      pure (oldUI, (newSS, True))
-    SessionEv PauseSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = True}
-          newSS = (serverSessionInfo .~ sinfo') oldSS
-      pure (oldUI, (newSS, True))
-    TimingEv (UpdateSticky b) ->
-      pure
-        ((uiTiming . timingUISticky .~ b) oldUI, (oldSS, False))
-    TimingEv (UpdatePartition b) ->
-      pure
-        ((uiTiming . timingUIPartition .~ b) oldUI, (oldSS, False))
-    TimingEv (UpdateParallel b) ->
-      pure
-        ((uiTiming . timingUIHowParallel .~ b) oldUI, (oldSS, False))
-  where
-    handleModuleGraphEv ::
-      ModuleGraphEvent ->
-      ModuleGraphUI ->
-      Widget IHTML (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
-    handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
-      pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
-    handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
-      pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
-    handleModuleGraphEv (DummyEv mxy) mgui = do
-      t <-
-        unsafeBlockingIO $ do
-          n <- readIORef tempRef
-          modifyIORef' tempRef (+ 1)
-          t <- getCurrentTime
-          print (n, stepStartTime, t, mxy)
-          pure t
-      pure (mgui, (t,) <$> mxy)
-
-    handleMouseMove ui_ mxy =
-      case mxy of
-        Nothing -> ui_
-        Just (t, xy) ->
-          if ui_ ^. uiShouldUpdate
-            then (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ ui_
-            else uiMousePosition .~ xy $ ui_
-
 render ::
   UTCTime ->
   (UIState, ServerState) ->
-  Widget IHTML (UIState, (ServerState, Bool))
+  -- Widget IHTML (UIState, (ServerState, Bool))
+  Widget IHTML Event
 render stepStartTime (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
@@ -212,14 +133,11 @@ render stepStartTime (ui, ss) = do
                     ]
                 ]
             )
-  ev <-
-    div
-      [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
-      [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
-      , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-      , renderNavbar (ui ^. uiTab)
-      , mainPanel
-      , bottomPanel
-      ]
-  (ui', (ss', shouldUpdate)) <- handleEvent ev stepStartTime (ui, ss)
-  pure (ui', (ss', shouldUpdate))
+  div
+    [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
+    [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
+    , renderNavbar (ui ^. uiTab)
+    , mainPanel
+    , bottomPanel
+    ]
