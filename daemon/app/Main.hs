@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
+import Concur.Core (liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
@@ -12,22 +12,26 @@ import Control.Concurrent.STM
     newTVar,
     readTVar,
     retry,
-    writeTVar,
   )
 import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State
+  ( StateT (..),
+    get,
+    put,
+    runStateT,
+  )
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Time.Clock
-  ( NominalDiffTime,
-    diffUTCTime,
+  ( diffUTCTime,
     getCurrentTime,
     nominalDiffTimeToSeconds,
-    secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel
   ( ChanMessage (..),
@@ -42,6 +46,12 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
+import GHCSpecter.Control qualified as Control (main)
+import GHCSpecter.Control.Runner
+  ( Runner,
+    stepControlUpToEvent,
+  )
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -51,15 +61,15 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.ConcurReplica.Run (runDefault)
 import GHCSpecter.UI.ConcurReplica.Types
-  ( IHTML,
-    blockDOMUpdate,
+  ( blockDOMUpdate,
     unblockDOMUpdate,
   )
+import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types
   ( HasUIState (..),
-    UIState,
     emptyUIState,
   )
+import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated))
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -106,12 +116,6 @@ main = do
           var <- atomically $ newTVar ss
           webServer var
 
-chanUpdateInterval :: NominalDiffTime
-chanUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 2))
-
-uiUpdateInterval :: NominalDiffTime
-uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
-
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
   ss <- atomically $ readTVar var
@@ -157,51 +161,57 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMHsSource _modu _info) ->
         id
 
+-- NOTE:
+-- server state: shared across the session
+-- ui state: per web view.
+-- control: per web view
+
 webServer :: TVar ServerState -> IO ()
 webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
-  runDefault 8080 "test" $
-    \_ -> loopM step (emptyUIState initTime, ss0)
+  runDefault 8080 "ghc-specter" $
+    \_ ->
+      runStateT
+        (loopM step (MessageChanUpdated, \_ -> Control.main))
+        (emptyUIState initTime, ss0)
   where
-    step :: (UIState, ServerState) -> Widget IHTML (Either (UIState, ServerState) ())
-    step (ui0, ss) = do
-      let lastUpdatedUI = ui0 ^. uiLastUpdated
-      stepStartTime <- unsafeBlockingIO getCurrentTime
-      unsafeBlockingIO $ print stepStartTime
-      let ui
-            | (stepStartTime `diffUTCTime` lastUpdatedUI > uiUpdateInterval) = (uiShouldUpdate .~ True) ui0
-            | otherwise = (uiShouldUpdate .~ False) ui0
+    -- A single step of the outer loop (See Note [Control Loops]).
+    step ::
+      (Event, Event -> Control ()) ->
+      Runner (Either (Event, Event -> Control ()) ())
+    step (ev, c) = do
+      result <- stepControlUpToEvent ev c
+      ev' <- stepRender
+      case result of
+        Left c' -> pure (Left (ev', c'))
+        Right r -> pure (Right r)
+
+    stepRender :: Runner Event
+    stepRender = do
+      (ui, ss) <- get
+      stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
 
       let lastUpdatedServer = ss ^. serverLastUpdated
-          await stepStartTime = do
-            when (stepStartTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
+          await preMessageTime = do
+            when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
               liftIO $
                 threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
             -- lock until new message comes
-            ss' <- liftSTM $ do
-              ss' <- readTVar var
-              if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
-                then retry
-                else pure ss'
-            now <- unsafeBlockingIO getCurrentTime
-            let ss'' = (serverLastUpdated .~ now) ss'
-            pure (ui, ss'')
-          --
-          updateSS (ui', (ss', b)) = do
-            when b $
-              liftSTM $ writeTVar var ss'
-            pure (Left (ui', ss'))
+            ss' <- lift $
+              liftSTM $ do
+                ss' <- readTVar var
+                if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
+                  then retry
+                  else pure ss'
+            postMessageTime <- lift $ unsafeBlockingIO getCurrentTime
+            let ss'' = (serverLastUpdated .~ postMessageTime) ss'
+            put (ui, ss'')
+            pure MessageChanUpdated
 
-      let renderUI0 = render stepStartTime (ui, ss) >>= updateSS
-          -- wait for update interval, not to have too frequent update
-          renderUI =
+      let renderUI =
             if ui ^. uiShouldUpdate
-              then do
-                unsafeBlockingIO $ print "unblocking"
-                unblockDOMUpdate renderUI0
-              else do
-                unsafeBlockingIO $ print "blocking"
-                blockDOMUpdate renderUI0
-      renderUI <|> (Left <$> await stepStartTime)
+              then lift (unblockDOMUpdate (render (ui, ss)))
+              else lift (blockDOMUpdate (render (ui, ss)))
+      renderUI <|> await stepStartTime

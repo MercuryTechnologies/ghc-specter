@@ -2,6 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+-- NOTE: This disables the unwanted warning due to the use of forkPingThread.
+-- TODO: use withPingThread as suggested after an investigation.
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
 
 -- | This module is originated from Network.Wai.Handler.Replica.
 -- When IHTML can be marked with the non-update (the Left case) directive,

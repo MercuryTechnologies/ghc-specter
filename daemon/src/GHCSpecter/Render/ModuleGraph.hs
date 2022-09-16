@@ -46,11 +46,6 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time.Clock
-  ( NominalDiffTime,
-    UTCTime,
-    secondsToNominalDiffTime,
-  )
 import Data.Tuple (swap)
 import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
@@ -418,8 +413,8 @@ renderDetailLevel ui =
     detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 -- | top-level render function for Module Graph tab
-render :: UTCTime -> UIState -> ServerState -> Widget IHTML Event
-render stepStartTime ui ss =
+render :: UIState -> ServerState -> Widget IHTML Event
+render ui ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming
