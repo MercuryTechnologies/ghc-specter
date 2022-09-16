@@ -78,9 +78,10 @@ import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasModuleGraphUI (..),
+  ( HasMainView (..),
+    HasModuleGraphUI (..),
     HasUIState (..),
-    HasUIView (..),
+    MainView,
     ModuleGraphUI (..),
     UIState (..),
   )
@@ -394,14 +395,14 @@ renderSubModuleGraph
                     subgraph
                     (mainModuleClicked, subModuleHovered)
 
-renderDetailLevel :: UIState -> Widget IHTML Event
-renderDetailLevel ui =
+renderDetailLevel :: MainView -> Widget IHTML Event
+renderDetailLevel mainView =
   SubModuleEv . SubModuleLevelEv
     <$> div
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = ui ^. uiView . uiSubModuleGraph . _1
+    currLevel = mainView ^. mainSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -414,8 +415,8 @@ renderDetailLevel ui =
     detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 -- | top-level render function for Module Graph tab
-render :: UIState -> ServerState -> Widget IHTML Event
-render ui ss =
+render :: MainView -> ServerState -> Widget IHTML Event
+render mainView ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming
@@ -435,13 +436,13 @@ render ui ss =
                       timing
                       clustering
                       grVisInfo
-                      (ui ^. uiView . uiMainModuleGraph)
-                  , renderDetailLevel ui
+                      (mainView ^. mainMainModuleGraph)
+                  , renderDetailLevel mainView
                   , renderSubModuleGraph
                       nameMap
                       timing
                       (mgs ^. mgsSubgraph)
-                      (ui ^. uiView . uiMainModuleGraph, ui ^. uiView . uiSubModuleGraph)
+                      (mainView ^. mainMainModuleGraph, mainView ^. mainSubModuleGraph)
                   ]
             )
 

@@ -11,9 +11,11 @@ module GHCSpecter.UI.Types
     TimingUI,
     HasTimingUI (..),
     emptyTimingUI,
+    MainView (..),
+    HasMainView (..),
+    emptyMainView,
     UIView (..),
     HasUIView (..),
-    emptyUIView,
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -61,33 +63,39 @@ makeClassy ''TimingUI
 emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False
 
-data UIView = UIView
-  { _uiTab :: Tab
+data MainView = MainView
+  { _mainTab :: Tab
   -- ^ current tab
-  , _uiMainModuleGraph :: ModuleGraphUI
+  , _mainMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
-  , _uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
+  , _mainSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
-  , _uiSourceView :: SourceViewUI
+  , _mainSourceView :: SourceViewUI
   -- ^ UI state of source view UI
-  , _uiTiming :: TimingUI
+  , _mainTiming :: TimingUI
   -- ^ UI state of Timing UI
-  , _uiMousePosition :: (Double, Double)
+  , _mainMousePosition :: (Double, Double)
   -- ^ mouse position
   }
 
+makeClassy ''MainView
+
+emptyMainView :: MainView
+emptyMainView =
+  MainView
+    { _mainTab = TabSession
+    , _mainMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , _mainSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    , _mainSourceView = emptySourceViewUI
+    , _mainTiming = emptyTimingUI
+    , _mainMousePosition = (0, 0)
+    }
+
+data UIView = BannerMode | MainMode MainView
+
 makeClassy ''UIView
 
-emptyUIView :: UIView
-emptyUIView =
-  UIView
-    { _uiTab = TabSession
-    , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
-    , _uiSourceView = emptySourceViewUI
-    , _uiTiming = emptyTimingUI
-    , _uiMousePosition = (0, 0)
-    }
+-- makePrisms ''UIView
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool
@@ -104,5 +112,5 @@ emptyUIState now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
-    , _uiView = emptyUIView
+    , _uiView = BannerMode
     }

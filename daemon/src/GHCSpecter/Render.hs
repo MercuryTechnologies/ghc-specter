@@ -34,9 +34,11 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasUIState (..),
-    HasUIView (..),
+  ( HasMainView (..),
+    HasUIState (..),
+    MainView,
     UIState (..),
+    UIView (..),
   )
 import GHCSpecter.UI.Types.Event
   ( Event (..),
@@ -48,15 +50,15 @@ divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
 divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
-  UIState ->
+  MainView ->
   ServerState ->
   Widget IHTML Event
-renderMainPanel ui ss =
-  case ui ^. uiView . uiTab of
+renderMainPanel mainView ss =
+  case mainView ^. mainTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render ui ss
-    TabSourceView -> SourceView.render (ui ^. uiView . uiSourceView) ss
-    TabTiming -> Timing.render ui ss
+    TabModuleGraph -> ModuleGraph.render mainView ss
+    TabSourceView -> SourceView.render (mainView ^. mainSourceView) ss
+    TabTiming -> Timing.render mainView ss
 
 cssLink :: Text -> Widget IHTML a
 cssLink url =
@@ -88,10 +90,8 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
-render ::
-  (UIState, ServerState) ->
-  Widget IHTML Event
-render (ui, ss) = do
+renderMainView :: (MainView, ServerState) -> Widget IHTML Event
+renderMainView (mainView, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -100,14 +100,14 @@ render (ui, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel ui ss]
+                [renderMainPanel mainView ss]
             , section
                 []
                 [ divClass
                     "box"
                     []
                     [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
-                    , text $ "(x,y): " <> (ui ^. uiView . uiMousePosition . to (T.pack . show))
+                    , text $ "(x,y): " <> (mainView ^. mainMousePosition . to (T.pack . show))
                     ]
                 ]
             )
@@ -115,7 +115,15 @@ render (ui, ss) = do
     [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
     [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
     , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-    , renderNavbar (ui ^. uiView . uiTab)
+    , renderNavbar (mainView ^. mainTab)
     , mainPanel
     , bottomPanel
     ]
+
+render ::
+  (UIState, ServerState) ->
+  Widget IHTML Event
+render (ui, ss) =
+  case ui ^. uiView of
+    BannerMode -> div [] [text "hello world"]
+    MainMode mainView -> renderMainView (mainView, ss)
