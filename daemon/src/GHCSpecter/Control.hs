@@ -115,6 +115,7 @@ stepControl ::
   -- Left _: continuation in the inner loop.
   -- Right (Left _): continuation that waits for a new event in the outer loop
   -- Right (Right _): final result as the business logic reaches its end.
+  -- TODO: Use more descriptive custom types.
   Runner
     ( Either
         (Control r)
