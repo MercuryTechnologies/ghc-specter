@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
+import Concur.Core (liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
@@ -12,7 +12,6 @@ import Control.Concurrent.STM
     newTVar,
     readTVar,
     retry,
-    writeTVar,
   )
 import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void, when)
@@ -64,13 +63,11 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.ConcurReplica.Run (runDefault)
 import GHCSpecter.UI.ConcurReplica.Types
-  ( IHTML,
-    blockDOMUpdate,
+  ( blockDOMUpdate,
     unblockDOMUpdate,
   )
 import GHCSpecter.UI.Types
   ( HasUIState (..),
-    UIState,
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated))
@@ -213,10 +210,8 @@ webServer var = do
             put (ui, ss'')
             pure MessageChanUpdated
 
-      let renderUI0 = render stepStartTime (ui, ss)
-          -- wait for update interval, not to have too frequent update
-          renderUI =
+      let renderUI =
             if ui ^. uiShouldUpdate
-              then lift (unblockDOMUpdate renderUI0) -- >>= updateSS
-              else lift (blockDOMUpdate renderUI0) -- >>= updateSS
+              then lift (unblockDOMUpdate (render (ui, ss)))
+              else lift (blockDOMUpdate (render (ui, ss)))
       renderUI <|> await stepStartTime

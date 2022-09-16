@@ -1,15 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 
 module GHCSpecter.Render
-  ( ChanModule,
-    render,
+  ( render,
   )
 where
 
-import Concur.Core
-  ( Widget (..),
-    unsafeBlockingIO,
-  )
+import Concur.Core (Widget (..))
 import Concur.Replica
   ( Props,
     classList,
@@ -17,15 +13,9 @@ import Concur.Replica
     style,
     textProp,
   )
-import Control.Lens (to, (.~), (^.), _1, _2)
-import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (encode)
-import Data.ByteString.Lazy qualified as BL
-import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time.Clock (UTCTime, getCurrentTime)
-import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
@@ -33,7 +23,6 @@ import GHCSpecter.Render.Timing qualified as Timing
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
-    type ChanModule,
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
@@ -45,23 +34,13 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasModuleGraphUI (..),
-    HasSourceViewUI (..),
-    HasTimingUI (..),
-    HasUIState (..),
-    ModuleGraphUI (..),
+  ( HasUIState (..),
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
   ( Event (..),
-    ModuleGraphEvent (..),
-    SessionEvent (..),
-    SubModuleEvent (..),
     Tab (..),
-    TimingEvent (..),
   )
-import System.IO (IOMode (WriteMode), withFile)
-import System.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
@@ -109,11 +88,9 @@ renderNavbar tab =
        in el "a" [cls, onClick]
 
 render ::
-  UTCTime ->
   (UIState, ServerState) ->
-  -- Widget IHTML (UIState, (ServerState, Bool))
   Widget IHTML Event
-render stepStartTime (ui, ss) = do
+render (ui, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
