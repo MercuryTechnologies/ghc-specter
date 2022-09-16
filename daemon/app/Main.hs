@@ -177,6 +177,7 @@ webServer var = do
   runDefault 8080 "ghc-specter" $
     \_ -> runStateT (loopM step (MessageChanUpdated, \_ -> control)) (emptyUIState initTime, ss0)
   where
+    -- A single step of the outer loop (See Note [Control Loops]).
     step ::
       (Event, Event -> Control ()) ->
       Runner (Either (Event, Event -> Control ()) ())

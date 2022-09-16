@@ -91,9 +91,30 @@ tempRef = unsafePerformIO (newIORef 0)
 
 type Runner = StateT (UIState, ServerState) (Widget IHTML)
 
--- | step interpretation
+{-
+
+Note [Control Loops]
+~~~~~~~~~~~~~~~~~~~
+
+Control monad is embedded DSL (eDSL) which describe the program logic of the ghc-specter
+daemon. It is based on Free monad over a pattern functor that defines the allowed effects
+of the program logic.
+
+Among the effects, NextEvent is special since, at that step, the control runner yields
+its operation to the underlying Widget rendering engine or message receiver until a new
+event comes. Therefore, the control loop is defined in terms of 2-layered nested loops,
+where the outer loop is to run the event poking step interleaved with inner loop operations,
+and the inner loop is to process non-event-poking steps.
+
+-}
+
+-- | A single primitive step for the inner loop. See Note [Control Loops].
 stepControl ::
   Control r ->
+  -- | What the result means:
+  -- Left _: continuation in the inner loop.
+  -- Right (Left _): continuation that waits for a new event in the outer loop
+  -- Right (Right _): final result as the business logic reaches its end.
   Runner
     ( Either
         (Control r)
@@ -135,6 +156,7 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 
+-- | The inner loop described in the Note [Control Loops].
 stepControlUpToEvent ::
   Event ->
   (Event -> Control r) ->
