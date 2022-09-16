@@ -46,9 +46,9 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Control
+import GHCSpecter.Control qualified as Control (main)
+import GHCSpecter.Control.Runner
   ( Runner,
-    control,
     stepControlUpToEvent,
   )
 import GHCSpecter.Control.Types (Control)
@@ -171,7 +171,10 @@ webServer var = do
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
-    \_ -> runStateT (loopM step (MessageChanUpdated, \_ -> control)) (emptyUIState initTime, ss0)
+    \_ ->
+      runStateT
+        (loopM step (MessageChanUpdated, \_ -> Control.main))
+        (emptyUIState initTime, ss0)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
