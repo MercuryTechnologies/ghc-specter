@@ -27,6 +27,7 @@ import GHCSpecter.UI.Types
     HasSourceViewUI (..),
     HasTimingUI (..),
     HasUIState (..),
+    HasUIView (..),
     ModuleGraphUI (..),
     UIState (..),
   )
@@ -47,31 +48,31 @@ handleEvent topEv stepStartTime = do
     handleMainEvent (oldUI, oldSS) =
       case topEv of
         TabEv tab' -> do
-          let newUI = (uiTab .~ tab') oldUI
+          let newUI = (uiView . uiTab .~ tab') oldUI
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI, newSS)
         ExpandModuleEv mexpandedModu' -> do
-          let newUI = (uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI
+          let newUI = (uiView . uiSourceView . srcViewExpandedModule .~ mexpandedModu') oldUI
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI, newSS)
         MainModuleEv ev -> do
-          let mgui = oldUI ^. uiMainModuleGraph
+          let mgui = oldUI ^. uiView . uiMainModuleGraph
           (mgui', mxy) <- handleModuleGraphEv ev mgui
-          let newUI = (uiMainModuleGraph .~ mgui') oldUI
+          let newUI = (uiView . uiMainModuleGraph .~ mgui') oldUI
               newUI' = handleMouseMove newUI mxy
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI', newSS)
         SubModuleEv sev ->
           case sev of
             SubModuleGraphEv ev -> do
-              let mgui = oldUI ^. uiSubModuleGraph . _2
+              let mgui = oldUI ^. uiView . uiSubModuleGraph . _2
               (mgui', mxy) <- handleModuleGraphEv ev mgui
-              let newUI = (uiSubModuleGraph . _2 .~ mgui') oldUI
+              let newUI = (uiView . uiSubModuleGraph . _2 .~ mgui') oldUI
                   newUI' = handleMouseMove newUI mxy
                   newSS = (serverShouldUpdate .~ False) oldSS
               pure (newUI', newSS)
             SubModuleLevelEv d' -> do
-              let newUI = (uiSubModuleGraph . _1 .~ d') oldUI
+              let newUI = (uiView . uiSubModuleGraph . _1 .~ d') oldUI
                   newSS = (serverShouldUpdate .~ False) oldSS
               pure (newUI, newSS)
         SessionEv SaveSessionEv -> do
@@ -89,20 +90,22 @@ handleEvent topEv stepStartTime = do
               newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
           pure (oldUI, newSS)
         TimingEv (UpdateSticky b) -> do
-          let newUI = (uiTiming . timingUISticky .~ b) oldUI
+          let newUI = (uiView . uiTiming . timingUISticky .~ b) oldUI
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI, newSS)
         TimingEv (UpdatePartition b) -> do
-          let newUI = (uiTiming . timingUIPartition .~ b) oldUI
+          let newUI = (uiView . uiTiming . timingUIPartition .~ b) oldUI
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI, newSS)
         TimingEv (UpdateParallel b) -> do
-          let newUI = (uiTiming . timingUIHowParallel .~ b) oldUI
+          let newUI = (uiView . uiTiming . timingUIHowParallel .~ b) oldUI
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newUI, newSS)
         MessageChanUpdated -> do
           let newSS = (serverShouldUpdate .~ True) oldSS
           pure (oldUI, newSS)
+        UITick -> do
+          pure (oldUI, oldSS)
 
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -126,20 +129,42 @@ handleEvent topEv stepStartTime = do
         Nothing -> ui_
         Just (t, xy) ->
           if ui_ ^. uiShouldUpdate
-            then (uiLastUpdated .~ t) . (uiMousePosition .~ xy) $ ui_
-            else uiMousePosition .~ xy $ ui_
+            then (uiLastUpdated .~ t) . (uiView . uiMousePosition .~ xy) $ ui_
+            else uiView . uiMousePosition .~ xy $ ui_
+
+bannerMode :: UTCTime -> Control ()
+bannerMode startTime = go
+  where
+    duration = Clock.secondsToNominalDiffTime 5.0
+    go = do
+      now <- getCurrentTime
+      if now `Clock.diffUTCTime` startTime < duration
+        then do
+          ev <- nextEvent
+          printMsg (T.pack (show ev))
+          go
+        else pure ()
 
 main :: Control ()
-main = forever $ do
-  lastUpdatedUI <- getLastUpdatedUI
-  stepStartTime <- getCurrentTime
+main = do
+  clientSessionStartTime <- getCurrentTime
+  printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
 
-  -- wait for update interval, not to have too frequent update
-  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
-    then shouldUpdate True
-    else shouldUpdate False
+  bannerMode clientSessionStartTime
 
-  printMsg "waiting for the next event"
-  ev <- nextEvent
-  printMsg (T.pack (show ev))
-  handleEvent ev stepStartTime
+  bannerEndTime <- getCurrentTime
+  printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
+
+  forever $ do
+    lastUpdatedUI <- getLastUpdatedUI
+    stepStartTime <- getCurrentTime
+
+    -- wait for update interval, not to have too frequent update
+    if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
+      then shouldUpdate True
+      else shouldUpdate False
+
+    printMsg "waiting for the next event"
+    ev <- nextEvent
+    printMsg (T.pack (show ev))
+    handleEvent ev stepStartTime

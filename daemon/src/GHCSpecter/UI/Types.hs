@@ -11,6 +11,9 @@ module GHCSpecter.UI.Types
     TimingUI,
     HasTimingUI (..),
     emptyTimingUI,
+    UIView (..),
+    HasUIView (..),
+    emptyUIView,
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -58,12 +61,8 @@ makeClassy ''TimingUI
 emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False
 
-data UIState = UIState
-  { _uiShouldUpdate :: Bool
-  -- ^ should update?
-  , _uiLastUpdated :: UTCTime
-  -- ^ last updated time
-  , _uiTab :: Tab
+data UIView = UIView
+  { _uiTab :: Tab
   -- ^ current tab
   , _uiMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
@@ -77,6 +76,27 @@ data UIState = UIState
   -- ^ mouse position
   }
 
+makeClassy ''UIView
+
+emptyUIView :: UIView
+emptyUIView =
+  UIView
+    { _uiTab = TabSession
+    , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    , _uiSourceView = emptySourceViewUI
+    , _uiTiming = emptyTimingUI
+    , _uiMousePosition = (0, 0)
+    }
+
+data UIState = UIState
+  { _uiShouldUpdate :: Bool
+  -- ^ should update?
+  , _uiLastUpdated :: UTCTime
+  -- ^ last updated time
+  , _uiView :: UIView
+  }
+
 makeClassy ''UIState
 
 emptyUIState :: UTCTime -> UIState
@@ -84,10 +104,5 @@ emptyUIState now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
-    , _uiTab = TabSession
-    , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
-    , _uiSourceView = emptySourceViewUI
-    , _uiTiming = emptyTimingUI
-    , _uiMousePosition = (0, 0)
+    , _uiView = emptyUIView
     }

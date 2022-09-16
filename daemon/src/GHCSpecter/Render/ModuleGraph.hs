@@ -80,6 +80,7 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasUIState (..),
+    HasUIView (..),
     ModuleGraphUI (..),
     UIState (..),
   )
@@ -400,7 +401,7 @@ renderDetailLevel ui =
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = ui ^. uiSubModuleGraph . _1
+    currLevel = ui ^. uiView . uiSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -434,13 +435,13 @@ render ui ss =
                       timing
                       clustering
                       grVisInfo
-                      (ui ^. uiMainModuleGraph)
+                      (ui ^. uiView . uiMainModuleGraph)
                   , renderDetailLevel ui
                   , renderSubModuleGraph
                       nameMap
                       timing
                       (mgs ^. mgsSubgraph)
-                      (ui ^. uiMainModuleGraph, ui ^. uiSubModuleGraph)
+                      (ui ^. uiView . uiMainModuleGraph, ui ^. uiView . uiSubModuleGraph)
                   ]
             )
 

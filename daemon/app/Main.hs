@@ -64,12 +64,15 @@ import GHCSpecter.UI.ConcurReplica.Types
   ( blockDOMUpdate,
     unblockDOMUpdate,
   )
-import GHCSpecter.UI.Constants (chanUpdateInterval)
+import GHCSpecter.UI.Constants
+  ( chanUpdateInterval,
+    uiUpdateInterval,
+  )
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     emptyUIState,
   )
-import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated))
+import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated, UITick))
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -173,7 +176,7 @@ webServer var = do
   runDefault 8080 "ghc-specter" $
     \_ ->
       runStateT
-        (loopM step (MessageChanUpdated, \_ -> Control.main))
+        (loopM step (UITick, \_ -> Control.main))
         (emptyUIState initTime, ss0)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
@@ -193,6 +196,9 @@ webServer var = do
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
 
       let lastUpdatedServer = ss ^. serverLastUpdated
+          tick = do
+            liftIO $ threadDelay (floor (nominalDiffTimeToSeconds uiUpdateInterval * 1_000_000))
+            pure UITick
           await preMessageTime = do
             when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
@@ -214,4 +220,4 @@ webServer var = do
             if ui ^. uiShouldUpdate
               then lift (unblockDOMUpdate (render (ui, ss)))
               else lift (blockDOMUpdate (render (ui, ss)))
-      renderUI <|> await stepStartTime
+      renderUI <|> await stepStartTime <|> tick

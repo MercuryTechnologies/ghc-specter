@@ -39,6 +39,7 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
     HasUIState (..),
+    HasUIView (..),
     TimingUI,
     UIState,
   )
@@ -260,8 +261,8 @@ render ui ss =
   let timingInfos = makeTimingTable ss
    in div
         [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
-        [ renderTimingChart (ui ^. uiTiming) timingInfos
+        [ renderTimingChart (ui ^. uiView . uiTiming) timingInfos
         , div
             [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-            [renderCheckbox (ui ^. uiTiming)]
+            [renderCheckbox (ui ^. uiView . uiTiming)]
         ]
