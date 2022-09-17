@@ -53,6 +53,7 @@ import GHCSpecter.Control.Runner
   )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Render (render)
+import GHCSpecter.Render.Data.Assets qualified as Assets
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -171,13 +172,14 @@ updateInbox chanMsg = incrementSN . updater
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
+  assets <- Assets.ghcSpecterPng
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
     \_ ->
       runStateT
         (loopM step (UITick, \_ -> Control.main))
-        (emptyUIState initTime, ss0)
+        (emptyUIState assets initTime, ss0)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::

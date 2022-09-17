@@ -95,22 +95,24 @@ data UIView = BannerMode | MainMode MainView
 
 makeClassy ''UIView
 
--- makePrisms ''UIView
-
 data UIState = UIState
   { _uiShouldUpdate :: Bool
   -- ^ should update?
   , _uiLastUpdated :: UTCTime
   -- ^ last updated time
   , _uiView :: UIView
+  -- ^ main view state
+  , _uiAssets :: Text
+  -- ^ additional assets (such as png files)
   }
 
 makeClassy ''UIState
 
-emptyUIState :: UTCTime -> UIState
-emptyUIState now =
+emptyUIState :: Text -> UTCTime -> UIState
+emptyUIState assets now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
     , _uiView = BannerMode
+    , _uiAssets = assets
     }

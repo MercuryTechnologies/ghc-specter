@@ -10,6 +10,7 @@ import Concur.Replica
   ( Props,
     classList,
     onClick,
+    src,
     style,
     textProp,
   )
@@ -27,6 +28,8 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
+    figure,
+    img,
     link,
     nav,
     section,
@@ -53,12 +56,12 @@ renderMainPanel ::
   MainView ->
   ServerState ->
   Widget IHTML Event
-renderMainPanel mainView ss =
-  case mainView ^. mainTab of
+renderMainPanel view ss =
+  case view ^. mainTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render mainView ss
-    TabSourceView -> SourceView.render (mainView ^. mainSourceView) ss
-    TabTiming -> Timing.render mainView ss
+    TabModuleGraph -> ModuleGraph.render view ss
+    TabSourceView -> SourceView.render (view ^. mainSourceView) ss
+    TabTiming -> Timing.render view ss
 
 cssLink :: Text -> Widget IHTML a
 cssLink url =
@@ -91,7 +94,7 @@ renderNavbar tab =
        in el "a" [cls, onClick]
 
 renderMainView :: (MainView, ServerState) -> Widget IHTML Event
-renderMainView (mainView, ss) = do
+renderMainView (view, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -100,14 +103,14 @@ renderMainView (mainView, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel mainView ss]
+                [renderMainPanel view ss]
             , section
                 []
                 [ divClass
                     "box"
                     []
                     [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
-                    , text $ "(x,y): " <> (mainView ^. mainMousePosition . to (T.pack . show))
+                    , text $ "(x,y): " <> (view ^. mainMousePosition . to (T.pack . show))
                     ]
                 ]
             )
@@ -115,7 +118,7 @@ renderMainView (mainView, ss) = do
     [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
     [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
     , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-    , renderNavbar (mainView ^. mainTab)
+    , renderNavbar (view ^. mainTab)
     , mainPanel
     , bottomPanel
     ]
@@ -125,5 +128,22 @@ render ::
   Widget IHTML Event
 render (ui, ss) =
   case ui ^. uiView of
-    BannerMode -> div [] [text "hello world"]
-    MainMode mainView -> renderMainView (mainView, ss)
+    BannerMode ->
+      div
+        [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
+        [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+        , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
+        , section
+            [classList [("hero is-medium is-link is-size-1 m-1 p-1", True)]]
+            [ div
+                [classList [("hero-body columns", True)]]
+                [ figure
+                    [classList [("column image", True)]]
+                    [img [src (ui ^. uiAssets)]]
+                , div
+                    [classList [("column has-text-centered", True)]]
+                    [text "ghc-specter"]
+                ]
+            ]
+        ]
+    MainMode view -> renderMainView (view, ss)

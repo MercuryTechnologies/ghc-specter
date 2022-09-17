@@ -80,10 +80,8 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasMainView (..),
     HasModuleGraphUI (..),
-    HasUIState (..),
     MainView,
     ModuleGraphUI (..),
-    UIState (..),
   )
 import GHCSpecter.UI.Types.Event
   ( DetailLevel (..),
@@ -396,13 +394,13 @@ renderSubModuleGraph
                     (mainModuleClicked, subModuleHovered)
 
 renderDetailLevel :: MainView -> Widget IHTML Event
-renderDetailLevel mainView =
+renderDetailLevel view =
   SubModuleEv . SubModuleLevelEv
     <$> div
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = mainView ^. mainSubModuleGraph . _1
+    currLevel = view ^. mainSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -416,7 +414,7 @@ renderDetailLevel mainView =
 
 -- | top-level render function for Module Graph tab
 render :: MainView -> ServerState -> Widget IHTML Event
-render mainView ss =
+render view ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming
@@ -436,13 +434,13 @@ render mainView ss =
                       timing
                       clustering
                       grVisInfo
-                      (mainView ^. mainMainModuleGraph)
-                  , renderDetailLevel mainView
+                      (view ^. mainMainModuleGraph)
+                  , renderDetailLevel view
                   , renderSubModuleGraph
                       nameMap
                       timing
                       (mgs ^. mgsSubgraph)
-                      (mainView ^. mainMainModuleGraph, mainView ^. mainSubModuleGraph)
+                      (view ^. mainMainModuleGraph, view ^. mainSubModuleGraph)
                   ]
             )
 
