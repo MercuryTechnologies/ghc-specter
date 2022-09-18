@@ -67,6 +67,7 @@ import GHCSpecter.UI.ConcurReplica.Types
   )
 import GHCSpecter.UI.Constants
   ( chanUpdateInterval,
+    tickInterval,
     uiUpdateInterval,
   )
 import GHCSpecter.UI.Types
@@ -198,8 +199,9 @@ webServer var = do
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
 
       let lastUpdatedServer = ss ^. serverLastUpdated
+          tick :: Runner Event
           tick = do
-            liftIO $ threadDelay (floor (nominalDiffTimeToSeconds uiUpdateInterval * 1_000_000))
+            liftIO $ threadDelay (floor (nominalDiffTimeToSeconds tickInterval * 1_000_000))
             pure UITick
           await preMessageTime = do
             when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
