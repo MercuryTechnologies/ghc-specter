@@ -47,7 +47,7 @@ handleEvent topEv stepStartTime = do
   (newUI, newSS) <-
     case oldUI ^. uiView of
       -- TODO: should not have this case.
-      BannerMode -> pure (oldUI, oldSS)
+      BannerMode _ -> pure (oldUI, oldSS)
       MainMode oldMainView -> do
         (newMainView, newSS, mLastUpdatedUI) <- handleMainEvent (oldMainView, oldSS)
         let newUI = (uiView .~ MainMode newMainView) oldUI
@@ -150,20 +150,24 @@ handleEvent topEv stepStartTime = do
 bannerMode :: UTCTime -> Control ()
 bannerMode startTime = do
   (ui, ss) <- getState
-  let ui' = (uiView .~ BannerMode) ui
+  let ui' = (uiView .~ BannerMode 0.5) ui
   putState (ui', ss)
   go
   (ui1, ss1) <- getState
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
   where
-    duration = Clock.secondsToNominalDiffTime 1.0
+    duration = Clock.secondsToNominalDiffTime 2.0
     go = do
       now <- getCurrentTime
-      if now `Clock.diffUTCTime` startTime < duration
+      let diff = now `Clock.diffUTCTime` startTime
+      if diff < duration
         then do
-          ev <- nextEvent
-          printMsg (T.pack (show ev))
+          _ev <- nextEvent
+          (ui, ss) <- getState
+          let r = realToFrac (diff / duration)
+              ui' = (uiView .~ BannerMode r) ui
+          putState (ui', ss)
           go
         else pure ()
 

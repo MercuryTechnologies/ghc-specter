@@ -33,6 +33,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     img,
     link,
     nav,
+    progress,
     section,
     text,
   )
@@ -129,7 +130,7 @@ render ::
   Widget IHTML Event
 render (ui, ss) =
   case ui ^. uiView of
-    BannerMode ->
+    BannerMode v ->
       div
         [classList [("container is-fullheight is-size-7 m-4 p-4", True)]]
         [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
@@ -143,7 +144,14 @@ render (ui, ss) =
                     [img [src (ui ^. uiAssets . assetsGhcSpecterPng)]]
                 , div
                     [classList [("column has-text-centered", True)]]
-                    [text "ghc-specter"]
+                    [ text "ghc-specter"
+                    , progress
+                        [ classList [("progress is-primary", True)]
+                        , textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
+                        , textProp "max" "100"
+                        ]
+                        []
+                    ]
                 ]
             ]
         ]

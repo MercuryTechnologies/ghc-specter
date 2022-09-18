@@ -92,7 +92,9 @@ emptyMainView =
     , _mainMousePosition = (0, 0)
     }
 
-data UIView = BannerMode | MainMode MainView
+data UIView
+  = BannerMode Double
+  | MainMode MainView
 
 makeClassy ''UIView
 
@@ -114,6 +116,6 @@ emptyUIState assets now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
-    , _uiView = BannerMode
+    , _uiView = BannerMode 0
     , _uiAssets = assets
     }
