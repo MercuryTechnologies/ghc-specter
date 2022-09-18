@@ -172,7 +172,7 @@ updateInbox chanMsg = incrementSN . updater
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
-  assets <- Assets.ghcSpecterPng
+  assets <- Assets.loadAssets
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $

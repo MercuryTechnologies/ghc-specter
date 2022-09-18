@@ -17,6 +17,7 @@ import Concur.Replica
 import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Render.Data.Assets (HasAssets (..))
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
@@ -139,7 +140,7 @@ render (ui, ss) =
                 [classList [("hero-body columns", True)]]
                 [ figure
                     [classList [("column image", True)]]
-                    [img [src (ui ^. uiAssets)]]
+                    [img [src (ui ^. uiAssets . assetsGhcSpecterPng)]]
                 , div
                     [classList [("column has-text-centered", True)]]
                     [text "ghc-specter"]

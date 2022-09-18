@@ -157,7 +157,7 @@ bannerMode startTime = do
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
   where
-    duration = Clock.secondsToNominalDiffTime 5.0
+    duration = Clock.secondsToNominalDiffTime 1.0
     go = do
       now <- getCurrentTime
       if now `Clock.diffUTCTime` startTime < duration

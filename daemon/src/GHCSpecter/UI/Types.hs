@@ -25,6 +25,7 @@ where
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import GHCSpecter.Render.Data.Assets (Assets)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
@@ -102,13 +103,13 @@ data UIState = UIState
   -- ^ last updated time
   , _uiView :: UIView
   -- ^ main view state
-  , _uiAssets :: Text
+  , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
   }
 
 makeClassy ''UIState
 
-emptyUIState :: Text -> UTCTime -> UIState
+emptyUIState :: Assets -> UTCTime -> UIState
 emptyUIState assets now =
   UIState
     { _uiShouldUpdate = True
