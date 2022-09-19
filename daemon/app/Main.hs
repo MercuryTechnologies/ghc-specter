@@ -53,6 +53,7 @@ import GHCSpecter.Control.Runner
   )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Render (render)
+import GHCSpecter.Render.Data.Assets qualified as Assets
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -64,12 +65,16 @@ import GHCSpecter.UI.ConcurReplica.Types
   ( blockDOMUpdate,
     unblockDOMUpdate,
   )
-import GHCSpecter.UI.Constants (chanUpdateInterval)
+import GHCSpecter.UI.Constants
+  ( chanUpdateInterval,
+    tickInterval,
+    uiUpdateInterval,
+  )
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     emptyUIState,
   )
-import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated))
+import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated, UITick))
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -168,13 +173,14 @@ updateInbox chanMsg = incrementSN . updater
 
 webServer :: TVar ServerState -> IO ()
 webServer var = do
+  assets <- Assets.loadAssets
   ss0 <- atomically (readTVar var)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
     \_ ->
       runStateT
-        (loopM step (MessageChanUpdated, \_ -> Control.main))
-        (emptyUIState initTime, ss0)
+        (loopM step (UITick, \_ -> Control.main))
+        (emptyUIState assets initTime, ss0)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
@@ -193,6 +199,10 @@ webServer var = do
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
 
       let lastUpdatedServer = ss ^. serverLastUpdated
+          tick :: Runner Event
+          tick = do
+            liftIO $ threadDelay (floor (nominalDiffTimeToSeconds tickInterval * 1_000_000))
+            pure UITick
           await preMessageTime = do
             when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
               -- note: liftIO yields.
@@ -214,4 +224,4 @@ webServer var = do
             if ui ^. uiShouldUpdate
               then lift (unblockDOMUpdate (render (ui, ss)))
               else lift (blockDOMUpdate (render (ui, ss)))
-      renderUI <|> await stepStartTime
+      renderUI <|> await stepStartTime <|> tick

@@ -11,6 +11,11 @@ module GHCSpecter.UI.Types
     TimingUI,
     HasTimingUI (..),
     emptyTimingUI,
+    MainView (..),
+    HasMainView (..),
+    emptyMainView,
+    UIView (..),
+    HasUIView (..),
     UIState (..),
     HasUIState (..),
     emptyUIState,
@@ -20,6 +25,7 @@ where
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import GHCSpecter.Render.Data.Assets (Assets)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
@@ -58,36 +64,58 @@ makeClassy ''TimingUI
 emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False
 
+data MainView = MainView
+  { _mainTab :: Tab
+  -- ^ current tab
+  , _mainMainModuleGraph :: ModuleGraphUI
+  -- ^ UI state of main module graph
+  , _mainSubModuleGraph :: (DetailLevel, ModuleGraphUI)
+  -- ^ UI state of sub module graph
+  , _mainSourceView :: SourceViewUI
+  -- ^ UI state of source view UI
+  , _mainTiming :: TimingUI
+  -- ^ UI state of Timing UI
+  , _mainMousePosition :: (Double, Double)
+  -- ^ mouse position
+  }
+
+makeClassy ''MainView
+
+emptyMainView :: MainView
+emptyMainView =
+  MainView
+    { _mainTab = TabSession
+    , _mainMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , _mainSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    , _mainSourceView = emptySourceViewUI
+    , _mainTiming = emptyTimingUI
+    , _mainMousePosition = (0, 0)
+    }
+
+data UIView
+  = BannerMode Double
+  | MainMode MainView
+
+makeClassy ''UIView
+
 data UIState = UIState
   { _uiShouldUpdate :: Bool
   -- ^ should update?
   , _uiLastUpdated :: UTCTime
   -- ^ last updated time
-  , _uiTab :: Tab
-  -- ^ current tab
-  , _uiMainModuleGraph :: ModuleGraphUI
-  -- ^ UI state of main module graph
-  , _uiSubModuleGraph :: (DetailLevel, ModuleGraphUI)
-  -- ^ UI state of sub module graph
-  , _uiSourceView :: SourceViewUI
-  -- ^ UI state of source view UI
-  , _uiTiming :: TimingUI
-  -- ^ UI state of Timing UI
-  , _uiMousePosition :: (Double, Double)
-  -- ^ mouse position
+  , _uiView :: UIView
+  -- ^ main view state
+  , _uiAssets :: Assets
+  -- ^ additional assets (such as png files)
   }
 
 makeClassy ''UIState
 
-emptyUIState :: UTCTime -> UIState
-emptyUIState now =
+emptyUIState :: Assets -> UTCTime -> UIState
+emptyUIState assets now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
-    , _uiTab = TabSession
-    , _uiMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _uiSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
-    , _uiSourceView = emptySourceViewUI
-    , _uiTiming = emptyTimingUI
-    , _uiMousePosition = (0, 0)
+    , _uiView = BannerMode 0
+    , _uiAssets = assets
     }

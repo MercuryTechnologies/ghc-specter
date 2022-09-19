@@ -76,10 +76,14 @@ ghc-options:
 extra-source-files:
   - README.md
 
+data-files:
+  - assets/*.png
+
 library:
   source-dirs: src
   dependencies:
     - OGDF
+    - base64-bytestring
     - concur-core
     - concur-replica
     - containers

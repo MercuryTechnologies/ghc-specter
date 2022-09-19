@@ -57,4 +57,5 @@ data Event
   | SessionEv SessionEvent
   | TimingEv TimingEvent
   | MessageChanUpdated
+  | UITick
   deriving (Show)
