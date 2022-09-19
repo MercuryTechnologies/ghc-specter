@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main (main) where
 
@@ -15,7 +16,7 @@ import Control.Concurrent.STM
     readTVar,
     retry,
   )
-import Control.Lens (to, (%~), (.~), (^.))
+import Control.Lens (makeClassy, to, (%~), (.~), (^.))
 import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -108,23 +109,6 @@ optsParser =
     (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
-main :: IO ()
-main = do
-  mode <- OA.execParser optsParser
-  case mode of
-    Online socketFile -> do
-      now <- getCurrentTime
-      serverSessionRef <- atomically $ newTVar emptyServerState
-      _ <- forkOS $ listener socketFile serverSessionRef
-      webServer serverSessionRef
-    View sessionFile -> do
-      lbs <- BL.readFile sessionFile
-      case eitherDecode' lbs of
-        Left err -> print err
-        Right ss -> do
-          serverSessionRef <- atomically $ newTVar ss
-          webServer serverSessionRef
-
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
   ss <- atomically $ readTVar var
@@ -176,9 +160,14 @@ updateInbox chanMsg = incrementSN . updater
 -- control: per web view
 
 data ClientSession = ClientSession
-  { csFrame :: Int
-  , csFrameTime :: UTCTime
+  { _csFrame :: Int
+  , _csFrameState :: Either [Event] ([Event], (Event, UTCTime))
+  -- ^ Left: non UI events queued for processing
+  --   Right: nonUI event + UI event (timestamped).
   }
+  deriving (Show, Eq)
+
+makeClassy ''ClientSession
 
 driver :: TVar ServerState -> TVar ClientSession -> IO ()
 driver serverSessionRef clientSessionRef = do
@@ -190,13 +179,14 @@ driver serverSessionRef clientSessionRef = do
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar serverSessionRef)
   _ <- forkIO $ chanDriver lastMessageSN
+  _ <- forkIO controlDriver
   pure ()
   where
-    pollClientSession lastFrame = do
-      ClientSession newFrame newFrameTime <- readTVar clientSessionRef
-      if newFrame == lastFrame
+    pollClientSession lastCS = do
+      cs <- readTVar clientSessionRef
+      if cs == lastCS
         then retry
-        else pure (ClientSession newFrame newFrameTime)
+        else pure cs
 
     blockUntilNewMessage lastSN = do
       ss <- readTVar serverSessionRef
@@ -205,11 +195,16 @@ driver serverSessionRef clientSessionRef = do
         else pure (ss ^. serverMessageSN)
 
     -- connector between driver and UI frame
-    uiDriver (ClientSession lastFrame lastFrameTime) = do
-      ClientSession newFrame newFrameTime <-
-        atomically $ pollClientSession lastFrame
-      putStrLn $ "client frame = " <> show newFrame <> " at " <> show newFrameTime
-      uiDriver (ClientSession newFrame newFrameTime)
+    uiDriver lastCS = do
+      -- ClientSession newFrame newFrameTime newFrameEvents <-
+      cs <-
+        atomically $ pollClientSession lastCS
+      putStrLn $
+        "client frame = "
+          <> show (cs ^. csFrame)
+          <> " with "
+          <> show (cs ^. csFrameState)
+      uiDriver cs
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do
@@ -222,6 +217,9 @@ driver serverSessionRef clientSessionRef = do
       putStrLn "MessageChanUpdate will be fired here"
       chanDriver newMessageSN
 
+    -- connector between driver and Control frame
+    controlDriver = pure ()
+
 webServer :: TVar ServerState -> IO ()
 webServer serverSessionRef = do
   assets <- Assets.loadAssets
@@ -231,8 +229,8 @@ webServer serverSessionRef = do
     \_ -> do
       clientSessionRef <-
         unsafeBlockingIO $ do
-          zeroFrameTime <- getCurrentTime
-          clientSessionRef <- newTVarIO (ClientSession 0 zeroFrameTime)
+          -- zeroFrameTime <- getCurrentTime
+          clientSessionRef <- newTVarIO (ClientSession 0 (Left []))
           driver serverSessionRef clientSessionRef
           pure clientSessionRef
       runStateT
@@ -251,7 +249,16 @@ webServer serverSessionRef = do
           atomically $
             modifyTVar'
               clientSessionRef
-              (\(ClientSession n _) -> ClientSession (n + 1) now)
+              ( \cs ->
+                  let leftOverEvents =
+                        case cs ^. csFrameState of
+                          Left es -> es
+                          Right (es, _) -> es
+                   in (csFrame %~ (+ 1))
+                        . (csFrameState .~ Right (leftOverEvents, (ev, now)))
+                        $ cs
+              )
+      --     (ClientSession n (Left es) -> ClientSession (n + 1) now (es ++ [ev]))
       result <- stepControlUpToEvent ev c
       ev' <- stepRender
       case result of
@@ -291,3 +298,20 @@ webServer serverSessionRef = do
               then lift (unblockDOMUpdate (render (ui, ss)))
               else lift (blockDOMUpdate (render (ui, ss)))
       renderUI <|> {- await stepStartTime <|> -} tick
+
+main :: IO ()
+main = do
+  mode <- OA.execParser optsParser
+  case mode of
+    Online socketFile -> do
+      now <- getCurrentTime
+      serverSessionRef <- atomically $ newTVar emptyServerState
+      _ <- forkOS $ listener socketFile serverSessionRef
+      webServer serverSessionRef
+    View sessionFile -> do
+      lbs <- BL.readFile sessionFile
+      case eitherDecode' lbs of
+        Left err -> print err
+        Right ss -> do
+          serverSessionRef <- atomically $ newTVar ss
+          webServer serverSessionRef
