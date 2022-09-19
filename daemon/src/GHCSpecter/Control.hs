@@ -153,9 +153,6 @@ bannerMode startTime = do
   let ui' = (uiView .~ BannerMode 0.5) ui
   putState (ui', ss)
   go
-  (ui1, ss1) <- getState
-  let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putState (ui1', ss1)
   where
     duration = Clock.secondsToNominalDiffTime 2.0
     go = do
@@ -175,11 +172,15 @@ main :: Control ()
 main = do
   clientSessionStartTime <- getCurrentTime
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
+  {-
+    bannerMode clientSessionStartTime
 
-  bannerMode clientSessionStartTime
-
-  bannerEndTime <- getCurrentTime
-  printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
+    bannerEndTime <- getCurrentTime
+    printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
+  -}
+  (ui1, ss1) <- getState
+  let ui1' = (uiView .~ MainMode emptyMainView) ui1
+  putState (ui1', ss1)
 
   forever $ do
     lastUpdatedUI <- getLastUpdatedUI
