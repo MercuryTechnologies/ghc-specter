@@ -175,23 +175,28 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
-driver :: TVar ServerState -> TVar (Int, UTCTime) -> IO () -- (TVar (Int, UTCTime))
+data ClientSession = ClientSession
+  { csFrame :: Int
+  , csFrameTime :: UTCTime
+  }
+
+driver :: TVar ServerState -> TVar ClientSession -> IO ()
 driver serverSessionRef clientSessionRef = do
-  (initCF, initCFTime) <-
+  initClientSession <-
     atomically $ readTVar clientSessionRef
   -- start mainConnector
-  forkIO $ uiDriver (initCF, initCFTime)
+  _ <- forkIO $ uiDriver initClientSession
   -- start chanConnector
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar serverSessionRef)
-  forkIO $ chanDriver lastMessageSN
+  _ <- forkIO $ chanDriver lastMessageSN
   pure ()
   where
-    waitForNewClientFrame lastFrame = do
-      (newFrame, newFrameTime) <- readTVar clientSessionRef
+    pollClientSession lastFrame = do
+      ClientSession newFrame newFrameTime <- readTVar clientSessionRef
       if newFrame == lastFrame
         then retry
-        else pure (newFrame, newFrameTime)
+        else pure (ClientSession newFrame newFrameTime)
 
     blockUntilNewMessage lastSN = do
       ss <- readTVar serverSessionRef
@@ -200,12 +205,11 @@ driver serverSessionRef clientSessionRef = do
         else pure (ss ^. serverMessageSN)
 
     -- connector between driver and UI frame
-    uiDriver (lastFrame, lastFrameTime) = do
-      (newFrame, newFrameTime) <-
-        atomically $
-          waitForNewClientFrame lastFrame
+    uiDriver (ClientSession lastFrame lastFrameTime) = do
+      ClientSession newFrame newFrameTime <-
+        atomically $ pollClientSession lastFrame
       putStrLn $ "client frame = " <> show newFrame <> " at " <> show newFrameTime
-      uiDriver (newFrame, newFrameTime)
+      uiDriver (ClientSession newFrame newFrameTime)
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do
@@ -228,7 +232,7 @@ webServer serverSessionRef = do
       clientSessionRef <-
         unsafeBlockingIO $ do
           zeroFrameTime <- getCurrentTime
-          clientSessionRef <- newTVarIO (0, zeroFrameTime)
+          clientSessionRef <- newTVarIO (ClientSession 0 zeroFrameTime)
           driver serverSessionRef clientSessionRef
           pure clientSessionRef
       runStateT
@@ -237,7 +241,7 @@ webServer serverSessionRef = do
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
-      TVar (Int, UTCTime) ->
+      TVar ClientSession ->
       (Event, Event -> Control ()) ->
       Runner (Either (Event, Event -> Control ()) ())
     step clientSessionRef (ev, c) = do
@@ -245,7 +249,9 @@ webServer serverSessionRef = do
         unsafeBlockingIO $ do
           now <- getCurrentTime
           atomically $
-            modifyTVar' clientSessionRef (\(n, _) -> (n + 1, now))
+            modifyTVar'
+              clientSessionRef
+              (\(ClientSession n _) -> ClientSession (n + 1) now)
       result <- stepControlUpToEvent ev c
       ev' <- stepRender
       case result of
