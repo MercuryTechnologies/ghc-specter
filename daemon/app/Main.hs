@@ -44,6 +44,7 @@ import Data.Time.Clock
     getCurrentTime,
     nominalDiffTimeToSeconds,
   )
+import Debug.Trace (trace)
 import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -83,8 +84,11 @@ import GHCSpecter.UI.Constants
     uiUpdateInterval,
   )
 import GHCSpecter.UI.Types
-  ( HasUIState (..),
+  ( HasMainView (..),
+    HasUIState (..),
     UIState,
+    UIView (..),
+    emptyMainView,
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated, UITick))
@@ -167,62 +171,23 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
-data ClientSession = ClientSession
-  { _csFrame :: Int
-  , _csFrameState :: Maybe (Event, UTCTime)
-  -- ^ Nothing
-  --   Just ev: now frame is filled with event
-  }
-  deriving (Show, Eq)
-
-makeClassy ''ClientSession
-
 driver ::
   (TVar UIState, TVar ServerState) ->
-  TVar ClientSession ->
+  TMVar Event ->
   IO ()
-driver (uiRef, ssRef) clientSessionRef = do
-  lock <- newEmptyTMVarIO
-  initClientSession <-
-    atomically $ readTVar clientSessionRef
-  -- start mainConnector
-  _ <- forkIO $ uiDriver lock initClientSession
+driver (uiRef, ssRef) lock = do
   -- start chanConnector
-  lastMessageSN <-
-    (^. serverMessageSN) <$> atomically (readTVar ssRef)
-  _ <- forkIO $ chanDriver lastMessageSN
+  -- lastMessageSN <-
+  --   (^. serverMessageSN) <$> atomically (readTVar ssRef)
+  -- _ <- forkIO $ chanDriver lastMessageSN
   _ <- forkIO $ controlDriver lock
   pure ()
   where
-    pollClientSession lock lastCS = do
-      cs <- readTVar clientSessionRef
-      if cs ^. csFrame == lastCS ^. csFrame
-        then case cs ^. csFrameState of
-          Nothing -> retry
-          Just (ev, t) -> putTMVar lock ev >> pure cs
-        else pure cs
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
       if (ss ^. serverMessageSN == lastSN)
         then retry
         else pure (ss ^. serverMessageSN)
-
-    -- connector between driver and UI frame
-    uiDriver lock lastCS = do
-      cs <- atomically $ pollClientSession lock lastCS
-      -- debug print
-      putStrLn $
-        "client frame = "
-          <> show (cs ^. csFrame)
-          <> " with "
-          <> show (cs ^. csFrameState)
-      -- wait for control step ending
-      cs' <-
-        atomically $ do
-          cs' <- readTVar clientSessionRef
-          check (cs ^. csFrame /= cs' ^. csFrame)
-          pure cs'
-      uiDriver lock cs'
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do
@@ -232,6 +197,18 @@ driver (uiRef, ssRef) clientSessionRef = do
       newMessageSN <-
         atomically $
           blockUntilNewMessage lastMessageSN
+      {-
+            atomically $ do
+              cs <- readTVar clientSessionRef
+              let newCF = cs ^. csFrame
+              if newCF == lastCF
+                then retry
+                else do
+                  let cs' = (csFrameState .~ Just (ev, now)) cs
+                    writeTVar clientSessionRef cs'
+                    pure (Left newCF)
+      -}
+
       putStrLn "MessageChanUpdate will be fired here"
       chanDriver newMessageSN
 
@@ -239,60 +216,65 @@ driver (uiRef, ssRef) clientSessionRef = do
     controlDriver lock = loopM step (\_ -> Control.main)
       where
         step c = do
-          ev <- atomically $ do
-            ev <- takeTMVar lock
-            modifyTVar' clientSessionRef ((csFrame %~ (+ 1)) . (csFrameState .~ Nothing))
-            pure ev
-          runReaderT (stepControlUpToEvent ev c) (uiRef, ssRef)
+          putStrLn "waiting for a lock"
+          ev <- atomically $ takeTMVar lock
+          putStrLn "got event"
+          ec' <- runReaderT (stepControlUpToEvent ev c) (uiRef, ssRef)
+          putStrLn "after process"
+          -- atomically $
+          --   modifyTVar' clientSessionRef ((csFrame %~ (+ 1)) . (csFrameState .~ Nothing))
+          putStrLn "after CF update"
+          pure ec'
 
 webServer :: TVar ServerState -> IO ()
 webServer ssRef = do
   assets <- Assets.loadAssets
   ss0 <- atomically (readTVar ssRef)
-  initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
     \_ -> do
-      let ui0 = emptyUIState assets initTime
-      uiRef <- unsafeBlockingIO $ newTVarIO ui0
-      clientSessionRef <-
+      (uiRef, initTime) <-
         unsafeBlockingIO $ do
-          clientSessionRef <- newTVarIO (ClientSession 0 Nothing)
-          driver (uiRef, ssRef) clientSessionRef
-          pure clientSessionRef
-      loopM (step (uiRef, ssRef) clientSessionRef) 0
+          initTime <- getCurrentTime
+          let ui0 = emptyUIState assets initTime
+              ui0' = (uiView .~ MainMode emptyMainView) ui0
+          uiRef <- newTVarIO ui0'
+          pure (uiRef, initTime)
+      lock <- unsafeBlockingIO newEmptyTMVarIO
+      unsafeBlockingIO $ driver (uiRef, ssRef) lock
+      loopM (step (uiRef, ssRef) lock) UITick
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
       (TVar UIState, TVar ServerState) ->
-      TVar ClientSession ->
-      Int ->
-      Widget IHTML (Either Int ())
-    step (uiRef, ssRef) clientSessionRef lastCF = do
+      TMVar Event ->
+      Event ->
+      Widget IHTML (Either Event ())
+    step (uiRef, ssRef) lock ev = do
       (ui, ss) <-
-        unsafeBlockingIO $
-          atomically $
-            (,) <$> readTVar uiRef <*> readTVar ssRef
-      ev <- stepRender (ui, ss)
-      unsafeBlockingIO $ do
-        now <- getCurrentTime
-        atomically $ do
-          cs <- readTVar clientSessionRef
-          let newCF = cs ^. csFrame
-          if newCF == lastCF
-            then retry
-            else do
-              let cs' = (csFrameState .~ Just (ev, now)) cs
-              writeTVar clientSessionRef cs'
-              pure (Left newCF)
+        unsafeBlockingIO $ do
+          putStrLn $ "step: " ++ show ev
+          atomically $ putTMVar lock ev
+          putStrLn $ "after putTMVar"
+          (ui, ss) <-
+            atomically $
+              (,) <$> readTVar uiRef <*> readTVar ssRef
+          case ui ^. uiView of
+            BannerMode _ -> putStrLn "BannerMode"
+            MainMode view -> do
+              putStrLn $
+                "MainMode: " ++ show (view ^. mainTab)
+          pure (ui, ss)
+      Left <$> stepRender (ui, ss)
 
     stepRender :: (UIState, ServerState) -> Widget IHTML Event
     stepRender (ui, ss) = do
-      stepStartTime <- unsafeBlockingIO getCurrentTime
-      let renderUI =
+      -- stepStartTime <- unsafeBlockingIO getCurrentTime
+      {- let renderUI =
             if ui ^. uiShouldUpdate
               then unblockDOMUpdate (render (ui, ss))
-              else blockDOMUpdate (render (ui, ss))
-      renderUI
+              else bloc kDOMUpdate (render (ui, ss)) -}
+      -- renderUI
+      render (ui, ss)
 
 main :: IO ()
 main = do

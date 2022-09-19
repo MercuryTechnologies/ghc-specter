@@ -60,6 +60,7 @@ handleEvent topEv stepStartTime = do
                     else newUI
         pure (newUI', newSS)
   putState (newUI, newSS)
+  printMsg "commit new state"
   where
     handleMainEvent (oldMainView, oldSS) =
       case topEv of
