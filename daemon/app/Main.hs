@@ -6,10 +6,12 @@ import Concur.Core (liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
-  ( TVar,
+  ( STM,
+    TVar,
     atomically,
     modifyTVar',
     newTVar,
+    newTVarIO,
     readTVar,
     retry,
   )
@@ -18,6 +20,7 @@ import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 import Control.Monad.Trans.State
   ( StateT (..),
     get,
@@ -29,7 +32,8 @@ import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Time.Clock
-  ( diffUTCTime,
+  ( UTCTime,
+    diffUTCTime,
     getCurrentTime,
     nominalDiffTimeToSeconds,
   )
@@ -110,16 +114,16 @@ main = do
   case mode of
     Online socketFile -> do
       now <- getCurrentTime
-      var <- atomically $ newTVar (emptyServerState now)
-      _ <- forkOS $ listener socketFile var
-      webServer var
+      serverSessionRef <- atomically $ newTVar emptyServerState
+      _ <- forkOS $ listener socketFile serverSessionRef
+      webServer serverSessionRef
     View sessionFile -> do
       lbs <- BL.readFile sessionFile
       case eitherDecode' lbs of
         Left err -> print err
         Right ss -> do
-          var <- atomically $ newTVar ss
-          webServer var
+          serverSessionRef <- atomically $ newTVar ss
+          webServer serverSessionRef
 
 listener :: FilePath -> TVar ServerState -> IO ()
 listener socketFile var = do
@@ -171,22 +175,77 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
+driver :: TVar ServerState -> TVar (Int, UTCTime) -> IO () -- (TVar (Int, UTCTime))
+driver serverSessionRef clientSessionRef = do
+  (initCF, initCFTime) <-
+    atomically $ readTVar clientSessionRef
+  -- start mainConnector
+  forkIO $ uiDriver (initCF, initCFTime)
+  -- start chanConnector
+  lastMessageSN <-
+    (^. serverMessageSN) <$> atomically (readTVar serverSessionRef)
+  forkIO $ chanDriver lastMessageSN
+  pure ()
+  where
+    waitForNewClientFrame lastFrame = do
+      (newFrame, newFrameTime) <- readTVar clientSessionRef
+      if newFrame == lastFrame
+        then retry
+        else pure (newFrame, newFrameTime)
+
+    blockUntilNewMessage lastSN = do
+      ss <- readTVar serverSessionRef
+      if (ss ^. serverMessageSN == lastSN)
+        then retry
+        else pure (ss ^. serverMessageSN)
+
+    -- connector between driver and UI frame
+    uiDriver (lastFrame, lastFrameTime) = do
+      (newFrame, newFrameTime) <-
+        atomically $
+          waitForNewClientFrame lastFrame
+      putStrLn $ "client frame = " <> show newFrame <> " at " <> show newFrameTime
+      uiDriver (newFrame, newFrameTime)
+
+    -- background connector between server channel and UI frame
+    chanDriver lastMessageSN = do
+      -- wait for next poll
+      threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
+      -- blocked until a new message comes
+      newMessageSN <-
+        atomically $
+          blockUntilNewMessage lastMessageSN
+      putStrLn "MessageChanUpdate will be fired here"
+      chanDriver newMessageSN
+
 webServer :: TVar ServerState -> IO ()
-webServer var = do
+webServer serverSessionRef = do
   assets <- Assets.loadAssets
-  ss0 <- atomically (readTVar var)
+  ss0 <- atomically (readTVar serverSessionRef)
   initTime <- getCurrentTime
   runDefault 8080 "ghc-specter" $
-    \_ ->
+    \_ -> do
+      clientSessionRef <-
+        unsafeBlockingIO $ do
+          zeroFrameTime <- getCurrentTime
+          clientSessionRef <- newTVarIO (0, zeroFrameTime)
+          driver serverSessionRef clientSessionRef
+          pure clientSessionRef
       runStateT
-        (loopM step (UITick, \_ -> Control.main))
+        (loopM (step clientSessionRef) (UITick, \_ -> Control.main))
         (emptyUIState assets initTime, ss0)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
+      TVar (Int, UTCTime) ->
       (Event, Event -> Control ()) ->
       Runner (Either (Event, Event -> Control ()) ())
-    step (ev, c) = do
+    step clientSessionRef (ev, c) = do
+      lift $
+        unsafeBlockingIO $ do
+          now <- getCurrentTime
+          atomically $
+            modifyTVar' clientSessionRef (\(n, _) -> (n + 1, now))
       result <- stepControlUpToEvent ev c
       ev' <- stepRender
       case result of
@@ -198,30 +257,31 @@ webServer var = do
       (ui, ss) <- get
       stepStartTime <- lift $ unsafeBlockingIO getCurrentTime
 
-      let lastUpdatedServer = ss ^. serverLastUpdated
+      let -- lastUpdatedServer = ss ^. serverLastUpdated
           tick :: Runner Event
           tick = do
             liftIO $ threadDelay (floor (nominalDiffTimeToSeconds tickInterval * 1_000_000))
             pure UITick
-          await preMessageTime = do
-            when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
-              -- note: liftIO yields.
-              liftIO $
-                threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
-            -- lock until new message comes
-            ss' <- lift $
-              liftSTM $ do
-                ss' <- readTVar var
-                if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
-                  then retry
-                  else pure ss'
-            postMessageTime <- lift $ unsafeBlockingIO getCurrentTime
-            let ss'' = (serverLastUpdated .~ postMessageTime) ss'
-            put (ui, ss'')
-            pure MessageChanUpdated
-
+      {-
+                await preMessageTime = do
+                  when (preMessageTime `diffUTCTime` lastUpdatedServer < chanUpdateInterval) $
+                    -- note: liftIO yields.
+                    liftIO $
+                      threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
+                  -- lock until new message comes
+                  ss' <- lift $
+                    liftSTM $ do
+                      ss' <- readTVar serverSessionRef
+                      if (ss ^. serverMessageSN == ss' ^. serverMessageSN)
+                        then retry
+                        else pure ss'
+                  postMessageTime <- lift $ unsafeBlockingIO getCurrentTime
+                  let ss'' = (serverLastUpdated .~ postMessageTime) ss'
+                  put (ui, ss'')
+                  pure MessageChanUpdated
+      -}
       let renderUI =
             if ui ^. uiShouldUpdate
               then lift (unblockDOMUpdate (render (ui, ss)))
               else lift (blockDOMUpdate (render (ui, ss)))
-      renderUI <|> await stepStartTime <|> tick
+      renderUI <|> {- await stepStartTime <|> -} tick
