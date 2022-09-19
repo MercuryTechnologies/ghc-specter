@@ -8,18 +8,22 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
   ( STM,
+    TChan,
     TMVar,
     TVar,
     atomically,
     check,
     modifyTVar',
     newEmptyTMVarIO,
+    newTChanIO,
     newTVar,
     newTVarIO,
     putTMVar,
+    readTChan,
     readTVar,
     retry,
     takeTMVar,
+    writeTChan,
     writeTVar,
   )
 import Control.Lens (makeClassy, to, (%~), (.~), (^.))
@@ -173,14 +177,15 @@ updateInbox chanMsg = incrementSN . updater
 
 driver ::
   (TVar UIState, TVar ServerState) ->
-  TMVar Event ->
+  TChan Event ->
+  TChan (UIState, ServerState) ->
   IO ()
-driver (uiRef, ssRef) lock = do
+driver (uiRef, ssRef) chanEv chanState = do
   -- start chanConnector
   -- lastMessageSN <-
   --   (^. serverMessageSN) <$> atomically (readTVar ssRef)
   -- _ <- forkIO $ chanDriver lastMessageSN
-  _ <- forkIO $ controlDriver lock
+  _ <- forkIO $ controlDriver
   pure ()
   where
     blockUntilNewMessage lastSN = do
@@ -213,16 +218,18 @@ driver (uiRef, ssRef) lock = do
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
-    controlDriver lock = loopM step (\_ -> Control.main)
+    controlDriver = loopM step (\_ -> Control.main)
       where
         step c = do
-          putStrLn "waiting for a lock"
-          ev <- atomically $ takeTMVar lock
+          putStrLn "waiting for TChan"
+          ev <- atomically $ readTChan chanEv
           putStrLn "got event"
           ec' <- runReaderT (stepControlUpToEvent ev c) (uiRef, ssRef)
           putStrLn "after process"
-          -- atomically $
-          --   modifyTVar' clientSessionRef ((csFrame %~ (+ 1)) . (csFrameState .~ Nothing))
+          atomically $ do
+            ui <- readTVar uiRef
+            ss <- readTVar ssRef
+            writeTChan chanState (ui, ss)
           putStrLn "after CF update"
           pure ec'
 
@@ -239,25 +246,25 @@ webServer ssRef = do
               ui0' = (uiView .~ MainMode emptyMainView) ui0
           uiRef <- newTVarIO ui0'
           pure (uiRef, initTime)
-      lock <- unsafeBlockingIO newEmptyTMVarIO
-      unsafeBlockingIO $ driver (uiRef, ssRef) lock
-      loopM (step (uiRef, ssRef) lock) UITick
+      chanEv <- unsafeBlockingIO newTChanIO
+      chanState <- unsafeBlockingIO newTChanIO
+      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState
+      loopM (step chanEv chanState) UITick
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
-      (TVar UIState, TVar ServerState) ->
-      TMVar Event ->
+      TChan Event ->
+      TChan (UIState, ServerState) ->
       Event ->
       Widget IHTML (Either Event ())
-    step (uiRef, ssRef) lock ev = do
+    step chanEv chanState ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           putStrLn $ "step: " ++ show ev
-          atomically $ putTMVar lock ev
-          putStrLn $ "after putTMVar"
-          (ui, ss) <-
-            atomically $
-              (,) <$> readTVar uiRef <*> readTVar ssRef
+          atomically $ writeTChan chanEv ev
+          putStrLn $ "step: after writeTChan"
+          (ui, ss) <- atomically $ readTChan chanState
+          putStrLn $ "step: after readTChan chanState"
           case ui ^. uiView of
             BannerMode _ -> putStrLn "BannerMode"
             MainMode view -> do
@@ -268,12 +275,11 @@ webServer ssRef = do
 
     stepRender :: (UIState, ServerState) -> Widget IHTML Event
     stepRender (ui, ss) = do
-      -- stepStartTime <- unsafeBlockingIO getCurrentTime
       {- let renderUI =
             if ui ^. uiShouldUpdate
               then unblockDOMUpdate (render (ui, ss))
-              else bloc kDOMUpdate (render (ui, ss)) -}
-      -- renderUI
+              else blockDOMUpdate (render (ui, ss))
+      renderUI -}
       render (ui, ss)
 
 main :: IO ()
