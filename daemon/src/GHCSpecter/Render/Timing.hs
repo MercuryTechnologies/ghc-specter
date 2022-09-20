@@ -37,10 +37,10 @@ import GHCSpecter.UI.ConcurReplica.DOM
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
-    HasTimingUI (..),
-    MainView,
+  ( HasTimingUI (..),
+    HasUIModel (..),
     TimingUI,
+    UIModel,
   )
 import GHCSpecter.UI.Types.Event
   ( Event (TimingEv),
@@ -255,13 +255,13 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
         ]
 
 -- | Top-level render function for the Timing tab
-render :: MainView -> ServerState -> Widget IHTML Event
-render view ss =
+render :: UIModel -> ServerState -> Widget IHTML Event
+render model ss =
   let timingInfos = makeTimingTable ss
    in div
         [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
-        [ renderTimingChart (view ^. mainTiming) timingInfos
+        [ renderTimingChart (model ^. modelTiming) timingInfos
         , div
             [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-            [renderCheckbox (view ^. mainTiming)]
+            [renderCheckbox (model ^. modelTiming)]
         ]

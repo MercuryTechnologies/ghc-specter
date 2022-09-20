@@ -78,10 +78,10 @@ import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
-    HasModuleGraphUI (..),
-    MainView,
+  ( HasModuleGraphUI (..),
+    HasUIModel (..),
     ModuleGraphUI (..),
+    UIModel,
   )
 import GHCSpecter.UI.Types.Event
   ( DetailLevel (..),
@@ -393,14 +393,14 @@ renderSubModuleGraph
                     subgraph
                     (mainModuleClicked, subModuleHovered)
 
-renderDetailLevel :: MainView -> Widget IHTML Event
-renderDetailLevel view =
+renderDetailLevel :: UIModel -> Widget IHTML Event
+renderDetailLevel model =
   SubModuleEv . SubModuleLevelEv
     <$> div
       [classList [("control", True)]]
       [detail30, detail100, detail300]
   where
-    currLevel = view ^. mainSubModuleGraph . _1
+    currLevel = model ^. modelSubModuleGraph . _1
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
@@ -413,8 +413,8 @@ renderDetailLevel view =
     detail300 = mkRadioItem UpTo300 "< 300" (currLevel == UpTo300)
 
 -- | top-level render function for Module Graph tab
-render :: MainView -> ServerState -> Widget IHTML Event
-render view ss =
+render :: UIModel -> ServerState -> Widget IHTML Event
+render model ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming
@@ -434,13 +434,13 @@ render view ss =
                       timing
                       clustering
                       grVisInfo
-                      (view ^. mainMainModuleGraph)
-                  , renderDetailLevel view
+                      (model ^. modelMainModuleGraph)
+                  , renderDetailLevel model
                   , renderSubModuleGraph
                       nameMap
                       timing
                       (mgs ^. mgsSubgraph)
-                      (view ^. mainMainModuleGraph, view ^. mainSubModuleGraph)
+                      (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)
                   ]
             )
 
