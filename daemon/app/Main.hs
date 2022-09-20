@@ -179,12 +179,13 @@ driver ::
   (TVar UIState, TVar ServerState) ->
   TChan Event ->
   TChan (UIState, ServerState) ->
+  TChan () ->
   IO ()
-driver (uiRef, ssRef) chanEv chanState = do
+driver (uiRef, ssRef) chanEv chanState chanLock = do
   -- start chanConnector
-  -- lastMessageSN <-
-  --   (^. serverMessageSN) <$> atomically (readTVar ssRef)
-  -- _ <- forkIO $ chanDriver lastMessageSN
+  lastMessageSN <-
+    (^. serverMessageSN) <$> atomically (readTVar ssRef)
+  _ <- forkIO $ chanDriver lastMessageSN
   _ <- forkIO $ controlDriver
   pure ()
   where
@@ -202,19 +203,9 @@ driver (uiRef, ssRef) chanEv chanState = do
       newMessageSN <-
         atomically $
           blockUntilNewMessage lastMessageSN
-      {-
-            atomically $ do
-              cs <- readTVar clientSessionRef
-              let newCF = cs ^. csFrame
-              if newCF == lastCF
-                then retry
-                else do
-                  let cs' = (csFrameState .~ Just (ev, now)) cs
-                    writeTVar clientSessionRef cs'
-                    pure (Left newCF)
-      -}
-
       putStrLn "MessageChanUpdate will be fired here"
+      atomically $
+        writeTChan chanLock ()
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
@@ -248,16 +239,24 @@ webServer ssRef = do
           pure (uiRef, initTime)
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
-      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState
-      loopM (step chanEv chanState) UITick
+      chanLock <- unsafeBlockingIO newTChanIO
+      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState chanLock
+      loopM (step chanEv chanState chanLock) UITick
   where
+    -- forever (step chanEv chanState)
+
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
+      -- channel for sending event to control
       TChan Event ->
+      -- channel for receiving state from control
       TChan (UIState, ServerState) ->
+      -- channel for receiving signal from background process
+      TChan () ->
+      -- last event
       Event ->
       Widget IHTML (Either Event ())
-    step chanEv chanState ev = do
+    step chanEv chanState chanLock ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           putStrLn $ "step: " ++ show ev
@@ -271,16 +270,25 @@ webServer ssRef = do
               putStrLn $
                 "MainMode: " ++ show (view ^. mainTab)
           pure (ui, ss)
-      Left <$> stepRender (ui, ss)
+      stepRender (ui, ss) <|> waitForBkgEv chanLock
 
-    stepRender :: (UIState, ServerState) -> Widget IHTML Event
-    stepRender (ui, ss) = do
+    stepRender :: (UIState, ServerState) -> Widget IHTML (Either Event ())
+    stepRender (ui, ss) =
       {- let renderUI =
             if ui ^. uiShouldUpdate
               then unblockDOMUpdate (render (ui, ss))
               else blockDOMUpdate (render (ui, ss))
       renderUI -}
-      render (ui, ss)
+      Left <$> render (ui, ss)
+
+    waitForBkgEv ::
+      -- channel for receiving event
+      TChan () ->
+      Widget IHTML (Either Event ())
+    waitForBkgEv chanLock = do
+      liftSTM $ do
+        readTChan chanLock
+      Left <$> pure MessageChanUpdated
 
 main :: IO ()
 main = do
