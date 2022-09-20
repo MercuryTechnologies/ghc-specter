@@ -41,7 +41,7 @@ import GHCSpecter.Comm
     sendObject,
   )
 import GHCSpecter.Data.Assets qualified as Assets
-import GHCSpecter.Driver (driver)
+import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -144,6 +144,17 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
+-- | communication channel that UI renderer needs
+-- Note that subscribe/publish is named according to UI side semantics.
+data UIChannel = UIChannel
+  { uiPublisherEvent :: TChan Event
+  -- ^ channel for sending event to control
+  , uiSubscriberState :: TChan (UIState, ServerState)
+  -- ^ channel for receiving state from control
+  , uiSubscriberBkgEvent :: TChan BackgroundEvent
+  -- ^ channel for receiving background event
+  }
+
 webServer :: TVar ServerState -> IO ()
 webServer ssRef = do
   assets <- Assets.loadAssets
@@ -158,21 +169,19 @@ webServer ssRef = do
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
       chanBkg <- unsafeBlockingIO newTChanIO
-      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState chanBkg
-      loopM (step chanEv chanState chanBkg) (BkgEv RefreshUI)
+      let newCS = Driver.ClientSession uiRef ssRef chanEv chanState chanBkg
+          newUIChan = UIChannel chanEv chanState chanBkg
+      unsafeBlockingIO $ Driver.main newCS
+      loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
-      -- channel for sending event to control
-      TChan Event ->
-      -- channel for receiving state from control
-      TChan (UIState, ServerState) ->
-      -- channel for receiving background event
-      TChan BackgroundEvent ->
+      -- UI comm channel
+      UIChannel ->
       -- last event
       Event ->
       Widget IHTML (Either Event ())
-    step chanEv chanState chanBkg ev = do
+    step (UIChannel chanEv chanState chanBkg) ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           atomically $ writeTChan chanEv ev

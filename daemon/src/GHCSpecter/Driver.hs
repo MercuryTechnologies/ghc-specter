@@ -1,5 +1,12 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module GHCSpecter.Driver
-  ( driver,
+  ( -- * types
+    ClientSession (..),
+    HasClientSession (..),
+
+    -- * main driver
+    main,
   )
 where
 
@@ -13,7 +20,7 @@ import Control.Concurrent.STM
     retry,
     writeTChan,
   )
-import Control.Lens ((^.))
+import Control.Lens (makeClassy, (^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Time.Clock (nominalDiffTimeToSeconds)
@@ -30,13 +37,20 @@ import GHCSpecter.UI.Types.Event
     Event,
   )
 
-driver ::
-  (TVar UIState, TVar ServerState) ->
-  TChan Event ->
-  TChan (UIState, ServerState) ->
-  TChan BackgroundEvent ->
+data ClientSession = ClientSession
+  { _csUIStateRef :: TVar UIState
+  , _csServerStateRef :: TVar ServerState
+  , _csSubscriberEvent :: TChan Event
+  , _csPublisherState :: TChan (UIState, ServerState)
+  , _csPublisherBkgEvent :: TChan BackgroundEvent
+  }
+
+makeClassy ''ClientSession
+
+main ::
+  ClientSession ->
   IO ()
-driver (uiRef, ssRef) chanEv chanState chanBkg = do
+main cs = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -45,6 +59,11 @@ driver (uiRef, ssRef) chanEv chanState chanBkg = do
   _ <- forkIO $ controlDriver
   pure ()
   where
+    uiRef = cs ^. csUIStateRef
+    ssRef = cs ^. csServerStateRef
+    chanEv = cs ^. csSubscriberEvent
+    chanState = cs ^. csPublisherState
+    chanBkg = cs ^. csPublisherBkgEvent
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
       if (ss ^. serverMessageSN == lastSN)
