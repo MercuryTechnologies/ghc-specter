@@ -34,7 +34,8 @@ import GHCSpecter.UI.Types
     emptyMainView,
   )
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
+  ( BackgroundEvent (..),
+    Event (..),
     ModuleGraphEvent (..),
     SessionEvent (..),
     SubModuleEvent (..),
@@ -118,10 +119,10 @@ handleEvent topEv stepStartTime = do
           let newMainView = (mainTiming . timingUIHowParallel .~ b) oldMainView
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newMainView, newSS, Nothing)
-        MessageChanUpdated -> do
+        BkgEv MessageChanUpdated -> do
           let newSS = (serverShouldUpdate .~ True) oldSS
           pure (oldMainView, newSS, Nothing)
-        UITick -> do
+        BkgEv UITick -> do
           pure (oldMainView, oldSS, Nothing)
 
     handleModuleGraphEv ::

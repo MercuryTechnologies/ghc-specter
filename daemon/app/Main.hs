@@ -95,7 +95,10 @@ import GHCSpecter.UI.Types
     emptyMainView,
     emptyUIState,
   )
-import GHCSpecter.UI.Types.Event (Event (MessageChanUpdated, UITick))
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (MessageChanUpdated, UITick),
+    Event (BkgEv),
+  )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -179,9 +182,9 @@ driver ::
   (TVar UIState, TVar ServerState) ->
   TChan Event ->
   TChan (UIState, ServerState) ->
-  TChan () ->
+  TChan BackgroundEvent ->
   IO ()
-driver (uiRef, ssRef) chanEv chanState chanLock = do
+driver (uiRef, ssRef) chanEv chanState chanBkg = do
   -- start chanConnector
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -203,9 +206,8 @@ driver (uiRef, ssRef) chanEv chanState chanLock = do
       newMessageSN <-
         atomically $
           blockUntilNewMessage lastMessageSN
-      putStrLn "MessageChanUpdate will be fired here"
       atomically $
-        writeTChan chanLock ()
+        writeTChan chanBkg MessageChanUpdated
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
@@ -239,24 +241,22 @@ webServer ssRef = do
           pure (uiRef, initTime)
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
-      chanLock <- unsafeBlockingIO newTChanIO
-      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState chanLock
-      loopM (step chanEv chanState chanLock) UITick
+      chanBkg <- unsafeBlockingIO newTChanIO
+      unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState chanBkg
+      loopM (step chanEv chanState chanBkg) (BkgEv UITick)
   where
-    -- forever (step chanEv chanState)
-
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
       -- channel for sending event to control
       TChan Event ->
       -- channel for receiving state from control
       TChan (UIState, ServerState) ->
-      -- channel for receiving signal from background process
-      TChan () ->
+      -- channel for receiving background event
+      TChan BackgroundEvent ->
       -- last event
       Event ->
       Widget IHTML (Either Event ())
-    step chanEv chanState chanLock ev = do
+    step chanEv chanState chanBkg ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           putStrLn $ "step: " ++ show ev
@@ -270,7 +270,7 @@ webServer ssRef = do
               putStrLn $
                 "MainMode: " ++ show (view ^. mainTab)
           pure (ui, ss)
-      stepRender (ui, ss) <|> waitForBkgEv chanLock
+      stepRender (ui, ss) <|> (Left . BkgEv <$> waitForBkgEv chanBkg)
 
     stepRender :: (UIState, ServerState) -> Widget IHTML (Either Event ())
     stepRender (ui, ss) =
@@ -282,13 +282,10 @@ webServer ssRef = do
       Left <$> render (ui, ss)
 
     waitForBkgEv ::
-      -- channel for receiving event
-      TChan () ->
-      Widget IHTML (Either Event ())
-    waitForBkgEv chanLock = do
-      liftSTM $ do
-        readTChan chanLock
-      Left <$> pure MessageChanUpdated
+      -- channel for receiving bkg event
+      TChan BackgroundEvent ->
+      Widget IHTML BackgroundEvent
+    waitForBkgEv chanBkg = liftSTM $ readTChan chanBkg
 
 main :: IO ()
 main = do
