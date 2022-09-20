@@ -4,7 +4,6 @@ module GHCSpecter.Control
 where
 
 import Control.Lens ((.~), (^.), _1, _2)
-import Control.Monad.Extra (loopM)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
@@ -33,6 +32,7 @@ import GHCSpecter.UI.Types
     HasTimingUI (..),
     HasUIModel (..),
     HasUIState (..),
+    MainView,
     ModuleGraphUI (..),
     UIModel,
     UIView (..),
@@ -44,6 +44,7 @@ import GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     SessionEvent (..),
     SubModuleEvent (..),
+    Tab (..),
     TimingEvent (..),
   )
 
@@ -162,30 +163,90 @@ showBanner = do
           go start
         else pure ()
 
+checkIfUpdatable :: Control ()
+checkIfUpdatable = do
+  lastUpdatedUI <- getLastUpdatedUI
+  stepStartTime <- getCurrentTime
+  -- wait for update interval, not to have too frequent update
+  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
+    then shouldUpdate True
+    else shouldUpdate False
+
+goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goCommon ev (view, model) = do
+  now <- getCurrentTime
+  (ui, ss) <- getState
+  (model', ss', mLastUpdatedUI) <-
+    updateModel ev now (model, ss)
+  let -- just placeholder
+      view' = view
+      ui1 =
+        (uiView .~ MainMode view')
+          . (uiModel .~ model')
+          $ ui
+      ui' =
+        case mLastUpdatedUI of
+          Nothing -> ui1
+          Just t ->
+            if ui1 ^. uiShouldUpdate
+              then (uiLastUpdated .~ t) ui1
+              else ui1
+  putState (ui', ss')
+  pure (view', model')
+
+goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goSession = goCommon
+
+goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goModuleGraph = goCommon
+
+goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goSourceView = goCommon
+
+goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goTiming = goCommon
+
+-- | top-level branching through tab
+branchTab :: Tab -> (MainView, UIModel) -> Control ()
+branchTab tab (view, model) =
+  case tab of
+    TabSession -> branchLoop goSession
+    TabModuleGraph -> branchLoop goModuleGraph
+    TabSourceView -> branchLoop goSourceView
+    TabTiming -> branchLoop goTiming
+  where
+    branchLoop go = do
+      let view' = (mainTab .~ tab) view
+      model' <- go (TabEv tab) (view', model)
+      go' model'
+      where
+        go' (v, m) = do
+          checkIfUpdatable
+          printMsg "wait for the next event"
+          ev <- nextEvent
+          printMsg $ "event received: " <> T.pack (show ev)
+          case ev of
+            TabEv tab' -> branchTab tab' (v, m)
+            _ -> do
+              (v', m') <- go ev (v, m)
+              go' (v', m')
+
 -- | main loop
-mainLoop :: Control ()
-mainLoop = do
-  (ui1, ss1) <- getState
-  let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putState (ui1', ss1)
-  let model1' = ui1' ^. uiModel
-  flip loopM (emptyMainView, model1') $ \(oldMainView, oldModel) -> do
-    lastUpdatedUI <- getLastUpdatedUI
-    stepStartTime <- getCurrentTime
+mainLoop :: (MainView, UIModel) -> Control ()
+mainLoop (view, model) = do
+  checkIfUpdatable
+  ev <- nextEvent
+  printMsg (T.pack (show ev))
+  case ev of
+    TabEv tab -> branchTab tab (view, model)
+    _ -> mainLoop (view, model)
 
-    -- wait for update interval, not to have too frequent update
-    if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
-      then shouldUpdate True
-      else shouldUpdate False
-
-    printMsg "waiting for the next event"
-    ev <- nextEvent
-    printMsg (T.pack (show ev))
+{-
     (oldUI, oldSS) <- getState
     let newMainView =
           case ev of
-            TabEv tab' -> (mainTab .~ tab') oldMainView
-            _ -> oldMainView
+            TabEv tab' -> (mainTab .~ tab') oldView
+            _ -> oldView
     (newModel, newSS, mLastUpdatedUI) <-
       updateModel ev stepStartTime (oldModel, oldSS)
     let newUI =
@@ -202,6 +263,7 @@ mainLoop = do
     putState (newUI', newSS)
     printMsg "commit new state"
     pure (Left (newMainView, newModel))
+-}
 
 main :: Control ()
 main = do
@@ -211,5 +273,11 @@ main = do
   -- show banner
   showBanner
 
+  -- initialize main view
+  (ui1, ss1) <- getState
+  let ui1' = (uiView .~ MainMode emptyMainView) ui1
+  putState (ui1', ss1)
+  let model1' = ui1' ^. uiModel
+
   -- enter the main loop
-  mainLoop
+  mainLoop (emptyMainView, model1')
