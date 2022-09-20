@@ -63,7 +63,7 @@ import GHCSpecter.UI.Types
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (UITick),
+  ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
 import GHCSpecter.Worker.Hie (hieWorker)
@@ -159,7 +159,7 @@ webServer ssRef = do
       chanState <- unsafeBlockingIO newTChanIO
       chanBkg <- unsafeBlockingIO newTChanIO
       unsafeBlockingIO $ driver (uiRef, ssRef) chanEv chanState chanBkg
-      loopM (step chanEv chanState chanBkg) (BkgEv UITick)
+      loopM (step chanEv chanState chanBkg) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::

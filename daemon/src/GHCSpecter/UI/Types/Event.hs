@@ -52,7 +52,7 @@ data TimingEvent
 
 data BackgroundEvent
   = MessageChanUpdated
-  | UITick
+  | RefreshUI
   deriving (Show, Eq)
 
 data Event

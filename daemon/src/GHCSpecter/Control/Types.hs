@@ -4,13 +4,13 @@ module GHCSpecter.Control.Types
     Control,
 
     -- * Primitive operations of eDSL
-    fireUITickAfter,
     getState,
     putState,
     nextEvent,
     printMsg,
     getCurrentTime,
     getLastUpdatedUI,
+    refreshUIAfter,
     shouldUpdate,
     saveSession,
   )
@@ -33,7 +33,7 @@ data ControlF r
   | GetLastUpdatedUI (UTCTime -> r)
   | ShouldUpdate Bool r
   | SaveSession r
-  | FireUITickAfter Double r
+  | RefreshUIAfter Double r
   deriving (Functor)
 
 type Control = Free ControlF
@@ -62,5 +62,5 @@ shouldUpdate b = liftF (ShouldUpdate b ())
 saveSession :: Control ()
 saveSession = liftF (SaveSession ())
 
-fireUITickAfter :: Double -> Control ()
-fireUITickAfter nSec = liftF (FireUITickAfter nSec ())
+refreshUIAfter :: Double -> Control ()
+refreshUIAfter nSec = liftF (RefreshUIAfter nSec ())

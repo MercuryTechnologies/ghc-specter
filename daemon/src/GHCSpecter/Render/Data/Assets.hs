@@ -26,8 +26,7 @@ loadAssets = do
   pngFile <- getDataFileName "assets/ghc-specter.png"
   bs <- B.readFile pngFile
   let b64 = B64.encode bs
-      assets =
-        Assets
-          { _assetsGhcSpecterPng = "data:image/png;base64," <> TE.decodeUtf8 b64
-          }
-  pure assets
+  pure
+    Assets
+      { _assetsGhcSpecterPng = "data:image/png;base64," <> TE.decodeUtf8 b64
+      }

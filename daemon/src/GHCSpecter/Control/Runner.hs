@@ -5,7 +5,6 @@ module GHCSpecter.Control.Runner
   )
 where
 
-import Concur.Core (Widget, unsafeBlockingIO)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
   ( TChan,
@@ -19,7 +18,6 @@ import Control.Lens ((.~), (^.), _1)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
@@ -32,7 +30,6 @@ import GHCSpecter.Control.Types
     type Control,
   )
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     UIState (..),
@@ -136,11 +133,11 @@ stepControl (Free (SaveSession next)) = do
     withFile "session.json" WriteMode $ \h ->
       BL.hPutStr h (encode ss)
   pure (Left next)
-stepControl (Free (FireUITickAfter nSec next)) = do
+stepControl (Free (RefreshUIAfter nSec next)) = do
   (_, _, chanBkg) <- ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
-    atomically $ writeTChan chanBkg UITick
+    atomically $ writeTChan chanBkg RefreshUI
   pure (Left next)
 
 -- | The inner loop described in the Note [Control Loops].

@@ -10,13 +10,13 @@ import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Control.Types
-  ( fireUITickAfter,
-    getCurrentTime,
+  ( getCurrentTime,
     getLastUpdatedUI,
     getState,
     nextEvent,
     printMsg,
     putState,
+    refreshUIAfter,
     saveSession,
     shouldUpdate,
     type Control,
@@ -123,7 +123,7 @@ handleEvent topEv stepStartTime = do
         BkgEv MessageChanUpdated -> do
           let newSS = (serverShouldUpdate .~ True) oldSS
           pure (oldMainView, newSS, Nothing)
-        BkgEv UITick -> do
+        BkgEv RefreshUI -> do
           pure (oldMainView, oldSS, Nothing)
 
     handleModuleGraphEv ::
@@ -155,7 +155,7 @@ bannerMode startTime = do
   (ui, ss) <- getState
   let ui' = (uiView .~ BannerMode 0) ui
   putState (ui', ss)
-  fireUITickAfter 0.1
+  refreshUIAfter 0.1
   go
   where
     duration = Clock.secondsToNominalDiffTime 2.0
@@ -169,7 +169,7 @@ bannerMode startTime = do
           let r = realToFrac (diff / duration)
               ui' = (uiView .~ BannerMode r) ui
           putState (ui', ss)
-          fireUITickAfter 0.1
+          refreshUIAfter 0.1
           go
         else pure ()
 
