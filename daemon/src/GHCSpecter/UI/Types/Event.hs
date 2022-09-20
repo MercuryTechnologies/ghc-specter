@@ -8,6 +8,7 @@ module GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     SessionEvent (..),
     TimingEvent (..),
+    BackgroundEvent (..),
     Event (..),
   )
 where
@@ -30,24 +31,29 @@ data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
   | DummyEv (Maybe (Double, Double))
-  deriving (Show)
+  deriving (Show, Eq)
 
 data SubModuleEvent
   = SubModuleGraphEv ModuleGraphEvent
   | SubModuleLevelEv DetailLevel
-  deriving (Show)
+  deriving (Show, Eq)
 
 data SessionEvent
   = SaveSessionEv
   | ResumeSessionEv
   | PauseSessionEv
-  deriving (Show)
+  deriving (Show, Eq)
 
 data TimingEvent
   = UpdateSticky Bool
   | UpdatePartition Bool
   | UpdateParallel Bool
-  deriving (Show)
+  deriving (Show, Eq)
+
+data BackgroundEvent
+  = MessageChanUpdated
+  | RefreshUI
+  deriving (Show, Eq)
 
 data Event
   = TabEv Tab
@@ -56,6 +62,5 @@ data Event
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
   | TimingEv TimingEvent
-  | MessageChanUpdated
-  | UITick
-  deriving (Show)
+  | BkgEv BackgroundEvent
+  deriving (Show, Eq)

@@ -50,7 +50,6 @@ import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel
   ( Channel,
@@ -254,7 +253,6 @@ emptyHieState = HieState mempty
 data ServerState = ServerState
   { _serverMessageSN :: Int
   , _serverShouldUpdate :: Bool
-  , _serverLastUpdated :: UTCTime
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
   , _serverTiming :: Map ModuleName Timer
@@ -269,12 +267,11 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-emptyServerState :: UTCTime -> ServerState
-emptyServerState now =
+emptyServerState :: ServerState
+emptyServerState =
   ServerState
     { _serverMessageSN = 0
     , _serverShouldUpdate = True
-    , _serverLastUpdated = now
     , _serverInbox = mempty
     , _serverSessionInfo = SessionInfo Nothing emptyModuleGraphInfo False
     , _serverTiming = mempty

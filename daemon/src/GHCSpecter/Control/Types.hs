@@ -10,6 +10,7 @@ module GHCSpecter.Control.Types
     printMsg,
     getCurrentTime,
     getLastUpdatedUI,
+    refreshUIAfter,
     shouldUpdate,
     saveSession,
   )
@@ -32,6 +33,7 @@ data ControlF r
   | GetLastUpdatedUI (UTCTime -> r)
   | ShouldUpdate Bool r
   | SaveSession r
+  | RefreshUIAfter Double r
   deriving (Functor)
 
 type Control = Free ControlF
@@ -59,3 +61,6 @@ shouldUpdate b = liftF (ShouldUpdate b ())
 
 saveSession :: Control ()
 saveSession = liftF (SaveSession ())
+
+refreshUIAfter :: Double -> Control ()
+refreshUIAfter nSec = liftF (RefreshUIAfter nSec ())

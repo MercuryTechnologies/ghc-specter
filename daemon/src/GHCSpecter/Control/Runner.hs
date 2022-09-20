@@ -5,13 +5,20 @@ module GHCSpecter.Control.Runner
   )
 where
 
-import Concur.Core (Widget, unsafeBlockingIO)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.STM
+  ( TChan,
+    TVar,
+    atomically,
+    readTVar,
+    writeTChan,
+    writeTVar,
+  )
 import Control.Lens ((.~), (^.), _1)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.State (StateT (..), get, modify', put)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
@@ -23,12 +30,14 @@ import GHCSpecter.Control.Types
     type Control,
   )
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasUIState (..),
     UIState (..),
   )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (..),
+    Event (..),
+  )
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -37,7 +46,28 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type Runner = StateT (UIState, ServerState) (Widget IHTML)
+type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent) IO
+
+getState' :: Runner (UIState, ServerState)
+getState' = do
+  (uiRef, ssRef, _) <- ask
+  liftIO $
+    atomically $
+      (,) <$> readTVar uiRef <*> readTVar ssRef
+
+putState' :: (UIState, ServerState) -> Runner ()
+putState' (ui, ss) = do
+  (uiRef, ssRef, _) <- ask
+  liftIO $
+    atomically $ do
+      writeTVar uiRef ui
+      writeTVar ssRef ss
+
+modifyState' :: ((UIState, ServerState) -> (UIState, ServerState)) -> Runner ()
+modifyState' f = do
+  s <- getState'
+  let s' = f s
+  s' `seq` putState' s'
 
 {-
 
@@ -74,35 +104,40 @@ stepControl ::
     )
 stepControl (Pure r) = pure (Right (Right r))
 stepControl (Free (GetState cont)) = do
-  (ui, ss) <- get
+  (ui, ss) <- getState'
   pure (Left (cont (ui, ss)))
 stepControl (Free (PutState (ui, ss) next)) = do
-  put (ui, ss)
+  putState' (ui, ss)
   pure (Left next)
 stepControl (Free (NextEvent cont)) =
   pure (Right (Left cont))
 stepControl (Free (PrintMsg txt next)) = do
-  lift $
-    unsafeBlockingIO $ do
-      n <- readIORef tempRef
-      modifyIORef' tempRef (+ 1)
-      TIO.putStrLn $ (T.pack (show n) <> " : " <> txt)
+  liftIO $ do
+    n <- readIORef tempRef
+    modifyIORef' tempRef (+ 1)
+    TIO.putStrLn $ (T.pack (show n) <> " : " <> txt)
   pure (Left next)
 stepControl (Free (GetCurrentTime cont)) = do
-  now <- lift $ unsafeBlockingIO Clock.getCurrentTime
+  now <- liftIO Clock.getCurrentTime
   pure (Left (cont now))
 stepControl (Free (GetLastUpdatedUI cont)) = do
-  lastUpdatedUI <- (^. _1 . uiLastUpdated) <$> get
+  lastUpdatedUI <- (^. _1 . uiLastUpdated) <$> getState'
   pure (Left (cont lastUpdatedUI))
 stepControl (Free (ShouldUpdate b next)) = do
-  modify' (_1 . uiShouldUpdate .~ b)
+  modifyState' (_1 . uiShouldUpdate .~ b)
   pure (Left next)
 stepControl (Free (SaveSession next)) = do
-  (_, ss) <- get
+  (_, ss) <- getState'
   -- TODO: use asynchronous worker
   liftIO $
     withFile "session.json" WriteMode $ \h ->
       BL.hPutStr h (encode ss)
+  pure (Left next)
+stepControl (Free (RefreshUIAfter nSec next)) = do
+  (_, _, chanBkg) <- ask
+  liftIO $ do
+    threadDelay (floor (nSec * 1_000_000))
+    atomically $ writeTChan chanBkg RefreshUI
   pure (Left next)
 
 -- | The inner loop described in the Note [Control Loops].

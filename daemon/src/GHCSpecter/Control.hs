@@ -16,6 +16,7 @@ import GHCSpecter.Control.Types
     nextEvent,
     printMsg,
     putState,
+    refreshUIAfter,
     saveSession,
     shouldUpdate,
     type Control,
@@ -34,7 +35,8 @@ import GHCSpecter.UI.Types
     emptyMainView,
   )
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
+  ( BackgroundEvent (..),
+    Event (..),
     ModuleGraphEvent (..),
     SessionEvent (..),
     SubModuleEvent (..),
@@ -60,6 +62,7 @@ handleEvent topEv stepStartTime = do
                     else newUI
         pure (newUI', newSS)
   putState (newUI, newSS)
+  printMsg "commit new state"
   where
     handleMainEvent (oldMainView, oldSS) =
       case topEv of
@@ -117,10 +120,10 @@ handleEvent topEv stepStartTime = do
           let newMainView = (mainTiming . timingUIHowParallel .~ b) oldMainView
               newSS = (serverShouldUpdate .~ False) oldSS
           pure (newMainView, newSS, Nothing)
-        MessageChanUpdated -> do
+        BkgEv MessageChanUpdated -> do
           let newSS = (serverShouldUpdate .~ True) oldSS
           pure (oldMainView, newSS, Nothing)
-        UITick -> do
+        BkgEv RefreshUI -> do
           pure (oldMainView, oldSS, Nothing)
 
     handleModuleGraphEv ::
@@ -150,12 +153,10 @@ handleEvent topEv stepStartTime = do
 bannerMode :: UTCTime -> Control ()
 bannerMode startTime = do
   (ui, ss) <- getState
-  let ui' = (uiView .~ BannerMode 0.5) ui
+  let ui' = (uiView .~ BannerMode 0) ui
   putState (ui', ss)
+  refreshUIAfter 0.1
   go
-  (ui1, ss1) <- getState
-  let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putState (ui1', ss1)
   where
     duration = Clock.secondsToNominalDiffTime 2.0
     go = do
@@ -168,6 +169,7 @@ bannerMode startTime = do
           let r = realToFrac (diff / duration)
               ui' = (uiView .~ BannerMode r) ui
           putState (ui', ss)
+          refreshUIAfter 0.1
           go
         else pure ()
 
@@ -180,6 +182,10 @@ main = do
 
   bannerEndTime <- getCurrentTime
   printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
+
+  (ui1, ss1) <- getState
+  let ui1' = (uiView .~ MainMode emptyMainView) ui1
+  putState (ui1', ss1)
 
   forever $ do
     lastUpdatedUI <- getLastUpdatedUI
