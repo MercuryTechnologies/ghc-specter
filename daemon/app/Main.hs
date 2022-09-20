@@ -215,19 +215,15 @@ driver (uiRef, ssRef) chanEv chanState chanBkg = do
     controlDriver = loopM step (\_ -> Control.main)
       where
         step c = do
-          putStrLn "waiting for TChan"
           ev <- atomically $ readTChan chanEv
-          putStrLn "got event"
           ec' <-
             runReaderT
               (stepControlUpToEvent ev c)
               (uiRef, ssRef, chanBkg)
-          putStrLn "after process"
           atomically $ do
             ui <- readTVar uiRef
             ss <- readTVar ssRef
             writeTChan chanState (ui, ss)
-          putStrLn "after CF update"
           pure ec'
 
 webServer :: TVar ServerState -> IO ()
@@ -263,16 +259,8 @@ webServer ssRef = do
     step chanEv chanState chanBkg ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
-          putStrLn $ "step: " ++ show ev
           atomically $ writeTChan chanEv ev
-          putStrLn $ "step: after writeTChan"
           (ui, ss) <- atomically $ readTChan chanState
-          putStrLn $ "step: after readTChan chanState"
-          case ui ^. uiView of
-            BannerMode _ -> putStrLn "BannerMode"
-            MainMode view -> do
-              putStrLn $
-                "MainMode: " ++ show (view ^. mainTab)
           pure (ui, ss)
       stepRender (ui, ss) <|> (Left . BkgEv <$> waitForBkgEv chanBkg)
 
