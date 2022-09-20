@@ -40,9 +40,9 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
+import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver (driver)
 import GHCSpecter.Render (render)
-import GHCSpecter.Render.Data.Assets qualified as Assets
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),

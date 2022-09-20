@@ -25,7 +25,7 @@ where
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
-import GHCSpecter.Render.Data.Assets (Assets)
+import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI

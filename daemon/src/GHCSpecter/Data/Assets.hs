@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Render.Data.Assets
+module GHCSpecter.Data.Assets
   ( Assets (..),
     HasAssets (..),
     loadAssets,
