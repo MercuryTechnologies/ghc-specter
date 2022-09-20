@@ -277,13 +277,12 @@ webServer ssRef = do
       stepRender (ui, ss) <|> (Left . BkgEv <$> waitForBkgEv chanBkg)
 
     stepRender :: (UIState, ServerState) -> Widget IHTML (Either Event ())
-    stepRender (ui, ss) =
-      {- let renderUI =
+    stepRender (ui, ss) = do
+      let renderUI =
             if ui ^. uiShouldUpdate
               then unblockDOMUpdate (render (ui, ss))
               else blockDOMUpdate (render (ui, ss))
-      renderUI -}
-      Left <$> render (ui, ss)
+      Left <$> renderUI
 
     waitForBkgEv ::
       -- channel for receiving bkg event
