@@ -5,50 +5,28 @@ module Main (main) where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, forkOS, threadDelay)
+import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
-  ( STM,
-    TChan,
-    TMVar,
+  ( TChan,
     TVar,
     atomically,
-    check,
     modifyTVar',
-    newEmptyTMVarIO,
     newTChanIO,
     newTVar,
     newTVarIO,
-    putTMVar,
     readTChan,
     readTVar,
     retry,
-    takeTMVar,
     writeTChan,
-    writeTVar,
   )
-import Control.Lens (makeClassy, to, (%~), (.~), (^.))
-import Control.Monad (forever, void, when)
+import Control.Lens (to, (%~), (.~), (^.))
+import Control.Monad (forever, void)
 import Control.Monad.Extra (loopM)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
-import Control.Monad.Trans.State
-  ( StateT (..),
-    get,
-    put,
-    runStateT,
-  )
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
-import Data.Time.Clock
-  ( UTCTime,
-    diffUTCTime,
-    getCurrentTime,
-    nominalDiffTimeToSeconds,
-  )
-import Debug.Trace (trace)
+import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -62,12 +40,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Control qualified as Control (main)
-import GHCSpecter.Control.Runner
-  ( Runner,
-    stepControlUpToEvent,
-  )
-import GHCSpecter.Control.Types (Control)
+import GHCSpecter.Driver (driver)
 import GHCSpecter.Render (render)
 import GHCSpecter.Render.Data.Assets qualified as Assets
 import GHCSpecter.Server.Types
@@ -82,27 +55,20 @@ import GHCSpecter.UI.ConcurReplica.Types
     blockDOMUpdate,
     unblockDOMUpdate,
   )
-import GHCSpecter.UI.Constants
-  ( chanUpdateInterval,
-    tickInterval,
-    uiUpdateInterval,
-  )
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
-    HasUIState (..),
+  ( HasUIState (..),
     UIState,
     UIView (..),
     emptyMainView,
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (MessageChanUpdated, UITick),
+  ( BackgroundEvent (UITick),
     Event (BkgEv),
   )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
-import Prelude hiding (div)
 
 data CLIMode
   = Online FilePath
@@ -178,67 +144,17 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
-driver ::
-  (TVar UIState, TVar ServerState) ->
-  TChan Event ->
-  TChan (UIState, ServerState) ->
-  TChan BackgroundEvent ->
-  IO ()
-driver (uiRef, ssRef) chanEv chanState chanBkg = do
-  -- start chanDriver
-  lastMessageSN <-
-    (^. serverMessageSN) <$> atomically (readTVar ssRef)
-  _ <- forkIO $ chanDriver lastMessageSN
-  -- start controlDriver
-  _ <- forkIO $ controlDriver
-  pure ()
-  where
-    blockUntilNewMessage lastSN = do
-      ss <- readTVar ssRef
-      if (ss ^. serverMessageSN == lastSN)
-        then retry
-        else pure (ss ^. serverMessageSN)
-
-    -- background connector between server channel and UI frame
-    chanDriver lastMessageSN = do
-      -- wait for next poll
-      threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
-      -- blocked until a new message comes
-      newMessageSN <-
-        atomically $
-          blockUntilNewMessage lastMessageSN
-      atomically $
-        writeTChan chanBkg MessageChanUpdated
-      chanDriver newMessageSN
-
-    -- connector between driver and Control frame
-    controlDriver = loopM step (\_ -> Control.main)
-      where
-        step c = do
-          ev <- atomically $ readTChan chanEv
-          ec' <-
-            runReaderT
-              (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanBkg)
-          atomically $ do
-            ui <- readTVar uiRef
-            ss <- readTVar ssRef
-            writeTChan chanState (ui, ss)
-          pure ec'
-
 webServer :: TVar ServerState -> IO ()
 webServer ssRef = do
   assets <- Assets.loadAssets
-  ss0 <- atomically (readTVar ssRef)
   runDefault 8080 "ghc-specter" $
     \_ -> do
-      (uiRef, initTime) <-
+      uiRef <-
         unsafeBlockingIO $ do
           initTime <- getCurrentTime
           let ui0 = emptyUIState assets initTime
               ui0' = (uiView .~ MainMode emptyMainView) ui0
-          uiRef <- newTVarIO ui0'
-          pure (uiRef, initTime)
+          newTVarIO ui0'
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
       chanBkg <- unsafeBlockingIO newTChanIO
@@ -283,7 +199,6 @@ main = do
   mode <- OA.execParser optsParser
   case mode of
     Online socketFile -> do
-      now <- getCurrentTime
       serverSessionRef <- atomically $ newTVar emptyServerState
       _ <- forkOS $ listener socketFile serverSessionRef
       webServer serverSessionRef
