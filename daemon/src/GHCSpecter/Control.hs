@@ -31,9 +31,10 @@ import GHCSpecter.UI.Types
     HasModuleGraphUI (..),
     HasSourceViewUI (..),
     HasTimingUI (..),
+    HasUIModel (..),
     HasUIState (..),
-    MainView,
     ModuleGraphUI (..),
+    UIModel,
     UIView (..),
     emptyMainView,
   )
@@ -46,72 +47,71 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
   )
 
-updateMainView ::
+updateModel ::
   Event ->
   UTCTime ->
-  (MainView, ServerState) ->
-  Control (MainView, ServerState, Maybe UTCTime)
-updateMainView topEv stepStartTime (oldMainView, oldSS) =
+  (UIModel, ServerState) ->
+  Control (UIModel, ServerState, Maybe UTCTime)
+updateModel topEv stepStartTime (oldModel, oldSS) =
   case topEv of
-    TabEv tab' -> do
-      let newMainView = (mainTab .~ tab') oldMainView
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView, newSS, Nothing)
+    TabEv _tab' -> do
+      let newSS = (serverShouldUpdate .~ False) oldSS
+      pure (oldModel, newSS, Nothing)
     ExpandModuleEv mexpandedModu' -> do
-      let newMainView = (mainSourceView . srcViewExpandedModule .~ mexpandedModu') oldMainView
+      let newModel = (modelSourceView . srcViewExpandedModule .~ mexpandedModu') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView, newSS, Nothing)
+      pure (newModel, newSS, Nothing)
     MainModuleEv ev -> do
-      let mgui = oldMainView ^. mainMainModuleGraph
+      let mgui = oldModel ^. modelMainModuleGraph
       (mgui', mxy) <- handleModuleGraphEv ev mgui
-      let newMainView = (mainMainModuleGraph .~ mgui') oldMainView
-          (newMainView', mt) = handleMouseMove newMainView mxy
+      let newModel = (modelMainModuleGraph .~ mgui') oldModel
+          (newModel', mt) = handleMouseMove newModel mxy
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView', newSS, mt)
+      pure (newModel', newSS, mt)
     SubModuleEv sev ->
       case sev of
         SubModuleGraphEv ev -> do
-          let mgui = oldMainView ^. mainSubModuleGraph . _2
+          let mgui = oldModel ^. modelSubModuleGraph . _2
           (mgui', mxy) <- handleModuleGraphEv ev mgui
-          let newMainView = (mainSubModuleGraph . _2 .~ mgui') oldMainView
-              (newMainView', mt) = handleMouseMove newMainView mxy
+          let newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
+              (newModel', mt) = handleMouseMove newModel mxy
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newMainView', newSS, mt)
+          pure (newModel', newSS, mt)
         SubModuleLevelEv d' -> do
-          let newMainView = (mainSubModuleGraph . _1 .~ d') oldMainView
+          let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newMainView, newSS, Nothing)
+          pure (newModel, newSS, Nothing)
     SessionEv SaveSessionEv -> do
       saveSession
       let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldMainView, newSS, Nothing)
+      pure (oldModel, newSS, Nothing)
     SessionEv ResumeSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldMainView, newSS, Nothing)
+      pure (oldModel, newSS, Nothing)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldMainView, newSS, Nothing)
+      pure (oldModel, newSS, Nothing)
     TimingEv (UpdateSticky b) -> do
-      let newMainView = (mainTiming . timingUISticky .~ b) oldMainView
+      let newModel = (modelTiming . timingUISticky .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView, newSS, Nothing)
+      pure (newModel, newSS, Nothing)
     TimingEv (UpdatePartition b) -> do
-      let newMainView = (mainTiming . timingUIPartition .~ b) oldMainView
+      let newModel = (modelTiming . timingUIPartition .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView, newSS, Nothing)
+      pure (newModel, newSS, Nothing)
     TimingEv (UpdateParallel b) -> do
-      let newMainView = (mainTiming . timingUIHowParallel .~ b) oldMainView
+      let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newMainView, newSS, Nothing)
+      pure (newModel, newSS, Nothing)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
-      pure (oldMainView, newSS, Nothing)
+      pure (oldModel, newSS, Nothing)
     BkgEv RefreshUI -> do
-      pure (oldMainView, oldSS, Nothing)
+      pure (oldModel, oldSS, Nothing)
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -127,15 +127,15 @@ updateMainView topEv stepStartTime (oldMainView, oldSS) =
       pure (mgui, (t,) <$> mxy)
 
     handleMouseMove ::
-      MainView ->
+      UIModel ->
       Maybe (UTCTime, (Double, Double)) ->
-      (MainView, Maybe UTCTime)
-    handleMouseMove view mtxy =
+      (UIModel, Maybe UTCTime)
+    handleMouseMove model mtxy =
       case mtxy of
-        Nothing -> (view, Nothing)
+        Nothing -> (model, Nothing)
         Just (t, xy) ->
-          let view' = (mainMousePosition .~ xy) view
-           in (view', Just t)
+          let model' = (modelMousePosition .~ xy) model
+           in (model', Just t)
 
 -- | showing ghc-specter banner in the beginning
 showBanner :: Control ()
@@ -168,8 +168,8 @@ mainLoop = do
   (ui1, ss1) <- getState
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
-
-  flip loopM emptyMainView $ \oldMainView -> do
+  let model1' = ui1' ^. uiModel
+  flip loopM (emptyMainView, model1') $ \(oldMainView, oldModel) -> do
     lastUpdatedUI <- getLastUpdatedUI
     stepStartTime <- getCurrentTime
 
@@ -182,10 +182,16 @@ mainLoop = do
     ev <- nextEvent
     printMsg (T.pack (show ev))
     (oldUI, oldSS) <- getState
-
-    (newMainView, newSS, mLastUpdatedUI) <-
-      updateMainView ev stepStartTime (oldMainView, oldSS)
-    let newUI = (uiView .~ MainMode newMainView) oldUI
+    let newMainView =
+          case ev of
+            TabEv tab' -> (mainTab .~ tab') oldMainView
+            _ -> oldMainView
+    (newModel, newSS, mLastUpdatedUI) <-
+      updateModel ev stepStartTime (oldModel, oldSS)
+    let newUI =
+          (uiView .~ MainMode newMainView)
+            . (uiModel .~ newModel)
+            $ oldUI
         newUI' =
           case mLastUpdatedUI of
             Nothing -> newUI
@@ -195,7 +201,7 @@ mainLoop = do
                 else newUI
     putState (newUI', newSS)
     printMsg "commit new state"
-    pure (Left newMainView)
+    pure (Left (newMainView, newModel))
 
 main :: Control ()
 main = do

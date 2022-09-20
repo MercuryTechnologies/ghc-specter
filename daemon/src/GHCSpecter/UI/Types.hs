@@ -1,8 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types
-  ( -- * UI state
-    ModuleGraphUI (..),
+  ( ModuleGraphUI (..),
     HasModuleGraphUI (..),
     emptyModuleGraphUI,
     SourceViewUI (..),
@@ -14,6 +13,9 @@ module GHCSpecter.UI.Types
     MainView (..),
     HasMainView (..),
     emptyMainView,
+    UIModel (..),
+    HasUIModel (..),
+    emptyUIModel,
     UIView (..),
     HasUIView (..),
     UIState (..),
@@ -67,16 +69,6 @@ emptyTimingUI = TimingUI False False False
 data MainView = MainView
   { _mainTab :: Tab
   -- ^ current tab
-  , _mainMainModuleGraph :: ModuleGraphUI
-  -- ^ UI state of main module graph
-  , _mainSubModuleGraph :: (DetailLevel, ModuleGraphUI)
-  -- ^ UI state of sub module graph
-  , _mainSourceView :: SourceViewUI
-  -- ^ UI state of source view UI
-  , _mainTiming :: TimingUI
-  -- ^ UI state of Timing UI
-  , _mainMousePosition :: (Double, Double)
-  -- ^ mouse position
   }
 
 makeClassy ''MainView
@@ -85,11 +77,31 @@ emptyMainView :: MainView
 emptyMainView =
   MainView
     { _mainTab = TabSession
-    , _mainMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _mainSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
-    , _mainSourceView = emptySourceViewUI
-    , _mainTiming = emptyTimingUI
-    , _mainMousePosition = (0, 0)
+    }
+
+data UIModel = UIModel
+  { _modelMainModuleGraph :: ModuleGraphUI
+  -- ^ UI state of main module graph
+  , _modelSubModuleGraph :: (DetailLevel, ModuleGraphUI)
+  -- ^ UI state of sub module graph
+  , _modelSourceView :: SourceViewUI
+  -- ^ UI state of source view UI
+  , _modelTiming :: TimingUI
+  -- ^ UI state of Timing UI
+  , _modelMousePosition :: (Double, Double)
+  -- ^ mouse position
+  }
+
+makeClassy ''UIModel
+
+emptyUIModel :: UIModel
+emptyUIModel =
+  UIModel
+    { _modelMainModuleGraph = ModuleGraphUI Nothing Nothing
+    , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    , _modelSourceView = emptySourceViewUI
+    , _modelTiming = emptyTimingUI
+    , _modelMousePosition = (0, 0)
     }
 
 data UIView
@@ -103,6 +115,8 @@ data UIState = UIState
   -- ^ should update?
   , _uiLastUpdated :: UTCTime
   -- ^ last updated time
+  , _uiModel :: UIModel
+  -- ^ main UI state
   , _uiView :: UIView
   -- ^ main view state
   , _uiAssets :: Assets
@@ -116,6 +130,7 @@ emptyUIState assets now =
   UIState
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
+    , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
     , _uiAssets = assets
     }

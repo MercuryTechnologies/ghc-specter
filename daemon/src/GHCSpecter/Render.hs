@@ -40,8 +40,10 @@ import GHCSpecter.UI.ConcurReplica.DOM
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasMainView (..),
+    HasUIModel (..),
     HasUIState (..),
     MainView,
+    UIModel (..),
     UIState (..),
     UIView (..),
   )
@@ -56,14 +58,15 @@ divClass cls props = div (classList [(cls, True)] : props)
 
 renderMainPanel ::
   MainView ->
+  UIModel ->
   ServerState ->
   Widget IHTML Event
-renderMainPanel view ss =
+renderMainPanel view model ss =
   case view ^. mainTab of
     TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render view ss
-    TabSourceView -> SourceView.render (view ^. mainSourceView) ss
-    TabTiming -> Timing.render view ss
+    TabModuleGraph -> ModuleGraph.render model ss
+    TabSourceView -> SourceView.render (model ^. modelSourceView) ss
+    TabTiming -> Timing.render model ss
 
 cssLink :: Text -> Widget IHTML a
 cssLink url =
@@ -95,8 +98,8 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
-renderMainView :: (MainView, ServerState) -> Widget IHTML Event
-renderMainView (view, ss) = do
+renderMainView :: (MainView, UIModel, ServerState) -> Widget IHTML Event
+renderMainView (view, model, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -105,14 +108,14 @@ renderMainView (view, ss) = do
         | otherwise =
             ( section
                 [style [("height", "85vh"), ("overflow-y", "scroll")]]
-                [renderMainPanel view ss]
+                [renderMainPanel view model ss]
             , section
                 []
                 [ divClass
                     "box"
                     []
                     [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
-                    , text $ "(x,y): " <> (view ^. mainMousePosition . to (T.pack . show))
+                    , text $ "(x,y): " <> (model ^. modelMousePosition . to (T.pack . show))
                     ]
                 ]
             )
@@ -155,4 +158,4 @@ render (ui, ss) =
                 ]
             ]
         ]
-    MainMode view -> renderMainView (view, ss)
+    MainMode view -> renderMainView (view, ui ^. uiModel, ss)
