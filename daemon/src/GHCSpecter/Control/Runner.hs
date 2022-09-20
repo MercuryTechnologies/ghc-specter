@@ -6,10 +6,13 @@ module GHCSpecter.Control.Runner
 where
 
 import Concur.Core (Widget, unsafeBlockingIO)
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
-  ( TVar,
+  ( TChan,
+    TVar,
     atomically,
     readTVar,
+    writeTChan,
     writeTVar,
   )
 import Control.Lens ((.~), (^.), _1)
@@ -18,7 +21,6 @@ import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask)
--- import Control.Monad.Trans.State (StateT (..), get, modify', put)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
@@ -35,7 +37,10 @@ import GHCSpecter.UI.Types
   ( HasUIState (..),
     UIState (..),
   )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (..),
+    Event (..),
+  )
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -44,18 +49,18 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type Runner = ReaderT (TVar UIState, TVar ServerState) IO
+type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent) IO
 
 getState' :: Runner (UIState, ServerState)
 getState' = do
-  (uiRef, ssRef) <- ask
+  (uiRef, ssRef, _) <- ask
   liftIO $
     atomically $
       (,) <$> readTVar uiRef <*> readTVar ssRef
 
 putState' :: (UIState, ServerState) -> Runner ()
 putState' (ui, ss) = do
-  (uiRef, ssRef) <- ask
+  (uiRef, ssRef, _) <- ask
   liftIO $
     atomically $ do
       writeTVar uiRef ui
@@ -130,6 +135,12 @@ stepControl (Free (SaveSession next)) = do
   liftIO $
     withFile "session.json" WriteMode $ \h ->
       BL.hPutStr h (encode ss)
+  pure (Left next)
+stepControl (Free (FireUITickAfter nSec next)) = do
+  (_, _, chanBkg) <- ask
+  liftIO $ do
+    threadDelay (floor (nSec * 1_000_000))
+    atomically $ writeTChan chanBkg UITick
   pure (Left next)
 
 -- | The inner loop described in the Note [Control Loops].

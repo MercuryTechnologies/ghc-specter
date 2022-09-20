@@ -185,10 +185,11 @@ driver ::
   TChan BackgroundEvent ->
   IO ()
 driver (uiRef, ssRef) chanEv chanState chanBkg = do
-  -- start chanConnector
+  -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
   _ <- forkIO $ chanDriver lastMessageSN
+  -- start controlDriver
   _ <- forkIO $ controlDriver
   pure ()
   where
@@ -217,7 +218,10 @@ driver (uiRef, ssRef) chanEv chanState chanBkg = do
           putStrLn "waiting for TChan"
           ev <- atomically $ readTChan chanEv
           putStrLn "got event"
-          ec' <- runReaderT (stepControlUpToEvent ev c) (uiRef, ssRef)
+          ec' <-
+            runReaderT
+              (stepControlUpToEvent ev c)
+              (uiRef, ssRef, chanBkg)
           putStrLn "after process"
           atomically $ do
             ui <- readTVar uiRef

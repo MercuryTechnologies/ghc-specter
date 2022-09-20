@@ -10,7 +10,8 @@ import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Control.Types
-  ( getCurrentTime,
+  ( fireUITickAfter,
+    getCurrentTime,
     getLastUpdatedUI,
     getState,
     nextEvent,
@@ -152,8 +153,9 @@ handleEvent topEv stepStartTime = do
 bannerMode :: UTCTime -> Control ()
 bannerMode startTime = do
   (ui, ss) <- getState
-  let ui' = (uiView .~ BannerMode 0.5) ui
+  let ui' = (uiView .~ BannerMode 0) ui
   putState (ui', ss)
+  fireUITickAfter 0.1
   go
   where
     duration = Clock.secondsToNominalDiffTime 2.0
@@ -167,6 +169,7 @@ bannerMode startTime = do
           let r = realToFrac (diff / duration)
               ui' = (uiView .~ BannerMode r) ui
           putState (ui', ss)
+          fireUITickAfter 0.1
           go
         else pure ()
 
@@ -174,12 +177,12 @@ main :: Control ()
 main = do
   clientSessionStartTime <- getCurrentTime
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
-  {-
-    bannerMode clientSessionStartTime
 
-    bannerEndTime <- getCurrentTime
-    printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
-  -}
+  bannerMode clientSessionStartTime
+
+  bannerEndTime <- getCurrentTime
+  printMsg $ "banner mode ends at " <> T.pack (show bannerEndTime)
+
   (ui1, ss1) <- getState
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
