@@ -231,6 +231,14 @@ branchTab tab (view, model) =
               (v', m') <- go ev (v, m)
               go' (v', m')
 
+initializeMainView :: Control (MainView, UIModel)
+initializeMainView = do
+  (ui1, ss1) <- getState
+  let ui1' = (uiView .~ MainMode emptyMainView) ui1
+  putState (ui1', ss1)
+  pure (emptyMainView, ui1' ^. uiModel)
+
+
 -- | main loop
 mainLoop :: (MainView, UIModel) -> Control ()
 mainLoop (view, model) = do
@@ -241,30 +249,6 @@ mainLoop (view, model) = do
     TabEv tab -> branchTab tab (view, model)
     _ -> mainLoop (view, model)
 
-{-
-    (oldUI, oldSS) <- getState
-    let newMainView =
-          case ev of
-            TabEv tab' -> (mainTab .~ tab') oldView
-            _ -> oldView
-    (newModel, newSS, mLastUpdatedUI) <-
-      updateModel ev stepStartTime (oldModel, oldSS)
-    let newUI =
-          (uiView .~ MainMode newMainView)
-            . (uiModel .~ newModel)
-            $ oldUI
-        newUI' =
-          case mLastUpdatedUI of
-            Nothing -> newUI
-            Just t ->
-              if newUI ^. uiShouldUpdate
-                then (uiLastUpdated .~ t) newUI
-                else newUI
-    putState (newUI', newSS)
-    printMsg "commit new state"
-    pure (Left (newMainView, newModel))
--}
-
 main :: Control ()
 main = do
   clientSessionStartTime <- getCurrentTime
@@ -274,10 +258,7 @@ main = do
   showBanner
 
   -- initialize main view
-  (ui1, ss1) <- getState
-  let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putState (ui1', ss1)
-  let model1' = ui1' ^. uiModel
+  (view, model) <- initializeMainView
 
   -- enter the main loop
-  mainLoop (emptyMainView, model1')
+  mainLoop (view, model)
