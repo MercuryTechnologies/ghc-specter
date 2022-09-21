@@ -8,6 +8,7 @@ module GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     SessionEvent (..),
     TimingEvent (..),
+    MouseEvent (..),
     BackgroundEvent (..),
     Event (..),
   )
@@ -30,7 +31,6 @@ instance ToJSON DetailLevel
 data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
   | ClickOnModuleEv (Maybe Text)
-  | DummyEv (Maybe (Double, Double))
   deriving (Show, Eq)
 
 data SubModuleEvent
@@ -50,6 +50,12 @@ data TimingEvent
   | UpdateParallel Bool
   deriving (Show, Eq)
 
+data MouseEvent
+  = MouseMove (Maybe (Double, Double))
+  | MouseDown (Maybe (Double, Double))
+  | MouseUp (Maybe (Double, Double))
+  deriving (Show, Eq)
+
 data BackgroundEvent
   = MessageChanUpdated
   | RefreshUI
@@ -62,5 +68,6 @@ data Event
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
   | TimingEv TimingEvent
+  | MouseEv MouseEvent
   | BkgEv BackgroundEvent
   deriving (Show, Eq)

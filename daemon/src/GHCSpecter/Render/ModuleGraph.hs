@@ -323,7 +323,8 @@ renderModuleGraphSVG
                 , SP.version "1.1"
                 , xmlns
                 ]
-           in (DummyEv <$> onMouseMove) : svgProps0
+           in -- (DummyEv <$> onMouseMove) :
+              svgProps0
         svgElement =
           S.svg
             svgProps

@@ -59,12 +59,13 @@ data TimingUI = TimingUI
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
+  , _timingUIXY :: (Double, Double)
   }
 
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False False
+emptyTimingUI = TimingUI False False False (0, 0)
 
 data MainView = MainView
   { _mainTab :: Tab

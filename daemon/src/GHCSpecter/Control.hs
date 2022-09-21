@@ -3,7 +3,7 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((.~), (^.), _1, _2)
+import Control.Lens ((%~), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
@@ -42,6 +42,7 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     Event (..),
     ModuleGraphEvent (..),
+    MouseEvent (..),
     SessionEvent (..),
     SubModuleEvent (..),
     Tab (..),
@@ -50,10 +51,9 @@ import GHCSpecter.UI.Types.Event
 
 updateModel ::
   Event ->
-  UTCTime ->
   (UIModel, ServerState) ->
   Control (UIModel, ServerState, Maybe UTCTime)
-updateModel topEv stepStartTime (oldModel, oldSS) =
+updateModel topEv (oldModel, oldSS) =
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
@@ -64,20 +64,18 @@ updateModel topEv stepStartTime (oldModel, oldSS) =
       pure (newModel, newSS, Nothing)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
-      (mgui', mxy) <- handleModuleGraphEv ev mgui
-      let newModel = (modelMainModuleGraph .~ mgui') oldModel
-          (newModel', mt) = handleMouseMove newModel mxy
+          mgui' = handleModuleGraphEv ev mgui
+          newModel = (modelMainModuleGraph .~ mgui') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel', newSS, mt)
+      pure (newModel, newSS, Nothing)
     SubModuleEv sev ->
       case sev of
         SubModuleGraphEv ev -> do
           let mgui = oldModel ^. modelSubModuleGraph . _2
-          (mgui', mxy) <- handleModuleGraphEv ev mgui
-          let newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
-              (newModel', mt) = handleMouseMove newModel mxy
+              mgui' = handleModuleGraphEv ev mgui
+              newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel', newSS, mt)
+          pure (newModel, newSS, Nothing)
         SubModuleLevelEv d' -> do
           let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
@@ -113,20 +111,16 @@ updateModel topEv stepStartTime (oldModel, oldSS) =
       pure (oldModel, newSS, Nothing)
     BkgEv RefreshUI -> do
       pure (oldModel, oldSS, Nothing)
+    _ -> pure (oldModel, oldSS, Nothing)
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
       ModuleGraphUI ->
-      Control (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
-    handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
-      pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
-    handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
-      pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
-    handleModuleGraphEv (DummyEv mxy) mgui = do
-      t <- getCurrentTime
-      printMsg (T.pack (show (stepStartTime, t, mxy)))
-      pure (mgui, (t,) <$> mxy)
+      ModuleGraphUI
+    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
+    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
+{-
     handleMouseMove ::
       UIModel ->
       Maybe (UTCTime, (Double, Double)) ->
@@ -137,6 +131,7 @@ updateModel topEv stepStartTime (oldModel, oldSS) =
         Just (t, xy) ->
           let model' = (modelMousePosition .~ xy) model
            in (model', Just t)
+-}
 
 -- | showing ghc-specter banner in the beginning
 showBanner :: Control ()
@@ -172,12 +167,11 @@ checkIfUpdatable = do
     then shouldUpdate True
     else shouldUpdate False
 
+-- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model) = do
-  now <- getCurrentTime
   (ui, ss) <- getState
-  (model', ss', mLastUpdatedUI) <-
-    updateModel ev now (model, ss)
+  (model', ss', mLastUpdatedUI) <- updateModel ev (model, ss)
   let -- just placeholder
       view' = view
       ui1 =
@@ -204,7 +198,45 @@ goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSourceView = goCommon
 
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goTiming = goCommon
+goTiming ev (view, model0) = do
+  model <-
+    case ev of
+      MouseEv (MouseDown (Just xy)) -> do
+        printMsg "drag start"
+        dragStart xy
+      _ -> pure model0
+  (ui, ss) <- getState
+  (model', ss', mLastUpdatedUI) <- updateModel ev (model, ss)
+  let -- just placeholder
+      view' = view
+      ui1 =
+        (uiView .~ MainMode view')
+          . (uiModel .~ model')
+          $ ui
+      ui' =
+        case mLastUpdatedUI of
+          Nothing -> ui1
+          Just t ->
+            if ui1 ^. uiShouldUpdate
+              then (uiLastUpdated .~ t) ui1
+              else ui1
+  putState (ui', ss')
+  pure (view', model')
+  where
+    dragStart (x, y) = do
+      checkIfUpdatable
+      ev' <- nextEvent
+      case ev' of
+        MouseEv (MouseUp (Just (x', y'))) -> do
+          let (deltaX, deltaY) = (x' - x, y' - y)
+              -- printMsg $ T.pack (show delta) <> " dragged"
+              model =
+                ( modelTiming . timingUIXY
+                    %~ (\(tx, ty) -> (tx - deltaX, ty - deltaY))
+                )
+                  model0
+          pure model
+        _ -> dragStart (x, y)
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()
