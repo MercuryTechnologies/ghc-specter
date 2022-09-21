@@ -189,20 +189,38 @@ renderTimingChart tui timingInfos =
             , moduleText x
             ]
         | otherwise = [box x, moduleText x]
+      svgProps =
+        let viewboxProp
+              | tui ^. timingUISticky =
+                  let x = T.pack $ show (maxWidth - 800 :: Int)
+                      y = T.pack $ show (totalHeight - 600 :: Int)
+                      w = T.pack $ show (800 :: Int)
+                      h = T.pack $ show (600 :: Int)
+                   in SP.viewBox (T.intercalate " " [x, y, w, h])
+              | otherwise = SP.viewBox "0 0 800 600"
+         in [ width "1024px" -- (T.pack $ show (maxWidth :: Int))
+            , height "768px" -- (T.pack $ show totalHeight)
+            , viewboxProp
+            , SP.version "1.1"
+            , xmlns
+            ]
+
+      {- if tui ^. timingUISticky
+          then svgProps0
+          else
+            let viewboxProp = SP.viewBox "0 0 1024 768"
+             in viewboxProp : svgProps0 -}
       svgElement =
         S.svg
-          [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
+          svgProps
           ( S.style [] [text ".small { font: 5px sans-serif; }"] :
             ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
                 ++ (concatMap makeItems $ zip [0 ..] timingInfos)
             )
           )
-   in if tui ^. timingUISticky
-        then
-          div
-            [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
-            [svgElement]
-        else div [] [svgElement]
+   in div
+        [style [("width", "800px"), ("height", "600px"), ("overflow", "hidden")]]
+        [svgElement]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]

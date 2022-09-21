@@ -217,7 +217,7 @@ branchTab tab (view, model) =
   where
     branchLoop go = do
       let view1 = (mainTab .~ tab) view
-      (view', model')  <- go (TabEv tab) (view1, model)
+      (view', model') <- go (TabEv tab) (view1, model)
       loop (view', model')
       where
         loop (v, m) = do
@@ -237,7 +237,6 @@ initializeMainView = do
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
   pure (emptyMainView, ui1' ^. uiModel)
-
 
 -- | main loop
 mainLoop :: (MainView, UIModel) -> Control ()

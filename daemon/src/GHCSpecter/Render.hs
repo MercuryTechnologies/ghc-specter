@@ -125,7 +125,7 @@ renderMainView (view, model, ss) = do
     , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
     , renderNavbar (view ^. mainTab)
     , mainPanel
-    , bottomPanel
+    -- , bottomPanel
     ]
 
 render ::
