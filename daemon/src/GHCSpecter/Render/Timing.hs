@@ -233,11 +233,26 @@ renderTimingChart tui timingInfos =
       svgElement =
         S.svg
           svgProps
-          ( S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"] :
-            ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
-                ++ (concatMap makeItems filteredItems)
-            )
-          )
+          [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+          , S.defs
+              []
+              [ S.clipPath
+                  [SP.id "main"]
+                  [ S.rect
+                      [ SP.x "0"
+                      , SP.y "0"
+                      , SP.width "200"
+                      , SP.height "200"
+                      ]
+                      []
+                  ]
+              ]
+          , S.g
+              [ SP.clipPath "url(#main)" ]
+              ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
+                  ++ (concatMap makeItems filteredItems)
+              )
+          ]
    in div
         [ style
             [ ("width", T.pack (show timingWidth))
