@@ -44,6 +44,7 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants
   ( timingBarHeight,
     timingHeight,
+    timingMaxWidth,
     timingWidth,
   )
 import GHCSpecter.UI.Types
@@ -65,9 +66,6 @@ import GHCSpecter.Util.Timing
     makeTimingTable,
   )
 import Prelude hiding (div)
-
-maxWidth :: (Num a) => a
-maxWidth = 10240
 
 colorCodes :: [Text]
 colorCodes =
@@ -119,7 +117,7 @@ renderRules showParallel table totalHeight totalTime =
         ]
         []
     sec2X sec =
-      floor (secondsToNominalDiffTime sec / totalTime * maxWidth) :: Int
+      floor (diffTime2X totalTime (secondsToNominalDiffTime sec)) :: Int
     box ((sec1, _), n) =
       S.rect
         [ SP.x (T.pack $ show $ sec2X sec1)
@@ -132,15 +130,22 @@ renderRules showParallel table totalHeight totalTime =
 
 viewPortX :: TimingUI -> Int
 viewPortX tui
-  | tui ^. timingUISticky = maxWidth - timingWidth
-  | otherwise = tui ^. timingUIXY . _1 . to floor
+  | tui ^. timingUISticky = timingMaxWidth - timingWidth
+  | otherwise = tui ^. timingUIViewPortTopLeft . _1 . to floor
 
 viewPortY :: Int -> TimingUI -> Int
 viewPortY nMods tui
   | tui ^. timingUISticky = totalHeight - timingHeight
-  | otherwise = tui ^. timingUIXY . _2 . to floor
+  | otherwise = tui ^. timingUIViewPortTopLeft . _2 . to floor
   where
     totalHeight = 5 * nMods
+
+diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
+diffTime2X totalTime time =
+  realToFrac (time / totalTime) * timingMaxWidth
+
+module2Y :: Double -> Double
+module2Y i = 5.0 * i + 1.0
 
 renderTimingChart ::
   TimingUI ->
@@ -155,26 +160,25 @@ renderTimingChart tui timingInfos =
           _ -> maximum modEndTimes
       totalHeight = 5 * nMods
       topOfBox :: Int -> Int
-      topOfBox i = 5 * i + 1
+      topOfBox = floor . module2Y . fromIntegral
       leftOfBox (_, tinfo) =
         let startTime = tinfo ^. timingStart
-         in floor (startTime / totalTime * maxWidth) :: Int
+         in floor (diffTime2X totalTime startTime) :: Int
       rightOfBox (_, tinfo) =
         let endTime = tinfo ^. timingEnd
-         in floor (endTime / totalTime * maxWidth) :: Int
+         in floor (diffTime2X totalTime endTime) :: Int
       widthOfBox (_, tinfo) =
         let startTime = tinfo ^. timingStart
             endTime = tinfo ^. timingEnd
-         in floor ((endTime - startTime) / totalTime * maxWidth) :: Int
+         in floor (diffTime2X totalTime (endTime - startTime)) :: Int
       widthHscOutOfBox (_, tinfo) =
         let startTime = tinfo ^. timingStart
             hscOutTime = tinfo ^. timingHscOut
-         in floor ((hscOutTime - startTime) / totalTime * maxWidth) :: Int
+         in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
       widthAsOfBox (_, tinfo) =
         let startTime = tinfo ^. timingStart
             asTime = tinfo ^. timingAs
-         in floor ((asTime - startTime) / totalTime * maxWidth) :: Int
-      --
+         in floor (diffTime2X totalTime (asTime - startTime)) :: Int
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
          in y0 <= y && y <= y1
@@ -303,7 +307,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
                 , DP.checked howParallel
                 , mkEvent UpdateParallel howParallel
                 ]
-            , text "Parallel"
+            , text "Parallelism"
             ]
         ]
 
@@ -317,7 +321,7 @@ renderTimingBar tui timingInfos =
     nMods = length timingInfos
 
     topOfBox :: Int -> Int
-    topOfBox i = 5 * i + 1
+    topOfBox = round . module2Y . fromIntegral
 
     (i, _) `isInRange` (y0, y1) =
       let y = topOfBox i

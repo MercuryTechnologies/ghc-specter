@@ -191,7 +191,7 @@ goTiming ev (view, model0) = do
   model <-
     case ev of
       MouseEv TimingView (MouseDown (Just (x, y))) -> do
-        let (tx, ty) = model0 ^. modelTiming . timingUIXY
+        let (tx, ty) = model0 ^. modelTiming . timingUIViewPortTopLeft
         onDraggingInTimingView (x, y) (tx, ty)
       _ -> pure model0
   goCommon ev (view, model)
@@ -199,7 +199,7 @@ goTiming ev (view, model0) = do
     addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
     addDelta (x, y) (x', y') (tx, ty) =
       let (dx, dy) = (x' - x, y' - y)
-       in modelTiming . timingUIXY .~ (tx - dx, ty - dy)
+       in modelTiming . timingUIViewPortTopLeft .~ (tx - dx, ty - dy)
 
     -- (x, y): mouse down point, (tx, ty): viewport origin
     onDraggingInTimingView (x, y) (tx, ty) = do

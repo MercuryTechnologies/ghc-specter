@@ -59,7 +59,8 @@ data TimingUI = TimingUI
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
-  , _timingUIXY :: (Double, Double)
+  , _timingUIViewPortTopLeft :: (Double, Double)
+  -- ^ Top-Left corner of timing UI viewport
   }
 
 makeClassy ''TimingUI
