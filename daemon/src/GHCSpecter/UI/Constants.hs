@@ -2,6 +2,8 @@ module GHCSpecter.UI.Constants
   ( chanUpdateInterval,
     uiUpdateInterval,
     tickInterval,
+    timingWidth,
+    timingHeight,
   )
 where
 
@@ -15,3 +17,9 @@ uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
 
 tickInterval :: NominalDiffTime
 tickInterval = secondsToNominalDiffTime 1
+
+timingWidth :: Int
+timingWidth = 800
+
+timingHeight :: Int
+timingHeight = 600

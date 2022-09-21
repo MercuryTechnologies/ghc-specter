@@ -42,6 +42,10 @@ import GHCSpecter.UI.ConcurReplica.DOM.Events
   )
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingWidth,
+  )
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
     HasUIModel (..),
@@ -158,11 +162,9 @@ renderTimingChart tui timingInfos =
             asTime = tinfo ^. timingAs
          in floor ((asTime - startTime) / totalTime * maxWidth) :: Int
       --
-      viewPortW, viewPortH, viewPortX, viewPortY :: Int
-      viewPortW = 800
-      viewPortH = 600
+      viewPortX, viewPortY :: Int
       (viewPortX, viewPortY)
-        | tui ^. timingUISticky = (maxWidth - 800, totalHeight - 600)
+        | tui ^. timingUISticky = (maxWidth - timingWidth, totalHeight - timingHeight)
         | otherwise = tui ^. timingUIXY . to (bimap floor floor)
 
       (i, _) `isInRange` (y0, y1) =
@@ -213,12 +215,12 @@ renderTimingChart tui timingInfos =
       svgProps =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
-                [viewPortX, viewPortY, viewPortW, viewPortH]
+                [viewPortX, viewPortY, timingWidth, timingHeight]
          in [ MouseEv . MouseMove <$> onMouseMove
             , MouseEv . MouseDown <$> onMouseDown
             , MouseEv . MouseUp <$> onMouseUp
-            , width "1024px"
-            , height "768px"
+            , width (T.pack (show timingWidth))
+            , height (T.pack (show timingHeight))
             , viewboxProp
             , SP.version "1.1"
             , xmlns
@@ -226,7 +228,7 @@ renderTimingChart tui timingInfos =
 
       allItems = zip [0 ..] timingInfos
       filteredItems =
-        filter (`isInRange` (viewPortY, viewPortY + viewPortH)) allItems
+        filter (`isInRange` (viewPortY, viewPortY + timingHeight)) allItems
 
       svgElement =
         S.svg
@@ -237,7 +239,12 @@ renderTimingChart tui timingInfos =
             )
           )
    in div
-        [style [("width", "800px"), ("height", "600px"), ("overflow", "hidden")]]
+        [ style
+            [ ("width", T.pack (show timingWidth))
+            , ("height", T.pack (show timingHeight))
+            , ("overflow", "hidden")
+            ]
+        ]
         [svgElement]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
