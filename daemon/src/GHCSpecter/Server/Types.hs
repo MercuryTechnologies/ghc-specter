@@ -50,6 +50,7 @@ import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Data.Tree (Forest)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel
   ( Channel,
@@ -150,7 +151,8 @@ transposeGraphVis (GraphVisInfo dim nodLayout edgLayout) =
     edgLayout' = fmap xposeEdge edgLayout
 
 data ModuleGraphState = ModuleGraphState
-  { _mgsClusterGraph :: Maybe GraphVisInfo
+  { _mgsModuleForest :: Forest ModuleName
+  , _mgsClusterGraph :: Maybe GraphVisInfo
   , _mgsClustering :: [(ModuleName, [ModuleName])]
   , _mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
   }
@@ -163,7 +165,7 @@ instance FromJSON ModuleGraphState
 instance ToJSON ModuleGraphState
 
 emptyModuleGraphState :: ModuleGraphState
-emptyModuleGraphState = ModuleGraphState Nothing [] []
+emptyModuleGraphState = ModuleGraphState [] Nothing [] []
 
 -- | RefRow has OccName and Unit which are not JSON-serializable.
 data RefRow' = RefRow'

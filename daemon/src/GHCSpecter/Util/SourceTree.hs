@@ -1,9 +1,12 @@
 module GHCSpecter.Util.SourceTree
   ( test,
+    makeSourceTree,
+    accumPrefix,
+    expandFocusOnly,
   )
 where
 
-import Control.Lens (to, (^..))
+import Control.Lens (to, (^.), (^..))
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Tree
@@ -28,20 +31,22 @@ appendTo (x : xs) (t : ts)
   | x == rootLabel t = Node x (appendTo xs (subForest t)) : ts
   | otherwise = t : appendTo (x : xs) ts
 
-makeSourceTree :: ServerState -> Forest ModuleName
-makeSourceTree ss =
+makeSourceTree :: ModuleGraphInfo -> Forest ModuleName
+makeSourceTree mgi =
   let modNames =
         L.sort $
-          ss
-            ^.. serverSessionInfo
-              . to sessionModuleGraph
-              . to mginfoModuleNameMap
-              . traverse
+          mginfoModuleNameMap mgi
+            ^.. traverse
               . to (T.splitOn ".")
    in L.foldl' (\(!ts) m -> appendTo m ts) [] modNames
 
 stripSubTree :: Tree a -> Tree a
 stripSubTree (Node x _) = Node x []
+
+accumPrefix :: [a] -> Tree a -> Tree [a]
+accumPrefix prefix (Node x xs) =
+  let prefix' = prefix ++ [x]
+   in Node prefix' (fmap (accumPrefix prefix') xs)
 
 expandFocusOnly :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
 expandFocusOnly [] ts = fmap stripSubTree ts
@@ -52,8 +57,10 @@ expandFocusOnly (x : xs) (t : ts)
 
 test :: ServerState -> IO ()
 test ss = do
-  let forest = makeSourceTree ss
+  let forest = makeSourceTree (ss ^. serverSessionInfo . to sessionModuleGraph)
       printForest f =
         putStrLn $
-          drawForest (fmap (fmap T.unpack) f)
-  printForest (expandFocusOnly ["Client", "Bank"] forest)
+          drawForest (fmap (fmap show) f)
+      testForest = expandFocusOnly ["Client", "Bank"] forest
+      testForest' = fmap (accumPrefix []) testForest
+  printForest testForest'

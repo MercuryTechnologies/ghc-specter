@@ -29,6 +29,7 @@ import GHCSpecter.Channel
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
+    HasModuleGraphState (..),
     HasModuleHieInfo (..),
     HasServerState (..),
     Inbox,
@@ -51,6 +52,10 @@ import GHCSpecter.UI.Types
     SourceViewUI (..),
   )
 import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.Util.SourceTree
+  ( accumPrefix,
+    expandFocusOnly,
+  )
 import Prelude hiding (div, span)
 
 iconText :: Text -> Text -> Text -> Widget IHTML MouseEvent
@@ -150,14 +155,21 @@ renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLeve
 -- | Top-level render function for the Source View tab
 render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
-  ul [] $ map eachRender allModules
+  ul [] $ map eachRender displayedModules
   where
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
     timing = ss ^. serverTiming
     -- NOTE: We do not want to have lens dependency for the plugin.
-    allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
+    -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
+    expanded = maybe [] (T.splitOn ".") mexpandedModu
+    displayedModules =
+      let displayedForest =
+            ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded)
+          displayedForest' =
+            fmap (fmap (T.intercalate ".")) . fmap (accumPrefix []) $ displayedForest
+       in concatMap F.toList displayedForest'
 
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
