@@ -1,9 +1,14 @@
 module GHCSpecter.UI.Constants
-  ( chanUpdateInterval,
+  ( -- * time interval
+    chanUpdateInterval,
     uiUpdateInterval,
     tickInterval,
+
+    -- * Timing view
+    timingMaxWidth,
     timingWidth,
     timingHeight,
+    timingBarHeight,
   )
 where
 
@@ -18,8 +23,14 @@ uiUpdateInterval = secondsToNominalDiffTime (fromRational (1 / 10))
 tickInterval :: NominalDiffTime
 tickInterval = secondsToNominalDiffTime 1
 
+timingMaxWidth :: (Num a) => a
+timingMaxWidth = 10240
+
 timingWidth :: Int
 timingWidth = 800
 
 timingHeight :: Int
 timingHeight = 600
+
+timingBarHeight :: Int
+timingBarHeight = 10

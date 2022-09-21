@@ -40,6 +40,7 @@ import GHCSpecter.UI.Types
   )
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
+    ComponentTag (..),
     Event (..),
     ModuleGraphEvent (..),
     MouseEvent (..),
@@ -189,33 +190,33 @@ goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
   model <-
     case ev of
-      MouseEv (MouseDown (Just (x, y))) -> do
-        let (tx, ty) = model0 ^. modelTiming . timingUIXY
-        onDragging (x, y) (tx, ty)
+      MouseEv TimingView (MouseDown (Just (x, y))) -> do
+        let (tx, ty) = model0 ^. modelTiming . timingUIViewPortTopLeft
+        onDraggingInTimingView (x, y) (tx, ty)
       _ -> pure model0
   goCommon ev (view, model)
   where
     addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
     addDelta (x, y) (x', y') (tx, ty) =
       let (dx, dy) = (x' - x, y' - y)
-       in modelTiming . timingUIXY .~ (tx - dx, ty - dy)
+       in modelTiming . timingUIViewPortTopLeft .~ (tx - dx, ty - dy)
 
     -- (x, y): mouse down point, (tx, ty): viewport origin
-    onDragging (x, y) (tx, ty) = do
+    onDraggingInTimingView (x, y) (tx, ty) = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
-        MouseEv (MouseUp (Just (x', y'))) -> do
+        MouseEv TimingView (MouseUp (Just (x', y'))) -> do
           let model = addDelta (x, y) (x', y') (tx, ty) model0
           pure model
-        MouseEv (MouseMove (Just (x', y'))) -> do
+        MouseEv TimingView (MouseMove (Just (x', y'))) -> do
           let model = addDelta (x, y) (x', y') (tx, ty) model0
           (ui0, ss) <- getState
           let ui1 = ui0 & (uiModel .~ model)
           ui <- updateLastUpdated ui1
           putState (ui, ss)
-          onDragging (x, y) (tx, ty)
-        _ -> onDragging (x, y) (tx, ty)
+          onDraggingInTimingView (x, y) (tx, ty)
+        _ -> onDraggingInTimingView (x, y) (tx, ty)
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()

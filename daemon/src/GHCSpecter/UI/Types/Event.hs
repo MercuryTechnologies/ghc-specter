@@ -2,6 +2,7 @@ module GHCSpecter.UI.Types.Event
   ( -- * Enums
     Tab (..),
     DetailLevel (..),
+    ComponentTag (..),
 
     -- * Event types
     SubModuleEvent (..),
@@ -27,6 +28,11 @@ data DetailLevel = UpTo30 | UpTo100 | UpTo300
 instance FromJSON DetailLevel
 
 instance ToJSON DetailLevel
+
+data ComponentTag
+  = TimingView
+  | TimingBar
+  deriving (Show, Eq)
 
 data ModuleGraphEvent
   = HoverOnModuleEv (Maybe Text)
@@ -68,6 +74,6 @@ data Event
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
   | TimingEv TimingEvent
-  | MouseEv MouseEvent
+  | MouseEv ComponentTag MouseEvent
   | BkgEv BackgroundEvent
   deriving (Show, Eq)
