@@ -3,7 +3,7 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((%~), (.~), (^.), _1, _2)
+import Control.Lens ((%~), (&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
@@ -201,9 +201,9 @@ goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
   model <-
     case ev of
-      MouseEv (MouseDown (Just xy)) -> do
-        printMsg "drag start"
-        dragStart xy
+      MouseEv (MouseDown (Just (x, y))) -> do
+        let (tx, ty) = model0 ^. modelTiming . timingUIXY
+        onDragging (x, y) (tx, ty)
       _ -> pure model0
   (ui, ss) <- getState
   (model', ss', mLastUpdatedUI) <- updateModel ev (model, ss)
@@ -223,20 +223,32 @@ goTiming ev (view, model0) = do
   putState (ui', ss')
   pure (view', model')
   where
-    dragStart (x, y) = do
+    -- (x, y): mouse down point, (tx, ty): viewport origin
+    onDragging (x, y) (tx, ty) = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
         MouseEv (MouseUp (Just (x', y'))) -> do
           let (deltaX, deltaY) = (x' - x, y' - y)
-              -- printMsg $ T.pack (show delta) <> " dragged"
               model =
-                ( modelTiming . timingUIXY
-                    %~ (\(tx, ty) -> (tx - deltaX, ty - deltaY))
-                )
-                  model0
+                model0
+                  & modelTiming . timingUIXY .~ (tx - deltaX, ty - deltaY)
           pure model
-        _ -> dragStart (x, y)
+        MouseEv (MouseMove (Just (x', y'))) -> do
+          let (deltaX, deltaY) = (x' - x, y' - y)
+              model =
+                model0
+                  & modelTiming . timingUIXY .~ (tx - deltaX, ty - deltaY)
+          (ui0, ss) <- getState
+          now <- getCurrentTime
+          let ui1 = ui0 & (uiModel .~ model)
+              ui =
+                if ui1 ^. uiShouldUpdate
+                  then ui1 & uiLastUpdated .~ now
+                  else ui1
+          putState (ui, ss)
+          onDragging (x, y) (tx, ty)
+        _ -> onDragging (x, y) (tx, ty)
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()
