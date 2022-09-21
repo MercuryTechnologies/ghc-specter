@@ -3,9 +3,8 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((.~), (^.), _1, _2)
+import Control.Lens ((&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
-import Data.Time.Clock (UTCTime)
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Control.Types
@@ -35,6 +34,7 @@ import GHCSpecter.UI.Types
     MainView,
     ModuleGraphUI (..),
     UIModel,
+    UIState,
     UIView (..),
     emptyMainView,
   )
@@ -42,101 +42,100 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     Event (..),
     ModuleGraphEvent (..),
+    MouseEvent (..),
     SessionEvent (..),
     SubModuleEvent (..),
     Tab (..),
     TimingEvent (..),
   )
 
-updateModel ::
+defaultUpdateModel ::
   Event ->
-  UTCTime ->
   (UIModel, ServerState) ->
-  Control (UIModel, ServerState, Maybe UTCTime)
-updateModel topEv stepStartTime (oldModel, oldSS) =
+  Control (UIModel, ServerState)
+defaultUpdateModel topEv (oldModel, oldSS) =
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     ExpandModuleEv mexpandedModu' -> do
       let newModel = (modelSourceView . srcViewExpandedModule .~ mexpandedModu') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
-      (mgui', mxy) <- handleModuleGraphEv ev mgui
-      let newModel = (modelMainModuleGraph .~ mgui') oldModel
-          (newModel', mt) = handleMouseMove newModel mxy
+          mgui' = handleModuleGraphEv ev mgui
+          newModel = (modelMainModuleGraph .~ mgui') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel', newSS, mt)
+      pure (newModel, newSS)
     SubModuleEv sev ->
       case sev of
         SubModuleGraphEv ev -> do
           let mgui = oldModel ^. modelSubModuleGraph . _2
-          (mgui', mxy) <- handleModuleGraphEv ev mgui
-          let newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
-              (newModel', mt) = handleMouseMove newModel mxy
+              mgui' = handleModuleGraphEv ev mgui
+              newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel', newSS, mt)
+          pure (newModel, newSS)
         SubModuleLevelEv d' -> do
           let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS, Nothing)
+          pure (newModel, newSS)
     SessionEv SaveSessionEv -> do
       saveSession
       let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     SessionEv ResumeSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     TimingEv (UpdatePartition b) -> do
       let newModel = (modelTiming . timingUIPartition .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     TimingEv (UpdateParallel b) -> do
       let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     BkgEv RefreshUI -> do
-      pure (oldModel, oldSS, Nothing)
+      pure (oldModel, oldSS)
+    _ -> pure (oldModel, oldSS)
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
       ModuleGraphUI ->
-      Control (ModuleGraphUI, Maybe (UTCTime, (Double, Double)))
-    handleModuleGraphEv (HoverOnModuleEv mhovered) mgui =
-      pure ((modGraphUIHover .~ mhovered) mgui, Nothing)
-    handleModuleGraphEv (ClickOnModuleEv mclicked) mgui =
-      pure ((modGraphUIClick .~ mclicked) mgui, Nothing)
-    handleModuleGraphEv (DummyEv mxy) mgui = do
-      t <- getCurrentTime
-      printMsg (T.pack (show (stepStartTime, t, mxy)))
-      pure (mgui, (t,) <$> mxy)
+      ModuleGraphUI
+    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
+    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-    handleMouseMove ::
-      UIModel ->
-      Maybe (UTCTime, (Double, Double)) ->
-      (UIModel, Maybe UTCTime)
-    handleMouseMove model mtxy =
-      case mtxy of
-        Nothing -> (model, Nothing)
-        Just (t, xy) ->
-          let model' = (modelMousePosition .~ xy) model
-           in (model', Just t)
+updateLastUpdated :: UIState -> Control UIState
+updateLastUpdated ui = do
+  now <- getCurrentTime
+  let ui'
+        | ui ^. uiShouldUpdate = ui & uiLastUpdated .~ now
+        | otherwise = ui
+  pure ui'
+
+checkIfUpdatable :: Control ()
+checkIfUpdatable = do
+  lastUpdatedUI <- getLastUpdatedUI
+  stepStartTime <- getCurrentTime
+  -- wait for update interval, not to have too frequent update
+  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
+    then shouldUpdate True
+    else shouldUpdate False
 
 -- | showing ghc-specter banner in the beginning
 showBanner :: Control ()
@@ -163,34 +162,17 @@ showBanner = do
           go start
         else pure ()
 
-checkIfUpdatable :: Control ()
-checkIfUpdatable = do
-  lastUpdatedUI <- getLastUpdatedUI
-  stepStartTime <- getCurrentTime
-  -- wait for update interval, not to have too frequent update
-  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
-    then shouldUpdate True
-    else shouldUpdate False
-
+-- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model) = do
-  now <- getCurrentTime
   (ui, ss) <- getState
-  (model', ss', mLastUpdatedUI) <-
-    updateModel ev now (model, ss)
+  (model', ss') <- defaultUpdateModel ev (model, ss)
   let -- just placeholder
       view' = view
-      ui1 =
-        (uiView .~ MainMode view')
-          . (uiModel .~ model')
-          $ ui
       ui' =
-        case mLastUpdatedUI of
-          Nothing -> ui1
-          Just t ->
-            if ui1 ^. uiShouldUpdate
-              then (uiLastUpdated .~ t) ui1
-              else ui1
+        ui
+          & (uiView .~ MainMode view')
+            . (uiModel .~ model')
   putState (ui', ss')
   pure (view', model')
 
@@ -204,7 +186,36 @@ goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSourceView = goCommon
 
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goTiming = goCommon
+goTiming ev (view, model0) = do
+  model <-
+    case ev of
+      MouseEv (MouseDown (Just (x, y))) -> do
+        let (tx, ty) = model0 ^. modelTiming . timingUIXY
+        onDragging (x, y) (tx, ty)
+      _ -> pure model0
+  goCommon ev (view, model)
+  where
+    addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
+    addDelta (x, y) (x', y') (tx, ty) =
+      let (dx, dy) = (x' - x, y' - y)
+       in modelTiming . timingUIXY .~ (tx - dx, ty - dy)
+
+    -- (x, y): mouse down point, (tx, ty): viewport origin
+    onDragging (x, y) (tx, ty) = do
+      checkIfUpdatable
+      ev' <- nextEvent
+      case ev' of
+        MouseEv (MouseUp (Just (x', y'))) -> do
+          let model = addDelta (x, y) (x', y') (tx, ty) model0
+          pure model
+        MouseEv (MouseMove (Just (x', y'))) -> do
+          let model = addDelta (x, y) (x', y') (tx, ty) model0
+          (ui0, ss) <- getState
+          let ui1 = ui0 & (uiModel .~ model)
+          ui <- updateLastUpdated ui1
+          putState (ui, ss)
+          onDragging (x, y) (tx, ty)
+        _ -> onDragging (x, y) (tx, ty)
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()
@@ -216,11 +227,11 @@ branchTab tab (view, model) =
     TabTiming -> branchLoop goTiming
   where
     branchLoop go = do
-      let view' = (mainTab .~ tab) view
-      model' <- go (TabEv tab) (view', model)
-      go' model'
+      let view1 = (mainTab .~ tab) view
+      (view', model') <- go (TabEv tab) (view1, model)
+      loop (view', model')
       where
-        go' (v, m) = do
+        loop (v, m) = do
           checkIfUpdatable
           printMsg "wait for the next event"
           ev <- nextEvent
@@ -229,7 +240,7 @@ branchTab tab (view, model) =
             TabEv tab' -> branchTab tab' (v, m)
             _ -> do
               (v', m') <- go ev (v, m)
-              go' (v', m')
+              loop (v', m')
 
 initializeMainView :: Control (MainView, UIModel)
 initializeMainView = do
@@ -237,7 +248,6 @@ initializeMainView = do
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
   putState (ui1', ss1)
   pure (emptyMainView, ui1' ^. uiModel)
-
 
 -- | main loop
 mainLoop :: (MainView, UIModel) -> Control ()

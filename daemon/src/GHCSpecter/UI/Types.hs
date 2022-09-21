@@ -59,12 +59,13 @@ data TimingUI = TimingUI
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
+  , _timingUIXY :: (Double, Double)
   }
 
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False False
+emptyTimingUI = TimingUI False False False (0, 0)
 
 data MainView = MainView
   { _mainTab :: Tab
@@ -88,8 +89,6 @@ data UIModel = UIModel
   -- ^ UI state of source view UI
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
-  , _modelMousePosition :: (Double, Double)
-  -- ^ mouse position
   }
 
 makeClassy ''UIModel
@@ -101,7 +100,6 @@ emptyUIModel =
     , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
-    , _modelMousePosition = (0, 0)
     }
 
 data UIView

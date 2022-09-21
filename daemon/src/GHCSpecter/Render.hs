@@ -115,7 +115,6 @@ renderMainView (view, model, ss) = do
                     "box"
                     []
                     [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
-                    , text $ "(x,y): " <> (model ^. modelMousePosition . to (T.pack . show))
                     ]
                 ]
             )

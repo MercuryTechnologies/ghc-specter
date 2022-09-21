@@ -18,6 +18,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _2)
+import Data.Bifunctor (bimap)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -34,8 +35,17 @@ import GHCSpecter.UI.ConcurReplica.DOM
     label,
     text,
   )
+import GHCSpecter.UI.ConcurReplica.DOM.Events
+  ( onMouseDown,
+    onMouseMove,
+    onMouseUp,
+  )
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingWidth,
+  )
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
     HasUIModel (..),
@@ -43,7 +53,8 @@ import GHCSpecter.UI.Types
     UIModel,
   )
 import GHCSpecter.UI.Types.Event
-  ( Event (TimingEv),
+  ( Event (..),
+    MouseEvent (..),
     TimingEvent (..),
   )
 import GHCSpecter.Util.Timing
@@ -118,7 +129,10 @@ renderRules showParallel table totalHeight totalTime =
         ]
         []
 
-renderTimingChart :: TimingUI -> [(ModuleName, TimingInfo NominalDiffTime)] -> Widget IHTML a
+renderTimingChart ::
+  TimingUI ->
+  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  Widget IHTML Event
 renderTimingChart tui timingInfos =
   let nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
@@ -147,6 +161,15 @@ renderTimingChart tui timingInfos =
         let startTime = tinfo ^. timingStart
             asTime = tinfo ^. timingAs
          in floor ((asTime - startTime) / totalTime * maxWidth) :: Int
+      --
+      viewPortX, viewPortY :: Int
+      (viewPortX, viewPortY)
+        | tui ^. timingUISticky = (maxWidth - timingWidth, totalHeight - timingHeight)
+        | otherwise = tui ^. timingUIXY . to (bimap floor floor)
+
+      (i, _) `isInRange` (y0, y1) =
+        let y = topOfBox i
+         in y0 <= y && y <= y1
       box (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
@@ -189,20 +212,40 @@ renderTimingChart tui timingInfos =
             , moduleText x
             ]
         | otherwise = [box x, moduleText x]
+      svgProps =
+        let viewboxProp =
+              SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
+                [viewPortX, viewPortY, timingWidth, timingHeight]
+         in [ MouseEv . MouseMove <$> onMouseMove
+            , MouseEv . MouseDown <$> onMouseDown
+            , MouseEv . MouseUp <$> onMouseUp
+            , width (T.pack (show timingWidth))
+            , height (T.pack (show timingHeight))
+            , viewboxProp
+            , SP.version "1.1"
+            , xmlns
+            ]
+
+      allItems = zip [0 ..] timingInfos
+      filteredItems =
+        filter (`isInRange` (viewPortY, viewPortY + timingHeight)) allItems
+
       svgElement =
         S.svg
-          [width (T.pack $ show (maxWidth :: Int)), height (T.pack $ show totalHeight), SP.version "1.1", xmlns]
-          ( S.style [] [text ".small { font: 5px sans-serif; }"] :
+          svgProps
+          ( S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"] :
             ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
-                ++ (concatMap makeItems $ zip [0 ..] timingInfos)
+                ++ (concatMap makeItems filteredItems)
             )
           )
-   in if tui ^. timingUISticky
-        then
-          div
-            [style [("position", "absolute"), ("bottom", "0"), ("right", "0")]]
-            [svgElement]
-        else div [] [svgElement]
+   in div
+        [ style
+            [ ("width", T.pack (show timingWidth))
+            , ("height", T.pack (show timingHeight))
+            , ("overflow", "hidden")
+            ]
+        ]
+        [svgElement]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
