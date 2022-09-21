@@ -193,16 +193,7 @@ goTiming ev (view, model0) = do
         let (tx, ty) = model0 ^. modelTiming . timingUIXY
         onDragging (x, y) (tx, ty)
       _ -> pure model0
-  (ui, ss) <- getState
-  (model', ss') <- defaultUpdateModel ev (model, ss)
-  let -- just placeholder
-      view' = view
-      ui' =
-        ui
-          & (uiView .~ MainMode view')
-            . (uiModel .~ model')
-  putState (ui', ss')
-  pure (view', model')
+  goCommon ev (view, model)
   where
     addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
     addDelta (x, y) (x', y') (tx, ty) =
