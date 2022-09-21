@@ -216,11 +216,11 @@ branchTab tab (view, model) =
     TabTiming -> branchLoop goTiming
   where
     branchLoop go = do
-      let view' = (mainTab .~ tab) view
-      model' <- go (TabEv tab) (view', model)
-      go' model'
+      let view1 = (mainTab .~ tab) view
+      (view', model')  <- go (TabEv tab) (view1, model)
+      loop (view', model')
       where
-        go' (v, m) = do
+        loop (v, m) = do
           checkIfUpdatable
           printMsg "wait for the next event"
           ev <- nextEvent
@@ -229,7 +229,7 @@ branchTab tab (view, model) =
             TabEv tab' -> branchTab tab' (v, m)
             _ -> do
               (v', m') <- go ev (v, m)
-              go' (v', m')
+              loop (v', m')
 
 initializeMainView :: Control (MainView, UIModel)
 initializeMainView = do
