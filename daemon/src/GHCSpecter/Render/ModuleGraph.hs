@@ -260,12 +260,9 @@ renderModuleGraphSVG
                 , SP.fill color
                 ]
                 []
-        box1 (NodeLayout (_, name) (Point x y) (Dim w h)) =
+        box1 (NodeLayout _ (Point x y) (Dim w h)) =
           S.rect
-            [ HoverOnModuleEv (Just name) <$ onMouseEnter
-            , HoverOnModuleEv Nothing <$ onMouseLeave
-            , ClickOnModuleEv (Just name) <$ onClick
-            , SP.x (T.pack $ show (x + offX))
+            [ SP.x (T.pack $ show (x + offX))
             , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
             , width (T.pack $ show (w * aFactor))
             , height "4"
@@ -285,10 +282,7 @@ renderModuleGraphSVG
                     pure (fromIntegral nCompiled / fromIntegral nTot)
               w' = ratio * w
            in S.rect
-                [ HoverOnModuleEv (Just name) <$ onMouseEnter
-                , HoverOnModuleEv Nothing <$ onMouseLeave
-                , ClickOnModuleEv (Just name) <$ onClick
-                , SP.x (T.pack $ show (x + offX))
+                [ SP.x (T.pack $ show (x + offX))
                 , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
                 , width (T.pack $ show (w' * aFactor))
                 , height "4"
@@ -311,23 +305,20 @@ renderModuleGraphSVG
           concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (grVisInfo ^. gviNodes)
 
         svgProps =
-          let svgProps0 =
-                [ width (T.pack (show (canvasWidth + 100)))
-                , SP.viewBox
-                    ( "0 0 "
-                        <> T.pack (show (canvasWidth + 100)) -- i don't understand why it's incorrect
-                        <> " "
-                        <> T.pack (show (canvasHeight + 100))
-                    )
-                , SP.version "1.1"
-                , xmlns
-                ]
-           in -- (DummyEv <$> onMouseMove) :
-              svgProps0
+          [ width (T.pack (show (canvasWidth + 100)))
+          , SP.viewBox
+              ( "0 0 "
+                  <> T.pack (show (canvasWidth + 100))
+                  <> " "
+                  <> T.pack (show (canvasHeight + 100))
+              )
+          , SP.version "1.1"
+          , xmlns
+          ]
         svgElement =
           S.svg
             svgProps
-            (S.style [] [text ".small { font: 6px sans-serif; }"] : (edges ++ nodes))
+            (S.style [] [text ".small { font: 6px sans-serif; } text { user-select: none; }"] : (edges ++ nodes))
      in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderMainModuleGraph ::
