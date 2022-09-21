@@ -120,19 +120,6 @@ updateModel topEv (oldModel, oldSS) =
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-{-
-    handleMouseMove ::
-      UIModel ->
-      Maybe (UTCTime, (Double, Double)) ->
-      (UIModel, Maybe UTCTime)
-    handleMouseMove model mtxy =
-      case mtxy of
-        Nothing -> (model, Nothing)
-        Just (t, xy) ->
-          let model' = (modelMousePosition .~ xy) model
-           in (model', Just t)
--}
-
 -- | showing ghc-specter banner in the beginning
 showBanner :: Control ()
 showBanner = do

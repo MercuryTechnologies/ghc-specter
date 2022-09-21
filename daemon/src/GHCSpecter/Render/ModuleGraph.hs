@@ -74,7 +74,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
     pre,
     text,
   )
-import GHCSpecter.UI.ConcurReplica.DOM.Events (onMouseMove)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types

@@ -89,8 +89,6 @@ data UIModel = UIModel
   -- ^ UI state of source view UI
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
-  , _modelMousePosition :: (Double, Double)
-  -- ^ mouse position
   }
 
 makeClassy ''UIModel
@@ -102,7 +100,6 @@ emptyUIModel =
     , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
-    , _modelMousePosition = (0, 0)
     }
 
 data UIView
