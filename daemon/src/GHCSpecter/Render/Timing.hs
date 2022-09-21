@@ -18,7 +18,6 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
-import Data.Bifunctor (bimap)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -54,7 +53,8 @@ import GHCSpecter.UI.Types
     UIModel,
   )
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
+  ( ComponentTag (TimingBar, TimingView),
+    Event (..),
     MouseEvent (..),
     TimingEvent (..),
   )
@@ -224,9 +224,9 @@ renderTimingChart tui timingInfos =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
                 [viewPortX tui, viewPortY nMods tui, timingWidth, timingHeight]
-         in [ MouseEv . MouseMove <$> onMouseMove
-            , MouseEv . MouseDown <$> onMouseDown
-            , MouseEv . MouseUp <$> onMouseUp
+         in [ MouseEv TimingView . MouseMove <$> onMouseMove
+            , MouseEv TimingView . MouseDown <$> onMouseDown
+            , MouseEv TimingView . MouseUp <$> onMouseUp
             , width (T.pack (show timingWidth))
             , height (T.pack (show timingHeight))
             , viewboxProp
@@ -307,21 +307,14 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
             ]
         ]
 
-renderBar ::
+renderTimingBar ::
   TimingUI ->
   [(ModuleName, TimingInfo NominalDiffTime)] ->
   Widget IHTML Event
-renderBar tui timingInfos =
+renderTimingBar tui timingInfos =
   div [] [svgElement]
   where
     nMods = length timingInfos
-
-    modEndTimes = fmap (^. _2 . timingEnd) timingInfos
-
-    totalTime =
-      case modEndTimes of
-        [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
-        _ -> maximum modEndTimes
 
     topOfBox :: Int -> Int
     topOfBox i = 5 * i + 1
@@ -346,7 +339,10 @@ renderBar tui timingInfos =
 
     background =
       S.rect
-        [ SP.x "0"
+        [ MouseEv TimingBar . MouseMove <$> onMouseMove
+        , MouseEv TimingBar . MouseDown <$> onMouseDown
+        , MouseEv TimingBar . MouseUp <$> onMouseUp
+        , SP.x "0"
         , SP.y "0"
         , SP.width (T.pack (show timingWidth))
         , SP.height (T.pack (show timingBarHeight))
@@ -389,5 +385,5 @@ render model ss =
         , div
             [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
             [renderCheckbox (model ^. modelTiming)]
-        , renderBar (model ^. modelTiming) timingInfos
+        , renderTimingBar (model ^. modelTiming) timingInfos
         ]
