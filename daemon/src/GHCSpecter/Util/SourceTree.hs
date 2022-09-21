@@ -4,7 +4,6 @@ module GHCSpecter.Util.SourceTree
 where
 
 import Control.Lens (to, (^..))
-import Data.Foldable qualified as F
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Tree
@@ -29,8 +28,8 @@ appendTo (x : xs) (t : ts)
   | x == rootLabel t = Node x (appendTo xs (subForest t)) : ts
   | otherwise = t : appendTo (x : xs) ts
 
-test :: ServerState -> IO ()
-test ss = do
+makeSourceTree :: ServerState -> Forest ModuleName
+makeSourceTree ss =
   let modNames =
         L.sort $
           ss
@@ -39,7 +38,22 @@ test ss = do
               . to mginfoModuleNameMap
               . traverse
               . to (T.splitOn ".")
-      forest = L.foldl' (\(!ts) m -> appendTo m ts) [] modNames
-  mapM_ print modNames
-  putStrLn $
-    drawForest (fmap (fmap T.unpack) forest)
+   in L.foldl' (\(!ts) m -> appendTo m ts) [] modNames
+
+stripSubTree :: Tree a -> Tree a
+stripSubTree (Node x _) = Node x []
+
+expandFocusOnly :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
+expandFocusOnly [] ts = fmap stripSubTree ts
+expandFocusOnly _ [] = []
+expandFocusOnly (x : xs) (t : ts)
+  | x == rootLabel t = Node x (expandFocusOnly xs (subForest t)) : fmap stripSubTree ts
+  | otherwise = Node (rootLabel t) [] : expandFocusOnly (x : xs) ts
+
+test :: ServerState -> IO ()
+test ss = do
+  let forest = makeSourceTree ss
+      printForest f =
+        putStrLn $
+          drawForest (fmap (fmap T.unpack) f)
+  printForest (expandFocusOnly ["Client", "Bank"] forest)
