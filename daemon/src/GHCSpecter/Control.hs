@@ -49,25 +49,25 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
   )
 
-updateModel ::
+defaultUpdateModel ::
   Event ->
   (UIModel, ServerState) ->
-  Control (UIModel, ServerState, Maybe UTCTime)
-updateModel topEv (oldModel, oldSS) =
+  Control (UIModel, ServerState)
+defaultUpdateModel topEv (oldModel, oldSS) =
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     ExpandModuleEv mexpandedModu' -> do
       let newModel = (modelSourceView . srcViewExpandedModule .~ mexpandedModu') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
           mgui' = handleModuleGraphEv ev mgui
           newModel = (modelMainModuleGraph .~ mgui') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     SubModuleEv sev ->
       case sev of
         SubModuleGraphEv ev -> do
@@ -75,43 +75,43 @@ updateModel topEv (oldModel, oldSS) =
               mgui' = handleModuleGraphEv ev mgui
               newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS, Nothing)
+          pure (newModel, newSS)
         SubModuleLevelEv d' -> do
           let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
               newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS, Nothing)
+          pure (newModel, newSS)
     SessionEv SaveSessionEv -> do
       saveSession
       let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     SessionEv ResumeSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     TimingEv (UpdatePartition b) -> do
       let newModel = (modelTiming . timingUIPartition .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     TimingEv (UpdateParallel b) -> do
       let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS, Nothing)
+      pure (newModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
-      pure (oldModel, newSS, Nothing)
+      pure (oldModel, newSS)
     BkgEv RefreshUI -> do
-      pure (oldModel, oldSS, Nothing)
-    _ -> pure (oldModel, oldSS, Nothing)
+      pure (oldModel, oldSS)
+    _ -> pure (oldModel, oldSS)
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -158,20 +158,13 @@ checkIfUpdatable = do
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model) = do
   (ui, ss) <- getState
-  (model', ss', mLastUpdatedUI) <- updateModel ev (model, ss)
+  (model', ss') <- defaultUpdateModel ev (model, ss)
   let -- just placeholder
       view' = view
-      ui1 =
-        (uiView .~ MainMode view')
-          . (uiModel .~ model')
-          $ ui
       ui' =
-        case mLastUpdatedUI of
-          Nothing -> ui1
-          Just t ->
-            if ui1 ^. uiShouldUpdate
-              then (uiLastUpdated .~ t) ui1
-              else ui1
+        ui
+          & (uiView .~ MainMode view')
+            . (uiModel .~ model')
   putState (ui', ss')
   pure (view', model')
 
@@ -193,20 +186,13 @@ goTiming ev (view, model0) = do
         onDragging (x, y) (tx, ty)
       _ -> pure model0
   (ui, ss) <- getState
-  (model', ss', mLastUpdatedUI) <- updateModel ev (model, ss)
+  (model', ss') <- defaultUpdateModel ev (model, ss)
   let -- just placeholder
       view' = view
-      ui1 =
-        (uiView .~ MainMode view')
-          . (uiModel .~ model')
-          $ ui
       ui' =
-        case mLastUpdatedUI of
-          Nothing -> ui1
-          Just t ->
-            if ui1 ^. uiShouldUpdate
-              then (uiLastUpdated .~ t) ui1
-              else ui1
+        ui
+          & (uiView .~ MainMode view')
+            . (uiModel .~ model')
   putState (ui', ss')
   pure (view', model')
   where
