@@ -34,6 +34,7 @@ import GHCSpecter.UI.Types
     MainView,
     ModuleGraphUI (..),
     UIModel,
+    UIState,
     UIView (..),
     emptyMainView,
   )
@@ -119,6 +120,23 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
+updateLastUpdated :: UIState -> Control UIState
+updateLastUpdated ui = do
+  now <- getCurrentTime
+  let ui'
+        | ui ^. uiShouldUpdate = ui & uiLastUpdated .~ now
+        | otherwise = ui
+  pure ui'
+
+checkIfUpdatable :: Control ()
+checkIfUpdatable = do
+  lastUpdatedUI <- getLastUpdatedUI
+  stepStartTime <- getCurrentTime
+  -- wait for update interval, not to have too frequent update
+  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
+    then shouldUpdate True
+    else shouldUpdate False
+
 -- | showing ghc-specter banner in the beginning
 showBanner :: Control ()
 showBanner = do
@@ -143,15 +161,6 @@ showBanner = do
           refreshUIAfter 0.1
           go start
         else pure ()
-
-checkIfUpdatable :: Control ()
-checkIfUpdatable = do
-  lastUpdatedUI <- getLastUpdatedUI
-  stepStartTime <- getCurrentTime
-  -- wait for update interval, not to have too frequent update
-  if (stepStartTime `Clock.diffUTCTime` lastUpdatedUI > uiUpdateInterval)
-    then shouldUpdate True
-    else shouldUpdate False
 
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
@@ -195,29 +204,24 @@ goTiming ev (view, model0) = do
   putState (ui', ss')
   pure (view', model')
   where
+    addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
+    addDelta (x, y) (x', y') (tx, ty) =
+      let (dx, dy) = (x' - x, y' - y)
+       in modelTiming . timingUIXY .~ (tx - dx, ty - dy)
+
     -- (x, y): mouse down point, (tx, ty): viewport origin
     onDragging (x, y) (tx, ty) = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
         MouseEv (MouseUp (Just (x', y'))) -> do
-          let (deltaX, deltaY) = (x' - x, y' - y)
-              model =
-                model0
-                  & modelTiming . timingUIXY .~ (tx - deltaX, ty - deltaY)
+          let model = addDelta (x, y) (x', y') (tx, ty) model0
           pure model
         MouseEv (MouseMove (Just (x', y'))) -> do
-          let (deltaX, deltaY) = (x' - x, y' - y)
-              model =
-                model0
-                  & modelTiming . timingUIXY .~ (tx - deltaX, ty - deltaY)
+          let model = addDelta (x, y) (x', y') (tx, ty) model0
           (ui0, ss) <- getState
-          now <- getCurrentTime
           let ui1 = ui0 & (uiModel .~ model)
-              ui =
-                if ui1 ^. uiShouldUpdate
-                  then ui1 & uiLastUpdated .~ now
-                  else ui1
+          ui <- updateLastUpdated ui1
           putState (ui, ss)
           onDragging (x, y) (tx, ty)
         _ -> onDragging (x, y) (tx, ty)
