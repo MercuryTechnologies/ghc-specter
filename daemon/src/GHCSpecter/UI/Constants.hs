@@ -1,9 +1,13 @@
 module GHCSpecter.UI.Constants
-  ( chanUpdateInterval,
+  ( -- * time interval
+    chanUpdateInterval,
     uiUpdateInterval,
     tickInterval,
+
+    -- * Timing view
     timingWidth,
     timingHeight,
+    timingBarHeight,
   )
 where
 
@@ -23,3 +27,6 @@ timingWidth = 800
 
 timingHeight :: Int
 timingHeight = 600
+
+timingBarHeight :: Int
+timingBarHeight = 10
