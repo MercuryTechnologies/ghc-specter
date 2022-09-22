@@ -109,8 +109,7 @@ renderMainView (view, model, ss) = do
             ( section
                 [ style
                     [ ("max-height", "80vh")
-                    , ("overflow-y", "hidden")
-                    , ("overflow-x", "hidden")
+                    , ("overflow", "hidden")
                     ]
                 ]
                 [renderMainPanel view model ss]
