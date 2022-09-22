@@ -27,8 +27,6 @@ where
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
-import Data.Tree (Forest)
-import GHCSpecter.Channel (type ModuleName)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 

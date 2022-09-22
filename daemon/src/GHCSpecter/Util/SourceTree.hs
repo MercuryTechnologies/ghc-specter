@@ -1,27 +1,17 @@
 module GHCSpecter.Util.SourceTree
-  ( test,
-    makeSourceTree,
+  ( makeSourceTree,
     accumPrefix,
     expandFocusOnly,
   )
 where
 
-import Control.Lens (to, (^.), (^..))
+import Control.Lens (to, (^..))
 import Data.List qualified as L
 import Data.Text qualified as T
-import Data.Tree
-  ( Forest,
-    Tree (..),
-    drawForest,
-  )
+import Data.Tree (Forest, Tree (..))
 import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
-    SessionInfo (..),
     type ModuleName,
-  )
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState,
   )
 
 appendTo :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
@@ -54,13 +44,3 @@ expandFocusOnly _ [] = []
 expandFocusOnly (x : xs) (t : ts)
   | x == rootLabel t = Node x (expandFocusOnly xs (subForest t)) : fmap stripSubTree ts
   | otherwise = Node (rootLabel t) [] : expandFocusOnly (x : xs) ts
-
-test :: ServerState -> IO ()
-test ss = do
-  let forest = makeSourceTree (ss ^. serverSessionInfo . to sessionModuleGraph)
-      printForest f =
-        putStrLn $
-          drawForest (fmap (fmap show) f)
-      testForest = expandFocusOnly ["Client", "Bank"] forest
-      testForest' = fmap (accumPrefix []) testForest
-  printForest testForest'
