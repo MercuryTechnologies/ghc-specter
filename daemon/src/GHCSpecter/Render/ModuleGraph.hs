@@ -26,6 +26,7 @@ import Concur.Replica
     onInput,
     onMouseEnter,
     onMouseLeave,
+    style,
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
@@ -416,7 +417,7 @@ render model ss =
           pre [] [text "GHC Session has not been started"]
         Just _ ->
           div
-            []
+            [style [("overflow", "scroll"), ("height", "75vh")]]
             ( case mgs ^. mgsClusterGraph of
                 Nothing -> []
                 Just grVisInfo ->
