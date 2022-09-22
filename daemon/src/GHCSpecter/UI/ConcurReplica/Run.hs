@@ -8,48 +8,14 @@ where
 import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Widget, step)
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Free (Free (Free, Pure))
-import Data.Map qualified as M
 import Data.Text qualified as T
-import Data.Text.Encoding qualified as T
 import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
 import GHCSpecter.UI.ConcurReplica.WaiHandler qualified as R
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
 import Network.WebSockets.Connection (ConnectionOptions, defaultConnectionOptions)
-import Replica.VDOM (clientDriver, fireEvent)
-import Replica.VDOM.Types
-  ( Attr (..),
-    DOMEvent (DOMEvent),
-    HTML,
-    VDOM (..),
-  )
-
-customDefaultIndex :: T.Text -> HTML -> HTML
-customDefaultIndex title header =
-  [ VLeaf "!doctype" (fl [("html", ABool True)]) Nothing
-  , VNode
-      "html"
-      mempty
-      Nothing
-      [ VNode "head" mempty Nothing $
-          [ VLeaf "meta" (fl [("charset", AText "utf-8")]) Nothing
-          , VNode "title" mempty Nothing [VText title]
-          ]
-            <> header
-      , VNode
-          "body"
-          (fl [("style", AText "height: 100vh;")])
-          Nothing
-          [ VNode
-              "script"
-              (fl [("language", AText "javascript")])
-              Nothing
-              [VRawText $ T.decodeUtf8 clientDriver]
-          ]
-      ]
-  ]
-  where
-    fl = M.fromList
+import Replica.VDOM (defaultIndex, fireEvent)
+import Replica.VDOM.Types (DOMEvent (DOMEvent), HTML)
 
 run :: Int -> HTML -> ConnectionOptions -> Middleware -> (R.Context -> Widget IHTML a) -> IO ()
 run port index connectionOptions middleware widget =
@@ -59,7 +25,7 @@ run port index connectionOptions middleware widget =
 runDefault :: Int -> T.Text -> (R.Context -> Widget IHTML a) -> IO ()
 runDefault port title widget =
   W.run port $
-    R.app (customDefaultIndex title []) defaultConnectionOptions id (step <$> widget) stepWidget
+    R.app (defaultIndex title []) defaultConnectionOptions id (step <$> widget) stepWidget
 
 -- | No need to use this directly if you're using 'run' or 'runDefault'.
 stepWidget ::
