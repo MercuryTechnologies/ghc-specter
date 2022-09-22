@@ -228,15 +228,19 @@ renderTimingChart tui timingInfos =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
                 [viewPortX tui, viewPortY nMods tui, timingWidth, timingHeight]
-         in [ MouseEv TimingView . MouseMove <$> onMouseMove
-            , MouseEv TimingView . MouseDown <$> onMouseDown
-            , MouseEv TimingView . MouseUp <$> onMouseUp
-            , width (T.pack (show timingWidth))
-            , height (T.pack (show timingHeight))
-            , viewboxProp
-            , SP.version "1.1"
-            , xmlns
-            ]
+            prop1 =
+              [ MouseEv TimingView . MouseDown <$> onMouseDown
+              , MouseEv TimingView . MouseUp <$> onMouseUp
+              , width (T.pack (show timingWidth))
+              , height (T.pack (show timingHeight))
+              , viewboxProp
+              , SP.version "1.1"
+              , xmlns
+              ]
+            mouseMove
+              | tui ^. timingUIHandleMouseMove = [MouseEv TimingView . MouseMove <$> onMouseMove]
+              | otherwise = []
+         in mouseMove ++ prop1
 
       allItems = zip [0 ..] timingInfos
       filteredItems =

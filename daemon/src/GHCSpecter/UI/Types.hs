@@ -61,12 +61,13 @@ data TimingUI = TimingUI
   -- ^ Whether showing color-coded parallel processes
   , _timingUIViewPortTopLeft :: (Double, Double)
   -- ^ Top-Left corner of timing UI viewport
+  , _timingUIHandleMouseMove :: Bool
   }
 
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False False (0, 0)
+emptyTimingUI = TimingUI False False False (0, 0) False
 
 data MainView = MainView
   { _mainTab :: Tab
