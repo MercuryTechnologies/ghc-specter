@@ -2,6 +2,7 @@
 module GHCSpecter.UI.ConcurReplica.Run
   ( run,
     runDefault,
+    runDefaultWithStyle,
   )
 where
 
@@ -15,7 +16,7 @@ import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
 import Network.WebSockets.Connection (ConnectionOptions, defaultConnectionOptions)
 import Replica.VDOM (defaultIndex, fireEvent)
-import Replica.VDOM.Types (DOMEvent (DOMEvent), HTML)
+import Replica.VDOM.Types (DOMEvent (DOMEvent), HTML, VDOM (..))
 
 run :: Int -> HTML -> ConnectionOptions -> Middleware -> (R.Context -> Widget IHTML a) -> IO ()
 run port index connectionOptions middleware widget =
@@ -26,6 +27,13 @@ runDefault :: Int -> T.Text -> (R.Context -> Widget IHTML a) -> IO ()
 runDefault port title widget =
   W.run port $
     R.app (defaultIndex title []) defaultConnectionOptions id (step <$> widget) stepWidget
+
+runDefaultWithStyle :: Int -> T.Text -> T.Text -> (R.Context -> Widget IHTML a) -> IO ()
+runDefaultWithStyle port title style widget =
+  W.run port $
+    R.app (defaultIndex title [styleNode]) defaultConnectionOptions id (step <$> widget) stepWidget
+  where
+    styleNode = VNode "style" mempty Nothing [VRawText style]
 
 -- | No need to use this directly if you're using 'run' or 'runDefault'.
 stepWidget ::

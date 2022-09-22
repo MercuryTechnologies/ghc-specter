@@ -17,6 +17,7 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
+import Data.Tree (Forest)
 import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -41,6 +42,7 @@ import GHCSpecter.Util.Graph.Cluster
     makeDivisionsInOrder,
     reduceGraphByPath,
   )
+import GHCSpecter.Util.SourceTree (makeSourceTree)
 import Text.Printf (printf)
 
 maxSubGraphSize :: DetailLevel -> Int
@@ -50,11 +52,13 @@ maxSubGraphSize UpTo300 = 300
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
+  let forest = makeSourceTree mgi
   grVisInfo <- layOutGraph modNameMap reducedGraphReversed
   atomically $
     modifyTVar' var $
       let updater =
-            (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
+            (serverModuleGraphState . mgsModuleForest .~ forest)
+              . (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
               . ( serverModuleGraphState . mgsClustering
                     .~ fmap (\(c, ms) -> (c, fmap snd ms)) clustering
                 )

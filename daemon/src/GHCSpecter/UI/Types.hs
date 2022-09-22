@@ -44,7 +44,7 @@ emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
 
 newtype SourceViewUI = SourceViewUI
   { _srcViewExpandedModule :: Maybe Text
-  -- ^ expanded module in CheckImports
+  -- ^ expanded module in SourceView
   }
 
 makeClassy ''SourceViewUI

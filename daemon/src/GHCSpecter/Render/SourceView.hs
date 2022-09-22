@@ -8,27 +8,27 @@ import Concur.Core (Widget)
 import Concur.Replica
   ( MouseEvent,
     classList,
+    height,
     onClick,
     style,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad.Trans.State (State, get, put, runState)
-import Data.Foldable qualified as F
 import Data.Function (on)
 import Data.List qualified as L
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel
   ( Channel (..),
-    ModuleGraphInfo (..),
     ModuleName,
-    SessionInfo (..),
     getEndTime,
   )
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
+    HasModuleGraphState (..),
     HasModuleHieInfo (..),
     HasServerState (..),
     Inbox,
@@ -51,14 +51,23 @@ import GHCSpecter.UI.Types
     SourceViewUI (..),
   )
 import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.Util.SourceTree
+  ( accumPrefix,
+    expandFocusOnly,
+  )
 import Prelude hiding (div, span)
 
-iconText :: Text -> Text -> Text -> Widget IHTML MouseEvent
-iconText ico cls txt =
+iconText :: Bool -> Text -> Text -> Text -> Widget IHTML MouseEvent
+iconText isBordered ico cls txt =
   let iconCls = classList [("fas", True), (ico, True)]
       iconProps = [iconCls, onClick]
+      spanProps =
+        classList [("icon-text " <> cls, True)] :
+        if isBordered
+          then [style [("border", "solid")]]
+          else []
    in span
-        [classList [("icon-text " <> cls, True)]]
+        spanProps
         [ span [classList [("icon", True)]] [el "i" iconProps []]
         , span [onClick] [text txt]
         ]
@@ -147,17 +156,35 @@ renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLeve
   where
     topLevelDecls = getTopLevelDecls modHieInfo
 
--- | Top-level render function for the Source View tab
-render :: SourceViewUI -> ServerState -> Widget IHTML Event
-render srcUI ss =
-  ul [] $ map eachRender allModules
+renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderModuleTree srcUI ss =
+  div
+    [ style
+        [ ("height", "75vh")
+        , ("overflow", "scroll")
+        ]
+    ]
+    [ul [] contents]
   where
-    inbox = ss ^. serverInbox
-    hie = ss ^. serverHieState
     timing = ss ^. serverTiming
     -- NOTE: We do not want to have lens dependency for the plugin.
-    allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
+    -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
+    expanded = maybe [] (T.splitOn ".") mexpandedModu
+    displayedForest =
+      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded)
+    displayedForest' :: [Tree ModuleName]
+    displayedForest' =
+      fmap (fmap (T.intercalate ".")) . fmap (accumPrefix []) $ displayedForest
+
+    convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
+    convert x ys
+      | null ys = li [] [x]
+      | otherwise = li [] [x, ul [] ys]
+
+    contents :: [Widget IHTML Event]
+    contents =
+      fmap (\tr -> foldTree convert (fmap eachRender tr)) displayedForest'
 
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
@@ -165,23 +192,57 @@ render srcUI ss =
           colorTxt
             | isCompiled = "has-text-success-dark"
             | otherwise = "has-text-grey"
-          modinfo =
+          modItem =
             case mexpandedModu of
               Just modu'
-                | modu == modu' ->
-                    let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
-                        sourcePanel =
-                          case mmodHieInfo of
-                            Nothing -> div [] [pre [] [text "No Hie info"]]
-                            Just modHieInfo ->
-                              div
-                                [classList [("columns", True)]]
-                                [ div [classList [("column is-half", True)]] [renderSourceCode modHieInfo]
-                                , div [classList [("column is-half", True)]] [renderDecls modHieInfo]
-                                ]
+                | modu == modu' -> ExpandModuleEv Nothing <$ iconText True "fa-minus" colorTxt modu
+              _ -> ExpandModuleEv (Just modu) <$ iconText False "fa-plus" colorTxt modu
+       in modItem
 
-                        expanded = [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
-                     in (ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu) : expanded
-              _ ->
-                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
-       in li [] modinfo
+renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderSourceView srcUI ss =
+  div
+    [ style
+        [ ("height", "75vh")
+        , ("overflow", "scroll")
+        ]
+    ]
+    contents
+  where
+    inbox = ss ^. serverInbox
+    hie = ss ^. serverHieState
+    mexpandedModu = srcUI ^. srcViewExpandedModule
+    contents =
+      case mexpandedModu of
+        Just modu ->
+          let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+              sourcePanel =
+                case mmodHieInfo of
+                  Nothing -> div [] [pre [] [text "No Hie info"]]
+                  Just modHieInfo ->
+                    div
+                      [classList [("columns", True)]]
+                      [ div [classList [("column is-three-quarters", True)]] [renderSourceCode modHieInfo]
+                      , div [classList [("column is-one-quarter", True)]] [renderDecls modHieInfo]
+                      ]
+           in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
+        _ -> []
+
+render :: SourceViewUI -> ServerState -> Widget IHTML Event
+render srcUI ss =
+  div
+    [ classList [("columns", True)]
+    , style [("overflow", "hidden")]
+    , height "100%"
+    ]
+    [ div
+        [ classList [("column is-one-quarter", True)]
+        , style [("overflow", "scroll")]
+        ]
+        [renderModuleTree srcUI ss]
+    , div
+        [ classList [("column is-three-quarters", True)]
+        , style [("overflow", "scroll")]
+        ]
+        [renderSourceView srcUI ss]
+    ]
