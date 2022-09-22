@@ -137,19 +137,11 @@ breakSourceText modHieInfo = txts ++ [txt]
 
 -- | show source code with declaration positions
 renderSourceCode :: ModuleHieInfo -> Widget IHTML a
-renderSourceCode modHieInfo = pre [] rendered
+renderSourceCode modHieInfo =
+  TextView.render False rendered (fmap (^. _1) topLevelDecls)
   where
-    theicon =
-      span
-        [style [("position", "relative"), ("width", "0"), ("height", "0")]]
-        [ span
-            [ classList [("icon", True)]
-            , style [("position", "absolute"), ("top", "-16px"), ("left", "-9px")]
-            ]
-            [el "i" [classList [("fas fa-long-arrow-alt-down has-text-primary", True)]] []]
-        ]
-    rendered =
-      L.intersperse theicon $ fmap text $ breakSourceText modHieInfo
+    topLevelDecls = getTopLevelDecls modHieInfo
+    rendered = modHieInfo ^. modHieSource
 
 -- | list decls
 renderDecls :: ModuleHieInfo -> Widget IHTML a
@@ -168,8 +160,6 @@ renderModuleTree srcUI ss =
     [ul [] contents]
   where
     timing = ss ^. serverTiming
-    -- NOTE: We do not want to have lens dependency for the plugin.
-    -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
@@ -208,7 +198,7 @@ renderSourceView srcUI ss =
         , ("overflow", "scroll")
         ]
     ]
-    (TextView.render "abc\ndef\nhij\n" : contents)
+    contents
   where
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
@@ -237,12 +227,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-one-quarter", True)]
+        [ classList [("column is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-three-quarters", True)]
+        [ classList [("column is-four-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
