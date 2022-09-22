@@ -26,6 +26,7 @@ import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Channel
   ( ChanMessage (..),
@@ -49,7 +50,7 @@ import GHCSpecter.Server.Types
     emptyServerState,
     incrementSN,
   )
-import GHCSpecter.UI.ConcurReplica.Run (runDefault)
+import GHCSpecter.UI.ConcurReplica.Run (runDefaultWithStyle)
 import GHCSpecter.UI.ConcurReplica.Types
   ( IHTML,
     blockDOMUpdate,
@@ -164,10 +165,13 @@ data UIChannel = UIChannel
   -- ^ channel for receiving background event
   }
 
+styleText :: Text
+styleText = "ul > li { margin-left: 10px; }"
+
 webServer :: TVar ServerState -> IO ()
 webServer ssRef = do
   assets <- Assets.loadAssets
-  runDefault 8080 "ghc-specter" $
+  runDefaultWithStyle 8080 "ghc-specter" styleText $
     \_ -> do
       uiRef <-
         unsafeBlockingIO $ do

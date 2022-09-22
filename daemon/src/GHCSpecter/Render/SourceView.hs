@@ -170,10 +170,6 @@ renderModuleTree srcUI ss =
     ]
     [ul [] contents]
   where
-    -- [ ul []
-    --   [ li [] [text "A", ul [] [li [] [text "B"]]] ]
-    -- ]
-
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
     timing = ss ^. serverTiming
@@ -275,12 +271,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-half", True)]
+        [ classList [("column is-one-quarter", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-half", True)]
+        [ classList [("column is-three-quarters", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
