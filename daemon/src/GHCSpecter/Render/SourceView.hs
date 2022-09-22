@@ -11,13 +11,9 @@ import Concur.Replica
     height,
     onClick,
     style,
-    textProp,
-    width,
   )
-import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad.Trans.State (State, get, put, runState)
-import Data.Foldable qualified as F
 import Data.Function (on)
 import Data.List qualified as L
 import Data.Maybe (isJust)
@@ -26,12 +22,9 @@ import Data.Text qualified as T
 import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel
   ( Channel (..),
-    ModuleGraphInfo (..),
     ModuleName,
-    SessionInfo (..),
     getEndTime,
   )
-import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -52,7 +45,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
     ul,
   )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
@@ -65,12 +57,17 @@ import GHCSpecter.Util.SourceTree
   )
 import Prelude hiding (div, span)
 
-iconText :: Text -> Text -> Text -> Widget IHTML MouseEvent
-iconText ico cls txt =
+iconText :: Bool -> Text -> Text -> Text -> Widget IHTML MouseEvent
+iconText isBordered ico cls txt =
   let iconCls = classList [("fas", True), (ico, True)]
       iconProps = [iconCls, onClick]
+      spanProps =
+        classList [("icon-text " <> cls, True)] :
+        if isBordered
+          then [style [("border", "solid")]]
+          else []
    in span
-        [classList [("icon-text " <> cls, True)]]
+        spanProps
         [ span [classList [("icon", True)]] [el "i" iconProps []]
         , span [onClick] [text txt]
         ]
@@ -165,13 +162,10 @@ renderModuleTree srcUI ss =
     [ style
         [ ("height", "75vh")
         , ("overflow", "scroll")
-        , ("border", "solid 1px red")
         ]
     ]
     [ul [] contents]
   where
-    inbox = ss ^. serverInbox
-    hie = ss ^. serverHieState
     timing = ss ^. serverTiming
     -- NOTE: We do not want to have lens dependency for the plugin.
     -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
@@ -192,8 +186,6 @@ renderModuleTree srcUI ss =
     contents =
       fmap (\tr -> foldTree convert (fmap eachRender tr)) displayedForest'
 
-    displayedModules = concatMap F.toList displayedForest'
-
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
       let isCompiled = isJust (timing ^? at modu . _Just . to getEndTime . _Just)
@@ -203,32 +195,9 @@ renderModuleTree srcUI ss =
           modItem =
             case mexpandedModu of
               Just modu'
-                | modu == modu' -> ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
-              _ -> ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu
+                | modu == modu' -> ExpandModuleEv Nothing <$ iconText True "fa-minus" colorTxt modu
+              _ -> ExpandModuleEv (Just modu) <$ iconText False "fa-plus" colorTxt modu
        in modItem
-
-{-
-    svgProps =
-      [ width "500"
-      , height "500"
-      , SP.version "1.1"
-      , xmlns
-      ]
-
-    svgElement =
-      S.svg
-        svgProps
-        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , S.rect
-            [ SP.x "100"
-            , SP.y "100"
-            , SP.width "100"
-            , SP.height "100"
-            , SP.fill "red"
-            ]
-            []
-        ]
--}
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
@@ -236,7 +205,6 @@ renderSourceView srcUI ss =
     [ style
         [ ("height", "75vh")
         , ("overflow", "scroll")
-        , ("border", "solid 1px green")
         ]
     ]
     contents
@@ -254,8 +222,8 @@ renderSourceView srcUI ss =
                   Just modHieInfo ->
                     div
                       [classList [("columns", True)]]
-                      [ div [classList [("column is-half", True)]] [renderSourceCode modHieInfo]
-                      , div [classList [("column is-half", True)]] [renderDecls modHieInfo]
+                      [ div [classList [("column is-three-quarters", True)]] [renderSourceCode modHieInfo]
+                      , div [classList [("column is-one-quarter", True)]] [renderDecls modHieInfo]
                       ]
            in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
         _ -> []
@@ -264,10 +232,7 @@ render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
   div
     [ classList [("columns", True)]
-    , style
-        [ ("overflow", "auto")
-        , ("border", "solid 1px blue")
-        ]
+    , style [("overflow", "hidden")]
     , height "100%"
     ]
     [ div
