@@ -266,7 +266,8 @@ main = do
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
 
   -- show banner
-  showBanner
+  -- showBanner
+  refreshUIAfter 0.1
 
   -- initialize main view
   (view, model) <- initializeMainView

@@ -8,9 +8,12 @@ import Concur.Core (Widget)
 import Concur.Replica
   ( MouseEvent,
     classList,
+    height,
     onClick,
     style,
+    width,
   )
+import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Foldable qualified as F
@@ -26,6 +29,7 @@ import GHCSpecter.Channel
     SessionInfo (..),
     getEndTime,
   )
+import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -46,6 +50,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
     ul,
   )
+import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
@@ -152,10 +157,17 @@ renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLeve
   where
     topLevelDecls = getTopLevelDecls modHieInfo
 
--- | Top-level render function for the Source View tab
-render :: SourceViewUI -> ServerState -> Widget IHTML Event
-render srcUI ss =
-  ul [] $ map eachRender displayedModules
+renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderModuleTree srcUI ss =
+  div
+    [ style
+        [ ("height", "75vh")
+        , ("overflow", "scroll")
+        , ("border", "solid 1px red")
+        ]
+    ]
+    [ ul [] $ map eachRender displayedModules
+    ]
   where
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
@@ -177,23 +189,82 @@ render srcUI ss =
           colorTxt
             | isCompiled = "has-text-success-dark"
             | otherwise = "has-text-grey"
-          modinfo =
+          modItem =
             case mexpandedModu of
               Just modu'
-                | modu == modu' ->
-                    let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
-                        sourcePanel =
-                          case mmodHieInfo of
-                            Nothing -> div [] [pre [] [text "No Hie info"]]
-                            Just modHieInfo ->
-                              div
-                                [classList [("columns", True)]]
-                                [ div [classList [("column is-half", True)]] [renderSourceCode modHieInfo]
-                                , div [classList [("column is-half", True)]] [renderDecls modHieInfo]
-                                ]
+                | modu == modu' -> ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
+              _ -> ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu
+       in li [] [modItem]
 
-                        expanded = [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
-                     in (ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu) : expanded
-              _ ->
-                [ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu]
-       in li [] modinfo
+    svgProps =
+      [ width "500"
+      , height "500"
+      , SP.version "1.1"
+      , xmlns
+      ]
+
+    svgElement =
+      S.svg
+        svgProps
+        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+        , S.rect
+            [ SP.x "100"
+            , SP.y "100"
+            , SP.width "100"
+            , SP.height "100"
+            , SP.fill "red"
+            ]
+            []
+        ]
+
+renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderSourceView srcUI ss =
+  div
+    [ style
+        [ ("height", "75vh")
+        , ("overflow", "scroll")
+        , ("border", "solid 1px green")
+        ]
+    ]
+    contents
+  where
+    inbox = ss ^. serverInbox
+    hie = ss ^. serverHieState
+    mexpandedModu = srcUI ^. srcViewExpandedModule
+    contents =
+      case mexpandedModu of
+        Just modu ->
+          let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+              sourcePanel =
+                case mmodHieInfo of
+                  Nothing -> div [] [pre [] [text "No Hie info"]]
+                  Just modHieInfo ->
+                    div
+                      [classList [("columns", True)]]
+                      [ div [classList [("column is-half", True)]] [renderSourceCode modHieInfo]
+                      , div [classList [("column is-half", True)]] [renderDecls modHieInfo]
+                      ]
+           in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
+        _ -> []
+
+render :: SourceViewUI -> ServerState -> Widget IHTML Event
+render srcUI ss =
+  div
+    [ classList [("columns", True)]
+    , style
+        [ ("overflow", "auto")
+        , ("border", "solid 1px blue")
+        ]
+    , height "100%"
+    ]
+    [ div
+        [ classList [("column is-one-fifth", True)]
+        , style [("overflow", "scroll")]
+        ]
+        [renderModuleTree srcUI ss]
+    , div
+        [ classList [("column is-four-fifths", True)]
+        , style [("overflow", "scroll")]
+        ]
+        [renderSourceView srcUI ss]
+    ]
