@@ -192,7 +192,12 @@ goTiming ev (view, model0) = do
     case ev of
       MouseEv TimingView (MouseDown (Just (x, y))) -> do
         let (tx, ty) = model0 ^. modelTiming . timingUIViewPortTopLeft
-        onDraggingInTimingView (x, y) (tx, ty)
+            -- turn on mouse move event handling
+            model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
+        (ui0, ss) <- getState
+        let ui1 = ui0 & (uiModel .~ model1)
+        putState (ui1, ss)
+        onDraggingInTimingView model1 (x, y) (tx, ty)
       _ -> pure model0
   goCommon ev (view, model)
   where
@@ -202,21 +207,25 @@ goTiming ev (view, model0) = do
        in modelTiming . timingUIViewPortTopLeft .~ (tx - dx, ty - dy)
 
     -- (x, y): mouse down point, (tx, ty): viewport origin
-    onDraggingInTimingView (x, y) (tx, ty) = do
+    onDraggingInTimingView model_ (x, y) (tx, ty) = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
         MouseEv TimingView (MouseUp (Just (x', y'))) -> do
-          let model = addDelta (x, y) (x', y') (tx, ty) model0
+          let model =
+                -- turn off mouse move event handling
+                (modelTiming . timingUIHandleMouseMove .~ False)
+                  . addDelta (x, y) (x', y') (tx, ty)
+                  $ model_
           pure model
         MouseEv TimingView (MouseMove (Just (x', y'))) -> do
-          let model = addDelta (x, y) (x', y') (tx, ty) model0
+          let model = addDelta (x, y) (x', y') (tx, ty) model_
           (ui0, ss) <- getState
           let ui1 = ui0 & (uiModel .~ model)
           ui <- updateLastUpdated ui1
           putState (ui, ss)
-          onDraggingInTimingView (x, y) (tx, ty)
-        _ -> onDraggingInTimingView (x, y) (tx, ty)
+          onDraggingInTimingView model (x, y) (tx, ty)
+        _ -> onDraggingInTimingView model_ (x, y) (tx, ty)
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()
