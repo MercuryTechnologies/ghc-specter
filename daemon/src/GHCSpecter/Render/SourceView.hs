@@ -25,6 +25,7 @@ import GHCSpecter.Channel
     ModuleName,
     getEndTime,
   )
+import GHCSpecter.Render.Components.TextView qualified as TextView (render)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -207,7 +208,7 @@ renderSourceView srcUI ss =
         , ("overflow", "scroll")
         ]
     ]
-    contents
+    (TextView.render "abc\ndef\nhij\n" : contents)
   where
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState

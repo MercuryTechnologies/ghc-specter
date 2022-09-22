@@ -21,8 +21,8 @@ import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
-import Data.Tuple (swap)
 import Data.Text qualified as T
+import Data.Tuple (swap)
 import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
@@ -33,7 +33,6 @@ import GHCSpecter.Server.Types
     HasModuleGraphState (..),
     HasServerState (..),
     NodeLayout (..),
-    HasServerState (..),
     ServerState (..),
     incrementSN,
     transposeGraphVis,
@@ -50,7 +49,6 @@ import GHCSpecter.Util.Graph.Cluster
     makeDivisionsInOrder,
     reduceGraphByPath,
   )
-import GHCSpecter.Util.SourceTree (makeSourceTree)
 import GHCSpecter.Util.OGDF
   ( appendText,
     doSugiyamaLayout,
@@ -64,6 +62,7 @@ import GHCSpecter.Util.OGDF
     nodeStyle,
     runGraphLayouter,
   )
+import GHCSpecter.Util.SourceTree (makeSourceTree)
 import OGDF.Graph
   ( Graph,
     graph_newEdge,
