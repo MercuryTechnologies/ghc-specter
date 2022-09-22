@@ -11,6 +11,7 @@ import Concur.Replica
     height,
     onClick,
     style,
+    textProp,
     width,
   )
 import Concur.Replica.SVG.Props qualified as SP
@@ -22,6 +23,7 @@ import Data.List qualified as L
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel
   ( Channel (..),
     ModuleGraphInfo (..),
@@ -166,9 +168,12 @@ renderModuleTree srcUI ss =
         , ("border", "solid 1px red")
         ]
     ]
-    [ ul [] $ map eachRender displayedModules
-    ]
+    [ul [] contents]
   where
+    -- [ ul []
+    --   [ li [] [text "A", ul [] [li [] [text "B"]]] ]
+    -- ]
+
     inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
     timing = ss ^. serverTiming
@@ -176,12 +181,22 @@ renderModuleTree srcUI ss =
     -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
-    displayedModules =
-      let displayedForest =
-            ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded)
-          displayedForest' =
-            fmap (fmap (T.intercalate ".")) . fmap (accumPrefix []) $ displayedForest
-       in concatMap F.toList displayedForest'
+    displayedForest =
+      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded)
+    displayedForest' :: [Tree ModuleName]
+    displayedForest' =
+      fmap (fmap (T.intercalate ".")) . fmap (accumPrefix []) $ displayedForest
+
+    convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
+    convert x ys
+      | null ys = li [] [x]
+      | otherwise = li [] [x, ul [] ys]
+
+    contents :: [Widget IHTML Event]
+    contents =
+      fmap (\tr -> foldTree convert (fmap eachRender tr)) displayedForest'
+
+    displayedModules = concatMap F.toList displayedForest'
 
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
@@ -194,8 +209,9 @@ renderModuleTree srcUI ss =
               Just modu'
                 | modu == modu' -> ExpandModuleEv Nothing <$ iconText "fa-minus" colorTxt modu
               _ -> ExpandModuleEv (Just modu) <$ iconText "fa-plus" colorTxt modu
-       in li [] [modItem]
+       in modItem
 
+{-
     svgProps =
       [ width "500"
       , height "500"
@@ -216,6 +232,7 @@ renderModuleTree srcUI ss =
             ]
             []
         ]
+-}
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
@@ -258,12 +275,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-one-fifth", True)]
+        [ classList [("column is-half", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-four-fifths", True)]
+        [ classList [("column is-half", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
