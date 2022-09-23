@@ -17,7 +17,7 @@ import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Function (on)
 import Data.List qualified as L
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -130,6 +130,46 @@ getTopLevelDecls modHieInfo = sortedTopLevelDecls
     topLevelDecls = filterTopLevel decls
     sortedTopLevelDecls = L.sortBy (compare `on` (^. _1)) topLevelDecls
 
+sliceText :: (Int, Int) -> (Int, Int) -> State ((Int, Int), Text) Text
+sliceText start end = do
+  _ <- splitLineColumn start
+  splitLineColumn end
+
+findText :: Text -> Text -> Maybe (Int, Int)
+findText needle haystick =
+  let (searched, remaining) = T.breakOn needle haystick
+   in if T.null remaining
+        then Nothing
+        else
+          let ls = T.lines searched
+           in if null ls
+                then Just (0, 0)
+                else Just (length ls - 1, T.length (last ls))
+
+addRowCol :: (Int, Int) -> (Int, Int) -> (Int, Int)
+addRowCol (i, j) (di, dj)
+  | di == 0 = (i, j + dj)
+  | otherwise = (i + di, dj)
+
+reduceDeclRange :: Text -> ((Int, Int), (Int, Int)) -> Text -> Maybe ((Int, Int), (Int, Int))
+reduceDeclRange src (start, end) needle =
+  let (sliced, _) = runState (sliceText start end) ((1, 1), src)
+      mdidj = findText needle sliced
+      indexFromStart didj =
+        let startOfNeedle = addRowCol start didj
+            endOfNeedle = addRowCol startOfNeedle (0, T.length needle - 1)
+         in (startOfNeedle, endOfNeedle)
+   in fmap indexFromStart mdidj
+
+getReducedTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
+getReducedTopLevelDecls modHieInfo =
+  mapMaybe
+    (\((start, end), decl) -> (,decl) <$> reduceDeclRange src (start, end) decl)
+    topLevelDecls
+  where
+    src = modHieInfo ^. modHieSource
+    topLevelDecls = getTopLevelDecls modHieInfo
+
 breakSourceText :: ModuleHieInfo -> [Text]
 breakSourceText modHieInfo = txts ++ [txt]
   where
@@ -142,7 +182,7 @@ renderSourceCode :: ModuleHieInfo -> Widget IHTML a
 renderSourceCode modHieInfo =
   TextView.render False rendered (fmap (^. _1) topLevelDecls)
   where
-    topLevelDecls = getTopLevelDecls modHieInfo
+    topLevelDecls = getReducedTopLevelDecls modHieInfo
     rendered = modHieInfo ^. modHieSource
 
 -- | list decls
@@ -240,40 +280,25 @@ render srcUI ss =
         [renderSourceView srcUI ss]
     ]
 
-sliceText :: (Int, Int) -> (Int, Int) -> State ((Int, Int), Text) Text
-sliceText start end = do
-  _ <- splitLineColumn start
-  splitLineColumn end
-  
-findText :: Text -> Text -> Maybe (Int, Int)
-findText needle haystick =
-  let (searched, remaining) = T.breakOn needle haystick
-   in if T.null remaining
-        then Nothing
-        else let ls = T.lines searched
-              in Just (length ls - 1, T.length (last ls))
-
-addRowCol :: (Int, Int) -> (Int, Int) -> (Int, Int)
-addRowCol (i, j) (di, dj)
-  | di == 0 = (i, j + dj)
-  | otherwise = (i + di, dj)
-
 test :: ServerState -> IO ()
 test ss = do
   putStrLn "test"
-  let mmodHieInfo = ss ^? serverHieState . hieModuleMap . at "Metrics" . _Just
+  let mmodHieInfo = ss ^? serverHieState . hieModuleMap . at "A.MercuryPrelude" . _Just
   case mmodHieInfo of
     Nothing -> pure ()
     Just modHieInfo -> do
       let src = modHieInfo ^. modHieSource
           srcLines = T.lines src
-      mapM_ (\(i, txt) -> TIO.putStrLn (T.pack (show i) <> ": " <> txt)) $ zip [1..] srcLines
+      mapM_ (\(i, txt) -> TIO.putStrLn (T.pack (show i) <> ": " <> txt)) $ zip [1 ..] srcLines
       putStrLn "----------"
-      let start = (97, 1)
-          end = (97, 61)
-          needle = "PostgresConnectionSource"
-      let (sliced, _) = runState (sliceText (97, 1) (97, 61)) ((1, 1), src)
-          
+      let start = (60, 1)
+          end = (60, 16)
+          needle = "throwIO"
+      print $ reduceDeclRange src (start, end) needle
+
+{-
+        (sliced, _) = runState (sliceText (97, 1) (97, 61)) ((1, 1), src)
+
       TIO.putStrLn sliced
       let mdidj = findText needle sliced
       case mdidj of
@@ -282,9 +307,4 @@ test ss = do
           let startOfNeedle = addRowCol start didj
               endOfNeedle = addRowCol startOfNeedle (0, T.length needle - 1)
           print (startOfNeedle, endOfNeedle)
-      -- print ()
-
-      
-      -- (97, 1) -- (97, 61)
-      
---  modHieInfo
+-}
