@@ -1,7 +1,6 @@
 module GHCSpecter.Render.SourceView
   ( render,
     splitLineColumn,
-    test,
   )
 where
 
@@ -20,7 +19,6 @@ import Data.List qualified as L
 import Data.Maybe (isJust, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel
   ( Channel (..),
@@ -279,32 +277,3 @@ render srcUI ss =
         ]
         [renderSourceView srcUI ss]
     ]
-
-test :: ServerState -> IO ()
-test ss = do
-  putStrLn "test"
-  let mmodHieInfo = ss ^? serverHieState . hieModuleMap . at "A.MercuryPrelude" . _Just
-  case mmodHieInfo of
-    Nothing -> pure ()
-    Just modHieInfo -> do
-      let src = modHieInfo ^. modHieSource
-          srcLines = T.lines src
-      mapM_ (\(i, txt) -> TIO.putStrLn (T.pack (show i) <> ": " <> txt)) $ zip [1 ..] srcLines
-      putStrLn "----------"
-      let start = (60, 1)
-          end = (60, 16)
-          needle = "throwIO"
-      print $ reduceDeclRange src (start, end) needle
-
-{-
-        (sliced, _) = runState (sliceText (97, 1) (97, 61)) ((1, 1), src)
-
-      TIO.putStrLn sliced
-      let mdidj = findText needle sliced
-      case mdidj of
-        Nothing -> pure ()
-        Just didj -> do
-          let startOfNeedle = addRowCol start didj
-              endOfNeedle = addRowCol startOfNeedle (0, T.length needle - 1)
-          print (startOfNeedle, endOfNeedle)
--}
