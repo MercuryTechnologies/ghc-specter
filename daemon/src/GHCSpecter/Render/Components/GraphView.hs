@@ -2,7 +2,7 @@
 
 module GHCSpecter.Render.Components.GraphView
   ( renderModuleGraphSVG,
-  -- renderCallGraphSVG,
+    renderGraph,
   )
 where
 
@@ -183,3 +183,77 @@ renderModuleGraphSVG
             svgProps
             (S.style [] [text ".small { font: 6px sans-serif; } text { user-select: none; }"] : (edges ++ nodes))
      in div [classList [("is-fullwidth", True)]] [svgElement]
+
+-- | render graph more simply
+renderGraph :: GraphVisInfo -> Widget IHTML a
+renderGraph grVisInfo =
+  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+      nodeLayoutMap =
+        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
+      -- graph layout parameter
+      aFactor = 0.9
+      offX = -15
+      offYFactor = -1.0
+      -- the center of left side of a node
+      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
+        Point (x + offX) (y + h * offYFactor + h + 0.5)
+      -- the center of right side of a node
+      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
+        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
+      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
+        let (color, swidth) = ("gray", "1")
+            -- if source and target nodes cannot be found,
+            -- just use coordinates recorded in edge.
+            -- TODO: should be handled as error.
+            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
+              srcNode <- IM.lookup src nodeLayoutMap
+              tgtNode <- IM.lookup tgt nodeLayoutMap
+              -- Left-to-right flow.
+              pure (rightCenter srcNode, leftCenter tgtNode)
+         in S.polyline
+              [ SP.points (makePolylineText (srcPt, tgtPt) xys)
+              , SP.stroke color
+              , SP.strokeWidth swidth
+              , SP.fill "none"
+              ]
+              []
+
+      box0 (NodeLayout _ (Point x y) (Dim w h)) =
+        let color = "ivory"
+         in S.rect
+              [ SP.x (T.pack $ show (x + offX))
+              , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
+              , width (T.pack $ show (w * aFactor))
+              , height "13"
+              , SP.stroke "dimgray"
+              , SP.fill color
+              ]
+              []
+      labelText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
+        S.text
+          [ SP.x (T.pack $ show (x + offX + 2))
+          , SP.y (T.pack $ show (y + h * offYFactor + h))
+          , classList [("small", True)]
+          ]
+          [text name]
+
+      edges = fmap edge (grVisInfo ^. gviEdges)
+      nodes =
+        concatMap (\x -> [box0 x, labelText x]) (grVisInfo ^. gviNodes)
+
+      svgProps =
+        [ width (T.pack (show (canvasWidth + 100)))
+        , SP.viewBox
+            ( "0 0 "
+                <> T.pack (show (canvasWidth + 100))
+                <> " "
+                <> T.pack (show (canvasHeight + 100))
+            )
+        , SP.version "1.1"
+        , xmlns
+        ]
+      svgElement =
+        S.svg
+          svgProps
+          (S.style [] [text ".small { font: 6px sans-serif; } text { user-select: none; }"] : (edges ++ nodes))
+   in div [classList [("is-fullwidth", True)]] [svgElement]
