@@ -20,6 +20,9 @@ module GHCSpecter.Worker.CallGraph
 
     -- * worker
     worker,
+
+    -- * test
+    test,
   )
 where
 
@@ -85,6 +88,7 @@ data ModuleCallGraph = ModuleCallGraph
   { _modCallSymMap :: IntMap UnitSymbol
   , _modCallGraph :: IntMap [Int]
   }
+  deriving (Show)
 
 makeClassy ''ModuleCallGraph
 
@@ -154,6 +158,9 @@ makeRawCallGraph modName modHieInfo = fmap extract topDecls
 isInPlace :: Text -> Bool
 isInPlace unitName = "inplace" `T.isSuffixOf` unitName
 
+isMain :: Text -> Bool
+isMain = (== "main")
+
 restrictToUnitCallGraph ::
   [(Text, [(Text, Maybe ModuleName, Text)])] ->
   [(UnitSymbol, [UnitSymbol])]
@@ -161,7 +168,7 @@ restrictToUnitCallGraph = fmap ((_1 %~ UnitSymbol Nothing) . (_2 %~ restrict))
   where
     restrict =
       fmap (\r -> UnitSymbol (r ^. _2) (r ^. _3))
-        . filter (\r -> r ^. _1 . to isInPlace)
+        . filter (\r -> r ^. _1 . to (\u -> isInPlace u || isMain u))
 
 makeSymbolMap :: [(UnitSymbol, [UnitSymbol])] -> IntMap UnitSymbol
 makeSymbolMap callGraph = IM.fromList (zip [1 ..] syms)
@@ -219,3 +226,12 @@ worker var modName modHieInfo = do
         modifyTVar' var $
           serverHieState . hieCallGraphMap
             %~ M.insert modName modCallGraph
+
+test :: ServerState -> IO ()
+test ss = do
+  let modName = "B"
+      mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
+  case mmodHieInfo of
+    Nothing -> pure ()
+    Just modHieInfo -> do
+      print $ makeCallGraph modName modHieInfo

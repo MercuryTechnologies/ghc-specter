@@ -67,6 +67,7 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
+import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -231,11 +232,8 @@ main = do
           serverSessionRef <- atomically $ newTVar ss
           webServer serverSessionRef
     Temp sessionFile -> do
-      pure ()
-
-{-      lbs <- BL.readFile sessionFile
+      lbs <- BL.readFile sessionFile
       case eitherDecode' lbs of
         Left err -> print err
         Right ss -> do
           CallGraph.test ss
--}
