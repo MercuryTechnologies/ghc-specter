@@ -41,7 +41,6 @@ import Control.Lens
     _Just,
   )
 import Control.Monad.Trans.State (runState)
-import Data.Foldable (for_)
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -199,6 +198,9 @@ makeCallGraph modName modHieInfo =
       mcallGraph = IM.fromList <$> integerizeGraph revSymMap callGraph0
    in ModuleCallGraph symMap <$> mcallGraph
 
+maxGraphSize :: Int
+maxGraphSize = 300
+
 -- TODO: use appropriate exception types instead of Nothing
 layOutCallGraph :: ModuleName -> ModuleHieInfo -> IO (Maybe GraphVisInfo)
 layOutCallGraph modName modHieInfo = do
@@ -207,28 +209,29 @@ layOutCallGraph modName modHieInfo = do
     Nothing -> pure Nothing
     Just callGraph -> do
       let symMap = callGraph ^. modCallSymMap
-          renderSym s =
-            let prefix = maybe "" (<> ".") (s ^. symModule)
-             in prefix <> s ^. symName
-          labelMap = fmap renderSym symMap
-          gr = callGraph ^. modCallGraph . to makeRevDep
-      print labelMap
-      print gr
-      grVis <- Sugiyama.layOutGraph labelMap gr
-      pure (Just grVis)
+      if IM.size symMap > maxGraphSize
+        then pure Nothing
+        else do
+          let renderSym s =
+                let prefix = maybe "" (<> ".") (s ^. symModule)
+                 in prefix <> s ^. symName
+              labelMap = fmap renderSym symMap
+              gr = callGraph ^. modCallGraph . to makeRevDep
+          grVis <- Sugiyama.layOutGraph labelMap gr
+          pure (Just grVis)
 
 worker :: TVar ServerState -> ModuleName -> ModuleHieInfo -> IO ()
 worker var modName modHieInfo = do
-  mmodCallGraph <- layOutCallGraph modName modHieInfo
-  case mmodCallGraph of
+  mcallGraphViz <- layOutCallGraph modName modHieInfo
+  case mcallGraphViz of
     Nothing -> do
       TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
-    Just modCallGraph -> do
+    Just callGraphViz -> do
       TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
       atomically $
         modifyTVar' var $
           serverHieState . hieCallGraphMap
-            %~ M.insert modName modCallGraph
+            %~ M.insert modName callGraphViz
 
 test :: ServerState -> IO ()
 test ss = do
