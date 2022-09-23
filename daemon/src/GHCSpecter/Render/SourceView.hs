@@ -1,6 +1,7 @@
 module GHCSpecter.Render.SourceView
   ( render,
     splitLineColumn,
+    test,
   )
 where
 
@@ -19,6 +20,7 @@ import Data.List qualified as L
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel
   ( Channel (..),
@@ -70,7 +72,7 @@ iconText isBordered ico cls txt =
    in span
         spanProps
         [ span [classList [("icon", True)]] [el "i" iconProps []]
-        , span [onClick] [text txt]
+        , span [onClick, style [("font-size", "0.65em")]] [text txt]
         ]
 
 -- | show information on unqualified imports
@@ -237,3 +239,52 @@ render srcUI ss =
         ]
         [renderSourceView srcUI ss]
     ]
+
+sliceText :: (Int, Int) -> (Int, Int) -> State ((Int, Int), Text) Text
+sliceText start end = do
+  _ <- splitLineColumn start
+  splitLineColumn end
+  
+findText :: Text -> Text -> Maybe (Int, Int)
+findText needle haystick =
+  let (searched, remaining) = T.breakOn needle haystick
+   in if T.null remaining
+        then Nothing
+        else let ls = T.lines searched
+              in Just (length ls - 1, T.length (last ls))
+
+addRowCol :: (Int, Int) -> (Int, Int) -> (Int, Int)
+addRowCol (i, j) (di, dj)
+  | di == 0 = (i, j + dj)
+  | otherwise = (i + di, dj)
+
+test :: ServerState -> IO ()
+test ss = do
+  putStrLn "test"
+  let mmodHieInfo = ss ^? serverHieState . hieModuleMap . at "Metrics" . _Just
+  case mmodHieInfo of
+    Nothing -> pure ()
+    Just modHieInfo -> do
+      let src = modHieInfo ^. modHieSource
+          srcLines = T.lines src
+      mapM_ (\(i, txt) -> TIO.putStrLn (T.pack (show i) <> ": " <> txt)) $ zip [1..] srcLines
+      putStrLn "----------"
+      let start = (97, 1)
+          end = (97, 61)
+          needle = "PostgresConnectionSource"
+      let (sliced, _) = runState (sliceText (97, 1) (97, 61)) ((1, 1), src)
+          
+      TIO.putStrLn sliced
+      let mdidj = findText needle sliced
+      case mdidj of
+        Nothing -> pure ()
+        Just didj -> do
+          let startOfNeedle = addRowCol start didj
+              endOfNeedle = addRowCol startOfNeedle (0, T.length needle - 1)
+          print (startOfNeedle, endOfNeedle)
+      -- print ()
+
+      
+      -- (97, 1) -- (97, 61)
+      
+--  modHieInfo
