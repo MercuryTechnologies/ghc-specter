@@ -283,12 +283,16 @@ test ss = do
     for_ decls $ \((declStart, declEnd), name) -> do
       putStrLn "------"
       print (name, (declStart, declEnd))
-      let isSelf r =
+      let isHiddenSymbol r =
+            "$" `T.isPrefixOf` (r ^. ref'NameOcc)
+          isSelf r =
             r ^. ref'NameOcc == name && r ^. ref'NameMod == modName
           isDepOn r =
             let refStart = (r ^. ref'SLine, r ^. ref'SCol)
                 refEnd = (r ^. ref'ELine, r ^. ref'ECol)
              in (refStart, refEnd) `isContainedIn` (declStart, declEnd)
 
-      let depRefs = filter isDepOn $ filter (not . isSelf) allRefs
-      mapM_ (\r -> print (r ^. ref'NameOcc, r)) depRefs
+      let depRefs =
+            filter (\r -> isDepOn r && not (isSelf r) && not (isHiddenSymbol r)) allRefs
+          depRefNames = L.nub $ L.sort $ fmap (\r -> (r ^. ref'NameMod, r ^. ref'NameOcc)) depRefs
+      print depRefNames
