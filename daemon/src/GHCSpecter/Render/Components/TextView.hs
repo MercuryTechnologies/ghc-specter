@@ -20,7 +20,7 @@ render :: Bool -> Text -> [((Int, Int), (Int, Int))] -> Widget IHTML a
 render showCharBox txt highlighted =
   S.svg
     svgProps
-    ( S.style [] [text "text { font: 8px monospace; user-select: none; }"] :
+    ( S.style [] [text "text { font: 8px monospace; user-select: none; white-space: pre; }"] :
       contents
     )
   where

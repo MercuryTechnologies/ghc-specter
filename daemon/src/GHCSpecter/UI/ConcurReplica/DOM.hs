@@ -131,7 +131,11 @@ import Control.ShiftMap (ShiftMap (shiftMap))
 import Data.Map qualified as M
 import Data.Text qualified as T
 import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
-import Replica.VDOM (Attr (ABool, AEvent, AMap, AText), Namespace, VDOM (VNode, VText))
+import Replica.VDOM
+  ( Attr (ABool, AEvent, AMap, AText),
+    Namespace,
+    VDOM (VNode, VText),
+  )
 import Prelude hiding (div, span)
 
 type WidgetConstraints m = (ShiftMap (Widget IHTML) m, Monad m, MonadSafeBlockingIO m, MonadUnsafeBlockingIO m, MultiAlternative m)
