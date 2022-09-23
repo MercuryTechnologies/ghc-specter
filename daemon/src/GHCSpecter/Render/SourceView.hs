@@ -126,6 +126,9 @@ renderModuleTree srcUI ss =
               _ -> ExpandModuleEv (Just modu) <$ iconText False "fa-plus" colorTxt modu
        in modItem
 
+-- renderCallGraph :: ServerState -> Widget IHTML a
+-- renderCallGraph ss =
+
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
   div

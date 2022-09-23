@@ -32,7 +32,7 @@ import GHCSpecter.GraphLayout.Algorithm.Cluster
     makeDivisionsInOrder,
     reduceGraphByPath,
   )
-import GHCSpecter.GraphLayout.Sugiyama (layOutGraph)
+import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
 import GHCSpecter.Server.Types
   ( HasModuleGraphState (..),
@@ -52,7 +52,7 @@ maxSubGraphSize UpTo300 = 300
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
   let forest = makeSourceTree mgi
-  grVisInfo <- layOutGraph modNameMap reducedGraphReversed
+  grVisInfo <- Sugiyama.layOutGraph modNameMap reducedGraphReversed
   atomically $
     modifyTVar' var $
       let updater =
@@ -125,6 +125,6 @@ layOutModuleSubgraph mgi detailLevel (clusterName, members_) = do
         fmap (\ns -> filter (\n -> n `elem` largeNodes) ns) $
           IM.filterWithKey (\m _ -> m `elem` largeNodes) modDep
       subModDepReversed = makeRevDep subModDep
-  grVisInfo <- layOutGraph modNameMap subModDepReversed
+  grVisInfo <- Sugiyama.layOutGraph modNameMap subModDepReversed
   printf "Cluster %s subgraph layout has been calculated.\n" (T.unpack clusterName)
   pure (clusterName, grVisInfo)

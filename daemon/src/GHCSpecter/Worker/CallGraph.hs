@@ -15,11 +15,15 @@ module GHCSpecter.Worker.CallGraph
     -- * call graph
     makeCallGraph,
 
-    -- * test
-    test,
+    -- * layout
+    layOutCallGraph,
+
+    -- * worker
+    worker,
   )
 where
 
+import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens
   ( at,
     makeClassy,
@@ -45,8 +49,11 @@ import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Tuple (swap)
 import GHCSpecter.Channel (ModuleName)
+import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
+import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -76,7 +83,7 @@ makeClassy ''UnitSymbol
 -- the index runs from 1 through the number of symbols.
 data ModuleCallGraph = ModuleCallGraph
   { _modCallSymMap :: IntMap UnitSymbol
-  , _modCallGraph :: [(Int, [Int])]
+  , _modCallGraph :: IntMap [Int]
   }
 
 makeClassy ''ModuleCallGraph
@@ -181,14 +188,34 @@ makeCallGraph modName modHieInfo =
   let callGraph0 = restrictToUnitCallGraph $ makeRawCallGraph modName modHieInfo
       symMap = makeSymbolMap callGraph0
       revSymMap = reverseMap symMap
-      mcallGraph = integerizeGraph revSymMap callGraph0
+      mcallGraph = IM.fromList <$> integerizeGraph revSymMap callGraph0
    in ModuleCallGraph symMap <$> mcallGraph
 
-test :: ServerState -> IO ()
-test ss = do
-  putStrLn "test"
-  let modName = "Metrics"
-      mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
-  for_ mmodHieInfo $ \modHieInfo -> do
-    let mcallGraph = makeCallGraph modName modHieInfo
-    print (mcallGraph ^? _Just . modCallGraph)
+-- TODO: use appropriate exception types instead of Nothing
+layOutCallGraph :: ModuleName -> ModuleHieInfo -> IO (Maybe GraphVisInfo)
+layOutCallGraph modName modHieInfo = do
+  let mcallGraph = makeCallGraph modName modHieInfo
+  case mcallGraph of
+    Nothing -> pure Nothing
+    Just callGraph -> do
+      let symMap = callGraph ^. modCallSymMap
+          renderSym s =
+            let prefix = maybe "" (<> ".") (s ^. symModule)
+             in prefix <> s ^. symName
+          labelMap = fmap renderSym symMap
+          gr = callGraph ^. modCallGraph
+      grVis <- Sugiyama.layOutGraph labelMap gr
+      pure (Just grVis)
+
+worker :: TVar ServerState -> ModuleName -> ModuleHieInfo -> IO ()
+worker var modName modHieInfo = do
+  mmodCallGraph <- layOutCallGraph modName modHieInfo
+  case mmodCallGraph of
+    Nothing -> do
+      TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
+    Just modCallGraph -> do
+      TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
+      atomically $
+        modifyTVar' var $
+          serverHieState . hieCallGraphMap
+            %~ M.insert modName modCallGraph

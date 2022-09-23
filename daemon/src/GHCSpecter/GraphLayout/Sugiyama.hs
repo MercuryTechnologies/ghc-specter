@@ -11,9 +11,9 @@ import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Maybe (mapMaybe)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.Channel (ModuleName)
 import GHCSpecter.GraphLayout.OGDF
   ( appendText,
     doSugiyamaLayout,
@@ -48,7 +48,7 @@ import STD.Deletable (delete)
 newGA :: Graph -> IO GraphAttributes
 newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. nodeStyle)
 
-layOutGraph :: IntMap ModuleName -> IntMap [Int] -> IO GraphVisInfo
+layOutGraph :: IntMap Text -> IntMap [Int] -> IO GraphVisInfo
 layOutGraph nameMap graph = runGraphLayouter $ do
   (_, g) <- allocate newGraph delete
   (_, ga) <- allocate (newGA g) delete
