@@ -42,7 +42,7 @@ convertRefRow RefRow {..} =
   RefRow'
     { _ref'Src = refSrc
     , _ref'NameOcc = T.pack $ occNameString refNameOcc
-    , _ref'NameMod = T.pack $ show refNameMod
+    , _ref'NameMod = T.pack $ moduleNameString refNameMod
     , _ref'NameUnit = T.pack $ show refNameUnit
     , _ref'SLine = refSLine
     , _ref'SCol = refSCol

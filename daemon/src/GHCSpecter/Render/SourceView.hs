@@ -1,6 +1,7 @@
 module GHCSpecter.Render.SourceView
   ( render,
     splitLineColumn,
+    test,
   )
 where
 
@@ -15,6 +16,7 @@ import Concur.Replica
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
 import Control.Monad (guard)
 import Control.Monad.Trans.State (State, get, put, runState)
+import Data.Foldable (for_)
 import Data.Function (on)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
@@ -33,6 +35,7 @@ import GHCSpecter.Server.Types
     HasHieState (..),
     HasModuleGraphState (..),
     HasModuleHieInfo (..),
+    HasRefRow' (..),
     HasServerState (..),
     Inbox,
     ModuleHieInfo,
@@ -268,3 +271,24 @@ render srcUI ss =
         ]
         [renderSourceView srcUI ss]
     ]
+
+test :: ServerState -> IO ()
+test ss = do
+  putStrLn "test"
+  let modName = "Metrics"
+      mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
+  for_ mmodHieInfo $ \modHieInfo -> do
+    let decls = getTopLevelDecls modHieInfo
+        allRefs = modHieInfo ^.. modHieRefs . traverse
+    for_ decls $ \((declStart, declEnd), name) -> do
+      putStrLn "------"
+      print (name, (declStart, declEnd))
+      let isSelf r =
+            r ^. ref'NameOcc == name && r ^. ref'NameMod == modName
+          isDepOn r =
+            let refStart = (r ^. ref'SLine, r ^. ref'SCol)
+                refEnd = (r ^. ref'ELine, r ^. ref'ECol)
+             in (refStart, refEnd) `isContainedIn` (declStart, declEnd)
+
+      let depRefs = filter isDepOn $ filter (not . isSelf) allRefs
+      mapM_ (\r -> print (r ^. ref'NameOcc, r)) depRefs
