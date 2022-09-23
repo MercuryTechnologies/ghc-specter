@@ -47,17 +47,21 @@ import GHCSpecter.Channel
     SessionInfo (..),
     Timer,
   )
-import GHCSpecter.Render.Util (xmlns)
-import GHCSpecter.Server.Types
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
+import GHCSpecter.GraphLayout.Algorithm.Cluster (filterOutSmallNodes)
+import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
     GraphVisInfo (..),
     HasGraphVisInfo (..),
-    HasModuleGraphState (..),
     HasNodeLayout (..),
-    HasServerState (..),
     NodeLayout (..),
     Point (..),
+  )
+import GHCSpecter.Render.Util (xmlns)
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -81,8 +85,6 @@ import GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     SubModuleEvent (..),
   )
-import GHCSpecter.Util.Graph.Builder (makeRevDep)
-import GHCSpecter.Util.Graph.Cluster (filterOutSmallNodes)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

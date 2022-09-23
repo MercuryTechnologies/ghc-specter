@@ -27,29 +27,18 @@ import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
   )
-import GHCSpecter.Server.Types
-  ( EdgeLayout (..),
-    GraphVisInfo (..),
-    HasModuleGraphState (..),
-    HasServerState (..),
-    NodeLayout (..),
-    ServerState (..),
-    incrementSN,
-    transposeGraphVis,
-  )
-import GHCSpecter.UI.Types.Event (DetailLevel (..))
-import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)
-import GHCSpecter.Util.Graph.Builder
+import GHCSpecter.GraphLayout.Algorithm.BFS (runMultiseedStagedBFS)
+import GHCSpecter.GraphLayout.Algorithm.Builder
   ( makeBiDep,
     makeEdges,
     makeRevDep,
   )
-import GHCSpecter.Util.Graph.Cluster
+import GHCSpecter.GraphLayout.Algorithm.Cluster
   ( filterOutSmallNodes,
     makeDivisionsInOrder,
     reduceGraphByPath,
   )
-import GHCSpecter.Util.OGDF
+import GHCSpecter.GraphLayout.OGDF
   ( appendText,
     doSugiyamaLayout,
     edgeGraphics,
@@ -62,6 +51,19 @@ import GHCSpecter.Util.OGDF
     nodeStyle,
     runGraphLayouter,
   )
+import GHCSpecter.GraphLayout.Types
+  ( EdgeLayout (..),
+    GraphVisInfo (..),
+    NodeLayout (..),
+    transposeGraphVis,
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    ServerState (..),
+    incrementSN,
+  )
+import GHCSpecter.UI.Types.Event (DetailLevel (..))
 import GHCSpecter.Util.SourceTree (makeSourceTree)
 import OGDF.Graph
   ( Graph,

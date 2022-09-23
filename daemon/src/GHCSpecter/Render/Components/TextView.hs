@@ -18,6 +18,7 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 
 render :: Bool -> Text -> [((Int, Int), (Int, Int))] -> Widget IHTML a
 render showCharBox txt highlighted =
+  -- NOTE: white-space: pre to preserve white-space occurrences in the source code.
   S.svg
     svgProps
     ( S.style [] [text "text { font: 8px monospace; user-select: none; white-space: pre; }"] :
