@@ -47,17 +47,19 @@ import GHCSpecter.Channel
     SessionInfo (..),
     Timer,
   )
-import GHCSpecter.Render.Util (xmlns)
-import GHCSpecter.Server.Types
+import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
     GraphVisInfo (..),
     HasGraphVisInfo (..),
-    HasModuleGraphState (..),
     HasNodeLayout (..),
-    HasServerState (..),
     NodeLayout (..),
     Point (..),
+  )
+import GHCSpecter.Render.Util (xmlns)
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM

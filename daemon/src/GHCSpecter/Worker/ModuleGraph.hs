@@ -27,15 +27,17 @@ import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
   )
-import GHCSpecter.Server.Types
+import GHCSpecter.GraphLayout.Types
   ( EdgeLayout (..),
     GraphVisInfo (..),
-    HasModuleGraphState (..),
-    HasServerState (..),
     NodeLayout (..),
+    transposeGraphVis,
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
     ServerState (..),
     incrementSN,
-    transposeGraphVis,
   )
 import GHCSpecter.UI.Types.Event (DetailLevel (..))
 import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)

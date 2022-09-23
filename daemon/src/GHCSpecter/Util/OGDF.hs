@@ -56,7 +56,7 @@ import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
 import Foreign.C.Types (CBool (..), CLong)
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable (Storable (peek, poke))
-import GHCSpecter.Server.Types
+import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
     NodeLayout (..),
