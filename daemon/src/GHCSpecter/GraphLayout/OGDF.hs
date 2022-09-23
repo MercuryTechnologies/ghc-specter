@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module GHCSpecter.Util.OGDF
+module GHCSpecter.GraphLayout.OGDF
   ( nodeGraphics,
     edgeGraphics,
     edgeIntWeight,

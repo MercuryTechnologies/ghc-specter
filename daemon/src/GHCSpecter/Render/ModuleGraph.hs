@@ -47,6 +47,8 @@ import GHCSpecter.Channel
     SessionInfo (..),
     Timer,
   )
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
+import GHCSpecter.GraphLayout.Algorithm.Cluster (filterOutSmallNodes)
 import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
@@ -83,8 +85,6 @@ import GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     SubModuleEvent (..),
   )
-import GHCSpecter.Util.Graph.Builder (makeRevDep)
-import GHCSpecter.Util.Graph.Cluster (filterOutSmallNodes)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

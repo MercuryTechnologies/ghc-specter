@@ -27,6 +27,30 @@ import GHCSpecter.Channel
   ( ModuleGraphInfo (..),
     ModuleName,
   )
+import GHCSpecter.GraphLayout.Algorithm.BFS (runMultiseedStagedBFS)
+import GHCSpecter.GraphLayout.Algorithm.Builder
+  ( makeBiDep,
+    makeEdges,
+    makeRevDep,
+  )
+import GHCSpecter.GraphLayout.Algorithm.Cluster
+  ( filterOutSmallNodes,
+    makeDivisionsInOrder,
+    reduceGraphByPath,
+  )
+import GHCSpecter.GraphLayout.OGDF
+  ( appendText,
+    doSugiyamaLayout,
+    edgeGraphics,
+    getAllEdgeLayout,
+    getAllNodeLayout,
+    getCanvasDim,
+    newGraphNodeWithSize,
+    nodeGraphics,
+    nodeLabel,
+    nodeStyle,
+    runGraphLayouter,
+  )
 import GHCSpecter.GraphLayout.Types
   ( EdgeLayout (..),
     GraphVisInfo (..),
@@ -40,30 +64,6 @@ import GHCSpecter.Server.Types
     incrementSN,
   )
 import GHCSpecter.UI.Types.Event (DetailLevel (..))
-import GHCSpecter.Util.Graph.BFS (runMultiseedStagedBFS)
-import GHCSpecter.Util.Graph.Builder
-  ( makeBiDep,
-    makeEdges,
-    makeRevDep,
-  )
-import GHCSpecter.Util.Graph.Cluster
-  ( filterOutSmallNodes,
-    makeDivisionsInOrder,
-    reduceGraphByPath,
-  )
-import GHCSpecter.Util.OGDF
-  ( appendText,
-    doSugiyamaLayout,
-    edgeGraphics,
-    getAllEdgeLayout,
-    getAllNodeLayout,
-    getCanvasDim,
-    newGraphNodeWithSize,
-    nodeGraphics,
-    nodeLabel,
-    nodeStyle,
-    runGraphLayouter,
-  )
 import GHCSpecter.Util.SourceTree (makeSourceTree)
 import OGDF.Graph
   ( Graph,
