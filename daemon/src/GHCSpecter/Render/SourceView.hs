@@ -13,10 +13,12 @@ import Concur.Replica
     style,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
+import Control.Monad (guard)
 import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Function (on)
 import Data.List qualified as L
-import Data.Maybe (isJust)
+import Data.List.NonEmpty qualified as NE
+import Data.Maybe (isJust, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree, foldTree)
@@ -25,6 +27,7 @@ import GHCSpecter.Channel
     ModuleName,
     getEndTime,
   )
+import GHCSpecter.Render.Components.TextView qualified as TextView (render)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -69,7 +72,7 @@ iconText isBordered ico cls txt =
    in span
         spanProps
         [ span [classList [("icon", True)]] [el "i" iconProps []]
-        , span [onClick] [text txt]
+        , span [onClick, style [("font-size", "0.65em")]] [text txt]
         ]
 
 -- | show information on unqualified imports
@@ -127,6 +130,46 @@ getTopLevelDecls modHieInfo = sortedTopLevelDecls
     topLevelDecls = filterTopLevel decls
     sortedTopLevelDecls = L.sortBy (compare `on` (^. _1)) topLevelDecls
 
+sliceText :: (Int, Int) -> (Int, Int) -> State ((Int, Int), Text) Text
+sliceText start end = do
+  _ <- splitLineColumn start
+  splitLineColumn end
+
+findText :: Text -> Text -> Maybe (Int, Int)
+findText needle haystick = do
+  let (searched, remaining) = T.breakOn needle haystick
+  guard (not (T.null remaining))
+  let ls = T.lines searched
+  case NE.nonEmpty ls of
+    Nothing ->
+      Just (0, 0)
+    Just ls' ->
+      Just (NE.length ls' - 1, T.length (NE.last ls'))
+
+addRowCol :: (Int, Int) -> (Int, Int) -> (Int, Int)
+addRowCol (i, j) (di, dj)
+  | di == 0 = (i, j + dj)
+  | otherwise = (i + di, dj)
+
+reduceDeclRange :: Text -> ((Int, Int), (Int, Int)) -> Text -> Maybe ((Int, Int), (Int, Int))
+reduceDeclRange src (start, end) needle =
+  let (sliced, _) = runState (sliceText start end) ((1, 1), src)
+      mdidj = findText needle sliced
+      indexFromStart didj =
+        let startOfNeedle = addRowCol start didj
+            endOfNeedle = addRowCol startOfNeedle (0, T.length needle - 1)
+         in (startOfNeedle, endOfNeedle)
+   in fmap indexFromStart mdidj
+
+getReducedTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
+getReducedTopLevelDecls modHieInfo =
+  mapMaybe
+    (\((start, end), decl) -> (,decl) <$> reduceDeclRange src (start, end) decl)
+    topLevelDecls
+  where
+    src = modHieInfo ^. modHieSource
+    topLevelDecls = getTopLevelDecls modHieInfo
+
 breakSourceText :: ModuleHieInfo -> [Text]
 breakSourceText modHieInfo = txts ++ [txt]
   where
@@ -136,25 +179,11 @@ breakSourceText modHieInfo = txts ++ [txt]
 
 -- | show source code with declaration positions
 renderSourceCode :: ModuleHieInfo -> Widget IHTML a
-renderSourceCode modHieInfo = pre [] rendered
+renderSourceCode modHieInfo =
+  TextView.render False rendered (fmap (^. _1) topLevelDecls)
   where
-    theicon =
-      span
-        [style [("position", "relative"), ("width", "0"), ("height", "0")]]
-        [ span
-            [ classList [("icon", True)]
-            , style [("position", "absolute"), ("top", "-16px"), ("left", "-9px")]
-            ]
-            [el "i" [classList [("fas fa-long-arrow-alt-down has-text-primary", True)]] []]
-        ]
-    rendered =
-      L.intersperse theicon $ fmap text $ breakSourceText modHieInfo
-
--- | list decls
-renderDecls :: ModuleHieInfo -> Widget IHTML a
-renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLevelDecls)
-  where
-    topLevelDecls = getTopLevelDecls modHieInfo
+    topLevelDecls = getReducedTopLevelDecls modHieInfo
+    rendered = modHieInfo ^. modHieSource
 
 renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderModuleTree srcUI ss =
@@ -167,8 +196,6 @@ renderModuleTree srcUI ss =
     [ul [] contents]
   where
     timing = ss ^. serverTiming
-    -- NOTE: We do not want to have lens dependency for the plugin.
-    -- allModules = ss ^. serverSessionInfo . to (F.toList . mginfoModuleNameMap . sessionModuleGraph)
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
@@ -219,12 +246,7 @@ renderSourceView srcUI ss =
               sourcePanel =
                 case mmodHieInfo of
                   Nothing -> div [] [pre [] [text "No Hie info"]]
-                  Just modHieInfo ->
-                    div
-                      [classList [("columns", True)]]
-                      [ div [classList [("column is-three-quarters", True)]] [renderSourceCode modHieInfo]
-                      , div [classList [("column is-one-quarter", True)]] [renderDecls modHieInfo]
-                      ]
+                  Just modHieInfo -> renderSourceCode modHieInfo
            in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
         _ -> []
 
@@ -236,12 +258,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-one-quarter", True)]
+        [ classList [("column is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-three-quarters", True)]
+        [ classList [("column is-four-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
