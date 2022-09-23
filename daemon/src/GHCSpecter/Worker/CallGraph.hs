@@ -1,5 +1,13 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module GHCSpecter.Worker.CallGraph
-  ( -- * top-level decl
+  ( -- * UnitSymbol
+    UnitSymbol (..),
+    HasUnitSymbol (..),
+    ModuleCallGraph (..),
+    HasModuleCallGraph (..),
+
+    -- * top-level decl
     getTopLevelDecls,
     getReducedTopLevelDecls,
     breakSourceText,
@@ -12,7 +20,19 @@ module GHCSpecter.Worker.CallGraph
   )
 where
 
-import Control.Lens (at, to, (%~), (^.), (^..), (^?), _1, _2, _3, _Just)
+import Control.Lens
+  ( at,
+    makeClassy,
+    to,
+    (%~),
+    (^.),
+    (^..),
+    (^?),
+    _1,
+    _2,
+    _3,
+    _Just,
+  )
 import Control.Monad.Trans.State (runState)
 import Data.Foldable (for_)
 import Data.Function (on)
@@ -43,6 +63,24 @@ import GHCSpecter.Util.SourceText
     splitLineColumn,
   )
 
+-- | Symbol only in the current (inplace) unit (package)
+data UnitSymbol = UnitSymbol
+  { _symModule :: Maybe ModuleName
+  , _symName :: Text
+  }
+  deriving (Eq, Ord, Show)
+
+makeClassy ''UnitSymbol
+
+-- | Call graph inside a module in the current unit scope
+-- the index runs from 1 through the number of symbols.
+data ModuleCallGraph = ModuleCallGraph
+  { _modCallSymMap :: IntMap UnitSymbol
+  , _modCallGraph :: [(Int, [Int])]
+  }
+
+makeClassy ''ModuleCallGraph
+
 getTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
 getTopLevelDecls modHieInfo = sortedTopLevelDecls
   where
@@ -71,13 +109,13 @@ breakSourceText modHieInfo = txts ++ [txt]
     topLevelDecls = getTopLevelDecls modHieInfo
     (txts, (_, txt)) = runState (traverse (splitLineColumn . (^. _1 . _1)) topLevelDecls) ((1, 1), src)
 
-makeCallGraph ::
+makeRawCallGraph ::
   ModuleName ->
   ModuleHieInfo ->
   -- | (decl name, [(unit, module name, ref name)])
   -- if module name is Nothing, it means the current module
   [(Text, [(Text, Maybe ModuleName, Text)])]
-makeCallGraph modName modHieInfo = fmap extract topDecls
+makeRawCallGraph modName modHieInfo = fmap extract topDecls
   where
     topDecls = getTopLevelDecls modHieInfo
     allRefs = modHieInfo ^.. modHieRefs . traverse
@@ -111,16 +149,14 @@ isInPlace unitName = "inplace" `T.isSuffixOf` unitName
 
 restrictToUnitCallGraph ::
   [(Text, [(Text, Maybe ModuleName, Text)])] ->
-  [((Maybe ModuleName, Text), [(Maybe ModuleName, Text)])]
-restrictToUnitCallGraph = fmap ((_1 %~ (Nothing,)) . (_2 %~ restrict))
+  [(UnitSymbol, [UnitSymbol])]
+restrictToUnitCallGraph = fmap ((_1 %~ UnitSymbol Nothing) . (_2 %~ restrict))
   where
     restrict =
-      fmap (\r -> (r ^. _2, r ^. _3))
+      fmap (\r -> UnitSymbol (r ^. _2) (r ^. _3))
         . filter (\r -> r ^. _1 . to isInPlace)
 
-makeSymbolMap ::
-  [((Maybe ModuleName, Text), [(Maybe ModuleName, Text)])] ->
-  IntMap (Maybe ModuleName, Text)
+makeSymbolMap :: [(UnitSymbol, [UnitSymbol])] -> IntMap UnitSymbol
 makeSymbolMap callGraph = IM.fromList (zip [1 ..] syms)
   where
     decls = fmap (^. _1) callGraph
@@ -140,18 +176,19 @@ integerizeGraph revMap =
   where
     replace x = M.lookup x revMap
 
+makeCallGraph :: ModuleName -> ModuleHieInfo -> Maybe ModuleCallGraph
+makeCallGraph modName modHieInfo =
+  let callGraph0 = restrictToUnitCallGraph $ makeRawCallGraph modName modHieInfo
+      symMap = makeSymbolMap callGraph0
+      revSymMap = reverseMap symMap
+      mcallGraph = integerizeGraph revSymMap callGraph0
+   in ModuleCallGraph symMap <$> mcallGraph
+
 test :: ServerState -> IO ()
 test ss = do
   putStrLn "test"
   let modName = "Metrics"
       mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
   for_ mmodHieInfo $ \modHieInfo -> do
-    let callGraph = restrictToUnitCallGraph $ makeCallGraph modName modHieInfo
-        symMap = makeSymbolMap callGraph
-        revSymMap = reverseMap symMap
-        callGraph' = integerizeGraph revSymMap callGraph
-    -- mapM_ print callGraph
-    -- mapM_ print $ zip [1..] (gatherSymbols callGraph)
-    -- print (makeSymbolMap callGraph)
-    print revSymMap
-    print callGraph'
+    let mcallGraph = makeCallGraph modName modHieInfo
+    print (mcallGraph ^? _Just . modCallGraph)
