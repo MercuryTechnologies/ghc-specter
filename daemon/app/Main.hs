@@ -44,7 +44,6 @@ import GHCSpecter.Comm
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
-import GHCSpecter.Render.SourceView qualified as SourceView
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -68,6 +67,7 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
+import GHCSpecter.Worker.CallGraph qualified as CallGraph (test)
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -236,4 +236,4 @@ main = do
       case eitherDecode' lbs of
         Left err -> print err
         Right ss -> do
-          SourceView.test ss
+          CallGraph.test ss
