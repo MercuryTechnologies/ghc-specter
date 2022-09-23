@@ -13,9 +13,11 @@ import Concur.Replica
     style,
   )
 import Control.Lens (at, to, (^.), (^..), (^?), _1, _Just)
+import Control.Monad (guard)
 import Control.Monad.Trans.State (State, get, put, runState)
 import Data.Function (on)
 import Data.List qualified as L
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (isJust, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -134,15 +136,15 @@ sliceText start end = do
   splitLineColumn end
 
 findText :: Text -> Text -> Maybe (Int, Int)
-findText needle haystick =
+findText needle haystick = do
   let (searched, remaining) = T.breakOn needle haystick
-   in if T.null remaining
-        then Nothing
-        else
-          let ls = T.lines searched
-           in if null ls
-                then Just (0, 0)
-                else Just (length ls - 1, T.length (last ls))
+  guard (not (T.null remaining))
+  let ls = T.lines searched
+  case NE.nonEmpty ls of
+    Nothing ->
+      Just (0, 0)
+    Just ls' ->
+      Just (NE.length ls' - 1, T.length (NE.last ls'))
 
 addRowCol :: (Int, Int) -> (Int, Int) -> (Int, Int)
 addRowCol (i, j) (di, dj)

@@ -5,26 +5,14 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( classList,
-    height,
-    onClick,
-    onInput,
-    onMouseEnter,
-    onMouseLeave,
-    style,
+  ( height,
     width,
   )
 import Concur.Replica.SVG.Props qualified as SP
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Render.Util (xmlns)
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    input,
-    label,
-    pre,
-    text,
-  )
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 
@@ -39,7 +27,7 @@ render showCharBox txt highlighted =
     -- NOTE: Rows and columns are 1-based following the GHC convention.
     ls :: [(Int, Text)]
     ls = zip [1 ..] $ T.lines txt
-    rowColChars = [((i, j), c) | (i, txt) <- ls, let jcs = zip [1 ..] (T.unpack txt), (j, c) <- jcs]
+    rowColChars = [((i, j), c) | (i, t) <- ls, let jcs = zip [1 ..] (T.unpack t), (j, c) <- jcs]
     nTotal = length ls
     totalWidth =
       case ls of
@@ -77,23 +65,31 @@ render showCharBox txt highlighted =
         , SP.fill "yellow"
         ]
         []
-
-    mkText (i, txt) =
+    highlightBox2 ((startI, startJ), (endI, endJ)) =
+      S.rect
+        [ SP.x (packShow $ leftOfBox startJ)
+        , SP.y (packShow $ topOfBox startI)
+        , SP.width (packShow (charSize * fromIntegral (endJ - startJ + 1)))
+        , SP.height (packShow (rowSize * fromIntegral (endI - startI + 1)))
+        , SP.stroke "red"
+        , SP.strokeWidth "1px"
+        , SP.fill "none"
+        ]
+        []
+    mkText (i, t) =
       S.text
         [ SP.x (packShow $ leftOfBox 1)
         , SP.y (packShow $ bottomOfBox i)
         ]
-        [text txt]
+        [text t]
     contents =
-      if showCharBox
-        then
-          fmap charBox rowColChars
-            ++ fmap highlightBox highlighted
-            ++ fmap mkText ls
-        else
-          fmap mkText ls
-            ++ fmap highlightBox highlighted
-            ++ fmap mkText ls
+      let contents_ =
+            fmap highlightBox highlighted
+              ++ fmap mkText ls
+              ++ fmap highlightBox2 highlighted
+       in if showCharBox
+            then fmap charBox rowColChars ++ contents_
+            else contents_
 
     svgProps =
       [ width (packShow totalWidth)
