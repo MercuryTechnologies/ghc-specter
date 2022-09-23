@@ -183,12 +183,6 @@ renderSourceCode modHieInfo =
     topLevelDecls = getReducedTopLevelDecls modHieInfo
     rendered = modHieInfo ^. modHieSource
 
--- | list decls
-renderDecls :: ModuleHieInfo -> Widget IHTML a
-renderDecls modHieInfo = pre [] (fmap (text . (<> "\n") . T.pack . show) topLevelDecls)
-  where
-    topLevelDecls = getTopLevelDecls modHieInfo
-
 renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderModuleTree srcUI ss =
   div
@@ -253,9 +247,7 @@ renderSourceView srcUI ss =
                   Just modHieInfo ->
                     div
                       [classList [("columns", True)]]
-                      [ div [classList [("column is-three-quarters", True)]] [renderSourceCode modHieInfo]
-                      , div [classList [("column is-one-quarter", True)]] [renderDecls modHieInfo]
-                      ]
+                      [renderSourceCode modHieInfo]
            in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
         _ -> []
 
