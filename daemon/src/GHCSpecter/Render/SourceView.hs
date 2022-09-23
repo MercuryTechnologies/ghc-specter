@@ -244,10 +244,7 @@ renderSourceView srcUI ss =
               sourcePanel =
                 case mmodHieInfo of
                   Nothing -> div [] [pre [] [text "No Hie info"]]
-                  Just modHieInfo ->
-                    div
-                      [classList [("columns", True)]]
-                      [renderSourceCode modHieInfo]
+                  Just modHieInfo -> renderSourceCode modHieInfo
            in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
         _ -> []
 
