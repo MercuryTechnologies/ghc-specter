@@ -55,6 +55,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Tuple (swap)
 import GHCSpecter.Channel (ModuleName)
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
@@ -210,7 +211,9 @@ layOutCallGraph modName modHieInfo = do
             let prefix = maybe "" (<> ".") (s ^. symModule)
              in prefix <> s ^. symName
           labelMap = fmap renderSym symMap
-          gr = callGraph ^. modCallGraph
+          gr = callGraph ^. modCallGraph . to makeRevDep
+      print labelMap
+      print gr
       grVis <- Sugiyama.layOutGraph labelMap gr
       pure (Just grVis)
 
@@ -234,4 +237,6 @@ test ss = do
   case mmodHieInfo of
     Nothing -> pure ()
     Just modHieInfo -> do
-      print $ makeCallGraph modName modHieInfo
+      print (makeCallGraph modName modHieInfo)
+      mgrVis <- layOutCallGraph modName modHieInfo
+      print mgrVis
