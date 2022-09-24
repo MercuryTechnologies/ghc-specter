@@ -224,9 +224,9 @@ worker var modName modHieInfo = do
   mcallGraphViz <- layOutCallGraph modName modHieInfo
   case mcallGraphViz of
     Nothing -> pure ()
-      -- this message is too noisy.
-      -- TODO: introduce log-level in the long run.
-      -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
+    -- this message is too noisy.
+    -- TODO: introduce log-level in the long run.
+    -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
     Just callGraphViz -> do
       -- TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
       atomically $

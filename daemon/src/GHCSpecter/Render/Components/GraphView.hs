@@ -185,8 +185,8 @@ renderModuleGraphSVG
      in div [classList [("is-fullwidth", True)]] [svgElement]
 
 -- | render graph more simply
-renderGraph :: GraphVisInfo -> Widget IHTML a
-renderGraph grVisInfo =
+renderGraph :: (Text -> Bool) -> GraphVisInfo -> Widget IHTML a
+renderGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
@@ -218,8 +218,10 @@ renderGraph grVisInfo =
               ]
               []
 
-      box0 (NodeLayout _ (Point x y) (Dim w h)) =
-        let color = "ivory"
+      box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
+        let color
+              | cond name = "honeydew"
+              | otherwise = "ivory"
          in S.rect
               [ SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
