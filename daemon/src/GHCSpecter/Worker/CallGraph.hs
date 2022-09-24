@@ -20,9 +20,6 @@ module GHCSpecter.Worker.CallGraph
 
     -- * worker
     worker,
-
-    -- * test
-    test,
   )
 where
 
@@ -233,14 +230,3 @@ worker var modName modHieInfo = do
         modifyTVar' var $
           serverHieState . hieCallGraphMap
             %~ M.insert modName callGraphViz
-
-test :: ServerState -> IO ()
-test ss = do
-  let modName = "B"
-      mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
-  case mmodHieInfo of
-    Nothing -> pure ()
-    Just modHieInfo -> do
-      print (makeCallGraph modName modHieInfo)
-      mgrVis <- layOutCallGraph modName modHieInfo
-      print mgrVis

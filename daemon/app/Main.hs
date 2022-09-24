@@ -84,7 +84,6 @@ import Options.Applicative qualified as OA
 data CLIMode
   = Online (Maybe FilePath)
   | View (Maybe FilePath)
-  | Temp (Maybe FilePath)
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
@@ -106,19 +105,10 @@ viewMode =
       )
       (OA.progDesc "viewing saved session")
 
-tempMode :: OA.Mod OA.CommandFields CLIMode
-tempMode =
-  OA.command "temp" $
-    OA.info
-      ( Temp
-          <$> OA.optional (OA.strOption (OA.long "config" <> OA.short 'c' <> OA.help "config file"))
-      )
-      (OA.progDesc "temp")
-
 optsParser :: OA.ParserInfo CLIMode
 optsParser =
   OA.info
-    (OA.subparser (onlineMode <> viewMode <> tempMode) OA.<**> OA.helper)
+    (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
 listener :: FilePath -> TVar ServerState -> IO ()
@@ -260,6 +250,3 @@ main = do
           Right ss -> do
             serverSessionRef <- atomically $ newTVar ss
             webServer serverSessionRef
-    Temp yamlFile -> do
-      B.putStr $
-        Y.encode (Config "/tmp/socket.ipc" "session.json")
