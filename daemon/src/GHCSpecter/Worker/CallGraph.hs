@@ -51,7 +51,6 @@ import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import Data.Tuple (swap)
 import GHCSpecter.Channel (ModuleName)
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
@@ -224,10 +223,12 @@ worker :: TVar ServerState -> ModuleName -> ModuleHieInfo -> IO ()
 worker var modName modHieInfo = do
   mcallGraphViz <- layOutCallGraph modName modHieInfo
   case mcallGraphViz of
-    Nothing -> do
-      TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
+    Nothing -> pure ()
+      -- this message is too noisy.
+      -- TODO: introduce log-level in the long run.
+      -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
     Just callGraphViz -> do
-      TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
+      -- TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
       atomically $
         modifyTVar' var $
           serverHieState . hieCallGraphMap

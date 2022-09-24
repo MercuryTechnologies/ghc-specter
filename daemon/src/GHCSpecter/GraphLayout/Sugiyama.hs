@@ -53,7 +53,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   (_, g) <- allocate newGraph delete
   (_, ga) <- allocate (newGA g) delete
 
-  moduleNodeMap <-
+  nodeMap <-
     flip IM.traverseMaybeWithKey graph $ \i _ -> do
       case IM.lookup i nameMap of
         Nothing -> pure Nothing
@@ -62,13 +62,13 @@ layOutGraph nameMap graph = runGraphLayouter $ do
           node <- newGraphNodeWithSize (g, ga) (15, h)
           appendText ga node name
           pure (Just node)
-  moduleNodeIndex <-
-    traverse (\node -> liftIO (fromIntegral @_ @Int <$> nodeElement_index node)) moduleNodeMap
-  let moduleNodeRevIndex = IM.fromList $ fmap swap $ IM.toList moduleNodeIndex
+  nodeIndex <-
+    traverse (\node -> liftIO (fromIntegral @_ @Int <$> nodeElement_index node)) nodeMap
+  let nodeRevIndex = IM.fromList $ fmap swap $ IM.toList nodeIndex
   void $
     flip IM.traverseWithKey graph $ \i js ->
-      F.for_ (IM.lookup i moduleNodeMap) $ \node_i -> do
-        let node_js = mapMaybe (\j -> IM.lookup j moduleNodeMap) js
+      F.for_ (IM.lookup i nodeMap) $ \node_i -> do
+        let node_js = mapMaybe (\j -> IM.lookup j nodeMap) js
         F.for_ node_js $ \node_j ->
           liftIO (graph_newEdge g node_i node_j)
 
@@ -80,7 +80,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   let nodLayout = mapMaybe replace nodLayout0
         where
           replace (NodeLayout j pt dim) = do
-            i <- IM.lookup j moduleNodeRevIndex
+            i <- IM.lookup j nodeRevIndex
             name <- IM.lookup i nameMap
             pure $ NodeLayout (i, name) pt dim
 
@@ -88,8 +88,8 @@ layOutGraph nameMap graph = runGraphLayouter $ do
   let edgLayout = mapMaybe replace edgLayout0
         where
           replace (EdgeLayout k (start, end) srcTgtPts vertices) = do
-            startIdx <- IM.lookup start moduleNodeRevIndex
-            endIdx <- IM.lookup end moduleNodeRevIndex
+            startIdx <- IM.lookup start nodeRevIndex
+            endIdx <- IM.lookup end nodeRevIndex
             pure (EdgeLayout k (startIdx, endIdx) srcTgtPts vertices)
 
   let gvisInfo0 = GraphVisInfo canvasDim nodLayout edgLayout
