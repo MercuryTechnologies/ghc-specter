@@ -5,8 +5,10 @@ module GHCSpecter.Worker.Hie
   )
 where
 
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens ((%~), (.~))
+import Control.Monad (void)
 import Data.Map qualified as M
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8With)
@@ -28,6 +30,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     emptyModuleHieInfo,
   )
+import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import HieDb.Compat
   ( mkSplitUniqSupply,
     moduleName,
@@ -97,3 +100,6 @@ hieWorker var hiefile = do
     modifyTVar' var $
       serverHieState . hieModuleMap
         %~ M.insert modName modHie
+
+  -- trigger call graph drawing
+  void $ forkIO $ CallGraph.worker var modName modHie

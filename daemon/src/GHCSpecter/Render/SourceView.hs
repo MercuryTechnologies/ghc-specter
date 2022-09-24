@@ -12,6 +12,7 @@ import Concur.Replica
     style,
   )
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
+import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -21,7 +22,8 @@ import GHCSpecter.Channel
     ModuleName,
     getEndTime,
   )
-import GHCSpecter.Render.Components.TextView qualified as TextView (render)
+import GHCSpecter.Render.Components.GraphView qualified as GraphView
+import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
@@ -126,6 +128,15 @@ renderModuleTree srcUI ss =
               _ -> ExpandModuleEv (Just modu) <$ iconText False "fa-plus" colorTxt modu
        in modItem
 
+renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
+renderCallGraph modu ss =
+  case mgrVis of
+    Nothing -> div [] []
+    Just grVis -> GraphView.renderGraph grVis
+  where
+    callGraphMap = ss ^. serverHieState . hieCallGraphMap
+    mgrVis = M.lookup modu callGraphMap
+
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
   div
@@ -147,7 +158,12 @@ renderSourceView srcUI ss =
                 case mmodHieInfo of
                   Nothing -> div [] [pre [] [text "No Hie info"]]
                   Just modHieInfo -> renderSourceCode modHieInfo
-           in [sourcePanel, hr [], renderUnqualifiedImports modu inbox]
+           in [ sourcePanel
+              , hr []
+              , renderCallGraph modu ss
+              , hr []
+              , renderUnqualifiedImports modu inbox
+              ]
         _ -> []
 
 render :: SourceViewUI -> ServerState -> Widget IHTML Event

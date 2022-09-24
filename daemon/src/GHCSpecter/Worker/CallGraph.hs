@@ -15,11 +15,18 @@ module GHCSpecter.Worker.CallGraph
     -- * call graph
     makeCallGraph,
 
+    -- * layout
+    layOutCallGraph,
+
+    -- * worker
+    worker,
+
     -- * test
     test,
   )
 where
 
+import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens
   ( at,
     makeClassy,
@@ -34,7 +41,6 @@ import Control.Lens
     _Just,
   )
 import Control.Monad.Trans.State (runState)
-import Data.Foldable (for_)
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -47,6 +53,9 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHCSpecter.Channel (ModuleName)
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
+import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
+import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
   ( HasDeclRow' (..),
     HasHieState (..),
@@ -76,8 +85,9 @@ makeClassy ''UnitSymbol
 -- the index runs from 1 through the number of symbols.
 data ModuleCallGraph = ModuleCallGraph
   { _modCallSymMap :: IntMap UnitSymbol
-  , _modCallGraph :: [(Int, [Int])]
+  , _modCallGraph :: IntMap [Int]
   }
+  deriving (Show)
 
 makeClassy ''ModuleCallGraph
 
@@ -147,6 +157,9 @@ makeRawCallGraph modName modHieInfo = fmap extract topDecls
 isInPlace :: Text -> Bool
 isInPlace unitName = "inplace" `T.isSuffixOf` unitName
 
+isMain :: Text -> Bool
+isMain = (== "main")
+
 restrictToUnitCallGraph ::
   [(Text, [(Text, Maybe ModuleName, Text)])] ->
   [(UnitSymbol, [UnitSymbol])]
@@ -154,7 +167,7 @@ restrictToUnitCallGraph = fmap ((_1 %~ UnitSymbol Nothing) . (_2 %~ restrict))
   where
     restrict =
       fmap (\r -> UnitSymbol (r ^. _2) (r ^. _3))
-        . filter (\r -> r ^. _1 . to isInPlace)
+        . filter (\r -> r ^. _1 . to (\u -> isInPlace u || isMain u))
 
 makeSymbolMap :: [(UnitSymbol, [UnitSymbol])] -> IntMap UnitSymbol
 makeSymbolMap callGraph = IM.fromList (zip [1 ..] syms)
@@ -181,14 +194,53 @@ makeCallGraph modName modHieInfo =
   let callGraph0 = restrictToUnitCallGraph $ makeRawCallGraph modName modHieInfo
       symMap = makeSymbolMap callGraph0
       revSymMap = reverseMap symMap
-      mcallGraph = integerizeGraph revSymMap callGraph0
+      mcallGraph = IM.fromList <$> integerizeGraph revSymMap callGraph0
    in ModuleCallGraph symMap <$> mcallGraph
+
+maxGraphSize :: Int
+maxGraphSize = 300
+
+-- TODO: use appropriate exception types instead of Nothing
+layOutCallGraph :: ModuleName -> ModuleHieInfo -> IO (Maybe GraphVisInfo)
+layOutCallGraph modName modHieInfo = do
+  let mcallGraph = makeCallGraph modName modHieInfo
+  case mcallGraph of
+    Nothing -> pure Nothing
+    Just callGraph -> do
+      let symMap = callGraph ^. modCallSymMap
+      if IM.size symMap > maxGraphSize
+        then pure Nothing
+        else do
+          let renderSym s =
+                let prefix = maybe "" (<> ".") (s ^. symModule)
+                 in prefix <> s ^. symName
+              labelMap = fmap renderSym symMap
+              gr = callGraph ^. modCallGraph . to makeRevDep
+          grVis <- Sugiyama.layOutGraph labelMap gr
+          pure (Just grVis)
+
+worker :: TVar ServerState -> ModuleName -> ModuleHieInfo -> IO ()
+worker var modName modHieInfo = do
+  mcallGraphViz <- layOutCallGraph modName modHieInfo
+  case mcallGraphViz of
+    Nothing -> pure ()
+      -- this message is too noisy.
+      -- TODO: introduce log-level in the long run.
+      -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
+    Just callGraphViz -> do
+      -- TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
+      atomically $
+        modifyTVar' var $
+          serverHieState . hieCallGraphMap
+            %~ M.insert modName callGraphViz
 
 test :: ServerState -> IO ()
 test ss = do
-  putStrLn "test"
-  let modName = "Metrics"
+  let modName = "B"
       mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
-  for_ mmodHieInfo $ \modHieInfo -> do
-    let mcallGraph = makeCallGraph modName modHieInfo
-    print (mcallGraph ^? _Just . modCallGraph)
+  case mmodHieInfo of
+    Nothing -> pure ()
+    Just modHieInfo -> do
+      print (makeCallGraph modName modHieInfo)
+      mgrVis <- layOutCallGraph modName modHieInfo
+      print mgrVis

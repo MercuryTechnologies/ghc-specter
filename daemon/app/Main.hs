@@ -67,7 +67,7 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
-import GHCSpecter.Worker.CallGraph qualified as CallGraph (test)
+import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -128,7 +128,7 @@ listener socketFile var = do
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker var mgi)
-          CMHsSource _modu (HsSourceInfo hiefile) -> do
+          CMHsSource _modu (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker var hiefile)
           _ -> pure ()
         atomically . modifyTVar' var . updateInbox $ CMBox o

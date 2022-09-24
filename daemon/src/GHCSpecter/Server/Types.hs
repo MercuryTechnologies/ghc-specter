@@ -141,8 +141,9 @@ instance ToJSON ModuleHieInfo
 emptyModuleHieInfo :: ModuleHieInfo
 emptyModuleHieInfo = ModuleHieInfo [] [] [] ""
 
-newtype HieState = HieState
+data HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
+  , _hieCallGraphMap :: Map ModuleName GraphVisInfo
   }
   deriving (Show, Generic)
 
@@ -153,7 +154,7 @@ instance FromJSON HieState
 instance ToJSON HieState
 
 emptyHieState :: HieState
-emptyHieState = HieState mempty
+emptyHieState = HieState mempty mempty
 
 data ServerState = ServerState
   { _serverMessageSN :: Int
