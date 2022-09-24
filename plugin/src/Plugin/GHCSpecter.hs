@@ -113,7 +113,11 @@ import GHCSpecter.Comm
     runClient,
     sendObject,
   )
-import GHCSpecter.Config (Config (..), loadConfig)
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    loadConfig,
+  )
 import Network.Socket (Socket)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
@@ -193,7 +197,7 @@ runMessageQueue opts queue = do
     case opts of
       ipcfile : _ -> pure (Just ipcfile)
       [] -> do
-        ecfg <- loadConfig "config.yaml"
+        ecfg <- loadConfig defaultGhcSpecterConfigFile
         case ecfg of
           Left _ -> pure Nothing
           Right cfg -> pure (Just (configSocket cfg))

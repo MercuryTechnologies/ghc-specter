@@ -1,5 +1,6 @@
 module GHCSpecter.Config
   ( Config (..),
+    defaultGhcSpecterConfigFile,
     loadConfig,
   )
 where
@@ -32,6 +33,9 @@ instance FromJSON Config where
 
 instance ToJSON Config where
   toJSON = genericToJSON defaultOptions {fieldLabelModifier = modifier}
+
+defaultGhcSpecterConfigFile :: FilePath
+defaultGhcSpecterConfigFile = "ghc-specter.yaml"
 
 loadConfig :: FilePath -> IO (Either String Config)
 loadConfig fp = do

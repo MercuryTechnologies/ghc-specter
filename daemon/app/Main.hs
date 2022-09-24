@@ -45,7 +45,11 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Config (Config (..), loadConfig)
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    loadConfig,
+  )
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
@@ -231,7 +235,7 @@ webServer ssRef = do
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
-  let config = fromMaybe "config.yaml" mconfigFile
+  let config = fromMaybe defaultGhcSpecterConfigFile mconfigFile
   ecfg <- loadConfig config
   case ecfg of
     Left err -> putStrLn err
