@@ -1,0 +1,2 @@
+socket: /tmp/socket.ipc
+session_file: session.json

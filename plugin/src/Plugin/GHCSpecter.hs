@@ -113,6 +113,7 @@ import GHCSpecter.Comm
     runClient,
     sendObject,
   )
+import GHCSpecter.Config (Config (..), loadConfig)
 import Network.Socket (Socket)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
@@ -187,15 +188,21 @@ getModuleNameFromPipeState pstate =
    in fmap (T.pack . moduleNameString . moduleName) mmod
 
 runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
-runMessageQueue opts queue =
-  case opts of
-    ipcfile : _ -> liftIO $ do
-      socketExists <- doesFileExist ipcfile
-      when socketExists $
-        runClient ipcfile $ \sock -> do
-          _ <- forkIO $ receiver sock
-          sender sock
-    _ -> pure ()
+runMessageQueue opts queue = do
+  mipcfile <-
+    case opts of
+      ipcfile : _ -> pure (Just ipcfile)
+      [] -> do
+        ecfg <- loadConfig "config.yaml"
+        case ecfg of
+          Left _ -> pure Nothing
+          Right cfg -> pure (Just (configSocket cfg))
+  for_ mipcfile $ \ipcfile -> do
+    socketExists <- doesFileExist ipcfile
+    when socketExists $
+      runClient ipcfile $ \sock -> do
+        _ <- forkIO $ receiver sock
+        sender sock
   where
     sender :: Socket -> IO ()
     sender sock = forever $ do

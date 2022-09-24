@@ -91,3 +91,4 @@ library:
     - stm
     - time
     - transformers
+    - yaml

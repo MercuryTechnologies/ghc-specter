@@ -23,11 +23,15 @@ import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Control.Monad.Extra (loopM)
 import Data.Aeson (eitherDecode')
+import Data.Aeson qualified as A
+import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
+import Data.Yaml qualified as Y
 import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -41,6 +45,7 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
+import GHCSpecter.Config (Config (..), loadConfig)
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
@@ -73,29 +78,37 @@ import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
 
 data CLIMode
-  = Online FilePath
-  | View FilePath
-  | Temp FilePath
+  = Online (Maybe FilePath)
+  | View (Maybe FilePath)
+  | Temp (Maybe FilePath)
 
 onlineMode :: OA.Mod OA.CommandFields CLIMode
 onlineMode =
   OA.command "online" $
     OA.info
-      (Online <$> OA.strOption (OA.long "socket-file" <> OA.short 's' <> OA.help "socket file"))
+      ( Online
+          <$> OA.optional
+            (OA.strOption (OA.long "config" <> OA.short 'c' <> OA.help "config file"))
+      )
       (OA.progDesc "GHC inspection on the fly")
 
 viewMode :: OA.Mod OA.CommandFields CLIMode
 viewMode =
   OA.command "view" $
     OA.info
-      (View <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
+      ( View
+          <$> OA.optional
+            (OA.strOption (OA.long "config" <> OA.short 'c' <> OA.help "config file"))
+      )
       (OA.progDesc "viewing saved session")
 
 tempMode :: OA.Mod OA.CommandFields CLIMode
 tempMode =
   OA.command "temp" $
     OA.info
-      (Temp <$> OA.strOption (OA.long "session-file" <> OA.short 'f' <> OA.help "session file"))
+      ( Temp
+          <$> OA.optional (OA.strOption (OA.long "config" <> OA.short 'c' <> OA.help "config file"))
+      )
       (OA.progDesc "temp")
 
 optsParser :: OA.ParserInfo CLIMode
@@ -216,24 +229,33 @@ webServer ssRef = do
       Widget IHTML BackgroundEvent
     waitForBkgEv chanBkg = liftSTM $ readTChan chanBkg
 
+withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
+withConfig mconfigFile action = do
+  let config = fromMaybe "config.yaml" mconfigFile
+  ecfg <- loadConfig config
+  case ecfg of
+    Left err -> putStrLn err
+    Right cfg -> action cfg
+
 main :: IO ()
 main = do
   mode <- OA.execParser optsParser
   case mode of
-    Online socketFile -> do
-      serverSessionRef <- atomically $ newTVar emptyServerState
-      _ <- forkOS $ listener socketFile serverSessionRef
-      webServer serverSessionRef
-    View sessionFile -> do
-      lbs <- BL.readFile sessionFile
-      case eitherDecode' lbs of
-        Left err -> print err
-        Right ss -> do
-          serverSessionRef <- atomically $ newTVar ss
-          webServer serverSessionRef
-    Temp sessionFile -> do
-      lbs <- BL.readFile sessionFile
-      case eitherDecode' lbs of
-        Left err -> print err
-        Right ss -> do
-          CallGraph.test ss
+    Online mconfigFile ->
+      withConfig mconfigFile $ \cfg -> do
+        let socketFile = configSocket cfg
+        serverSessionRef <- atomically $ newTVar emptyServerState
+        _ <- forkOS $ listener socketFile serverSessionRef
+        webServer serverSessionRef
+    View mconfigFile ->
+      withConfig mconfigFile $ \cfg -> do
+        let sessionFile = configSessionFile cfg
+        lbs <- BL.readFile sessionFile
+        case eitherDecode' lbs of
+          Left err -> print err
+          Right ss -> do
+            serverSessionRef <- atomically $ newTVar ss
+            webServer serverSessionRef
+    Temp yamlFile -> do
+      B.putStr $
+        Y.encode (Config "/tmp/socket.ipc" "session.json")
