@@ -132,7 +132,7 @@ renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
 renderCallGraph modu ss =
   case mgrVis of
     Nothing -> div [] []
-    Just grVis -> GraphView.renderGraph grVis
+    Just grVis -> GraphView.renderGraph (isJust . T.find (== '.')) grVis
   where
     callGraphMap = ss ^. serverHieState . hieCallGraphMap
     mgrVis = M.lookup modu callGraphMap

@@ -20,9 +20,6 @@ module GHCSpecter.Worker.CallGraph
 
     -- * worker
     worker,
-
-    -- * test
-    test,
   )
 where
 
@@ -224,23 +221,12 @@ worker var modName modHieInfo = do
   mcallGraphViz <- layOutCallGraph modName modHieInfo
   case mcallGraphViz of
     Nothing -> pure ()
-      -- this message is too noisy.
-      -- TODO: introduce log-level in the long run.
-      -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
+    -- this message is too noisy.
+    -- TODO: introduce log-level in the long run.
+    -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
     Just callGraphViz -> do
       -- TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
       atomically $
         modifyTVar' var $
           serverHieState . hieCallGraphMap
             %~ M.insert modName callGraphViz
-
-test :: ServerState -> IO ()
-test ss = do
-  let modName = "B"
-      mmodHieInfo = ss ^? serverHieState . hieModuleMap . at modName . _Just
-  case mmodHieInfo of
-    Nothing -> pure ()
-    Just modHieInfo -> do
-      print (makeCallGraph modName modHieInfo)
-      mgrVis <- layOutCallGraph modName modHieInfo
-      print mgrVis

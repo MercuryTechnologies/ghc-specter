@@ -131,6 +131,7 @@ executables:
       - stm
       - time
       - transformers
+      - yaml
 
 tests:
   ghc-specter-daemon-test:
