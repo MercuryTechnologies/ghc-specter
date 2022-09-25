@@ -26,15 +26,12 @@ import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Control.Monad.Extra (loopM)
 import Data.Aeson (eitherDecode')
-import Data.Aeson qualified as A
-import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
-import Data.Yaml qualified as Y
 import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -79,7 +76,6 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
-import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -117,11 +113,13 @@ optsParser =
 runWorkQueue :: TQueue (IO ()) -> IO ()
 runWorkQueue workQ = go 0
   where
+    go :: Int -> IO ()
     go n = do
       job <- atomically $ readTQueue workQ
-      putStrLn $ show n ++ "th job started"
+      -- TODO: disabled as it's too verbose. enable with proper logging system.
+      -- putStrLn $ show n ++ "th job started"
       job
-      putStrLn $ show n ++ "th job ended"
+      -- putStrLn $ show n ++ "th job ended"
       go (n + 1)
 
 listener :: FilePath -> TVar ServerState -> TQueue (IO ()) -> IO ()
@@ -129,7 +127,7 @@ listener socketFile ssRef workQ = do
   ss <- atomically $ readTVar ssRef
   runServer socketFile $ \sock -> do
     _ <- forkIO $ sender sock (ss ^. serverSessionInfo . to sessionIsPaused)
-    receiver sock workQ
+    receiver sock
   where
     sender sock lastState = do
       newState <-
@@ -141,7 +139,7 @@ listener socketFile ssRef workQ = do
             else pure newState
       sendObject sock newState
       sender sock newState
-    receiver sock workQ = forever $ do
+    receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \(CMBox o) -> do
         case o of
