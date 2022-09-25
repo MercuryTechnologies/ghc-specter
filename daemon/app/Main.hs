@@ -8,13 +8,16 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
   ( TChan,
+    TQueue,
     TVar,
     atomically,
     modifyTVar',
     newTChanIO,
+    newTQueueIO,
     newTVar,
     newTVarIO,
     readTChan,
+    readTQueue,
     readTVar,
     retry,
     writeTChan,
@@ -111,34 +114,44 @@ optsParser =
     (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
-listener :: FilePath -> TVar ServerState -> IO ()
-listener socketFile var = do
-  ss <- atomically $ readTVar var
+runWorkQueue :: TQueue (IO ()) -> IO ()
+runWorkQueue workQ = go 0
+  where
+    go n = do
+      job <- atomically $ readTQueue workQ
+      putStrLn $ show n ++ "th job started"
+      job
+      putStrLn $ show n ++ "th job ended"
+      go (n + 1)
+
+listener :: FilePath -> TVar ServerState -> TQueue (IO ()) -> IO ()
+listener socketFile ssRef workQ = do
+  ss <- atomically $ readTVar ssRef
   runServer socketFile $ \sock -> do
     _ <- forkIO $ sender sock (ss ^. serverSessionInfo . to sessionIsPaused)
-    receiver sock
+    receiver sock workQ
   where
     sender sock lastState = do
       newState <-
         atomically $ do
-          ss' <- readTVar var
+          ss' <- readTVar ssRef
           let newState = ss' ^. serverSessionInfo . to sessionIsPaused
           if newState == lastState
             then retry
             else pure newState
       sendObject sock newState
       sender sock newState
-    receiver sock = forever $ do
+    receiver sock workQ = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \(CMBox o) -> do
         case o of
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
-            void $ forkIO (moduleGraphWorker var mgi)
+            void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _modu (HsSourceInfo hiefile) ->
-            void $ forkIO (hieWorker var hiefile)
+            void $ forkIO (hieWorker ssRef workQ hiefile)
           _ -> pure ()
-        atomically . modifyTVar' var . updateInbox $ CMBox o
+        atomically . modifyTVar' ssRef . updateInbox $ CMBox o
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -239,7 +252,9 @@ main = do
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
         serverSessionRef <- atomically $ newTVar emptyServerState
-        _ <- forkOS $ listener socketFile serverSessionRef
+        workQ :: TQueue (IO ()) <- newTQueueIO
+        _ <- forkOS $ listener socketFile serverSessionRef workQ
+        _ <- forkOS $ runWorkQueue workQ
         webServer serverSessionRef
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
