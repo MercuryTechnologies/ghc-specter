@@ -6,7 +6,13 @@ module GHCSpecter.Worker.Hie
 where
 
 import Control.Concurrent (forkIO)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Concurrent.STM
+  ( TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+    writeTQueue,
+  )
 import Control.Lens ((%~), (.~))
 import Control.Monad (void)
 import Data.Map qualified as M
@@ -76,8 +82,8 @@ convertDefRow DefRow {..} =
     , _def'ECol = defECol
     }
 
-hieWorker :: TVar ServerState -> FilePath -> IO ()
-hieWorker var hiefile = do
+hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
+hieWorker ssRef workQ hiefile = do
   uniq_supply <- mkSplitUniqSupply 'z'
   let nc = initNameCache uniq_supply []
   hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
@@ -96,10 +102,10 @@ hieWorker var hiefile = do
           . (modHieSource .~ src)
           $ emptyModuleHieInfo
 
-  atomically $
-    modifyTVar' var $
+  let callGraphWork = CallGraph.worker ssRef modName modHie
+
+  atomically $ do
+    modifyTVar' ssRef $
       serverHieState . hieModuleMap
         %~ M.insert modName modHie
-
-  -- trigger call graph drawing
-  void $ forkIO $ CallGraph.worker var modName modHie
+    writeTQueue workQ callGraphWork

@@ -5,16 +5,19 @@ module Main (main) where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, forkOS)
+import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
   ( TChan,
+    TQueue,
     TVar,
     atomically,
     modifyTVar',
     newTChanIO,
+    newTQueueIO,
     newTVar,
     newTVarIO,
     readTChan,
+    readTQueue,
     readTVar,
     retry,
     writeTChan,
@@ -23,15 +26,12 @@ import Control.Lens (to, (%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Control.Monad.Extra (loopM)
 import Data.Aeson (eitherDecode')
-import Data.Aeson qualified as A
-import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
-import Data.Yaml qualified as Y
 import GHCSpecter.Channel
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -76,7 +76,6 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (RefreshUI),
     Event (BkgEv),
   )
-import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 import Options.Applicative qualified as OA
@@ -111,9 +110,22 @@ optsParser =
     (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
-listener :: FilePath -> TVar ServerState -> IO ()
-listener socketFile var = do
-  ss <- atomically $ readTVar var
+runWorkQueue :: TQueue (IO ()) -> IO ()
+runWorkQueue workQ = go 0
+  where
+    go :: Int -> IO ()
+    go n = do
+      job <- atomically $ readTQueue workQ
+      -- TODO: disabled as it's too verbose. enable with proper logging system.
+      -- putStrLn $ show n ++ "th job started"
+      job
+      -- putStrLn $ show n ++ "th job ended"
+      threadDelay 50_000
+      go (n + 1)
+
+listener :: FilePath -> TVar ServerState -> TQueue (IO ()) -> IO ()
+listener socketFile ssRef workQ = do
+  ss <- atomically $ readTVar ssRef
   runServer socketFile $ \sock -> do
     _ <- forkIO $ sender sock (ss ^. serverSessionInfo . to sessionIsPaused)
     receiver sock
@@ -121,7 +133,7 @@ listener socketFile var = do
     sender sock lastState = do
       newState <-
         atomically $ do
-          ss' <- readTVar var
+          ss' <- readTVar ssRef
           let newState = ss' ^. serverSessionInfo . to sessionIsPaused
           if newState == lastState
             then retry
@@ -134,11 +146,11 @@ listener socketFile var = do
         case o of
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
-            void $ forkIO (moduleGraphWorker var mgi)
+            void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _modu (HsSourceInfo hiefile) ->
-            void $ forkIO (hieWorker var hiefile)
+            void $ forkIO (hieWorker ssRef workQ hiefile)
           _ -> pure ()
-        atomically . modifyTVar' var . updateInbox $ CMBox o
+        atomically . modifyTVar' ssRef . updateInbox $ CMBox o
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -239,7 +251,9 @@ main = do
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
         serverSessionRef <- atomically $ newTVar emptyServerState
-        _ <- forkOS $ listener socketFile serverSessionRef
+        workQ :: TQueue (IO ()) <- newTQueueIO
+        _ <- forkOS $ listener socketFile serverSessionRef workQ
+        _ <- forkOS $ runWorkQueue workQ
         webServer serverSessionRef
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
