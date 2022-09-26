@@ -10,10 +10,12 @@ import GHCSpecter.Channel (SessionInfo (..))
 import GHCSpecter.Control.Types
   ( getCurrentTime,
     getLastUpdatedUI,
-    getState,
+    getSS,
+    getUI,
     nextEvent,
     printMsg,
-    putState,
+    putSS,
+    putUI,
     refreshUIAfter,
     saveSession,
     shouldUpdate,
@@ -89,11 +91,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
+      putSS newSS
       pure (oldModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
+      putSS newSS
       pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel
@@ -142,9 +146,9 @@ checkIfUpdatable = do
 showBanner :: Control ()
 showBanner = do
   startTime <- getCurrentTime
-  (ui, ss) <- getState
+  ui <- getUI
   let ui' = (uiView .~ BannerMode 0) ui
-  putState (ui', ss)
+  putUI ui'
   refreshUIAfter 0.1
   go startTime
   where
@@ -155,10 +159,10 @@ showBanner = do
       if diff < duration
         then do
           _ev <- nextEvent
-          (ui, ss) <- getState
+          ui <- getUI
           let r = realToFrac (diff / duration)
               ui' = (uiView .~ BannerMode r) ui
-          putState (ui', ss)
+          putUI ui'
           refreshUIAfter 0.1
           go start
         else pure ()
@@ -166,7 +170,8 @@ showBanner = do
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model) = do
-  (ui, ss) <- getState
+  ui <- getUI
+  ss <- getSS
   (model', ss') <- defaultUpdateModel ev (model, ss)
   let -- just placeholder
       view' = view
@@ -174,7 +179,8 @@ goCommon ev (view, model) = do
         ui
           & (uiView .~ MainMode view')
             . (uiModel .~ model')
-  putState (ui', ss')
+  putUI ui'
+  putSS ss'
   pure (view', model')
 
 goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
@@ -194,9 +200,9 @@ goTiming ev (view, model0) = do
         let (tx, ty) = model0 ^. modelTiming . timingUIViewPortTopLeft
             -- turn on mouse move event handling
             model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
-        (ui0, ss) <- getState
+        ui0 <- getUI
         let ui1 = ui0 & (uiModel .~ model1)
-        putState (ui1, ss)
+        putUI ui1
         onDraggingInTimingView model1 (x, y) (tx, ty)
       _ -> pure model0
   goCommon ev (view, model)
@@ -220,10 +226,10 @@ goTiming ev (view, model0) = do
           pure model
         MouseEv TimingView (MouseMove (Just (x', y'))) -> do
           let model = addDelta (x, y) (x', y') (tx, ty) model_
-          (ui0, ss) <- getState
+          ui0 <- getUI
           let ui1 = ui0 & (uiModel .~ model)
           ui <- updateLastUpdated ui1
-          putState (ui, ss)
+          putUI ui
           onDraggingInTimingView model (x, y) (tx, ty)
         _ -> onDraggingInTimingView model_ (x, y) (tx, ty)
 
@@ -254,9 +260,9 @@ branchTab tab (view, model) =
 
 initializeMainView :: Control (MainView, UIModel)
 initializeMainView = do
-  (ui1, ss1) <- getState
+  ui1 <- getUI
   let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putState (ui1', ss1)
+  putUI ui1'
   pure (emptyMainView, ui1' ^. uiModel)
 
 -- | main loop

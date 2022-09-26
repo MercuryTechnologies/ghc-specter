@@ -131,6 +131,7 @@ listener socketFile ssRef workQ = do
     receiver sock
   where
     sender sock lastState = do
+      putStrLn "########"
       newState <-
         atomically $ do
           ss' <- readTVar ssRef
@@ -138,6 +139,7 @@ listener socketFile ssRef workQ = do
           if newState == lastState
             then retry
             else pure newState
+      putStrLn "#### sendObject ####"
       sendObject sock newState
       sender sock newState
     receiver sock = forever $ do
