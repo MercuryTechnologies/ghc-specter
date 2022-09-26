@@ -58,14 +58,17 @@ render :: ServerState -> Widget IHTML Event
 render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
-      msg = "# of compiled module now : " <> T.pack (show (M.size timing))
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
-        Just sessionStartTime ->
+        Just sessionStartTime -> do
+          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
+              messageProc = "Session Pid: " <> T.pack (show (sessionProcessId sessionInfo))
+              messageModu = "# of compiled module now : " <> T.pack (show (M.size timing))
           div
             []
-            [ pre [] [text $ T.pack $ show sessionStartTime]
-            , pre [] [text msg]
+            [ pre [] [text messageTime]
+            , pre [] [text messageProc]
+            , pre [] [text messageModu]
             , renderSessionButtons sessionInfo
             ]

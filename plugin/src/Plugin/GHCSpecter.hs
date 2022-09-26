@@ -121,6 +121,7 @@ import GHCSpecter.Config
 import Network.Socket (Socket)
 import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Process (getCurrentPid)
 
 data MsgQueueState = MsgQueueState
   { msgSenderQueue :: Seq ChanMessageBox
@@ -143,7 +144,7 @@ plugin =
 sessionRef :: TVar (SessionInfo, Maybe MsgQueue)
 {-# NOINLINE sessionRef #-}
 sessionRef =
-  let newSessionState = (SessionInfo Nothing emptyModuleGraphInfo False, Nothing)
+  let newSessionState = (SessionInfo 0 Nothing emptyModuleGraphInfo False, Nothing)
    in unsafePerformIO (newTVarIO newSessionState)
 
 --
@@ -249,15 +250,16 @@ breakPoint queue = do
 startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
 startSession opts env = do
   startTime <- getCurrentTime
+  pid <- fromInteger . toInteger <$> getCurrentPid
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
       startedSession =
-        modGraphInfo `seq` SessionInfo (Just startTime) modGraphInfo False
+        modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
   queue' <- newTVarIO emptyMsgQueueState
   (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
-      (SessionInfo msessionStart _ _, mqueue) <- readTVar sessionRef
+      (SessionInfo _ msessionStart _ _, mqueue) <- readTVar sessionRef
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do

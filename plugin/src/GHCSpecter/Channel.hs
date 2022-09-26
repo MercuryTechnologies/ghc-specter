@@ -59,15 +59,16 @@ emptyModuleGraphInfo :: ModuleGraphInfo
 emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 
 data SessionInfo = SessionInfo
-  { sessionStartTime :: Maybe UTCTime
+  { sessionProcessId :: Int
+  , sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
   , sessionIsPaused :: Bool
   }
   deriving (Show, Generic)
 
 instance Binary SessionInfo where
-  put (SessionInfo mtime modGraph isPaused) = put (mtime, modGraph, isPaused)
-  get = (\(mtime, modGraph, isPaused) -> SessionInfo mtime modGraph isPaused) <$> get
+  put (SessionInfo pid mtime modGraph isPaused) = put (pid, mtime, modGraph, isPaused)
+  get = (\(pid, mtime, modGraph, isPaused) -> SessionInfo pid mtime modGraph isPaused) <$> get
 
 instance FromJSON SessionInfo
 
