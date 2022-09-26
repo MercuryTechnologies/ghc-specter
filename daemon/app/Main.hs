@@ -5,7 +5,7 @@ module Main (main) where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
-import Control.Concurrent (forkIO, forkOS)
+import Control.Concurrent (forkIO, forkOS, threadDelay)
 import Control.Concurrent.STM
   ( TChan,
     TQueue,
@@ -120,6 +120,7 @@ runWorkQueue workQ = go 0
       -- putStrLn $ show n ++ "th job started"
       job
       -- putStrLn $ show n ++ "th job ended"
+      threadDelay 50_000
       go (n + 1)
 
 listener :: FilePath -> TVar ServerState -> TQueue (IO ()) -> IO ()
