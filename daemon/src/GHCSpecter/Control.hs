@@ -268,13 +268,7 @@ initializeMainView = do
 
 -- | main loop
 mainLoop :: (MainView, UIModel) -> Control ()
-mainLoop (view, model) = do
-  checkIfUpdatable
-  ev <- nextEvent
-  printMsg (T.pack (show ev))
-  case ev of
-    TabEv tab -> branchTab tab (view, model)
-    _ -> mainLoop (view, model)
+mainLoop (view, model) = branchTab (view ^. mainTab) (view, model)
 
 main :: Control ()
 main = do
