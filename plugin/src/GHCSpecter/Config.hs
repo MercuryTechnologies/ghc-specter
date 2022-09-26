@@ -22,6 +22,7 @@ import GHC.Generics (Generic)
 data Config = Config
   { configSocket :: FilePath
   , configSessionFile :: FilePath
+  , configWebPort :: Int
   }
   deriving (Show, Generic)
 

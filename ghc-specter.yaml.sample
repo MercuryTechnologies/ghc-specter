@@ -1,2 +1,3 @@
 socket: /tmp/socket.ipc
 session_file: session.json
+web_port: 7070
