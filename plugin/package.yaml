@@ -88,6 +88,7 @@ library:
     - ghc == 9.2.*
     - hiedb
     - network
+    - process
     - stm
     - time
     - transformers

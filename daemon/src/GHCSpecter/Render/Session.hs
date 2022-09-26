@@ -9,9 +9,16 @@ import Concur.Replica
     onClick,
   )
 import Control.Lens ((^.))
+import Data.IntMap qualified as IM
+import Data.List (partition)
 import Data.Map qualified as M
+import Data.Maybe (isJust)
 import Data.Text qualified as T
-import GHCSpecter.Channel (SessionInfo (..))
+import GHCSpecter.Channel
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+    getEndTime,
+  )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -58,14 +65,30 @@ render :: ServerState -> Widget IHTML Event
 render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
-      msg = "# of compiled module now : " <> T.pack (show (M.size timing))
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
-        Just sessionStartTime ->
-          div
-            []
-            [ pre [] [text $ T.pack $ show sessionStartTime]
-            , pre [] [text msg]
-            , renderSessionButtons sessionInfo
-            ]
+        Just sessionStartTime -> do
+          let mgi = sessionModuleGraph sessionInfo
+              nTot = IM.size (mginfoModuleNameMap mgi)
+              timingList = M.toList timing
+              (timingDone, timingInProg) =
+                partition (\(_, t) -> isJust (getEndTime t)) timingList
+              nDone = length timingDone
+              nInProg = length timingInProg
+              messageTime = "Session started at " <> T.pack (show sessionStartTime)
+              messageProc = "Session Pid: " <> T.pack (show (sessionProcessId sessionInfo))
+              messageModuleStatus =
+                "# of modules (done / in progress / total): "
+                  <> T.pack (show nDone)
+                  <> " / "
+                  <> T.pack (show nInProg)
+                  <> " / "
+                  <> T.pack (show nTot)
+           in div
+                []
+                [ pre [] [text messageTime]
+                , pre [] [text messageProc]
+                , pre [] [text messageModuleStatus]
+                , renderSessionButtons sessionInfo
+                ]
