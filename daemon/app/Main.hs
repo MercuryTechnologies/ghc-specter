@@ -134,7 +134,7 @@ listener socketFile ssRef signalChan workQ = do
       putStrLn $ "########"
       newPauseState <- atomically $ readTChan signalChan
       putStrLn "#### sendObject ####"
-      sendObject sock newPauseState
+      newPauseState `seq` sendObject sock newPauseState
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \(CMBox o) -> do
