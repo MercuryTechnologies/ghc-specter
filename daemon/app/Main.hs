@@ -182,10 +182,11 @@ data UIChannel = UIChannel
 styleText :: Text
 styleText = "ul > li { margin-left: 10px; }"
 
-webServer :: TVar ServerState -> TChan Bool -> IO ()
-webServer ssRef signalChan = do
+webServer :: Config -> TVar ServerState -> TChan Bool -> IO ()
+webServer cfg ssRef signalChan = do
+  let port = configWebPort cfg
   assets <- Assets.loadAssets
-  runDefaultWithStyle 8080 "ghc-specter" styleText $
+  runDefaultWithStyle port "ghc-specter" styleText $
     \_ -> do
       uiRef <-
         unsafeBlockingIO $ do
@@ -236,7 +237,9 @@ withConfig mconfigFile action = do
   ecfg <- loadConfig config
   case ecfg of
     Left err -> putStrLn err
-    Right cfg -> action cfg
+    Right cfg -> do
+      print cfg
+      action cfg
 
 main :: IO ()
 main = do
@@ -250,7 +253,7 @@ main = do
         signalChan <- newTChanIO
         _ <- forkOS $ listener socketFile serverSessionRef signalChan workQ
         _ <- forkOS $ runWorkQueue workQ
-        webServer serverSessionRef signalChan
+        webServer cfg serverSessionRef signalChan
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let sessionFile = configSessionFile cfg
@@ -260,4 +263,4 @@ main = do
           Left err -> print err
           Right ss -> do
             serverSessionRef <- atomically $ newTVar ss
-            webServer serverSessionRef signalChan
+            webServer cfg serverSessionRef signalChan
