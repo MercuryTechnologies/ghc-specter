@@ -18,6 +18,7 @@ import GHCSpecter.Control.Types
     putUI,
     refreshUIAfter,
     saveSession,
+    sendSignal,
     shouldUpdate,
     type Control,
   )
@@ -91,13 +92,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      putSS newSS
+      sendSignal False
       pure (oldModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      putSS newSS
+      sendSignal True
       pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel

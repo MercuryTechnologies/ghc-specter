@@ -123,25 +123,18 @@ runWorkQueue workQ = go 0
       threadDelay 50_000
       go (n + 1)
 
-listener :: FilePath -> TVar ServerState -> TQueue (IO ()) -> IO ()
-listener socketFile ssRef workQ = do
+listener :: FilePath -> TVar ServerState -> TChan Bool -> TQueue (IO ()) -> IO ()
+listener socketFile ssRef signalChan workQ = do
   ss <- atomically $ readTVar ssRef
   runServer socketFile $ \sock -> do
-    _ <- forkIO $ sender sock (ss ^. serverSessionInfo . to sessionIsPaused)
+    _ <- forkIO $ sender sock
     receiver sock
   where
-    sender sock lastState = do
-      putStrLn "########"
-      newState <-
-        atomically $ do
-          ss' <- readTVar ssRef
-          let newState = ss' ^. serverSessionInfo . to sessionIsPaused
-          if newState == lastState
-            then retry
-            else pure newState
+    sender sock = forever $ do
+      putStrLn $ "########"
+      newPauseState <- atomically $ readTChan signalChan
       putStrLn "#### sendObject ####"
-      sendObject sock newState
-      sender sock newState
+      sendObject sock newPauseState
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \(CMBox o) -> do
@@ -189,8 +182,8 @@ data UIChannel = UIChannel
 styleText :: Text
 styleText = "ul > li { margin-left: 10px; }"
 
-webServer :: TVar ServerState -> IO ()
-webServer ssRef = do
+webServer :: TVar ServerState -> TChan Bool -> IO ()
+webServer ssRef signalChan = do
   assets <- Assets.loadAssets
   runDefaultWithStyle 8080 "ghc-specter" styleText $
     \_ -> do
@@ -205,7 +198,7 @@ webServer ssRef = do
       chanBkg <- unsafeBlockingIO newTChanIO
       let newCS = Driver.ClientSession uiRef ssRef chanEv chanState chanBkg
           newUIChan = UIChannel chanEv chanState chanBkg
-      unsafeBlockingIO $ Driver.main newCS
+      unsafeBlockingIO $ Driver.main newCS signalChan
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
@@ -253,16 +246,18 @@ main = do
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
         serverSessionRef <- atomically $ newTVar emptyServerState
-        workQ :: TQueue (IO ()) <- newTQueueIO
-        _ <- forkOS $ listener socketFile serverSessionRef workQ
+        workQ <- newTQueueIO
+        signalChan <- newTChanIO
+        _ <- forkOS $ listener socketFile serverSessionRef signalChan workQ
         _ <- forkOS $ runWorkQueue workQ
-        webServer serverSessionRef
+        webServer serverSessionRef signalChan
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let sessionFile = configSessionFile cfg
         lbs <- BL.readFile sessionFile
+        signalChan <- newTChanIO
         case eitherDecode' lbs of
           Left err -> print err
           Right ss -> do
             serverSessionRef <- atomically $ newTVar ss
-            webServer serverSessionRef
+            webServer serverSessionRef signalChan

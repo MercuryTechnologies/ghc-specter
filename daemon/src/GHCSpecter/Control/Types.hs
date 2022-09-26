@@ -8,6 +8,7 @@ module GHCSpecter.Control.Types
     putUI,
     getSS,
     putSS,
+    sendSignal,
     nextEvent,
     printMsg,
     getCurrentTime,
@@ -31,6 +32,7 @@ data ControlF r
   | PutUI UIState r
   | GetSS (ServerState -> r)
   | PutSS ServerState r
+  | SendSignal Bool r
   | NextEvent (Event -> r)
   | PrintMsg Text r
   | GetCurrentTime (UTCTime -> r)
@@ -53,6 +55,9 @@ getSS = liftF (GetSS id)
 
 putSS :: ServerState -> Control ()
 putSS ss = liftF (PutSS ss ())
+
+sendSignal :: Bool -> Control ()
+sendSignal b = liftF (SendSignal b ())
 
 nextEvent :: Control Event
 nextEvent = liftF (NextEvent id)

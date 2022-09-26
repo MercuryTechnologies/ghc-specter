@@ -46,16 +46,16 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent) IO
+type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Bool) IO
 
 getUI' :: Runner UIState
 getUI' = do
-  (uiRef, _, _) <- ask
+  (uiRef, _, _, _) <- ask
   liftIO $ atomically $ readTVar uiRef
 
 putUI' :: UIState -> Runner ()
 putUI' ui = do
-  (uiRef, _, _) <- ask
+  (uiRef, _, _, _) <- ask
   liftIO $ atomically $ writeTVar uiRef ui
 
 modifyUI' :: (UIState -> UIState) -> Runner ()
@@ -66,12 +66,12 @@ modifyUI' f = do
 
 getSS' :: Runner ServerState
 getSS' = do
-  (_, ssRef, _) <- ask
+  (_, ssRef, _, _) <- ask
   liftIO $ atomically $ readTVar ssRef
 
 putSS' :: ServerState -> Runner ()
 putSS' ss = do
-  (_, ssRef, _) <- ask
+  (_, ssRef, _, _) <- ask
   liftIO $ atomically $ writeTVar ssRef ss
 
 modifySS' :: (ServerState -> ServerState) -> Runner ()
@@ -79,6 +79,11 @@ modifySS' f = do
   s <- getSS'
   let s' = f s
   s' `seq` putSS' s'
+
+sendSignal' :: Bool -> Runner ()
+sendSignal' b = do
+  (_, _, _, signalChan) <- ask
+  liftIO $ atomically $ writeTChan signalChan b
 
 {-
 
@@ -126,6 +131,9 @@ stepControl (Free (GetSS cont)) = do
 stepControl (Free (PutSS ss next)) = do
   putSS' ss
   pure (Left next)
+stepControl (Free (SendSignal b next)) = do
+  sendSignal' b
+  pure (Left next)
 stepControl (Free (NextEvent cont)) =
   pure (Right (Left cont))
 stepControl (Free (PrintMsg txt next)) = do
@@ -151,7 +159,7 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do
-  (_, _, chanBkg) <- ask
+  (_, _, chanBkg, _) <- ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
     atomically $ writeTChan chanBkg RefreshUI
