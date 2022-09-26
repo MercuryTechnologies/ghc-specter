@@ -222,8 +222,13 @@ runMessageQueue opts queue = do
       msgList `seq` sendObject sock msgList
     receiver :: Socket -> IO ()
     receiver sock = forever $ do
+      putStrLn "################"
+      putStrLn "receiver started"
+      putStrLn "################"
       msg :: Bool <- receiveObject sock
+      putStrLn "################"
       putStrLn $ "message received: " ++ show msg
+      putStrLn "################"
       atomically $
         modifyTVar' queue $ \s -> s {msgIsPaused = msg}
 

@@ -4,8 +4,11 @@ module GHCSpecter.Control.Types
     Control,
 
     -- * Primitive operations of eDSL
-    getState,
-    putState,
+    getUI,
+    putUI,
+    getSS,
+    putSS,
+    sendSignal,
     nextEvent,
     printMsg,
     getCurrentTime,
@@ -25,8 +28,11 @@ import GHCSpecter.UI.Types.Event (Event)
 
 -- | Pattern functor for effects of Control DSL.
 data ControlF r
-  = GetState ((UIState, ServerState) -> r)
-  | PutState (UIState, ServerState) r
+  = GetUI (UIState -> r)
+  | PutUI UIState r
+  | GetSS (ServerState -> r)
+  | PutSS ServerState r
+  | SendSignal Bool r
   | NextEvent (Event -> r)
   | PrintMsg Text r
   | GetCurrentTime (UTCTime -> r)
@@ -38,11 +44,20 @@ data ControlF r
 
 type Control = Free ControlF
 
-getState :: Control (UIState, ServerState)
-getState = liftF (GetState id)
+getUI :: Control UIState
+getUI = liftF (GetUI id)
 
-putState :: (UIState, ServerState) -> Control ()
-putState (ui, ss) = liftF (PutState (ui, ss) ())
+putUI :: UIState -> Control ()
+putUI ui = liftF (PutUI ui ())
+
+getSS :: Control ServerState
+getSS = liftF (GetSS id)
+
+putSS :: ServerState -> Control ()
+putSS ss = liftF (PutSS ss ())
+
+sendSignal :: Bool -> Control ()
+sendSignal b = liftF (SendSignal b ())
 
 nextEvent :: Control Event
 nextEvent = liftF (NextEvent id)

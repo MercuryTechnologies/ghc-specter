@@ -49,8 +49,9 @@ makeClassy ''ClientSession
 
 main ::
   ClientSession ->
+  TChan Bool ->
   IO ()
-main cs = do
+main cs signalChan = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -90,7 +91,7 @@ main cs = do
           ec' <-
             runReaderT
               (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanBkg)
+              (uiRef, ssRef, chanBkg, signalChan)
           atomically $ do
             ui <- readTVar uiRef
             ss <- readTVar ssRef

@@ -46,28 +46,44 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent) IO
+type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Bool) IO
 
-getState' :: Runner (UIState, ServerState)
-getState' = do
-  (uiRef, ssRef, _) <- ask
-  liftIO $
-    atomically $
-      (,) <$> readTVar uiRef <*> readTVar ssRef
+getUI' :: Runner UIState
+getUI' = do
+  (uiRef, _, _, _) <- ask
+  liftIO $ atomically $ readTVar uiRef
 
-putState' :: (UIState, ServerState) -> Runner ()
-putState' (ui, ss) = do
-  (uiRef, ssRef, _) <- ask
-  liftIO $
-    atomically $ do
-      writeTVar uiRef ui
-      writeTVar ssRef ss
+putUI' :: UIState -> Runner ()
+putUI' ui = do
+  (uiRef, _, _, _) <- ask
+  liftIO $ atomically $ writeTVar uiRef ui
 
-modifyState' :: ((UIState, ServerState) -> (UIState, ServerState)) -> Runner ()
-modifyState' f = do
-  s <- getState'
+modifyUI' :: (UIState -> UIState) -> Runner ()
+modifyUI' f = do
+  s <- getUI'
   let s' = f s
-  s' `seq` putState' s'
+  s' `seq` putUI' s'
+
+getSS' :: Runner ServerState
+getSS' = do
+  (_, ssRef, _, _) <- ask
+  liftIO $ atomically $ readTVar ssRef
+
+putSS' :: ServerState -> Runner ()
+putSS' ss = do
+  (_, ssRef, _, _) <- ask
+  liftIO $ atomically $ writeTVar ssRef ss
+
+modifySS' :: (ServerState -> ServerState) -> Runner ()
+modifySS' f = do
+  s <- getSS'
+  let s' = f s
+  s' `seq` putSS' s'
+
+sendSignal' :: Bool -> Runner ()
+sendSignal' b = do
+  (_, _, _, signalChan) <- ask
+  liftIO $ atomically $ writeTChan signalChan b
 
 {-
 
@@ -103,11 +119,20 @@ stepControl ::
         )
     )
 stepControl (Pure r) = pure (Right (Right r))
-stepControl (Free (GetState cont)) = do
-  (ui, ss) <- getState'
-  pure (Left (cont (ui, ss)))
-stepControl (Free (PutState (ui, ss) next)) = do
-  putState' (ui, ss)
+stepControl (Free (GetUI cont)) = do
+  ui <- getUI'
+  pure (Left (cont ui))
+stepControl (Free (PutUI ui next)) = do
+  putUI' ui
+  pure (Left next)
+stepControl (Free (GetSS cont)) = do
+  ss <- getSS'
+  pure (Left (cont ss))
+stepControl (Free (PutSS ss next)) = do
+  putSS' ss
+  pure (Left next)
+stepControl (Free (SendSignal b next)) = do
+  sendSignal' b
   pure (Left next)
 stepControl (Free (NextEvent cont)) =
   pure (Right (Left cont))
@@ -121,20 +146,20 @@ stepControl (Free (GetCurrentTime cont)) = do
   now <- liftIO Clock.getCurrentTime
   pure (Left (cont now))
 stepControl (Free (GetLastUpdatedUI cont)) = do
-  lastUpdatedUI <- (^. _1 . uiLastUpdated) <$> getState'
+  lastUpdatedUI <- (^. uiLastUpdated) <$> getUI'
   pure (Left (cont lastUpdatedUI))
 stepControl (Free (ShouldUpdate b next)) = do
-  modifyState' (_1 . uiShouldUpdate .~ b)
+  modifyUI' (uiShouldUpdate .~ b)
   pure (Left next)
 stepControl (Free (SaveSession next)) = do
-  (_, ss) <- getState'
+  ss <- getSS'
   -- TODO: use asynchronous worker
   liftIO $
     withFile "session.json" WriteMode $ \h ->
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do
-  (_, _, chanBkg) <- ask
+  (_, _, chanBkg, _) <- ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
     atomically $ writeTChan chanBkg RefreshUI
