@@ -153,7 +153,6 @@ instance Binary ChanMessageBox where
     put (fromEnum Paused)
     put m
 
-
   get = do
     tag <- get
     case toEnum tag of

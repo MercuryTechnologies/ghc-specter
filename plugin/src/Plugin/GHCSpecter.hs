@@ -126,15 +126,16 @@ import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Process (getCurrentPid)
 
-data MsgQueueState = MsgQueueState
-  { msgSenderQueue :: Seq ChanMessageBox
-  , msgIsPaused :: Pause
+data MsgQueue = MsgQueue
+  { msgSenderQueue :: TVar (Seq ChanMessageBox)
+  , msgIsPaused :: TVar Pause
   }
 
-emptyMsgQueueState :: MsgQueueState
-emptyMsgQueueState = MsgQueueState Seq.empty (Pause False)
-
-type MsgQueue = TVar MsgQueueState
+initMsgQueue :: IO MsgQueue
+initMsgQueue = do
+  sQ <- newTVarIO Seq.empty
+  pauseRef <- newTVarIO (Pause False)
+  pure $ MsgQueue sQ pauseRef
 
 plugin :: Plugin
 plugin =
@@ -215,12 +216,11 @@ runMessageQueue opts queue = do
     sender :: Socket -> IO ()
     sender sock = forever $ do
       msgs <- atomically $ do
-        s <- readTVar queue
-        let queued = msgSenderQueue s
+        queued <- readTVar (msgSenderQueue queue)
         if Seq.null queued
           then retry
           else do
-            writeTVar queue s {msgSenderQueue = Seq.empty}
+            writeTVar (msgSenderQueue queue) Seq.empty
             pure queued
       let msgList = F.toList msgs
       msgList `seq` sendObject sock msgList
@@ -234,20 +234,18 @@ runMessageQueue opts queue = do
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
       atomically $
-        modifyTVar' queue $ \s -> s {msgIsPaused = msg}
+        writeTVar (msgIsPaused queue) msg
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
   atomically $
-    modifyTVar' queue $ \s ->
-      let q = msgSenderQueue s
-       in s {msgSenderQueue = q |> CMBox msg}
+    modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
 
 breakPoint :: MsgQueue -> IO ()
 breakPoint queue = do
   atomically $ do
-    s <- readTVar queue
-    STM.check (not (unPause (msgIsPaused s)))
+    p <- readTVar (msgIsPaused queue)
+    STM.check (not (unPause p))
 
 -- | Called only once for sending session information
 startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
@@ -259,7 +257,7 @@ startSession opts env = do
       startedSession =
         modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
-  queue' <- newTVarIO emptyMsgQueueState
+  queue' <- initMsgQueue
   (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
       (SessionInfo _ msessionStart _ _, mqueue) <- readTVar sessionRef
