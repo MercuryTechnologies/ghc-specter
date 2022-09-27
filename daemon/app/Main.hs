@@ -49,13 +49,13 @@ import GHCSpecter.Config
     loadConfig,
   )
 import GHCSpecter.Data.Assets qualified as Assets
-import GHCSpecter.Driver
+import GHCSpecter.Driver qualified as Driver
+import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     HasServerSession (..),
     ServerSession (..),
     UIChannel (..),
   )
-import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
