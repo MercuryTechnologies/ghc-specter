@@ -32,7 +32,7 @@ import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 
-data Channel = CheckImports | Timing | Session | HsSource
+data Channel = CheckImports | Timing | Session | HsSource | Paused
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -125,6 +125,7 @@ data ChanMessage (a :: Channel) where
   CMTiming :: ModuleName -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: ModuleName -> HsSourceInfo -> ChanMessage 'HsSource
+  CMPaused :: ModuleName -> ChanMessage 'Paused
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
@@ -133,6 +134,7 @@ instance Show ChanMessageBox where
   show (CMBox (CMTiming {})) = "CMTiming"
   show (CMBox (CMSession {})) = "CMSession"
   show (CMBox (CMHsSource {})) = "CMHsSource"
+  show (CMBox (CMPaused {})) = "CMPaused"
 
 instance Binary ChanMessageBox where
   put (CMBox (CMCheckImports m t)) = do
@@ -147,6 +149,10 @@ instance Binary ChanMessageBox where
   put (CMBox (CMHsSource m h)) = do
     put (fromEnum HsSource)
     put (m, h)
+  put (CMBox (CMPaused m)) = do
+    put (fromEnum Paused)
+    put m
+
 
   get = do
     tag <- get
@@ -155,3 +161,4 @@ instance Binary ChanMessageBox where
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
       HsSource -> CMBox . uncurry CMHsSource <$> get
+      Paused -> CMBox . CMPaused <$> get

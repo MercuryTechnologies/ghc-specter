@@ -99,6 +99,7 @@ import GHC.Unit.Module.ModSummary
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
+import GHCSpecter.Channel.Inbound.Types (Pause (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -127,11 +128,11 @@ import System.Process (getCurrentPid)
 
 data MsgQueueState = MsgQueueState
   { msgSenderQueue :: Seq ChanMessageBox
-  , msgIsPaused :: Bool
+  , msgIsPaused :: Pause
   }
 
 emptyMsgQueueState :: MsgQueueState
-emptyMsgQueueState = MsgQueueState Seq.empty False
+emptyMsgQueueState = MsgQueueState Seq.empty (Pause False)
 
 type MsgQueue = TVar MsgQueueState
 
@@ -228,7 +229,7 @@ runMessageQueue opts queue = do
       putStrLn "################"
       putStrLn "receiver started"
       putStrLn "################"
-      msg :: Bool <- receiveObject sock
+      msg :: Pause <- receiveObject sock
       putStrLn "################"
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
@@ -246,7 +247,7 @@ breakPoint :: MsgQueue -> IO ()
 breakPoint queue = do
   atomically $ do
     s <- readTVar queue
-    STM.check (not (msgIsPaused s))
+    STM.check (not (unPause (msgIsPaused s)))
 
 -- | Called only once for sending session information
 startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
