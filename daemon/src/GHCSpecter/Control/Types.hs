@@ -22,6 +22,7 @@ where
 import Control.Monad.Free (Free (..), liftF)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import GHCSpecter.Channel.Inbound.Types (Pause)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
@@ -32,7 +33,7 @@ data ControlF r
   | PutUI UIState r
   | GetSS (ServerState -> r)
   | PutSS ServerState r
-  | SendSignal Bool r
+  | SendSignal Pause r
   | NextEvent (Event -> r)
   | PrintMsg Text r
   | GetCurrentTime (UTCTime -> r)
@@ -56,7 +57,7 @@ getSS = liftF (GetSS id)
 putSS :: ServerState -> Control ()
 putSS ss = liftF (PutSS ss ())
 
-sendSignal :: Bool -> Control ()
+sendSignal :: Pause -> Control ()
 sendSignal b = liftF (SendSignal b ())
 
 nextEvent :: Control Event

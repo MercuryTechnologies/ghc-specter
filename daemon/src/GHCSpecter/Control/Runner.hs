@@ -25,6 +25,7 @@ import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
+import GHCSpecter.Channel.Inbound.Types (Pause)
 import GHCSpecter.Control.Types
   ( ControlF (..),
     type Control,
@@ -46,7 +47,8 @@ tempRef :: IORef Int
 tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
-type Runner = ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Bool) IO
+type Runner =
+  ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Pause) IO
 
 getUI' :: Runner UIState
 getUI' = do
@@ -80,7 +82,7 @@ modifySS' f = do
   let s' = f s
   s' `seq` putSS' s'
 
-sendSignal' :: Bool -> Runner ()
+sendSignal' :: Pause -> Runner ()
 sendSignal' b = do
   (_, _, _, signalChan) <- ask
   liftIO $ atomically $ writeTChan signalChan b
