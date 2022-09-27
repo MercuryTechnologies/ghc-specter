@@ -7,6 +7,10 @@ module GHCSpecter.Driver
     ClientSession (..),
     HasClientSession (..),
 
+    -- * UI Channel
+    UIChannel (..),
+    HasUIChannel (..),
+
     -- * main driver
     main,
   )
@@ -39,21 +43,36 @@ import GHCSpecter.UI.Types.Event
     Event,
   )
 
-newtype ServerSession = ServerSession
-  { _ssSubscriberSignal :: TChan Bool
+-- Session = State + Channel
+
+data ServerSession = ServerSession
+  { _ssServerStateRef :: TVar ServerState
+  , _ssSubscriberSignal :: TChan Bool
   }
 
 makeClassy ''ServerSession
 
 data ClientSession = ClientSession
   { _csUIStateRef :: TVar UIState
-  , _csServerStateRef :: TVar ServerState
   , _csSubscriberEvent :: TChan Event
   , _csPublisherState :: TChan (UIState, ServerState)
   , _csPublisherBkgEvent :: TChan BackgroundEvent
   }
 
 makeClassy ''ClientSession
+
+-- | communication channel that UI renderer needs
+-- Note that subscribe/publish is named according to UI side semantics.
+data UIChannel = UIChannel
+  { uiPublisherEvent :: TChan Event
+  -- ^ channel for sending event to control
+  , uiSubscriberState :: TChan (UIState, ServerState)
+  -- ^ channel for receiving state from control
+  , uiSubscriberBkgEvent :: TChan BackgroundEvent
+  -- ^ channel for receiving background event
+  }
+
+makeClassy ''UIChannel
 
 main ::
   ServerSession ->
@@ -69,8 +88,9 @@ main servSess cs = do
   pure ()
   where
     chanSignal = servSess ^. ssSubscriberSignal
+    ssRef = servSess ^. ssServerStateRef
+
     uiRef = cs ^. csUIStateRef
-    ssRef = cs ^. csServerStateRef
     chanEv = cs ^. csSubscriberEvent
     chanState = cs ^. csPublisherState
     chanBkg = cs ^. csPublisherBkgEvent

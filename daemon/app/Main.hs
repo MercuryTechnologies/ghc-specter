@@ -18,7 +18,6 @@ import Control.Concurrent.STM
     newTVarIO,
     readTChan,
     readTQueue,
-    readTVar,
     writeTChan,
   )
 import Control.Lens ((%~), (.~), (^.))
@@ -54,6 +53,7 @@ import GHCSpecter.Driver
   ( ClientSession (..),
     HasServerSession (..),
     ServerSession (..),
+    UIChannel (..),
   )
 import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
@@ -177,22 +177,11 @@ updateInbox chanMsg = incrementSN . updater
 -- ui state: per web view.
 -- control: per web view
 
--- | communication channel that UI renderer needs
--- Note that subscribe/publish is named according to UI side semantics.
-data UIChannel = UIChannel
-  { uiPublisherEvent :: TChan Event
-  -- ^ channel for sending event to control
-  , uiSubscriberState :: TChan (UIState, ServerState)
-  -- ^ channel for receiving state from control
-  , uiSubscriberBkgEvent :: TChan BackgroundEvent
-  -- ^ channel for receiving background event
-  }
-
 styleText :: Text
 styleText = "ul > li { margin-left: 10px; }"
 
-webServer :: Config -> TVar ServerState -> ServerSession -> IO ()
-webServer cfg ssRef servSess = do
+webServer :: Config -> ServerSession -> IO ()
+webServer cfg servSess = do
   let port = configWebPort cfg
   assets <- Assets.loadAssets
   runDefaultWithStyle port "ghc-specter" styleText $
@@ -206,7 +195,7 @@ webServer cfg ssRef servSess = do
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
       chanBkg <- unsafeBlockingIO newTChanIO
-      let newCS = ClientSession uiRef ssRef chanEv chanState chanBkg
+      let newCS = ClientSession uiRef chanEv chanState chanBkg
           newUIChan = UIChannel chanEv chanState chanBkg
       unsafeBlockingIO $ Driver.main servSess newCS
       loopM (step newUIChan) (BkgEv RefreshUI)
@@ -260,10 +249,10 @@ main = do
         ssRef <- atomically $ newTVar emptyServerState
         workQ <- newTQueueIO
         chanSignal <- newTChanIO
-        let servSess = ServerSession chanSignal
+        let servSess = ServerSession ssRef chanSignal
         _ <- forkOS $ listener socketFile ssRef servSess workQ
         _ <- forkOS $ runWorkQueue workQ
-        webServer cfg ssRef servSess
+        webServer cfg servSess
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let sessionFile = configSessionFile cfg
@@ -272,6 +261,6 @@ main = do
           Left err -> print err
           Right ss -> do
             chanSignal <- newTChanIO
-            let servSess = ServerSession chanSignal
             ssRef <- atomically $ newTVar ss
-            webServer cfg ssRef servSess
+            let servSess = ServerSession ssRef chanSignal
+            webServer cfg servSess
