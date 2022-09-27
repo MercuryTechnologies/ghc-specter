@@ -1,5 +1,5 @@
-module GHCSpecter.Driver
-  ( -- * main driver
+module GHCSpecter.Driver.Session
+  ( -- * main session procedure
     main,
   )
 where
