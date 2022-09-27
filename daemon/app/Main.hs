@@ -19,10 +19,9 @@ import Control.Concurrent.STM
     readTChan,
     readTQueue,
     readTVar,
-    retry,
     writeTChan,
   )
-import Control.Lens (to, (%~), (.~), (^.))
+import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Control.Monad.Extra (loopM)
 import Data.Aeson (eitherDecode')
@@ -51,6 +50,11 @@ import GHCSpecter.Config
     loadConfig,
   )
 import GHCSpecter.Data.Assets qualified as Assets
+import GHCSpecter.Driver
+  ( ClientSession (..),
+    HasServerSession (..),
+    ServerSession (..),
+  )
 import GHCSpecter.Driver qualified as Driver
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types
@@ -123,16 +127,21 @@ runWorkQueue workQ = go 0
       threadDelay 50_000
       go (n + 1)
 
-listener :: FilePath -> TVar ServerState -> TChan Bool -> TQueue (IO ()) -> IO ()
-listener socketFile ssRef signalChan workQ = do
-  ss <- atomically $ readTVar ssRef
+listener ::
+  FilePath ->
+  TVar ServerState ->
+  ServerSession ->
+  TQueue (IO ()) ->
+  IO ()
+listener socketFile ssRef ssess workQ = do
   runServer socketFile $ \sock -> do
     _ <- forkIO $ sender sock
     receiver sock
   where
+    chanSignal = ssess ^. ssSubscriberSignal
     sender sock = forever $ do
       putStrLn $ "########"
-      newPauseState <- atomically $ readTChan signalChan
+      newPauseState <- atomically $ readTChan chanSignal
       putStrLn "#### sendObject ####"
       newPauseState `seq` sendObject sock newPauseState
     receiver sock = forever $ do
@@ -182,8 +191,8 @@ data UIChannel = UIChannel
 styleText :: Text
 styleText = "ul > li { margin-left: 10px; }"
 
-webServer :: Config -> TVar ServerState -> TChan Bool -> IO ()
-webServer cfg ssRef signalChan = do
+webServer :: Config -> TVar ServerState -> ServerSession -> IO ()
+webServer cfg ssRef servSess = do
   let port = configWebPort cfg
   assets <- Assets.loadAssets
   runDefaultWithStyle port "ghc-specter" styleText $
@@ -197,9 +206,9 @@ webServer cfg ssRef signalChan = do
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
       chanBkg <- unsafeBlockingIO newTChanIO
-      let newCS = Driver.ClientSession uiRef ssRef chanEv chanState chanBkg
+      let newCS = ClientSession uiRef ssRef chanEv chanState chanBkg
           newUIChan = UIChannel chanEv chanState chanBkg
-      unsafeBlockingIO $ Driver.main newCS signalChan
+      unsafeBlockingIO $ Driver.main servSess newCS
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
@@ -248,19 +257,21 @@ main = do
     Online mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
-        serverSessionRef <- atomically $ newTVar emptyServerState
+        ssRef <- atomically $ newTVar emptyServerState
         workQ <- newTQueueIO
-        signalChan <- newTChanIO
-        _ <- forkOS $ listener socketFile serverSessionRef signalChan workQ
+        chanSignal <- newTChanIO
+        let servSess = ServerSession chanSignal
+        _ <- forkOS $ listener socketFile ssRef servSess workQ
         _ <- forkOS $ runWorkQueue workQ
-        webServer cfg serverSessionRef signalChan
+        webServer cfg ssRef servSess
     View mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let sessionFile = configSessionFile cfg
         lbs <- BL.readFile sessionFile
-        signalChan <- newTChanIO
         case eitherDecode' lbs of
           Left err -> print err
           Right ss -> do
-            serverSessionRef <- atomically $ newTVar ss
-            webServer cfg serverSessionRef signalChan
+            chanSignal <- newTChanIO
+            let servSess = ServerSession chanSignal
+            ssRef <- atomically $ newTVar ss
+            webServer cfg ssRef servSess

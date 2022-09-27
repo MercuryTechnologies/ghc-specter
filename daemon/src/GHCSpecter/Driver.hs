@@ -1,7 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Driver
-  ( -- * types
+  ( -- * session types for daemon
+    ServerSession (..),
+    HasServerSession (..),
     ClientSession (..),
     HasClientSession (..),
 
@@ -37,6 +39,12 @@ import GHCSpecter.UI.Types.Event
     Event,
   )
 
+newtype ServerSession = ServerSession
+  { _ssSubscriberSignal :: TChan Bool
+  }
+
+makeClassy ''ServerSession
+
 data ClientSession = ClientSession
   { _csUIStateRef :: TVar UIState
   , _csServerStateRef :: TVar ServerState
@@ -48,10 +56,10 @@ data ClientSession = ClientSession
 makeClassy ''ClientSession
 
 main ::
+  ServerSession ->
   ClientSession ->
-  TChan Bool ->
   IO ()
-main cs signalChan = do
+main servSess cs = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -60,6 +68,7 @@ main cs signalChan = do
   _ <- forkIO $ controlDriver
   pure ()
   where
+    chanSignal = servSess ^. ssSubscriberSignal
     uiRef = cs ^. csUIStateRef
     ssRef = cs ^. csServerStateRef
     chanEv = cs ^. csSubscriberEvent
@@ -91,7 +100,7 @@ main cs signalChan = do
           ec' <-
             runReaderT
               (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanBkg, signalChan)
+              (uiRef, ssRef, chanBkg, chanSignal)
           atomically $ do
             ui <- readTVar uiRef
             ss <- readTVar ssRef
