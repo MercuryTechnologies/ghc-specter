@@ -2,7 +2,7 @@ module GHCSpecter.Util.Graph.ClusterSpec (spec) where
 
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import GHCSpecter.Channel (ModuleGraphInfo (..))
+import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Util.Graph.Builder (makeBiDep)
 import GHCSpecter.Util.Graph.Cluster
   ( ClusterState (..),

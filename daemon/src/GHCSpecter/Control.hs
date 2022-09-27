@@ -6,7 +6,7 @@ where
 import Control.Lens ((&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import GHCSpecter.Channel (SessionInfo (..))
+import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types
   ( getCurrentTime,
     getLastUpdatedUI,

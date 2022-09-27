@@ -25,7 +25,7 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel (type ModuleName)
+import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.ConcurReplica.DOM

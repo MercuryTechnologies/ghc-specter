@@ -5,7 +5,6 @@ module GHCSpecter.Worker.Hie
   )
 where
 
-import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TQueue,
     TVar,
@@ -14,7 +13,6 @@ import Control.Concurrent.STM
     writeTQueue,
   )
 import Control.Lens ((%~), (.~))
-import Control.Monad (void)
 import Data.Map qualified as M
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8With)

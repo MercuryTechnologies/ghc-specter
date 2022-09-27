@@ -99,7 +99,7 @@ import GHC.Unit.Module.ModSummary
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
     HsSourceInfo (..),

@@ -14,7 +14,7 @@ import Control.Concurrent.STM
     writeTChan,
     writeTVar,
   )
-import Control.Lens ((.~), (^.), _1)
+import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)

@@ -17,9 +17,9 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
-    ModuleName,
   )
 import GHCSpecter.GraphLayout.Algorithm.BFS (runMultiseedStagedBFS)
 import GHCSpecter.GraphLayout.Algorithm.Builder

@@ -39,12 +39,12 @@ import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types
   ( Channel,
     SessionInfo (..),
     Timer,
     emptyModuleGraphInfo,
-    type ModuleName,
   )
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)

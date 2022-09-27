@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
-module GHCSpecter.Channel
+module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
     type ModuleName,
     SessionInfo (..),
@@ -30,6 +30,7 @@ import Data.List qualified as L
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
+import GHCSpecter.Channel.Common.Types (type ModuleName)
 
 data Channel = CheckImports | Timing | Session | HsSource
   deriving (Enum, Eq, Ord, Show, Generic)
@@ -37,8 +38,6 @@ data Channel = CheckImports | Timing | Session | HsSource
 instance FromJSON Channel
 
 instance ToJSON Channel
-
-type ModuleName = Text
 
 data ModuleGraphInfo = ModuleGraphInfo
   { mginfoModuleNameMap :: IntMap ModuleName

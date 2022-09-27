@@ -3,20 +3,11 @@ module GHCSpecter.Driver.Worker
   )
 where
 
-import Control.Concurrent (forkIO, forkOS, threadDelay)
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
-  ( TChan,
-    TQueue,
-    TVar,
+  ( TQueue,
     atomically,
-    modifyTVar',
-    newTChanIO,
-    newTQueueIO,
-    newTVar,
-    newTVarIO,
-    readTChan,
     readTQueue,
-    writeTChan,
   )
 
 runWorkQueue :: TQueue (IO ()) -> IO ()
