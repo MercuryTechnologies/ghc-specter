@@ -62,6 +62,8 @@ import GHC.Driver.Pipeline
   )
 import GHC.Driver.Plugins
   ( Plugin (..),
+    PluginWithArgs (..),
+    StaticPlugin (..),
     defaultPlugin,
     type CommandLineOption,
   )
@@ -137,7 +139,7 @@ plugin :: Plugin
 plugin =
   defaultPlugin
     { driverPlugin = driver
-    , typeCheckResultAction = typecheckPlugin
+    -- , typeCheckResultAction = typecheckPlugin
     }
 
 -- | Global variable shared across the session
@@ -342,7 +344,11 @@ sendCompStateOnPhase queue dflags mmodName phase = do
     _ -> pure ()
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
-driver opts env = do
+driver opts env0 = do
+  let -- NOTE: this will wipe out all other plugins and fix opts
+      -- TODO: if other plugins exist, throw exception.
+      newPlugin = plugin {typeCheckResultAction = typecheckPlugin}
+      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   queue <- startSession opts env
   breakPoint queue
   startTime <- getCurrentTime
