@@ -120,18 +120,10 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
-      - concur-core
-      - concur-replica
-      - containers
-      - extra
       - ghc-specter-plugin
       - ghc-specter-daemon
-      - lens
       - optparse-applicative
       - stm
-      - time
-      - transformers
-      - yaml
 
 tests:
   ghc-specter-daemon-test:

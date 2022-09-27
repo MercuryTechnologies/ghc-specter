@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Driver.Session.Types
-  (  -- * session types for daemon
+  ( -- * session types for daemon
     ServerSession (..),
     HasServerSession (..),
     ClientSession (..),
