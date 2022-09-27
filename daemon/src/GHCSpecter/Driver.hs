@@ -1,99 +1,103 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module GHCSpecter.Driver
-  ( -- * types
-    ClientSession (..),
-    HasClientSession (..),
-
-    -- * main driver
-    main,
+  ( webServer,
   )
 where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
+import Control.Applicative ((<|>))
 import Control.Concurrent.STM
   ( TChan,
-    TVar,
     atomically,
+    newTChanIO,
+    newTVarIO,
     readTChan,
-    readTVar,
-    retry,
     writeTChan,
   )
-import Control.Lens (makeClassy, (^.))
+import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.Time.Clock (nominalDiffTimeToSeconds)
-import GHCSpecter.Control qualified as Control (main)
-import GHCSpecter.Control.Runner (stepControlUpToEvent)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState (..),
+import Data.Text (Text)
+import Data.Time.Clock (getCurrentTime)
+import GHCSpecter.Config (Config (..))
+import GHCSpecter.Data.Assets qualified as Assets
+import GHCSpecter.Driver.Session qualified as Session
+import GHCSpecter.Driver.Session.Types
+  ( ClientSession (..),
+    ServerSession (..),
+    UIChannel (..),
   )
-import GHCSpecter.UI.Constants (chanUpdateInterval)
-import GHCSpecter.UI.Types (UIState)
+import GHCSpecter.Render (render)
+import GHCSpecter.Server.Types (ServerState)
+import GHCSpecter.UI.ConcurReplica.Run (runDefaultWithStyle)
+import GHCSpecter.UI.ConcurReplica.Types
+  ( IHTML,
+    blockDOMUpdate,
+    unblockDOMUpdate,
+  )
+import GHCSpecter.UI.Types
+  ( HasUIState (..),
+    UIState,
+    UIView (..),
+    emptyMainView,
+    emptyUIState,
+  )
 import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (MessageChanUpdated),
-    Event,
+  ( BackgroundEvent (RefreshUI),
+    Event (BkgEv),
   )
 
-data ClientSession = ClientSession
-  { _csUIStateRef :: TVar UIState
-  , _csServerStateRef :: TVar ServerState
-  , _csSubscriberEvent :: TChan Event
-  , _csPublisherState :: TChan (UIState, ServerState)
-  , _csPublisherBkgEvent :: TChan BackgroundEvent
-  }
+-- NOTE:
+-- server state: shared across the session
+-- ui state: per web view.
+-- control: per web view
 
-makeClassy ''ClientSession
+styleText :: Text
+styleText = "ul > li { margin-left: 10px; }"
 
-main ::
-  ClientSession ->
-  TChan Bool ->
-  IO ()
-main cs signalChan = do
-  -- start chanDriver
-  lastMessageSN <-
-    (^. serverMessageSN) <$> atomically (readTVar ssRef)
-  _ <- forkIO $ chanDriver lastMessageSN
-  -- start controlDriver
-  _ <- forkIO $ controlDriver
-  pure ()
+webServer :: Config -> ServerSession -> IO ()
+webServer cfg servSess = do
+  let port = configWebPort cfg
+  assets <- Assets.loadAssets
+  runDefaultWithStyle port "ghc-specter" styleText $
+    \_ -> do
+      uiRef <-
+        unsafeBlockingIO $ do
+          initTime <- getCurrentTime
+          let ui0 = emptyUIState assets initTime
+              ui0' = (uiView .~ MainMode emptyMainView) ui0
+          newTVarIO ui0'
+      chanEv <- unsafeBlockingIO newTChanIO
+      chanState <- unsafeBlockingIO newTChanIO
+      chanBkg <- unsafeBlockingIO newTChanIO
+      let newCS = ClientSession uiRef chanEv chanState chanBkg
+          newUIChan = UIChannel chanEv chanState chanBkg
+      unsafeBlockingIO $ Session.main servSess newCS
+      loopM (step newUIChan) (BkgEv RefreshUI)
   where
-    uiRef = cs ^. csUIStateRef
-    ssRef = cs ^. csServerStateRef
-    chanEv = cs ^. csSubscriberEvent
-    chanState = cs ^. csPublisherState
-    chanBkg = cs ^. csPublisherBkgEvent
-    blockUntilNewMessage lastSN = do
-      ss <- readTVar ssRef
-      if (ss ^. serverMessageSN == lastSN)
-        then retry
-        else pure (ss ^. serverMessageSN)
+    -- A single step of the outer loop (See Note [Control Loops]).
+    step ::
+      -- UI comm channel
+      UIChannel ->
+      -- last event
+      Event ->
+      Widget IHTML (Either Event ())
+    step (UIChannel chanEv chanState chanBkg) ev = do
+      (ui, ss) <-
+        unsafeBlockingIO $ do
+          atomically $ writeTChan chanEv ev
+          (ui, ss) <- atomically $ readTChan chanState
+          pure (ui, ss)
+      stepRender (ui, ss) <|> (Left . BkgEv <$> waitForBkgEv chanBkg)
 
-    -- background connector between server channel and UI frame
-    chanDriver lastMessageSN = do
-      -- wait for next poll
-      threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
-      -- blocked until a new message comes
-      newMessageSN <-
-        atomically $
-          blockUntilNewMessage lastMessageSN
-      atomically $
-        writeTChan chanBkg MessageChanUpdated
-      chanDriver newMessageSN
+    stepRender :: (UIState, ServerState) -> Widget IHTML (Either Event ())
+    stepRender (ui, ss) = do
+      let renderUI =
+            if ui ^. uiShouldUpdate
+              then unblockDOMUpdate (render (ui, ss))
+              else blockDOMUpdate (render (ui, ss))
+      Left <$> renderUI
 
-    -- connector between driver and Control frame
-    controlDriver = loopM step (\_ -> Control.main)
-      where
-        step c = do
-          ev <- atomically $ readTChan chanEv
-          ec' <-
-            runReaderT
-              (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanBkg, signalChan)
-          atomically $ do
-            ui <- readTVar uiRef
-            ss <- readTVar ssRef
-            writeTChan chanState (ui, ss)
-          pure ec'
+    waitForBkgEv ::
+      -- channel for receiving bkg event
+      TChan BackgroundEvent ->
+      Widget IHTML BackgroundEvent
+    waitForBkgEv chanBkg = liftSTM $ readTChan chanBkg
