@@ -345,11 +345,12 @@ sendCompStateOnPhase queue dflags mmodName phase = do
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
+  queue <- startSession opts env0
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
-      newPlugin = plugin {typeCheckResultAction = typecheckPlugin}
+      -- queue is now passed to typecheckPlugin
+      newPlugin = plugin {typeCheckResultAction = typecheckPlugin queue}
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  queue <- startSession opts env
   breakPoint queue
   startTime <- getCurrentTime
   -- Module name is unknown when this driver plugin is called.
@@ -414,11 +415,12 @@ mkModuleNameMap gre = do
 -- | First argument in -fplugin-opt is interpreted as the socket file path.
 --   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
+  MsgQueue ->
   [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin _opts modsummary tc = do
+typecheckPlugin queue _opts modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -427,15 +429,12 @@ typecheckPlugin _opts modsummary tc = do
         L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
           concatMap mkModuleNameMap usedGREs
 
-  let rendered =
+      rendered =
         unlines $ do
           (modu, names) <- M.toList moduleImportMap
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
 
-  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ do
-    (_, mqueue) <- atomically $ readTVar sessionRef
-    for_ mqueue $ \queue ->
-      queueMessage queue (CMCheckImports modName (T.pack rendered))
+      modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
