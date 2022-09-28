@@ -98,6 +98,7 @@ import GHC.Unit.Module.ModSummary
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Inbound.Types (Pause (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
@@ -142,7 +143,7 @@ plugin = defaultPlugin {driverPlugin = driver}
 data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
-  , psNextDriverId :: Int
+  , psNextDriverId :: DriverId
   }
 
 emptyPluginSession :: PluginSession
@@ -254,7 +255,7 @@ startSession ::
   [CommandLineOption] ->
   HscEnv ->
   -- | (driver id, message queue)
-  IO (Int, MsgQueue)
+  IO (DriverId, MsgQueue)
 startSession opts env = do
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
@@ -293,7 +294,7 @@ startSession opts env = do
 
 sendModuleStart ::
   MsgQueue ->
-  Int ->
+  DriverId ->
   IORef (Maybe ModuleName) ->
   UTCTime ->
   CompPipeline (Maybe ModuleName)
@@ -313,7 +314,7 @@ sendModuleStart queue drvId modNameRef startTime = do
 sendCompStateOnPhase ::
   MsgQueue ->
   DynFlags ->
-  (Int, Maybe ModuleName) ->
+  (DriverId, Maybe ModuleName) ->
   PhasePlus ->
   CompPipeline ()
 sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do

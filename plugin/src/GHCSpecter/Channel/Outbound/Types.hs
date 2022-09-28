@@ -30,7 +30,10 @@ import Data.List qualified as L
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 
 data Channel = CheckImports | Timing | Session | HsSource | Paused
   deriving (Enum, Eq, Ord, Show, Generic)
@@ -124,7 +127,7 @@ data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
   CMTiming ::
     -- | driver id
-    Int ->
+    DriverId ->
     Maybe ModuleName ->
     Timer ->
     ChanMessage 'Timing
