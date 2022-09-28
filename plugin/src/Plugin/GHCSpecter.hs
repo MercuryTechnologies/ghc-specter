@@ -95,6 +95,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
+    getModuleName,
     formatImportedNames,
     formatName,
     mkModuleNameMap,
@@ -257,7 +258,7 @@ parsedResultActionPlugin ::
   HsParsedModule ->
   Hsc HsParsedModule
 parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
-  let modName = T.pack . moduleNameString . moduleName . ms_mod $ modSummary
+  let modName = getModuleName modSummary
   liftIO $ do
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName
