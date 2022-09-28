@@ -11,7 +11,7 @@ import Concur.Replica
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
@@ -90,10 +90,8 @@ render ss =
               messageModuleInProgress =
                 let is = fmap fst timingInProg
                     imods = fmap (\i -> (unDriverId i, forwardLookup i drvModMap)) is
-                    txt =
-                      T.intercalate "\n" $
-                        fmap (\(i, mmod) -> T.pack (show i) <> fromMaybe "" mmod) imods
-                 in txt -- (show mods)
+                 in T.intercalate "\n" $
+                      fmap (\(i, mmod) -> T.pack (show i) <> ": " <> fromMaybe "" mmod) imods
            in div
                 []
                 [ renderSessionButtons sessionInfo
