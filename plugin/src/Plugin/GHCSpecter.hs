@@ -142,7 +142,7 @@ plugin = defaultPlugin {driverPlugin = driver}
 data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
-  , psNextModuleId :: Int
+  , psNextDriverId :: Int
   }
 
 emptyPluginSession :: PluginSession
@@ -250,7 +250,11 @@ breakPoint queue = do
     STM.check (not (unPause p))
 
 -- | Called only once for sending session information
-startSession :: [CommandLineOption] -> HscEnv -> IO (Int, MsgQueue)
+startSession ::
+  [CommandLineOption] ->
+  HscEnv ->
+  -- | (driver id, message queue)
+  IO (Int, MsgQueue)
 startSession opts env = do
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
@@ -260,14 +264,14 @@ startSession opts env = do
         modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
   queue' <- initMsgQueue
-  (mNewStartedSession, modId, queue, willStartMsgQueue) <-
+  (mNewStartedSession, drvId, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
       psession <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo psession
           msessionStart = sessionStartTime ghcSessionInfo
           mqueue = psMessageQueue psession
-          modId = psNextModuleId psession
-      modifyTVar' sessionRef (\s -> s {psNextModuleId = modId + 1})
+          drvId = psNextDriverId psession
+      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId + 1})
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
@@ -277,22 +281,23 @@ startSession opts env = do
       case msessionStart of
         Nothing -> do
           modifyTVar' sessionRef (\s -> s {psSessionInfo = startedSession})
-          pure (Just startedSession, modId, queue, willStartMsgQueue)
-        Just _ -> pure (Nothing, modId, queue, willStartMsgQueue)
+          pure (Just startedSession, drvId, queue, willStartMsgQueue)
+        Just _ -> pure (Nothing, drvId, queue, willStartMsgQueue)
   -- If session connection was never initiated, then make connection
   -- and start receiving message from the queue.
   when willStartMsgQueue $
     void $ forkOS $ runMessageQueue opts queue'
   for_ mNewStartedSession $ \newStartedSession ->
     queueMessage queue (CMSession newStartedSession)
-  pure (modId, queue)
+  pure (drvId, queue)
 
 sendModuleStart ::
   MsgQueue ->
+  Int ->
   IORef (Maybe ModuleName) ->
   UTCTime ->
   CompPipeline (Maybe ModuleName)
-sendModuleStart queue modNameRef startTime = do
+sendModuleStart queue drvId modNameRef startTime = do
   pstate <- getPipeState
   mmodName_ <- liftIO $ readIORef modNameRef
   let mmodName = getModuleNameFromPipeState pstate
@@ -301,17 +306,17 @@ sendModuleStart queue modNameRef startTime = do
     (Nothing, Just modName) -> do
       let timer = Timer [(TimerStart, startTime)]
       liftIO $
-        queueMessage queue (CMTiming modName timer)
+        queueMessage queue (CMTiming drvId (Just modName) timer)
     _ -> pure ()
   pure mmodName
 
 sendCompStateOnPhase ::
   MsgQueue ->
   DynFlags ->
-  Maybe ModuleName ->
+  (Int, Maybe ModuleName) ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase queue dflags mmodName phase = do
+sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> do
@@ -322,7 +327,7 @@ sendCompStateOnPhase queue dflags mmodName phase = do
           endTime <- liftIO getCurrentTime
           let timer = Timer [(TimerEnd, endTime)]
           liftIO $
-            queueMessage queue (CMTiming modName timer)
+            queueMessage queue (CMTiming drvId (Just modName) timer)
           -- send HIE file information to the daemon after compilation
           case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
             (Just modLoc, True) -> do
@@ -339,20 +344,19 @@ sendCompStateOnPhase queue dflags mmodName phase = do
           endTime <- liftIO getCurrentTime
           let timer = Timer [(TimerAs, endTime)]
           liftIO $
-            queueMessage queue (CMTiming modName timer)
+            queueMessage queue (CMTiming drvId (Just modName) timer)
     HscOut _ modName0 _ -> do
       let modName = T.pack . moduleNameString $ modName0
       -- send timing information
       hscOutTime <- liftIO getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
       liftIO $
-        queueMessage queue (CMTiming modName timer)
+        queueMessage queue (CMTiming drvId (Just modName) timer)
     _ -> pure ()
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  (modId, queue) <- startSession opts env0
-  print modId
+  (drvId, queue) <- startSession opts env0
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
       -- queue is now passed to typecheckPlugin
@@ -368,15 +372,15 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName0 <- sendModuleStart queue modNameRef startTime
-        sendCompStateOnPhase queue dflags mmodName0 phase
+        mmodName0 <- sendModuleStart queue drvId modNameRef startTime
+        sendCompStateOnPhase queue dflags (drvId, mmodName0) phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         -- NOTE: we need to run sendModuleStart twice as the first one is not guaranteed
         -- to have module name information.
-        mmodName1 <- sendModuleStart queue modNameRef startTime
-        sendCompStateOnPhase queue dflags mmodName1 phase'
+        mmodName1 <- sendModuleStart queue drvId modNameRef startTime
+        sendCompStateOnPhase queue dflags (drvId, mmodName1) phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
