@@ -26,7 +26,10 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
@@ -42,6 +45,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
+import GHCSpecter.Util.Timing (isCompiled)
 import Text.Printf (printf)
 import Prelude hiding (div)
 
@@ -52,8 +56,12 @@ makePolylineText (p0, p1) xys =
     each (Point x y) = T.pack $ printf "%.2f,%.2f" x y
 
 renderModuleGraphSVG ::
+  -- | key = graph id
   IntMap ModuleName ->
-  Map Text Timer ->
+  -- | (module name -> driver id) map
+  Map ModuleName DriverId ->
+  -- | key = driver id
+  IntMap Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
@@ -61,6 +69,7 @@ renderModuleGraphSVG ::
   Widget IHTML ModuleGraphEvent
 renderModuleGraphSVG
   nameMap
+  modDrvMap
   timing
   clustering
   grVisInfo
@@ -138,7 +147,7 @@ renderModuleGraphSVG
                 if nTot == 0
                   then Nothing
                   else do
-                    let compiled = filter (\j -> j `M.member` timing) cluster
+                    let compiled = filter (isCompiled modDrvMap timing) cluster
                         nCompiled = length compiled
                     pure (fromIntegral nCompiled / fromIntegral nTot)
               w' = ratio * w

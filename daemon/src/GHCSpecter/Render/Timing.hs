@@ -18,6 +18,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
+import Data.Maybe (maybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -79,7 +80,7 @@ colorCodes =
 
 renderRules ::
   Bool ->
-  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
   Int ->
   NominalDiffTime ->
   [Widget IHTML a]
@@ -149,7 +150,7 @@ module2Y i = 5.0 * i + 1.0
 
 renderTimingChart ::
   TimingUI ->
-  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
   Widget IHTML Event
 renderTimingChart tui timingInfos =
   let nMods = length timingInfos
@@ -209,21 +210,23 @@ renderTimingChart tui timingInfos =
           , SP.fill "deepskyblue"
           ]
           []
-      moduleText (i, item@(modu, _)) =
-        S.text
-          [ SP.x (T.pack $ show (rightOfBox item))
-          , SP.y (T.pack $ show (topOfBox i + 3))
-          , classList [("small", True)]
+      moduleText (i, item@(mmodu, _)) =
+        flip (maybe []) mmodu $ \modu ->
+          [ S.text
+              [ SP.x (T.pack $ show (rightOfBox item))
+              , SP.y (T.pack $ show (topOfBox i + 3))
+              , classList [("small", True)]
+              ]
+              [text modu]
           ]
-          [text modu]
       makeItems x
         | tui ^. timingUIPartition =
             [ box x
             , boxAs x
             , boxHscOut x
-            , moduleText x
             ]
-        | otherwise = [box x, moduleText x]
+              ++ moduleText x
+        | otherwise = [box x] ++ moduleText x
       svgProps =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
@@ -317,7 +320,7 @@ renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
 
 renderTimingBar ::
   TimingUI ->
-  [(ModuleName, TimingInfo NominalDiffTime)] ->
+  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
   Widget IHTML Event
 renderTimingBar tui timingInfos =
   div [] [svgElement]

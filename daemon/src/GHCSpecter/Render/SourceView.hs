@@ -17,11 +17,8 @@ import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree, foldTree)
-import GHCSpecter.Channel.Outbound.Types
-  ( Channel (..),
-    ModuleName,
-    getEndTime,
-  )
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types (Channel (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types
@@ -53,6 +50,7 @@ import GHCSpecter.Util.SourceTree
   ( accumPrefix,
     expandFocusOnly,
   )
+import GHCSpecter.Util.Timing (isCompiled)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 
@@ -98,6 +96,7 @@ renderModuleTree srcUI ss =
     [ul [] contents]
   where
     timing = ss ^. serverTiming
+    modDrvMap = ss ^. serverDriverModuleRevMap
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
@@ -117,9 +116,8 @@ renderModuleTree srcUI ss =
 
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
-      let isCompiled = isJust (timing ^? at modu . _Just . to getEndTime . _Just)
-          colorTxt
-            | isCompiled = "has-text-success-dark"
+      let colorTxt
+            | isCompiled modDrvMap timing modu = "has-text-success-dark"
             | otherwise = "has-text-grey"
           modItem =
             case mexpandedModu of

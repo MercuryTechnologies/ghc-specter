@@ -3,7 +3,6 @@
 
 module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
-    type ModuleName,
     SessionInfo (..),
     TimerTag (..),
     Timer (..),

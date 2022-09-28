@@ -32,9 +32,9 @@ import Data.Map (Map)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Channel.Common.Types (DriverId, type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
-    ModuleName,
     SessionInfo (..),
     Timer,
   )
@@ -141,8 +141,12 @@ formatModuleGraphInfo mgi =
         <> T.pack (show nEdg)
 
 renderMainModuleGraph ::
+  -- | key = graph id
   IntMap ModuleName ->
-  Map ModuleName Timer ->
+  -- | (module name -> driver id) map
+  Map ModuleName DriverId ->
+  -- | key = driver id
+  IntMap Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
   -- | main module graph UI state
@@ -150,6 +154,7 @@ renderMainModuleGraph ::
   Widget IHTML Event
 renderMainModuleGraph
   nameMap
+  modDrvMap
   timing
   clustering
   grVisInfo
@@ -159,20 +164,26 @@ renderMainModuleGraph
      in MainModuleEv
           <$> GraphView.renderModuleGraphSVG
             nameMap
+            modDrvMap
             timing
             clustering
             grVisInfo
             (mclicked, mhovered)
 
 renderSubModuleGraph ::
+  -- | key = graph id
   IntMap ModuleName ->
-  Map ModuleName Timer ->
+  -- | (module name -> driver id) map
+  Map ModuleName DriverId ->
+  -- | key = driver id
+  IntMap Timer ->
   [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   -- | (main module graph UI state, sub module graph UI state)
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget IHTML Event
 renderSubModuleGraph
   nameMap
+  modDrvMap
   timing
   subgraphs
   (mainMGUI, (detailLevel, subMGUI)) =
@@ -198,6 +209,7 @@ renderSubModuleGraph
              in SubModuleEv . SubModuleGraphEv
                   <$> GraphView.renderModuleGraphSVG
                     nameMap
+                    modDrvMap
                     timing
                     tempclustering
                     subgraph
@@ -227,6 +239,7 @@ render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+      modDrvMap = ss ^. serverDriverModuleRevMap
       timing = ss ^. serverTiming
       mgs = ss ^. serverModuleGraphState
       clustering = mgs ^. mgsClustering
@@ -241,6 +254,7 @@ render model ss =
                 Just grVisInfo ->
                   [ renderMainModuleGraph
                       nameMap
+                      modDrvMap
                       timing
                       clustering
                       grVisInfo
@@ -248,6 +262,7 @@ render model ss =
                   , renderDetailLevel model
                   , renderSubModuleGraph
                       nameMap
+                      modDrvMap
                       timing
                       (mgs ^. mgsSubgraph)
                       (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)

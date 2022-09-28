@@ -16,8 +16,10 @@ import Control.Concurrent.STM
 import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
+import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Text.IO qualified as TIO
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -50,20 +52,13 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMModuleInfo drvId modu) ->
-        -- for now
-        id
+        (serverDriverModuleMap %~ IM.insert (unDriverId drvId) modu)
+          . (serverDriverModuleRevMap %~ M.insert modu drvId)
       CMBox (CMTiming drvId timer') ->
-        id
-      -- for now
-      {-
-      case mmodu of
-        Nothing -> id
-        Just modu ->
-          let f Nothing = Just timer'
-              f (Just timer0) =
-                Just $ Timer (unTimer timer0 ++ unTimer timer')
-           in (serverTiming %~ M.alter f modu)
-      -}
+        let f Nothing = Just timer'
+            f (Just timer0) =
+              Just $ Timer (unTimer timer0 ++ unTimer timer')
+         in (serverTiming %~ IM.alter f (unDriverId drvId))
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->

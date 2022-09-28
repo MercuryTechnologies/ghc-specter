@@ -11,7 +11,6 @@ import Concur.Replica
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
-import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Outbound.Types
@@ -71,7 +70,7 @@ render ss =
         Just sessionStartTime -> do
           let mgi = sessionModuleGraph sessionInfo
               nTot = IM.size (mginfoModuleNameMap mgi)
-              timingList = M.toList timing
+              timingList = IM.toList timing
               (timingDone, timingInProg) =
                 partition (\(_, t) -> isJust (getEndTime t)) timingList
               nDone = length timingDone
