@@ -142,10 +142,11 @@ plugin = defaultPlugin {driverPlugin = driver}
 data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
+  , psNextModuleId :: Int
   }
 
 emptyPluginSession :: PluginSession
-emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing
+emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
 
 -- | Global variable shared across the session
 sessionRef :: TVar PluginSession
@@ -249,7 +250,7 @@ breakPoint queue = do
     STM.check (not (unPause p))
 
 -- | Called only once for sending session information
-startSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
+startSession :: [CommandLineOption] -> HscEnv -> IO (Int, MsgQueue)
 startSession opts env = do
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
@@ -259,12 +260,14 @@ startSession opts env = do
         modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo False
   -- NOTE: return Nothing if session info is already initiated
   queue' <- initMsgQueue
-  (mNewStartedSession, queue, willStartMsgQueue) <-
+  (mNewStartedSession, modId, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
       psession <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo psession
           msessionStart = sessionStartTime ghcSessionInfo
           mqueue = psMessageQueue psession
+          modId = psNextModuleId psession
+      modifyTVar' sessionRef (\s -> s {psNextModuleId = modId + 1})
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
@@ -274,15 +277,15 @@ startSession opts env = do
       case msessionStart of
         Nothing -> do
           modifyTVar' sessionRef (\s -> s {psSessionInfo = startedSession})
-          pure (Just startedSession, queue, willStartMsgQueue)
-        Just _ -> pure (Nothing, queue, willStartMsgQueue)
+          pure (Just startedSession, modId, queue, willStartMsgQueue)
+        Just _ -> pure (Nothing, modId, queue, willStartMsgQueue)
   -- If session connection was never initiated, then make connection
   -- and start receiving message from the queue.
   when willStartMsgQueue $
     void $ forkOS $ runMessageQueue opts queue'
   for_ mNewStartedSession $ \newStartedSession ->
     queueMessage queue (CMSession newStartedSession)
-  pure queue
+  pure (modId, queue)
 
 sendModuleStart ::
   MsgQueue ->
@@ -348,7 +351,8 @@ sendCompStateOnPhase queue dflags mmodName phase = do
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  queue <- startSession opts env0
+  (modId, queue) <- startSession opts env0
+  print modId
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
       -- queue is now passed to typecheckPlugin
