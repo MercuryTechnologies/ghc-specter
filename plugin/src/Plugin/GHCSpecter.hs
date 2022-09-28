@@ -30,6 +30,7 @@ import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env (Hsc, HscEnv (..))
@@ -86,6 +87,7 @@ import GHCSpecter.Config
     defaultGhcSpecterConfigFile,
     loadConfig,
   )
+import GHCSpecter.Util.GHC (showPpr)
 import Network.Socket (Socket)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -148,20 +150,20 @@ queueMessage queue !msg =
   atomically $
     modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
 
-breakPoint :: MsgQueue -> DriverId -> IO ()
-breakPoint queue drvId = do
-  tid <- forkIO $ sessionInPause queue drvId
+breakPoint :: MsgQueue -> DriverId -> Text -> IO ()
+breakPoint queue drvId msg = do
+  tid <- forkIO $ sessionInPause queue drvId msg
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
     STM.check (not (unPause p))
   killThread tid
 
-sessionInPause :: MsgQueue -> DriverId -> IO ()
-sessionInPause queue drvId = do
+sessionInPause :: MsgQueue -> DriverId -> Text -> IO ()
+sessionInPause queue drvId msg = do
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
     STM.check (unPause p)
-  queueMessage queue (CMPaused drvId)
+  queueMessage queue (CMPaused drvId msg)
   -- idling
   forever $ do
     threadDelay 1_000_000
@@ -302,7 +304,7 @@ typecheckPlugin queue drvId modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
       modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ breakPoint queue drvId
+  liftIO $ breakPoint queue drvId "typecheck"
   liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
 
@@ -327,19 +329,19 @@ driver opts env0 = do
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue drvId
+  breakPoint queue drvId "driver starting point"
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        liftIO $ breakPoint queue drvId
+        liftIO $ breakPoint queue drvId ("timingA-" <> T.pack (showPpr dflags phase))
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        liftIO $ breakPoint queue drvId
+        liftIO $ breakPoint queue drvId ("timingB-" <> T.pack (showPpr dflags phase'))
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}

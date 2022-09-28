@@ -134,7 +134,7 @@ data ChanMessage (a :: Channel) where
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
-  CMPaused :: DriverId -> ChanMessage 'Paused
+  CMPaused :: DriverId -> Text -> ChanMessage 'Paused
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
@@ -162,9 +162,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMHsSource i h)) = do
     put (fromEnum HsSource)
     put (i, h)
-  put (CMBox (CMPaused i)) = do
+  put (CMBox (CMPaused i t)) = do
     put (fromEnum Paused)
-    put i
+    put (i, t)
 
   get = do
     tag <- get
@@ -174,4 +174,4 @@ instance Binary ChanMessageBox where
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
       HsSource -> CMBox . uncurry CMHsSource <$> get
-      Paused -> CMBox . CMPaused <$> get
+      Paused -> CMBox . uncurry CMPaused <$> get

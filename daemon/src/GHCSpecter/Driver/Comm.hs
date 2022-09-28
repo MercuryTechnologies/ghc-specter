@@ -8,7 +8,6 @@ where
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TQueue,
-    TVar,
     atomically,
     modifyTVar',
     readTChan,
@@ -96,16 +95,16 @@ listener socketFile ssess workQ = do
             void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _drvId (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
-          CMPaused drvId -> do
+          CMPaused drvId msg -> do
             mmodu <-
               atomically $ do
                 ss <- readTVar ssRef
                 let drvModMap = ss ^. serverDriverModuleMap
                 pure $ forwardLookup drvId drvModMap
             case mmodu of
-              Nothing ->
-                TIO.putStrLn $ "paused GHC at driverId = " <> T.pack (show (unDriverId drvId))
+              Nothing -> do
+                TIO.putStrLn $ "paused GHC at driverId = " <> T.pack (show (unDriverId drvId)) <> ": " <> msg
               Just modu ->
-                TIO.putStrLn $ "paused GHC at moduleName = " <> modu
+                TIO.putStrLn $ "paused GHC at moduleName = " <> modu <> ": " <> msg
           _ -> pure ()
         atomically . modifyTVar' ssRef . updateInbox $ CMBox o
