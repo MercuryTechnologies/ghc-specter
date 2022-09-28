@@ -97,7 +97,6 @@ import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
     formatImportedNames,
     formatName,
-    getModuleNameFromPipeState,
     mkModuleNameMap,
   )
 import System.Directory (canonicalizePath, doesFileExist)
@@ -216,41 +215,34 @@ sendModuleName queue drvId modName =
 sendCompStateOnPhase ::
   MsgQueue ->
   DynFlags ->
-  (DriverId, Maybe ModuleName) ->
+  DriverId ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
+sendCompStateOnPhase queue dflags drvId phase = do
   pstate <- getPipeState
   case phase of
-    RealPhase StopLn -> do
+    RealPhase StopLn -> liftIO do
       -- send timing information
-      endTime <- liftIO getCurrentTime
+      endTime <- getCurrentTime
       let timer = Timer [(TimerEnd, endTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
-      case mmodName of
-        Nothing -> pure ()
-        Just modName -> do
-          -- send HIE file information to the daemon after compilation
-          case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
-            (Just modLoc, True) -> do
-              let hiefile = ml_hie_file modLoc
-              liftIO $ do
-                hiefile' <- canonicalizePath hiefile
-                queueMessage queue (CMHsSource modName (HsSourceInfo hiefile'))
-            _ -> pure ()
-    RealPhase (As _) -> do
+      queueMessage queue (CMTiming drvId timer)
+      -- send HIE file information to the daemon after compilation
+      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
+        (Just modLoc, True) -> do
+          let hiefile = ml_hie_file modLoc
+          hiefile' <- canonicalizePath hiefile
+          queueMessage queue (CMHsSource drvId (HsSourceInfo hiefile'))
+        _ -> pure ()
+    RealPhase (As _) -> liftIO $ do
       -- send timing information
-      endTime <- liftIO getCurrentTime
+      endTime <- getCurrentTime
       let timer = Timer [(TimerAs, endTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
-    HscOut _ _ _ -> do
+      queueMessage queue (CMTiming drvId timer)
+    HscOut _ _ _ -> liftIO $ do
       -- send timing information
-      hscOutTime <- liftIO getCurrentTime
+      hscOutTime <- getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
+      queueMessage queue (CMTiming drvId timer)
     _ -> pure ()
 
 --
@@ -328,16 +320,11 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName0 <- liftIO $ readIORef modNameRef
-        sendCompStateOnPhase queue dflags (drvId, mmodName0) phase
+        sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        -- NOTE: we need to run sendModuleName twice as the first one is not guaranteed
-        -- to have module name information.
-        -- TODO: Check whether this is still true.
-        mmodName1 <- liftIO $ readIORef modNameRef
-        sendCompStateOnPhase queue dflags (drvId, mmodName1) phase'
+        sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}

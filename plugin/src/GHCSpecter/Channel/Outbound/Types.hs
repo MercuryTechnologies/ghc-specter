@@ -127,7 +127,7 @@ data ChanMessage (a :: Channel) where
   CMModuleInfo :: DriverId -> ModuleName -> ChanMessage 'ModuleInfo
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
-  CMHsSource :: ModuleName -> HsSourceInfo -> ChanMessage 'HsSource
+  CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
   CMPaused :: ModuleName -> ChanMessage 'Paused
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
@@ -153,9 +153,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMSession s)) = do
     put (fromEnum Session)
     put s
-  put (CMBox (CMHsSource m h)) = do
+  put (CMBox (CMHsSource i h)) = do
     put (fromEnum HsSource)
-    put (m, h)
+    put (i, h)
   put (CMBox (CMPaused m)) = do
     put (fromEnum Paused)
     put m

@@ -87,7 +87,7 @@ listener socketFile ssRef ssess workQ = do
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker ssRef mgi)
-          CMHsSource _modu (HsSourceInfo hiefile) ->
+          CMHsSource _drvId (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
           CMPaused modu ->
             TIO.putStrLn $ "paused GHC at " <> modu
