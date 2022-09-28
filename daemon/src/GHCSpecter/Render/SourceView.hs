@@ -50,7 +50,7 @@ import GHCSpecter.Util.SourceTree
   ( accumPrefix,
     expandFocusOnly,
   )
-import GHCSpecter.Util.Timing (isCompiled)
+import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 
@@ -117,7 +117,7 @@ renderModuleTree srcUI ss =
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
       let colorTxt
-            | isCompiled modDrvMap timing modu = "has-text-success-dark"
+            | isModuleCompilationDone modDrvMap timing modu = "has-text-success-dark"
             | otherwise = "has-text-grey"
           modItem =
             case mexpandedModu of

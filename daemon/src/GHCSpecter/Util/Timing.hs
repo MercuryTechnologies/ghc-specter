@@ -7,8 +7,8 @@ module GHCSpecter.Util.Timing
     HasTimingInfo (..),
 
     -- * timing info utilities
-    isInProgress,
-    isCompiled,
+    isTimeInTimerRange,
+    isModuleCompilationDone,
 
     -- * construct timing info table
     makeTimingTable,
@@ -54,12 +54,12 @@ data TimingInfo a = TimingInfo
 
 makeClassy ''TimingInfo
 
-isInProgress :: (Ord a) => a -> TimingInfo a -> Bool
-isInProgress x tinfo =
+isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool
+isTimeInTimerRange x tinfo =
   x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
 
-isCompiled :: Map ModuleName DriverId -> IntMap Timer -> ModuleName -> Bool
-isCompiled modDrvMap timing modu =
+isModuleCompilationDone :: Map ModuleName DriverId -> IntMap Timer -> ModuleName -> Bool
+isModuleCompilationDone modDrvMap timing modu =
   isJust $ do
     DriverId i <- M.lookup modu modDrvMap
     timing ^? at i . _Just . to getEndTime . _Just

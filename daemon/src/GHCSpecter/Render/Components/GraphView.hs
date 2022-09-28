@@ -45,7 +45,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
-import GHCSpecter.Util.Timing (isCompiled)
+import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import Text.Printf (printf)
 import Prelude hiding (div)
 
@@ -147,7 +147,7 @@ renderModuleGraphSVG
                 if nTot == 0
                   then Nothing
                   else do
-                    let compiled = filter (isCompiled modDrvMap timing) cluster
+                    let compiled = filter (isModuleCompilationDone modDrvMap timing) cluster
                         nCompiled = length compiled
                     pure (fromIntegral nCompiled / fromIntegral nTot)
               w' = ratio * w

@@ -18,7 +18,6 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
-import Data.Maybe (maybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -63,7 +62,7 @@ import GHCSpecter.UI.Types.Event
 import GHCSpecter.Util.Timing
   ( HasTimingInfo (..),
     TimingInfo,
-    isInProgress,
+    isTimeInTimerRange,
     makeTimingTable,
   )
 import Prelude hiding (div)
@@ -96,7 +95,7 @@ renderRules showParallel table totalHeight totalTime =
     ranges = zip ruleTimes (tail ruleTimes)
     getParallelCompilation (sec1, sec2) =
       let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
-          filtered = filter (\x -> x ^. _2 . to (isInProgress avg)) table
+          filtered = filter (\x -> x ^. _2 . to (isTimeInTimerRange avg)) table
        in length filtered
     rangesWithCPUUsage =
       fmap (\range -> (range, getParallelCompilation range)) ranges
