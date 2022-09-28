@@ -9,7 +9,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO, forkOS)
+import Control.Concurrent (forkIO, forkOS, killThread, threadDelay)
 import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
@@ -95,9 +95,9 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
-    getModuleName,
     formatImportedNames,
     formatName,
+    getModuleName,
     mkModuleNameMap,
   )
 import System.Directory (canonicalizePath, doesFileExist)
@@ -148,11 +148,23 @@ queueMessage queue !msg =
   atomically $
     modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
 
-breakPoint :: MsgQueue -> IO ()
-breakPoint queue = do
+breakPoint :: MsgQueue -> DriverId -> IO ()
+breakPoint queue drvId = do
+  tid <- forkIO $ sessionInPause queue drvId
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
     STM.check (not (unPause p))
+  killThread tid
+
+sessionInPause :: MsgQueue -> DriverId -> IO ()
+sessionInPause queue drvId = do
+  atomically $ do
+    p <- readTVar (msgReceiverQueue queue)
+    STM.check (unPause p)
+  queueMessage queue (CMPaused drvId)
+  -- idling
+  forever $ do
+    threadDelay 1_000_000
 
 -- | Called only once for sending session information
 startSession ::
@@ -307,14 +319,13 @@ driver opts env0 = do
   (drvId, queue) <- startSession opts env0
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
-      -- queue is now passed to typecheckPlugin
       newPlugin =
         plugin
           { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typecheckPlugin queue
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue
+  breakPoint queue drvId
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
   let dflags = hsc_dflags env

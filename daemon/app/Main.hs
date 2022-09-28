@@ -73,7 +73,7 @@ main = do
         workQ <- newTQueueIO
         chanSignal <- newTChanIO
         let servSess = ServerSession ssRef chanSignal
-        _ <- forkOS $ Comm.listener socketFile ssRef servSess workQ
+        _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ
         webServer cfg servSess
     View mconfigFile ->

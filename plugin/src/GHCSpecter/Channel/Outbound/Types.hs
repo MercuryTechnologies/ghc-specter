@@ -34,7 +34,13 @@ import GHCSpecter.Channel.Common.Types
     type ModuleName,
   )
 
-data Channel = CheckImports | ModuleInfo | Timing | Session | HsSource | Paused
+data Channel
+  = CheckImports
+  | ModuleInfo
+  | Timing
+  | Session
+  | HsSource
+  | Paused
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -128,7 +134,7 @@ data ChanMessage (a :: Channel) where
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
-  CMPaused :: ModuleName -> ChanMessage 'Paused
+  CMPaused :: DriverId -> ChanMessage 'Paused
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
@@ -156,9 +162,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMHsSource i h)) = do
     put (fromEnum HsSource)
     put (i, h)
-  put (CMBox (CMPaused m)) = do
+  put (CMBox (CMPaused i)) = do
     put (fromEnum Paused)
-    put m
+    put i
 
   get = do
     tag <- get

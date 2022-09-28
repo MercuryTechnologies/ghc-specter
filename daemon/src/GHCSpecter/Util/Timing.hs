@@ -18,7 +18,6 @@ where
 import Control.Lens (makeClassy, to, (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
 import Data.List qualified as L
-import Data.Map.Strict (Map)
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
   ( NominalDiffTime,

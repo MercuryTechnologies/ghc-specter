@@ -167,12 +167,7 @@ data ServerState = ServerState
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
-  , -- , _serverDriverModuleMap :: IntMap ModuleName
-    -- -- ^ here the key = DriverId
-    --  -- TODO: wrap this raw IntMap with access functions using DriverId for safety
-    -- , _serverDriverModuleRevMap :: Map ModuleName DriverId
-    _serverTiming :: KeyMap DriverId Timer
-  -- ^ here the key = DriverId
+  , _serverTiming :: KeyMap DriverId Timer
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
