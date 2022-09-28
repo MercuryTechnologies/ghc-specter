@@ -282,10 +282,11 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
 
 typecheckPlugin ::
   MsgQueue ->
+  DriverId ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue modsummary tc = do
+typecheckPlugin queue drvId modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -301,6 +302,7 @@ typecheckPlugin queue modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
       modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ breakPoint queue drvId
   liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
 
@@ -322,7 +324,7 @@ driver opts env0 = do
       newPlugin =
         plugin
           { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typecheckPlugin queue
+          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   breakPoint queue drvId
@@ -332,10 +334,12 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
+        liftIO $ breakPoint queue drvId
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
+        liftIO $ breakPoint queue drvId
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
