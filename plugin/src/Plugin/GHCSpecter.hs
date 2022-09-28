@@ -25,7 +25,6 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM qualified as STM
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
-import Data.Bifunctor (first, second)
 import Data.Char (isAlpha)
 import Data.Foldable (for_)
 import Data.Foldable qualified as F
@@ -138,18 +137,20 @@ initMsgQueue = do
   pure $ MsgQueue sQ pauseRef
 
 plugin :: Plugin
-plugin =
-  defaultPlugin
-    { driverPlugin = driver
-    -- , typeCheckResultAction = typecheckPlugin
-    }
+plugin = defaultPlugin {driverPlugin = driver}
+
+data PluginSession = PluginSession
+  { psSessionInfo :: SessionInfo
+  , psMessageQueue :: Maybe MsgQueue
+  }
+
+emptyPluginSession :: PluginSession
+emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing
 
 -- | Global variable shared across the session
-sessionRef :: TVar (SessionInfo, Maybe MsgQueue)
+sessionRef :: TVar PluginSession
 {-# NOINLINE sessionRef #-}
-sessionRef =
-  let newSessionState = (SessionInfo 0 Nothing emptyModuleGraphInfo False, Nothing)
-   in unsafePerformIO (newTVarIO newSessionState)
+sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
 
 --
 -- driver plugin
@@ -260,16 +261,19 @@ startSession opts env = do
   queue' <- initMsgQueue
   (mNewStartedSession, queue, willStartMsgQueue) <-
     startedSession `seq` atomically $ do
-      (SessionInfo _ msessionStart _ _, mqueue) <- readTVar sessionRef
+      psession <- readTVar sessionRef
+      let ghcSessionInfo = psSessionInfo psession
+          msessionStart = sessionStartTime ghcSessionInfo
+          mqueue = psMessageQueue psession
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
-            modifyTVar' sessionRef (second (const (Just queue')))
+            modifyTVar' sessionRef (\s -> s {psMessageQueue = Just queue'})
             pure (queue', True)
           Just queue_ -> pure (queue_, False)
       case msessionStart of
         Nothing -> do
-          modifyTVar' sessionRef (first (const startedSession))
+          modifyTVar' sessionRef (\s -> s {psSessionInfo = startedSession})
           pure (Just startedSession, queue, willStartMsgQueue)
         Just _ -> pure (Nothing, queue, willStartMsgQueue)
   -- If session connection was never initiated, then make connection
