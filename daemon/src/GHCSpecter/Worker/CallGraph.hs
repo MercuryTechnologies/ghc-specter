@@ -25,17 +25,14 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens
-  ( at,
-    makeClassy,
+  ( makeClassy,
     to,
     (%~),
     (^.),
     (^..),
-    (^?),
     _1,
     _2,
     _3,
-    _Just,
   )
 import Control.Monad.Trans.State (runState)
 import Data.Function (on)
@@ -49,7 +46,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.Channel (ModuleName)
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)

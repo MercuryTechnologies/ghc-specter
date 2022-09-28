@@ -17,7 +17,7 @@ import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree, foldTree)
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
     ModuleName,
     getEndTime,

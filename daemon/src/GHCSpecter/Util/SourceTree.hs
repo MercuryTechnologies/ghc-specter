@@ -9,10 +9,8 @@ import Control.Lens (to, (^..))
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Tree (Forest, Tree (..))
-import GHCSpecter.Channel
-  ( ModuleGraphInfo (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 
 appendTo :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
 appendTo [] ts = ts

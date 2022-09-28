@@ -14,7 +14,7 @@ import Data.List (partition)
 import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text qualified as T
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),
     getEndTime,

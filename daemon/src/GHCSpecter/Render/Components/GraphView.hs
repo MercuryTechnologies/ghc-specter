@@ -26,10 +26,8 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.Channel
-  ( ModuleName,
-    Timer,
-  )
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),

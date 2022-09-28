@@ -22,13 +22,13 @@ import Data.Time.Clock
   ( NominalDiffTime,
     diffUTCTime,
   )
-import GHCSpecter.Channel
+import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types
   ( SessionInfo (..),
     getAsTime,
     getEndTime,
     getHscOutTime,
     getStartTime,
-    type ModuleName,
   )
 import GHCSpecter.Server.Types
   ( HasServerState (..),

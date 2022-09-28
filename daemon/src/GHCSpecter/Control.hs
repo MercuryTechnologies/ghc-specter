@@ -6,7 +6,8 @@ where
 import Control.Lens ((&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import GHCSpecter.Channel (SessionInfo (..))
+import GHCSpecter.Channel.Inbound.Types (Pause (..))
+import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types
   ( getCurrentTime,
     getLastUpdatedUI,
@@ -92,13 +93,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendSignal False
+      sendSignal (Pause False)
       pure (oldModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendSignal True
+      sendSignal (Pause True)
       pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel

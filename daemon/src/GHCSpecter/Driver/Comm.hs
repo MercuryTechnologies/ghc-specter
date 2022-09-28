@@ -17,7 +17,8 @@ import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
-import GHCSpecter.Channel
+import Data.Text.IO qualified as TIO
+import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
@@ -57,6 +58,7 @@ updateInbox chanMsg = incrementSN . updater
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->
         id
+      CMBox _ -> id
 
 listener ::
   FilePath ->
@@ -84,5 +86,7 @@ listener socketFile ssRef ssess workQ = do
             void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _modu (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
+          CMPaused modu ->
+            TIO.putStrLn $ "paused GHC at " <> modu
           _ -> pure ()
         atomically . modifyTVar' ssRef . updateInbox $ CMBox o
