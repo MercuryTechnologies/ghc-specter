@@ -6,9 +6,6 @@ module Plugin.GHCSpecter
 
     -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
-
-    -- * Utilities
-    getTopSortedModules,
   )
 where
 
@@ -23,36 +20,25 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM qualified as STM
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
-import Data.Char (isAlpha)
 import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.IntMap (IntMap)
-import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
-import Data.Maybe (mapMaybe)
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Data.Tuple (swap)
-import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Make
-  ( moduleGraphNodes,
-    topSortModuleGraph,
-  )
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
     PhasePlus (HscOut, RealPhase),
-    PipeState (iface),
     getPipeState,
     maybe_loc,
     runPhase,
@@ -69,33 +55,13 @@ import GHC.Driver.Session
     getDynFlags,
     gopt,
   )
-import GHC.Plugins
-  ( ModSummary,
-    Name,
-    localiseName,
-    showSDoc,
-  )
+import GHC.Plugins (ModSummary, Name)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Types.Name.Reader
-  ( GlobalRdrElt (..),
-    GreName (..),
-    ImpDeclSpec (..),
-    ImportSpec (..),
-  )
-import GHC.Unit.Module.Graph
-  ( ModuleGraph,
-    ModuleGraphNode (..),
-    mgModSummaries',
-  )
+import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
-import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
-import GHC.Unit.Module.ModSummary
-  ( ExtendedModSummary (..),
-    ModSummary (..),
-  )
+import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
-import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -105,7 +71,6 @@ import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
     HsSourceInfo (..),
-    ModuleGraphInfo (..),
     SessionInfo (..),
     Timer (..),
     TimerTag (..),
@@ -127,53 +92,15 @@ import Plugin.GHCSpecter.Types
     initMsgQueue,
     sessionRef,
   )
+import Plugin.GHCSpecter.Util
+  ( extractModuleGraphInfo,
+    formatImportedNames,
+    formatName,
+    getModuleNameFromPipeState,
+    mkModuleNameMap,
+  )
 import System.Directory (canonicalizePath, doesFileExist)
 import System.Process (getCurrentPid)
-
---
--- driver plugin
---
-
-getModuleNameText :: ModSummary -> T.Text
-getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
-
-gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
-gnode2ModSummary InstantiationNode {} = Nothing
-gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
-
--- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
-getTopSortedModules :: ModuleGraph -> [ModuleName]
-getTopSortedModules =
-  mapMaybe (fmap getModuleNameText . gnode2ModSummary)
-    . concatMap G.flattenSCC
-    . flip (topSortModuleGraph False) Nothing
-
-extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
-extractModuleGraphInfo modGraph = do
-  let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
-      vtxs = G.verticesG graph
-      modNameFromVertex =
-        fmap getModuleNameText . gnode2ModSummary . G.node_payload
-      modNameMapLst =
-        mapMaybe
-          (\v -> (G.node_key v,) <$> modNameFromVertex v)
-          vtxs
-      modNameMap :: IntMap ModuleName
-      modNameMap = IM.fromList modNameMapLst
-      modNameRevMap :: Map ModuleName Int
-      modNameRevMap = M.fromList $ fmap swap modNameMapLst
-      topSorted =
-        mapMaybe
-          (\n -> M.lookup n modNameRevMap)
-          $ getTopSortedModules modGraph
-      modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-   in ModuleGraphInfo modNameMap modDeps topSorted
-
-getModuleNameFromPipeState :: PipeState -> Maybe ModuleName
-getModuleNameFromPipeState pstate =
-  let mmi = iface pstate
-      mmod = fmap mi_module mmi
-   in fmap (T.pack . moduleNameString . moduleName) mmod
 
 runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
 runMessageQueue opts queue = do
@@ -335,6 +262,41 @@ sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
         queueMessage queue (CMTiming drvId timer)
     _ -> pure ()
 
+--
+-- typechecker plugin
+--
+
+-- | First argument in -fplugin-opt is interpreted as the socket file path.
+--   If nothing, do not try to communicate with web frontend.
+typecheckPlugin ::
+  MsgQueue ->
+  [CommandLineOption] ->
+  ModSummary ->
+  TcGblEnv ->
+  TcM TcGblEnv
+typecheckPlugin queue _opts modsummary tc = do
+  dflags <- getDynFlags
+  usedGREs :: [GlobalRdrElt] <-
+    liftIO $ readIORef (tcg_used_gres tc)
+  let moduleImportMap :: Map ModuleName (Set Name)
+      moduleImportMap =
+        L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
+          concatMap mkModuleNameMap usedGREs
+
+      rendered =
+        unlines $ do
+          (modu, names) <- M.toList moduleImportMap
+          let imported = fmap (formatName dflags) $ S.toList names
+          [T.unpack modu, formatImportedNames imported]
+
+      modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
+  pure tc
+
+--
+-- top-level driver plugin
+--
+
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
   (drvId, queue) <- startSession opts env0
@@ -368,70 +330,6 @@ driver opts env0 = do
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
   pure env'
-
---
--- typechecker plugin
---
-
-formatName :: DynFlags -> Name -> String
-formatName dflags name =
-  let str = showSDoc dflags . ppr . localiseName $ name
-   in case str of
-        (x : _) ->
-          -- NOTE: As we want to have resultant text directly copied and pasted to
-          --       the source code, the operator identifiers should be wrapped with
-          --       parentheses.
-          if isAlpha x
-            then str
-            else "(" ++ str ++ ")"
-        _ -> str
-
-formatImportedNames :: [String] -> String
-formatImportedNames names =
-  case fmap (++ ",\n") $ L.sort names of
-    l0 : ls ->
-      let l0' = "  ( " ++ l0
-          ls' = fmap ("    " ++) ls
-          footer = "  )"
-       in concat ([l0'] ++ ls' ++ [footer])
-    _ -> "  ()"
-
-mkModuleNameMap :: GlobalRdrElt -> [(ModuleName, Name)]
-mkModuleNameMap gre = do
-  spec <- gre_imp gre
-  case gre_name gre of
-    NormalGreName name -> do
-      let modName = T.pack . moduleNameString . is_mod . is_decl $ spec
-      pure (modName, name)
-    -- TODO: Handle the record field name case correctly.
-    FieldGreName _ -> []
-
--- | First argument in -fplugin-opt is interpreted as the socket file path.
---   If nothing, do not try to communicate with web frontend.
-typecheckPlugin ::
-  MsgQueue ->
-  [CommandLineOption] ->
-  ModSummary ->
-  TcGblEnv ->
-  TcM TcGblEnv
-typecheckPlugin queue _opts modsummary tc = do
-  dflags <- getDynFlags
-  usedGREs :: [GlobalRdrElt] <-
-    liftIO $ readIORef (tcg_used_gres tc)
-  let moduleImportMap :: Map ModuleName (Set Name)
-      moduleImportMap =
-        L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
-          concatMap mkModuleNameMap usedGREs
-
-      rendered =
-        unlines $ do
-          (modu, names) <- M.toList moduleImportMap
-          let imported = fmap (formatName dflags) $ S.toList names
-          [T.unpack modu, formatImportedNames imported]
-
-      modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
-  pure tc
 
 --
 -- Main entry point
