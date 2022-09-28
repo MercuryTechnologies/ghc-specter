@@ -40,6 +40,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
     incrementSN,
   )
+import GHCSpecter.Util.Map (alterToKeyMap, insertToBiKeyMap)
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 
@@ -49,11 +50,13 @@ updateInbox chanMsg = incrementSN . updater
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
-      CMBox (CMTiming modu timer') ->
+      CMBox (CMModuleInfo drvId modu) ->
+        (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
+      CMBox (CMTiming drvId timer') ->
         let f Nothing = Just timer'
             f (Just timer0) =
               Just $ Timer (unTimer timer0 ++ unTimer timer')
-         in (serverTiming %~ M.alter f modu)
+         in (serverTiming %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->

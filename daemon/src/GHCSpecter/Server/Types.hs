@@ -35,11 +35,15 @@ where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
+-- import Data.IntMap (IntMap)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types
+  ( DriverId,
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Outbound.Types
   ( Channel,
     SessionInfo (..),
@@ -48,6 +52,7 @@ import GHCSpecter.Channel.Outbound.Types
   )
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
+import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 
 type ChanModule = (Channel, Text)
 
@@ -161,7 +166,13 @@ data ServerState = ServerState
   , _serverShouldUpdate :: Bool
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
-  , _serverTiming :: Map ModuleName Timer
+  , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
+  , -- , _serverDriverModuleMap :: IntMap ModuleName
+    -- -- ^ here the key = DriverId
+    --  -- TODO: wrap this raw IntMap with access functions using DriverId for safety
+    -- , _serverDriverModuleRevMap :: Map ModuleName DriverId
+    _serverTiming :: KeyMap DriverId Timer
+  -- ^ here the key = DriverId
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
@@ -180,7 +191,8 @@ emptyServerState =
     , _serverShouldUpdate = True
     , _serverInbox = mempty
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
-    , _serverTiming = mempty
+    , _serverDriverModuleMap = emptyBiKeyMap
+    , _serverTiming = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     }

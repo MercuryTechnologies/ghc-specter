@@ -3,7 +3,6 @@
 
 module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
-    type ModuleName,
     SessionInfo (..),
     TimerTag (..),
     Timer (..),
@@ -30,9 +29,12 @@ import Data.List qualified as L
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 
-data Channel = CheckImports | Timing | Session | HsSource | Paused
+data Channel = CheckImports | ModuleInfo | Timing | Session | HsSource | Paused
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -122,7 +124,8 @@ instance ToJSON HsSourceInfo
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
-  CMTiming :: ModuleName -> Timer -> ChanMessage 'Timing
+  CMModuleInfo :: DriverId -> ModuleName -> ChanMessage 'ModuleInfo
+  CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: ModuleName -> HsSourceInfo -> ChanMessage 'HsSource
   CMPaused :: ModuleName -> ChanMessage 'Paused
@@ -131,6 +134,7 @@ data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
 instance Show ChanMessageBox where
   show (CMBox (CMCheckImports {})) = "CMCheckImports"
+  show (CMBox (CMModuleInfo {})) = "CMModuleInfo"
   show (CMBox (CMTiming {})) = "CMTiming"
   show (CMBox (CMSession {})) = "CMSession"
   show (CMBox (CMHsSource {})) = "CMHsSource"
@@ -140,9 +144,12 @@ instance Binary ChanMessageBox where
   put (CMBox (CMCheckImports m t)) = do
     put (fromEnum CheckImports)
     put (m, t)
-  put (CMBox (CMTiming m t)) = do
+  put (CMBox (CMModuleInfo i m)) = do
+    put (fromEnum ModuleInfo)
+    put (i, m)
+  put (CMBox (CMTiming i t)) = do
     put (fromEnum Timing)
-    put (m, t)
+    put (i, t)
   put (CMBox (CMSession s)) = do
     put (fromEnum Session)
     put s
@@ -157,6 +164,7 @@ instance Binary ChanMessageBox where
     tag <- get
     case toEnum tag of
       CheckImports -> CMBox . uncurry CMCheckImports <$> get
+      ModuleInfo -> CMBox . uncurry CMModuleInfo <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
       HsSource -> CMBox . uncurry CMHsSource <$> get

@@ -11,7 +11,6 @@ import Concur.Replica
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
-import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Outbound.Types
@@ -34,6 +33,7 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
+import GHCSpecter.Util.Map (keyMapToList)
 import Prelude hiding (div)
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
@@ -71,7 +71,7 @@ render ss =
         Just sessionStartTime -> do
           let mgi = sessionModuleGraph sessionInfo
               nTot = IM.size (mginfoModuleNameMap mgi)
-              timingList = M.toList timing
+              timingList = keyMapToList timing
               (timingDone, timingInProg) =
                 partition (\(_, t) -> isJust (getEndTime t)) timingList
               nDone = length timingDone
