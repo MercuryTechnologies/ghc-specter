@@ -6,18 +6,13 @@ module Plugin.GHCSpecter
 
     -- NOTE: The name "plugin" should be used as a GHC plugin.
     plugin,
-
-    -- * Utilities
-    getTopSortedModules,
   )
 where
 
 import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
-  ( TVar,
-    atomically,
+  ( atomically,
     modifyTVar',
-    newTVarIO,
     readTVar,
     retry,
     writeTVar,
@@ -25,36 +20,25 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM qualified as STM
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
-import Data.Char (isAlpha)
 import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.IntMap (IntMap)
-import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
-import Data.Maybe (mapMaybe)
-import Data.Sequence (Seq, (|>))
+import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Data.Tuple (swap)
-import GHC.Data.Graph.Directed qualified as G
-import GHC.Driver.Env (HscEnv (..))
+import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Make
-  ( moduleGraphNodes,
-    topSortModuleGraph,
-  )
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
     PhasePlus (HscOut, RealPhase),
-    PipeState (iface),
     getPipeState,
     maybe_loc,
     runPhase,
@@ -71,33 +55,14 @@ import GHC.Driver.Session
     getDynFlags,
     gopt,
   )
-import GHC.Plugins
-  ( ModSummary,
-    Name,
-    localiseName,
-    showSDoc,
-  )
+import GHC.Hs (HsParsedModule)
+import GHC.Plugins (ModSummary, Name)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Types.Name.Reader
-  ( GlobalRdrElt (..),
-    GreName (..),
-    ImpDeclSpec (..),
-    ImportSpec (..),
-  )
-import GHC.Unit.Module.Graph
-  ( ModuleGraph,
-    ModuleGraphNode (..),
-    mgModSummaries',
-  )
+import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
-import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
-import GHC.Unit.Module.ModSummary
-  ( ExtendedModSummary (..),
-    ModSummary (..),
-  )
+import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
-import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -107,11 +72,9 @@ import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
     HsSourceInfo (..),
-    ModuleGraphInfo (..),
     SessionInfo (..),
     Timer (..),
     TimerTag (..),
-    emptyModuleGraphInfo,
   )
 import GHCSpecter.Comm
   ( receiveObject,
@@ -124,82 +87,20 @@ import GHCSpecter.Config
     loadConfig,
   )
 import Network.Socket (Socket)
+import Plugin.GHCSpecter.Types
+  ( MsgQueue (..),
+    PluginSession (..),
+    initMsgQueue,
+    sessionRef,
+  )
+import Plugin.GHCSpecter.Util
+  ( extractModuleGraphInfo,
+    formatImportedNames,
+    formatName,
+    mkModuleNameMap,
+  )
 import System.Directory (canonicalizePath, doesFileExist)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Process (getCurrentPid)
-
-data MsgQueue = MsgQueue
-  { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar Pause
-  }
-
-initMsgQueue :: IO MsgQueue
-initMsgQueue = do
-  sQ <- newTVarIO Seq.empty
-  pauseRef <- newTVarIO (Pause False)
-  pure $ MsgQueue sQ pauseRef
-
-plugin :: Plugin
-plugin = defaultPlugin {driverPlugin = driver}
-
-data PluginSession = PluginSession
-  { psSessionInfo :: SessionInfo
-  , psMessageQueue :: Maybe MsgQueue
-  , psNextDriverId :: DriverId
-  }
-
-emptyPluginSession :: PluginSession
-emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
-
--- | Global variable shared across the session
-sessionRef :: TVar PluginSession
-{-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
-
---
--- driver plugin
---
-
-getModuleNameText :: ModSummary -> T.Text
-getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
-
-gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
-gnode2ModSummary InstantiationNode {} = Nothing
-gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
-
--- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
-getTopSortedModules :: ModuleGraph -> [ModuleName]
-getTopSortedModules =
-  mapMaybe (fmap getModuleNameText . gnode2ModSummary)
-    . concatMap G.flattenSCC
-    . flip (topSortModuleGraph False) Nothing
-
-extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
-extractModuleGraphInfo modGraph = do
-  let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
-      vtxs = G.verticesG graph
-      modNameFromVertex =
-        fmap getModuleNameText . gnode2ModSummary . G.node_payload
-      modNameMapLst =
-        mapMaybe
-          (\v -> (G.node_key v,) <$> modNameFromVertex v)
-          vtxs
-      modNameMap :: IntMap ModuleName
-      modNameMap = IM.fromList modNameMapLst
-      modNameRevMap :: Map ModuleName Int
-      modNameRevMap = M.fromList $ fmap swap modNameMapLst
-      topSorted =
-        mapMaybe
-          (\n -> M.lookup n modNameRevMap)
-          $ getTopSortedModules modGraph
-      modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-   in ModuleGraphInfo modNameMap modDeps topSorted
-
-getModuleNameFromPipeState :: PipeState -> Maybe ModuleName
-getModuleNameFromPipeState pstate =
-  let mmi = iface pstate
-      mmod = fmap mi_module mmi
-   in fmap (T.pack . moduleNameString . moduleName) mmod
 
 runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
 runMessageQueue opts queue = do
@@ -306,141 +207,72 @@ sendModuleStart queue drvId startTime = do
 sendModuleName ::
   MsgQueue ->
   DriverId ->
-  IORef (Maybe ModuleName) ->
-  CompPipeline (Maybe ModuleName)
-sendModuleName queue drvId modNameRef = do
-  pstate <- getPipeState
-  mmodName_ <- liftIO $ readIORef modNameRef
-  let mmodName = getModuleNameFromPipeState pstate
-  liftIO $ writeIORef modNameRef mmodName
-  -- run only when the value at modNameRef is changed from Nothing
-  case (mmodName_, mmodName) of
-    (Nothing, Just modName) -> do
-      liftIO $
-        queueMessage queue (CMModuleInfo drvId modName)
-    _ -> pure ()
-  pure mmodName
+  ModuleName ->
+  IO ()
+sendModuleName queue drvId modName =
+  queueMessage queue (CMModuleInfo drvId modName)
 
 sendCompStateOnPhase ::
   MsgQueue ->
   DynFlags ->
-  (DriverId, Maybe ModuleName) ->
+  DriverId ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
+sendCompStateOnPhase queue dflags drvId phase = do
   pstate <- getPipeState
   case phase of
-    RealPhase StopLn -> do
+    RealPhase StopLn -> liftIO do
       -- send timing information
-      endTime <- liftIO getCurrentTime
+      endTime <- getCurrentTime
       let timer = Timer [(TimerEnd, endTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
-      case mmodName of
-        Nothing -> pure ()
-        Just modName -> do
-          -- send HIE file information to the daemon after compilation
-          case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
-            (Just modLoc, True) -> do
-              let hiefile = ml_hie_file modLoc
-              liftIO $ do
-                hiefile' <- canonicalizePath hiefile
-                queueMessage queue (CMHsSource modName (HsSourceInfo hiefile'))
-            _ -> pure ()
-    RealPhase (As _) -> do
+      queueMessage queue (CMTiming drvId timer)
+      -- send HIE file information to the daemon after compilation
+      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
+        (Just modLoc, True) -> do
+          let hiefile = ml_hie_file modLoc
+          hiefile' <- canonicalizePath hiefile
+          queueMessage queue (CMHsSource drvId (HsSourceInfo hiefile'))
+        _ -> pure ()
+    RealPhase (As _) -> liftIO $ do
       -- send timing information
-      endTime <- liftIO getCurrentTime
+      endTime <- getCurrentTime
       let timer = Timer [(TimerAs, endTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
-    HscOut _ _ _ -> do
+      queueMessage queue (CMTiming drvId timer)
+    HscOut _ _ _ -> liftIO $ do
       -- send timing information
-      hscOutTime <- liftIO getCurrentTime
+      hscOutTime <- getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
-      liftIO $
-        queueMessage queue (CMTiming drvId timer)
+      queueMessage queue (CMTiming drvId timer)
     _ -> pure ()
 
-driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
-driver opts env0 = do
-  (drvId, queue) <- startSession opts env0
-  let -- NOTE: this will wipe out all other plugins and fix opts
-      -- TODO: if other plugins exist, throw exception.
-      -- queue is now passed to typecheckPlugin
-      newPlugin = plugin {typeCheckResultAction = typecheckPlugin queue}
-      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue
-  startTime <- getCurrentTime
-  sendModuleStart queue drvId startTime
-  -- Module name is unknown when this driver plugin is called.
-  -- Therefore, we save the module name when it is available
-  -- in the actual compilation runPhase.
-  modNameRef <- newIORef Nothing
-  let dflags = hsc_dflags env
-      hooks = hsc_hooks env
-      runPhaseHook' phase fp = do
-        -- pre phase timing
-        mmodName0 <- sendModuleName queue drvId modNameRef
-        sendCompStateOnPhase queue dflags (drvId, mmodName0) phase
-        -- actual runPhase
-        (phase', fp') <- runPhase phase fp
-        -- post phase timing
-        -- NOTE: we need to run sendModuleName twice as the first one is not guaranteed
-        -- to have module name information.
-        -- TODO: Check whether this is still true.
-        mmodName1 <- sendModuleName queue drvId modNameRef
-        sendCompStateOnPhase queue dflags (drvId, mmodName1) phase'
-        pure (phase', fp')
-      hooks' = hooks {runPhaseHook = Just runPhaseHook'}
-      env' = env {hsc_hooks = hooks'}
-  pure env'
+--
+-- parsedResultAction plugin
+--
+
+parsedResultActionPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  ModSummary ->
+  HsParsedModule ->
+  Hsc HsParsedModule
+parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
+  let modName = T.pack . moduleNameString . moduleName . ms_mod $ modSummary
+  liftIO $ do
+    writeIORef modNameRef (Just modName)
+    sendModuleName queue drvId modName
+  pure parsedMod
 
 --
 -- typechecker plugin
 --
 
-formatName :: DynFlags -> Name -> String
-formatName dflags name =
-  let str = showSDoc dflags . ppr . localiseName $ name
-   in case str of
-        (x : _) ->
-          -- NOTE: As we want to have resultant text directly copied and pasted to
-          --       the source code, the operator identifiers should be wrapped with
-          --       parentheses.
-          if isAlpha x
-            then str
-            else "(" ++ str ++ ")"
-        _ -> str
-
-formatImportedNames :: [String] -> String
-formatImportedNames names =
-  case fmap (++ ",\n") $ L.sort names of
-    l0 : ls ->
-      let l0' = "  ( " ++ l0
-          ls' = fmap ("    " ++) ls
-          footer = "  )"
-       in concat ([l0'] ++ ls' ++ [footer])
-    _ -> "  ()"
-
-mkModuleNameMap :: GlobalRdrElt -> [(ModuleName, Name)]
-mkModuleNameMap gre = do
-  spec <- gre_imp gre
-  case gre_name gre of
-    NormalGreName name -> do
-      let modName = T.pack . moduleNameString . is_mod . is_decl $ spec
-      pure (modName, name)
-    -- TODO: Handle the record field name case correctly.
-    FieldGreName _ -> []
-
--- | First argument in -fplugin-opt is interpreted as the socket file path.
---   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
   MsgQueue ->
-  [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue _opts modsummary tc = do
+typecheckPlugin queue modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -458,3 +290,49 @@ typecheckPlugin queue _opts modsummary tc = do
       modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
+
+--
+-- top-level driver plugin
+--
+
+-- | First argument in -fplugin-opt is interpreted as the socket file path.
+--   If nothing, do not try to communicate with web frontend.
+driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
+driver opts env0 = do
+  -- Module name is unknown when this driver plugin is called.
+  -- Therefore, we save the module name when it is available
+  -- in the actual compilation runPhase.
+  modNameRef <- newIORef Nothing
+  (drvId, queue) <- startSession opts env0
+  let -- NOTE: this will wipe out all other plugins and fix opts
+      -- TODO: if other plugins exist, throw exception.
+      -- queue is now passed to typecheckPlugin
+      newPlugin =
+        plugin
+          { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
+          , typeCheckResultAction = \_opts -> typecheckPlugin queue
+          }
+      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
+  breakPoint queue
+  startTime <- getCurrentTime
+  sendModuleStart queue drvId startTime
+  let dflags = hsc_dflags env
+      hooks = hsc_hooks env
+      runPhaseHook' phase fp = do
+        -- pre phase timing
+        sendCompStateOnPhase queue dflags drvId phase
+        -- actual runPhase
+        (phase', fp') <- runPhase phase fp
+        -- post phase timing
+        sendCompStateOnPhase queue dflags drvId phase'
+        pure (phase', fp')
+      hooks' = hooks {runPhaseHook = Just runPhaseHook'}
+      env' = env {hsc_hooks = hooks'}
+  pure env'
+
+--
+-- Main entry point
+--
+
+plugin :: Plugin
+plugin = defaultPlugin {driverPlugin = driver}
