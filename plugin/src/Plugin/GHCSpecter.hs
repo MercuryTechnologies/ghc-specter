@@ -128,7 +128,7 @@ import System.Process (getCurrentPid)
 
 data MsgQueue = MsgQueue
   { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgIsPaused :: TVar Pause
+  , msgReceiverQueue :: TVar Pause
   }
 
 initMsgQueue :: IO MsgQueue
@@ -234,7 +234,7 @@ runMessageQueue opts queue = do
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
       atomically $
-        writeTVar (msgIsPaused queue) msg
+        writeTVar (msgReceiverQueue queue) msg
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -244,7 +244,7 @@ queueMessage queue !msg =
 breakPoint :: MsgQueue -> IO ()
 breakPoint queue = do
   atomically $ do
-    p <- readTVar (msgIsPaused queue)
+    p <- readTVar (msgReceiverQueue queue)
     STM.check (not (unPause p))
 
 -- | Called only once for sending session information
