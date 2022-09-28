@@ -11,8 +11,9 @@ import Concur.Replica
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust, mapMaybe)
 import Data.Text qualified as T
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),
@@ -33,7 +34,7 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
-import GHCSpecter.Util.Map (keyMapToList)
+import GHCSpecter.Util.Map (forwardLookup, keyMapToList)
 import Prelude hiding (div)
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
@@ -65,6 +66,7 @@ render :: ServerState -> Widget IHTML Event
 render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
+      drvModMap = ss ^. serverDriverModuleMap
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -85,10 +87,18 @@ render ss =
                   <> T.pack (show nInProg)
                   <> " / "
                   <> T.pack (show nTot)
+              messageModuleInProgress =
+                let is = fmap fst timingInProg
+                    imods = fmap (\i -> (unDriverId i, forwardLookup i drvModMap)) is
+                    txt =
+                      T.intercalate "\n" $
+                        fmap (\(i, mmod) -> T.pack (show i) <> fromMaybe "" mmod) imods
+                 in txt -- (show mods)
            in div
                 []
-                [ pre [] [text messageTime]
+                [ renderSessionButtons sessionInfo
+                , pre [] [text messageTime]
                 , pre [] [text messageProc]
                 , pre [] [text messageModuleStatus]
-                , renderSessionButtons sessionInfo
+                , pre [] [text messageModuleInProgress]
                 ]

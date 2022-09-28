@@ -14,10 +14,8 @@ where
 
 import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM
-  ( TVar,
-    atomically,
+  ( atomically,
     modifyTVar',
-    newTVarIO,
     readTVar,
     retry,
     writeTVar,
@@ -35,7 +33,7 @@ import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (mapMaybe)
-import Data.Sequence (Seq, (|>))
+import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
@@ -111,7 +109,6 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
     Timer (..),
     TimerTag (..),
-    emptyModuleGraphInfo,
   )
 import GHCSpecter.Comm
   ( receiveObject,
@@ -124,37 +121,14 @@ import GHCSpecter.Config
     loadConfig,
   )
 import Network.Socket (Socket)
+import Plugin.GHCSpecter.Types
+  ( MsgQueue (..),
+    PluginSession (..),
+    initMsgQueue,
+    sessionRef,
+  )
 import System.Directory (canonicalizePath, doesFileExist)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Process (getCurrentPid)
-
-data MsgQueue = MsgQueue
-  { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar Pause
-  }
-
-initMsgQueue :: IO MsgQueue
-initMsgQueue = do
-  sQ <- newTVarIO Seq.empty
-  pauseRef <- newTVarIO (Pause False)
-  pure $ MsgQueue sQ pauseRef
-
-plugin :: Plugin
-plugin = defaultPlugin {driverPlugin = driver}
-
-data PluginSession = PluginSession
-  { psSessionInfo :: SessionInfo
-  , psMessageQueue :: Maybe MsgQueue
-  , psNextDriverId :: DriverId
-  }
-
-emptyPluginSession :: PluginSession
-emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
-
--- | Global variable shared across the session
-sessionRef :: TVar PluginSession
-{-# NOINLINE sessionRef #-}
-sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
 
 --
 -- driver plugin
@@ -458,3 +432,10 @@ typecheckPlugin queue _opts modsummary tc = do
       modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
+
+--
+-- Main entry point
+--
+
+plugin :: Plugin
+plugin = defaultPlugin {driverPlugin = driver}
