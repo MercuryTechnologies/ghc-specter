@@ -32,7 +32,7 @@ import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import GHC.Driver.Env (HscEnv (..))
+import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
 import GHC.Driver.Phases (Phase (As, StopLn))
@@ -55,6 +55,7 @@ import GHC.Driver.Session
     getDynFlags,
     gopt,
   )
+import GHC.Hs (HsParsedModule)
 import GHC.Plugins (ModSummary, Name)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
@@ -207,20 +208,10 @@ sendModuleStart queue drvId startTime = do
 sendModuleName ::
   MsgQueue ->
   DriverId ->
-  IORef (Maybe ModuleName) ->
-  CompPipeline (Maybe ModuleName)
-sendModuleName queue drvId modNameRef = do
-  pstate <- getPipeState
-  mmodName_ <- liftIO $ readIORef modNameRef
-  let mmodName = getModuleNameFromPipeState pstate
-  liftIO $ writeIORef modNameRef mmodName
-  -- run only when the value at modNameRef is changed from Nothing
-  case (mmodName_, mmodName) of
-    (Nothing, Just modName) -> do
-      liftIO $
-        queueMessage queue (CMModuleInfo drvId modName)
-    _ -> pure ()
-  pure mmodName
+  ModuleName ->
+  IO ()
+sendModuleName queue drvId modName =
+  queueMessage queue (CMModuleInfo drvId modName)
 
 sendCompStateOnPhase ::
   MsgQueue ->
@@ -263,18 +254,33 @@ sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
     _ -> pure ()
 
 --
+-- parsedResultAction plugin
+--
+
+parsedResultActionPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  ModSummary ->
+  HsParsedModule ->
+  Hsc HsParsedModule
+parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
+  let modName = T.pack . moduleNameString . moduleName . ms_mod $ modSummary
+  liftIO $ do
+    writeIORef modNameRef (Just modName)
+    sendModuleName queue drvId modName
+  pure parsedMod
+
+--
 -- typechecker plugin
 --
 
--- | First argument in -fplugin-opt is interpreted as the socket file path.
---   If nothing, do not try to communicate with web frontend.
 typecheckPlugin ::
   MsgQueue ->
-  [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue _opts modsummary tc = do
+typecheckPlugin queue modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -297,26 +303,32 @@ typecheckPlugin queue _opts modsummary tc = do
 -- top-level driver plugin
 --
 
+-- | First argument in -fplugin-opt is interpreted as the socket file path.
+--   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  (drvId, queue) <- startSession opts env0
-  let -- NOTE: this will wipe out all other plugins and fix opts
-      -- TODO: if other plugins exist, throw exception.
-      -- queue is now passed to typecheckPlugin
-      newPlugin = plugin {typeCheckResultAction = typecheckPlugin queue}
-      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue
-  startTime <- getCurrentTime
-  sendModuleStart queue drvId startTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
   modNameRef <- newIORef Nothing
+  (drvId, queue) <- startSession opts env0
+  let -- NOTE: this will wipe out all other plugins and fix opts
+      -- TODO: if other plugins exist, throw exception.
+      -- queue is now passed to typecheckPlugin
+      newPlugin =
+        plugin
+          { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
+          , typeCheckResultAction = \_opts -> typecheckPlugin queue
+          }
+      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
+  breakPoint queue
+  startTime <- getCurrentTime
+  sendModuleStart queue drvId startTime
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName0 <- sendModuleName queue drvId modNameRef
+        mmodName0 <- liftIO $ readIORef modNameRef
         sendCompStateOnPhase queue dflags (drvId, mmodName0) phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
@@ -324,7 +336,7 @@ driver opts env0 = do
         -- NOTE: we need to run sendModuleName twice as the first one is not guaranteed
         -- to have module name information.
         -- TODO: Check whether this is still true.
-        mmodName1 <- sendModuleName queue drvId modNameRef
+        mmodName1 <- liftIO $ readIORef modNameRef
         sendCompStateOnPhase queue dflags (drvId, mmodName1) phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
