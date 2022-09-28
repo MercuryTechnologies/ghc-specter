@@ -295,19 +295,27 @@ startSession opts env = do
 sendModuleStart ::
   MsgQueue ->
   DriverId ->
-  IORef (Maybe ModuleName) ->
   UTCTime ->
+  IO ()
+sendModuleStart queue drvId startTime = do
+  let timer = Timer [(TimerStart, startTime)]
+  queueMessage queue (CMTiming drvId timer)
+
+sendModuleName ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
   CompPipeline (Maybe ModuleName)
-sendModuleStart queue drvId modNameRef startTime = do
+sendModuleName queue drvId modNameRef = do
   pstate <- getPipeState
   mmodName_ <- liftIO $ readIORef modNameRef
   let mmodName = getModuleNameFromPipeState pstate
   liftIO $ writeIORef modNameRef mmodName
+  -- run only when the value at modNameRef is changed from Nothing
   case (mmodName_, mmodName) of
     (Nothing, Just modName) -> do
-      let timer = Timer [(TimerStart, startTime)]
       liftIO $
-        queueMessage queue (CMTiming drvId (Just modName) timer)
+        queueMessage queue (CMModuleInfo drvId modName)
     _ -> pure ()
   pure mmodName
 
@@ -321,14 +329,14 @@ sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> do
+      -- send timing information
+      endTime <- liftIO getCurrentTime
+      let timer = Timer [(TimerEnd, endTime)]
+      liftIO $
+        queueMessage queue (CMTiming drvId timer)
       case mmodName of
         Nothing -> pure ()
         Just modName -> do
-          -- send timing information
-          endTime <- liftIO getCurrentTime
-          let timer = Timer [(TimerEnd, endTime)]
-          liftIO $
-            queueMessage queue (CMTiming drvId (Just modName) timer)
           -- send HIE file information to the daemon after compilation
           case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
             (Just modLoc, True) -> do
@@ -338,21 +346,17 @@ sendCompStateOnPhase queue dflags (drvId, mmodName) phase = do
                 queueMessage queue (CMHsSource modName (HsSourceInfo hiefile'))
             _ -> pure ()
     RealPhase (As _) -> do
-      case mmodName of
-        Nothing -> pure ()
-        Just modName -> do
-          -- send timing information
-          endTime <- liftIO getCurrentTime
-          let timer = Timer [(TimerAs, endTime)]
-          liftIO $
-            queueMessage queue (CMTiming drvId (Just modName) timer)
-    HscOut _ modName0 _ -> do
-      let modName = T.pack . moduleNameString $ modName0
+      -- send timing information
+      endTime <- liftIO getCurrentTime
+      let timer = Timer [(TimerAs, endTime)]
+      liftIO $
+        queueMessage queue (CMTiming drvId timer)
+    HscOut _ _ _ -> do
       -- send timing information
       hscOutTime <- liftIO getCurrentTime
       let timer = Timer [(TimerHscOut, hscOutTime)]
       liftIO $
-        queueMessage queue (CMTiming drvId (Just modName) timer)
+        queueMessage queue (CMTiming drvId timer)
     _ -> pure ()
 
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
@@ -365,6 +369,7 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   breakPoint queue
   startTime <- getCurrentTime
+  sendModuleStart queue drvId startTime
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
@@ -373,14 +378,15 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        mmodName0 <- sendModuleStart queue drvId modNameRef startTime
+        mmodName0 <- sendModuleName queue drvId modNameRef
         sendCompStateOnPhase queue dflags (drvId, mmodName0) phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        -- NOTE: we need to run sendModuleStart twice as the first one is not guaranteed
+        -- NOTE: we need to run sendModuleName twice as the first one is not guaranteed
         -- to have module name information.
-        mmodName1 <- sendModuleStart queue drvId modNameRef startTime
+        -- TODO: Check whether this is still true.
+        mmodName1 <- sendModuleName queue drvId modNameRef
         sendCompStateOnPhase queue dflags (drvId, mmodName1) phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}

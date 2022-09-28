@@ -49,14 +49,21 @@ updateInbox chanMsg = incrementSN . updater
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
-      CMBox (CMTiming _drvId mmodu timer') ->
-        case mmodu of
-          Nothing -> id
-          Just modu ->
-            let f Nothing = Just timer'
-                f (Just timer0) =
-                  Just $ Timer (unTimer timer0 ++ unTimer timer')
-             in (serverTiming %~ M.alter f modu)
+      CMBox (CMModuleInfo drvId modu) ->
+        -- for now
+        id
+      CMBox (CMTiming drvId timer') ->
+        id
+      -- for now
+      {-
+      case mmodu of
+        Nothing -> id
+        Just modu ->
+          let f Nothing = Just timer'
+              f (Just timer0) =
+                Just $ Timer (unTimer timer0 ++ unTimer timer')
+           in (serverTiming %~ M.alter f modu)
+      -}
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->
