@@ -15,13 +15,10 @@ module GHCSpecter.Util.Timing
   )
 where
 
-import Control.Lens (at, makeClassy, to, (^.), (^?), _2, _Just)
+import Control.Lens (makeClassy, to, (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
-import Data.IntMap (IntMap)
-import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map.Strict (Map)
-import Data.Map.Strict qualified as M
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
   ( NominalDiffTime,
@@ -43,6 +40,14 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
   )
+import GHCSpecter.Util.Map
+  ( BiKeyMap,
+    KeyMap,
+    backwardLookup,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
 
 data TimingInfo a = TimingInfo
   { _timingStart :: a
@@ -58,11 +63,11 @@ isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool
 isTimeInTimerRange x tinfo =
   x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
 
-isModuleCompilationDone :: Map ModuleName DriverId -> IntMap Timer -> ModuleName -> Bool
-isModuleCompilationDone modDrvMap timing modu =
+isModuleCompilationDone :: BiKeyMap DriverId ModuleName -> KeyMap DriverId Timer -> ModuleName -> Bool
+isModuleCompilationDone drvModMap timing modu =
   isJust $ do
-    DriverId i <- M.lookup modu modDrvMap
-    timing ^? at i . _Just . to getEndTime . _Just
+    i <- backwardLookup modu drvModMap
+    timing ^? to (lookupKey i) . _Just . to getEndTime . _Just
 
 makeTimingTable :: ServerState -> [(Maybe ModuleName, TimingInfo NominalDiffTime)]
 makeTimingTable ss =
@@ -71,7 +76,7 @@ makeTimingTable ss =
     Just sessionStartTime ->
       let timing = ss ^. serverTiming
           drvModMap = ss ^. serverDriverModuleMap
-          findModName i = IM.lookup i drvModMap
+          findModName drvId = forwardLookup drvId drvModMap
 
           subtractTime (modName, timer) = do
             modStartTime <- getStartTime timer
@@ -93,4 +98,4 @@ makeTimingTable ss =
        in fmap (first findModName)
             . L.sortOn (^. _2 . timingStart)
             . mapMaybe subtractTime
-            $ IM.toList timing
+            $ keyMapToList timing

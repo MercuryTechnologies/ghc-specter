@@ -96,7 +96,7 @@ renderModuleTree srcUI ss =
     [ul [] contents]
   where
     timing = ss ^. serverTiming
-    modDrvMap = ss ^. serverDriverModuleRevMap
+    drvModMap = ss ^. serverDriverModuleMap
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
@@ -117,7 +117,7 @@ renderModuleTree srcUI ss =
     eachRender :: ModuleName -> Widget IHTML Event
     eachRender modu =
       let colorTxt
-            | isModuleCompilationDone modDrvMap timing modu = "has-text-success-dark"
+            | isModuleCompilationDone drvModMap timing modu = "has-text-success-dark"
             | otherwise = "has-text-grey"
           modItem =
             case mexpandedModu of

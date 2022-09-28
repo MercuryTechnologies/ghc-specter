@@ -28,7 +28,6 @@ import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import Data.Map (Map)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -70,6 +69,7 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     SubModuleEvent (..),
   )
+import GHCSpecter.Util.Map (BiKeyMap, KeyMap)
 import Text.Printf (printf)
 import Prelude hiding (div)
 
@@ -143,10 +143,8 @@ formatModuleGraphInfo mgi =
 renderMainModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
-  -- | (module name -> driver id) map
-  Map ModuleName DriverId ->
-  -- | key = driver id
-  IntMap Timer ->
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
   -- | main module graph UI state
@@ -154,7 +152,7 @@ renderMainModuleGraph ::
   Widget IHTML Event
 renderMainModuleGraph
   nameMap
-  modDrvMap
+  drvModMap
   timing
   clustering
   grVisInfo
@@ -164,7 +162,7 @@ renderMainModuleGraph
      in MainModuleEv
           <$> GraphView.renderModuleGraphSVG
             nameMap
-            modDrvMap
+            drvModMap
             timing
             clustering
             grVisInfo
@@ -173,17 +171,15 @@ renderMainModuleGraph
 renderSubModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
-  -- | (module name -> driver id) map
-  Map ModuleName DriverId ->
-  -- | key = driver id
-  IntMap Timer ->
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId Timer ->
   [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   -- | (main module graph UI state, sub module graph UI state)
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   Widget IHTML Event
 renderSubModuleGraph
   nameMap
-  modDrvMap
+  drvModMap
   timing
   subgraphs
   (mainMGUI, (detailLevel, subMGUI)) =
@@ -209,7 +205,7 @@ renderSubModuleGraph
              in SubModuleEv . SubModuleGraphEv
                   <$> GraphView.renderModuleGraphSVG
                     nameMap
-                    modDrvMap
+                    drvModMap
                     timing
                     tempclustering
                     subgraph
@@ -239,7 +235,7 @@ render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
   let sessionInfo = ss ^. serverSessionInfo
       nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-      modDrvMap = ss ^. serverDriverModuleRevMap
+      drvModMap = ss ^. serverDriverModuleMap
       timing = ss ^. serverTiming
       mgs = ss ^. serverModuleGraphState
       clustering = mgs ^. mgsClustering
@@ -254,7 +250,7 @@ render model ss =
                 Just grVisInfo ->
                   [ renderMainModuleGraph
                       nameMap
-                      modDrvMap
+                      drvModMap
                       timing
                       clustering
                       grVisInfo
@@ -262,7 +258,7 @@ render model ss =
                   , renderDetailLevel model
                   , renderSubModuleGraph
                       nameMap
-                      modDrvMap
+                      drvModMap
                       timing
                       (mgs ^. mgsSubgraph)
                       (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)

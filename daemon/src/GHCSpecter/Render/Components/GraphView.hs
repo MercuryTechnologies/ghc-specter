@@ -20,7 +20,6 @@ import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -45,6 +44,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
+import GHCSpecter.Util.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import Text.Printf (printf)
 import Prelude hiding (div)
@@ -58,10 +58,8 @@ makePolylineText (p0, p1) xys =
 renderModuleGraphSVG ::
   -- | key = graph id
   IntMap ModuleName ->
-  -- | (module name -> driver id) map
-  Map ModuleName DriverId ->
-  -- | key = driver id
-  IntMap Timer ->
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
@@ -69,7 +67,7 @@ renderModuleGraphSVG ::
   Widget IHTML ModuleGraphEvent
 renderModuleGraphSVG
   nameMap
-  modDrvMap
+  drvModMap
   timing
   clustering
   grVisInfo
@@ -147,7 +145,7 @@ renderModuleGraphSVG
                 if nTot == 0
                   then Nothing
                   else do
-                    let compiled = filter (isModuleCompilationDone modDrvMap timing) cluster
+                    let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                         nCompiled = length compiled
                     pure (fromIntegral nCompiled / fromIntegral nTot)
               w' = ratio * w
