@@ -2,6 +2,7 @@ module Plugin.GHCSpecter.Util
   ( -- * Utilities
     getTopSortedModules,
     extractModuleGraphInfo,
+    getModuleName,
     getModuleNameFromPipeState,
     mkModuleNameMap,
     formatName,
@@ -55,8 +56,8 @@ import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 
-getModuleNameText :: ModSummary -> T.Text
-getModuleNameText = T.pack . moduleNameString . moduleName . ms_mod
+getModuleName :: ModSummary -> ModuleName
+getModuleName = T.pack . moduleNameString . moduleName . ms_mod
 
 gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
 gnode2ModSummary InstantiationNode {} = Nothing
@@ -65,7 +66,7 @@ gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
 -- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
 getTopSortedModules :: ModuleGraph -> [ModuleName]
 getTopSortedModules =
-  mapMaybe (fmap getModuleNameText . gnode2ModSummary)
+  mapMaybe (fmap getModuleName . gnode2ModSummary)
     . concatMap G.flattenSCC
     . flip (topSortModuleGraph False) Nothing
 
@@ -74,7 +75,7 @@ extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
       vtxs = G.verticesG graph
       modNameFromVertex =
-        fmap getModuleNameText . gnode2ModSummary . G.node_payload
+        fmap getModuleName . gnode2ModSummary . G.node_payload
       modNameMapLst =
         mapMaybe
           (\v -> (G.node_key v,) <$> modNameFromVertex v)

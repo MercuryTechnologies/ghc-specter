@@ -8,16 +8,18 @@ where
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TQueue,
-    TVar,
     atomically,
     modifyTVar',
     readTChan,
+    readTVar,
   )
 import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
@@ -40,7 +42,11 @@ import GHCSpecter.Server.Types
     ServerState (..),
     incrementSN,
   )
-import GHCSpecter.Util.Map (alterToKeyMap, insertToBiKeyMap)
+import GHCSpecter.Util.Map
+  ( alterToKeyMap,
+    forwardLookup,
+    insertToBiKeyMap,
+  )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 
@@ -65,15 +71,15 @@ updateInbox chanMsg = incrementSN . updater
 
 listener ::
   FilePath ->
-  TVar ServerState ->
   ServerSession ->
   TQueue (IO ()) ->
   IO ()
-listener socketFile ssRef ssess workQ = do
+listener socketFile ssess workQ = do
   runServer socketFile $ \sock -> do
     _ <- forkIO $ sender sock
     receiver sock
   where
+    ssRef = ssess ^. ssServerStateRef
     chanSignal = ssess ^. ssSubscriberSignal
     sender sock = forever $ do
       putStrLn $ "########"
@@ -89,7 +95,24 @@ listener socketFile ssRef ssess workQ = do
             void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _drvId (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
-          CMPaused modu ->
-            TIO.putStrLn $ "paused GHC at " <> modu
+          CMPaused drvId loc -> do
+            mmodu <-
+              atomically $ do
+                ss <- readTVar ssRef
+                let drvModMap = ss ^. serverDriverModuleMap
+                pure $ forwardLookup drvId drvModMap
+            case mmodu of
+              Nothing -> do
+                TIO.putStrLn $
+                  "paused GHC at driverId = "
+                    <> T.pack (show (unDriverId drvId))
+                    <> ": "
+                    <> T.pack (show loc)
+              Just modu ->
+                TIO.putStrLn $
+                  "paused GHC at moduleName = "
+                    <> modu
+                    <> ": "
+                    <> T.pack (show loc)
           _ -> pure ()
         atomically . modifyTVar' ssRef . updateInbox $ CMBox o

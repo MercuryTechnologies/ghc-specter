@@ -9,7 +9,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO, forkOS)
+import Control.Concurrent (forkIO, forkOS, killThread, threadDelay)
 import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
@@ -69,7 +69,8 @@ import GHCSpecter.Channel.Common.Types
   )
 import GHCSpecter.Channel.Inbound.Types (Pause (..))
 import GHCSpecter.Channel.Outbound.Types
-  ( ChanMessage (..),
+  ( BreakpointLoc (..),
+    ChanMessage (..),
     ChanMessageBox (..),
     HsSourceInfo (..),
     SessionInfo (..),
@@ -86,6 +87,7 @@ import GHCSpecter.Config
     defaultGhcSpecterConfigFile,
     loadConfig,
   )
+import GHCSpecter.Util.GHC (showPpr)
 import Network.Socket (Socket)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -97,6 +99,7 @@ import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
     formatImportedNames,
     formatName,
+    getModuleName,
     mkModuleNameMap,
   )
 import System.Directory (canonicalizePath, doesFileExist)
@@ -147,11 +150,23 @@ queueMessage queue !msg =
   atomically $
     modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
 
-breakPoint :: MsgQueue -> IO ()
-breakPoint queue = do
+breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
+breakPoint queue drvId loc = do
+  tid <- forkIO $ sessionInPause queue drvId loc
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
     STM.check (not (unPause p))
+  killThread tid
+
+sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
+sessionInPause queue drvId loc = do
+  atomically $ do
+    p <- readTVar (msgReceiverQueue queue)
+    STM.check (unPause p)
+  queueMessage queue (CMPaused drvId loc)
+  -- idling
+  forever $ do
+    threadDelay 1_000_000
 
 -- | Called only once for sending session information
 startSession ::
@@ -257,7 +272,7 @@ parsedResultActionPlugin ::
   HsParsedModule ->
   Hsc HsParsedModule
 parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
-  let modName = T.pack . moduleNameString . moduleName . ms_mod $ modSummary
+  let modName = getModuleName modSummary
   liftIO $ do
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName
@@ -269,10 +284,11 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
 
 typecheckPlugin ::
   MsgQueue ->
+  DriverId ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue modsummary tc = do
+typecheckPlugin queue drvId modsummary tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <-
     liftIO $ readIORef (tcg_used_gres tc)
@@ -288,6 +304,7 @@ typecheckPlugin queue modsummary tc = do
           [T.unpack modu, formatImportedNames imported]
 
       modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ breakPoint queue drvId Typecheck
   liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
   pure tc
 
@@ -306,24 +323,25 @@ driver opts env0 = do
   (drvId, queue) <- startSession opts env0
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
-      -- queue is now passed to typecheckPlugin
       newPlugin =
         plugin
           { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typecheckPlugin queue
+          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue
+  breakPoint queue drvId StartDriver
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
+        liftIO $ breakPoint queue drvId (PreRunPhase (T.pack (showPpr dflags phase)))
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
+        liftIO $ breakPoint queue drvId (PostRunPhase (T.pack (showPpr dflags phase')))
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
