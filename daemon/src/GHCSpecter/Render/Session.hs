@@ -112,8 +112,12 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
         ]
         (fmap (\x -> p [] [text x]) msgs)
 
-renderConsole :: KeyMap DriverId BreakpointLoc -> Maybe DriverId -> Widget IHTML Event
-renderConsole pausedMap mcurrConsole = div [] [consoleTabs, console]
+renderConsole ::
+  KeyMap DriverId BreakpointLoc ->
+  KeyMap DriverId Text ->
+  Maybe DriverId ->
+  Widget IHTML Event
+renderConsole pausedMap consoleMap mcurrConsole = div [] [consoleTabs, console]
   where
     divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
     divClass cls props = div (classList [(cls, True)] : props)
@@ -133,17 +137,20 @@ renderConsole pausedMap mcurrConsole = div [] [consoleTabs, console]
       nav
         [classList [("navbar m-0 p-0", True)]]
         [navbarMenu [navbarStart (fmap (navItem . fst) (keyMapToList pausedMap))]]
-    console =
-      div
-        [ style
-            [ ("height", "200px")
-            , ("background-color", "black")
-            , ("color", "white")
-            , ("font-family", "monospace")
-            , ("overflow", "scroll")
+    consoleContent =
+      let mtxt = do
+            currConsole <- mcurrConsole
+            lookupKey currConsole consoleMap
+       in pre
+            [ style
+                [ ("height", "200px")
+                , ("background-color", "black")
+                , ("color", "white")
+                , ("overflow", "scroll")
+                ]
             ]
-        ]
-        []
+            [text (fromMaybe "" mtxt)]
+    console = div [] [consoleContent]
 
 -- | Top-level render function for the Session tab.
 render :: UIModel -> ServerState -> Widget IHTML Event
@@ -152,6 +159,7 @@ render model ss =
       timing = ss ^. serverTiming
       drvModMap = ss ^. serverDriverModuleMap
       pausedMap = ss ^. serverPaused
+      consoleMap = ss ^. serverConsole
       mcurrConsole = model ^. modelPausedConsole
    in case sessionStartTime sessionInfo of
         Nothing ->
@@ -181,5 +189,7 @@ render model ss =
                   , renderSessionButtons sessionInfo
                   , renderModuleInProgress drvModMap pausedMap timingInProg
                   ]
-                    ++ if (sessionIsPaused sessionInfo) then [renderConsole pausedMap mcurrConsole] else []
+                    ++ if (sessionIsPaused sessionInfo)
+                      then [renderConsole pausedMap consoleMap mcurrConsole]
+                      else []
                 )

@@ -169,6 +169,7 @@ data ServerState = ServerState
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
   , _serverTiming :: KeyMap DriverId Timer
   , _serverPaused :: KeyMap DriverId BreakpointLoc
+  , _serverConsole :: KeyMap DriverId Text
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
@@ -190,6 +191,7 @@ emptyServerState =
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
     , _serverPaused = emptyKeyMap
+    , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     }

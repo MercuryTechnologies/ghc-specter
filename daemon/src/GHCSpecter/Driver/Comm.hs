@@ -53,11 +53,16 @@ import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
   where
+    appendConsoleMsg newMsg Nothing = Just newMsg
+    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs <> "\n" <> newMsg)
+
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMModuleInfo drvId modu) ->
-        (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
+        let msg = "module name: " <> modu
+         in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
+              . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMTiming drvId timer') ->
         let f Nothing = Just timer'
             f (Just timer0) =
@@ -68,7 +73,10 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMHsSource _modu _info) ->
         id
       CMBox (CMPaused drvId mloc) ->
-        (serverPaused %~ alterToKeyMap (const mloc) drvId)
+        let formatMsg (Just loc) = "paused at " <> T.pack (show loc)
+            formatMsg Nothing = "resume"
+         in (serverPaused %~ alterToKeyMap (const mloc) drvId)
+              . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
 
 listener ::
   FilePath ->
