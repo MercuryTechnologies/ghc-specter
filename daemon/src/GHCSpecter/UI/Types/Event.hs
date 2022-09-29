@@ -10,6 +10,7 @@ module GHCSpecter.UI.Types.Event
     SessionEvent (..),
     TimingEvent (..),
     MouseEvent (..),
+    ConsoleEvent (..),
     BackgroundEvent (..),
     Event (..),
   )
@@ -18,6 +19,7 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import GHCSpecter.Channel.Common.Types (DriverId)
 
 data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
   deriving (Eq, Show)
@@ -62,6 +64,10 @@ data MouseEvent
   | MouseUp (Maybe (Double, Double))
   deriving (Show, Eq)
 
+data ConsoleEvent
+  = ConsoleTab DriverId
+  deriving (Show, Eq)
+
 data BackgroundEvent
   = MessageChanUpdated
   | RefreshUI
@@ -75,5 +81,6 @@ data Event
   | SessionEv SessionEvent
   | TimingEv TimingEvent
   | MouseEv ComponentTag MouseEvent
+  | ConsoleEv ConsoleEvent
   | BkgEv BackgroundEvent
   deriving (Show, Eq)

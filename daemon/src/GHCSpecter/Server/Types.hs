@@ -35,7 +35,6 @@ where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
--- import Data.IntMap (IntMap)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest)

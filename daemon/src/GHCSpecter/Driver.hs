@@ -51,7 +51,7 @@ import GHCSpecter.UI.Types.Event
 -- control: per web view
 
 styleText :: Text
-styleText = "ul > li { margin-left: 10px; }"
+styleText = "body { overflow: hidden; }\nul > li { margin-left: 10px; }"
 
 webServer :: Config -> ServerSession -> IO ()
 webServer cfg servSess = do

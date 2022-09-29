@@ -27,6 +27,7 @@ where
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
@@ -91,6 +92,7 @@ data UIModel = UIModel
   -- ^ UI state of source view UI
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
+  , _modelPausedConsole :: Maybe DriverId
   }
 
 makeClassy ''UIModel
@@ -102,6 +104,7 @@ emptyUIModel =
     , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
+    , _modelPausedConsole = Nothing
     }
 
 data UIView

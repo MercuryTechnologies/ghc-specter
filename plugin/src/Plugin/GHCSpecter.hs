@@ -330,9 +330,9 @@ driver opts env0 = do
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue drvId StartDriver
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
+  breakPoint queue drvId StartDriver
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do

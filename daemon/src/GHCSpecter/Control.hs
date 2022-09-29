@@ -45,6 +45,7 @@ import GHCSpecter.UI.Types
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     ComponentTag (..),
+    ConsoleEvent (..),
     Event (..),
     ModuleGraphEvent (..),
     MouseEvent (..),
@@ -186,7 +187,14 @@ goCommon ev (view, model) = do
   pure (view', model')
 
 goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession = goCommon
+goSession ev (view0, model0) = do
+  model <-
+    case ev of
+      ConsoleEv (ConsoleTab i) -> do
+        printMsg ("console tab: " <> T.pack (show i))
+        pure (model0 & modelPausedConsole .~ Just i)
+      _ -> pure model0
+  goCommon ev (view0, model)
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph = goCommon
@@ -277,7 +285,8 @@ main = do
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
 
   -- show banner
-  showBanner
+  -- showBanner
+  refreshUIAfter 1.0
 
   -- initialize main view
   (view, model) <- initializeMainView
