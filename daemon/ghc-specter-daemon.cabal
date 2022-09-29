@@ -1,0 +1,292 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.7.
+--
+-- see: https://github.com/sol/hpack
+
+name:           ghc-specter-daemon
+version:        0.1.0.0
+synopsis:       Daemon process for ghc-specter
+description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-specter#readme>
+category:       Development
+homepage:       https://github.com/MercuryTechnologies/ghc-specter#readme
+bug-reports:    https://github.com/MercuryTechnologies/ghc-specter/issues
+author:         Rebecca Turner <rebeccat@mercury.com>,
+                Ian-Woo Kim <iank@mercury.com>
+maintainer:     Rebecca Turner <rebeccat@mercury.com>,
+                Ian-Woo Kim <iank@mercury.com>
+copyright:      © 2022 Mercury Inc. All rights reserved.
+build-type:     Simple
+extra-source-files:
+    README.md
+data-files:
+    assets/ghc-specter.png
+
+source-repository head
+  type: git
+  location: https://github.com/MercuryTechnologies/ghc-specter
+
+library
+  exposed-modules:
+      GHCSpecter.Control
+      GHCSpecter.Control.Runner
+      GHCSpecter.Control.Types
+      GHCSpecter.Data.Assets
+      GHCSpecter.Driver
+      GHCSpecter.Driver.Comm
+      GHCSpecter.Driver.Session
+      GHCSpecter.Driver.Session.Types
+      GHCSpecter.Driver.Worker
+      GHCSpecter.GraphLayout.Algorithm.BFS
+      GHCSpecter.GraphLayout.Algorithm.Builder
+      GHCSpecter.GraphLayout.Algorithm.Cluster
+      GHCSpecter.GraphLayout.OGDF
+      GHCSpecter.GraphLayout.Sugiyama
+      GHCSpecter.GraphLayout.Types
+      GHCSpecter.Render
+      GHCSpecter.Render.Components.GraphView
+      GHCSpecter.Render.Components.TextView
+      GHCSpecter.Render.ModuleGraph
+      GHCSpecter.Render.Session
+      GHCSpecter.Render.SourceView
+      GHCSpecter.Render.Timing
+      GHCSpecter.Render.Util
+      GHCSpecter.Server.Types
+      GHCSpecter.UI.ConcurReplica.DOM
+      GHCSpecter.UI.ConcurReplica.DOM.Events
+      GHCSpecter.UI.ConcurReplica.Run
+      GHCSpecter.UI.ConcurReplica.SVG
+      GHCSpecter.UI.ConcurReplica.Types
+      GHCSpecter.UI.ConcurReplica.WaiHandler
+      GHCSpecter.UI.Constants
+      GHCSpecter.UI.Types
+      GHCSpecter.UI.Types.Event
+      GHCSpecter.Util.Map
+      GHCSpecter.Util.SourceText
+      GHCSpecter.Util.SourceTree
+      GHCSpecter.Util.Timing
+      GHCSpecter.Worker.CallGraph
+      GHCSpecter.Worker.Hie
+      GHCSpecter.Worker.ModuleGraph
+  other-modules:
+      Paths_ghc_specter_daemon
+  hs-source-dirs:
+      src
+  default-extensions:
+      BangPatterns
+      BinaryLiterals
+      ConstrainedClassMethods
+      ConstraintKinds
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DoAndIfThenElse
+      EmptyCase
+      EmptyDataDecls
+      EmptyDataDeriving
+      ExistentialQuantification
+      ExplicitForAll
+      FlexibleContexts
+      FlexibleInstances
+      ForeignFunctionInterface
+      GADTSyntax
+      GeneralisedNewtypeDeriving
+      HexFloatLiterals
+      ImplicitPrelude
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      MonomorphismRestriction
+      MultiParamTypeClasses
+      NamedFieldPuns
+      NamedWildCards
+      NumericUnderscores
+      PatternGuards
+      PolyKinds
+      PostfixOperators
+      RankNTypes
+      RelaxedPolyRec
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      StarIsType
+      TraditionalRecordSyntax
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeSynonymInstances
+      OverloadedStrings
+      BlockArguments
+  ghc-options: -Wall
+  build-depends:
+      OGDF
+    , aeson
+    , base >=4.15 && <5
+    , base64-bytestring
+    , bytestring
+    , concur-core
+    , concur-replica
+    , containers
+    , discrimination
+    , errors
+    , extra
+    , fficxx-runtime
+    , free
+    , ghc
+    , ghc-specter-plugin
+    , hiedb
+    , http-types
+    , lens
+    , optparse-applicative
+    , replica
+    , resourcet
+    , scientific
+    , stdcxx
+    , stm
+    , text
+    , time
+    , transformers
+    , unliftio
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
+  default-language: Haskell2010
+
+executable ghc-specter-daemon
+  main-is: Main.hs
+  other-modules:
+      Paths_ghc_specter_daemon
+  hs-source-dirs:
+      app
+  default-extensions:
+      BangPatterns
+      BinaryLiterals
+      ConstrainedClassMethods
+      ConstraintKinds
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DoAndIfThenElse
+      EmptyCase
+      EmptyDataDecls
+      EmptyDataDeriving
+      ExistentialQuantification
+      ExplicitForAll
+      FlexibleContexts
+      FlexibleInstances
+      ForeignFunctionInterface
+      GADTSyntax
+      GeneralisedNewtypeDeriving
+      HexFloatLiterals
+      ImplicitPrelude
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      MonomorphismRestriction
+      MultiParamTypeClasses
+      NamedFieldPuns
+      NamedWildCards
+      NumericUnderscores
+      PatternGuards
+      PolyKinds
+      PostfixOperators
+      RankNTypes
+      RelaxedPolyRec
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      StarIsType
+      TraditionalRecordSyntax
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeSynonymInstances
+      OverloadedStrings
+      BlockArguments
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.15 && <5
+    , bytestring
+    , ghc-specter-daemon
+    , ghc-specter-plugin
+    , optparse-applicative
+    , stm
+    , text
+  default-language: Haskell2010
+
+test-suite ghc-specter-daemon-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      GHCSpecter.GraphLayout.Algorithm.BFSSpec
+      GHCSpecter.GraphLayout.Algorithm.ClusterSpec
+      Paths_ghc_specter_daemon
+  hs-source-dirs:
+      test
+  default-extensions:
+      BangPatterns
+      BinaryLiterals
+      ConstrainedClassMethods
+      ConstraintKinds
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DoAndIfThenElse
+      EmptyCase
+      EmptyDataDecls
+      EmptyDataDeriving
+      ExistentialQuantification
+      ExplicitForAll
+      FlexibleContexts
+      FlexibleInstances
+      ForeignFunctionInterface
+      GADTSyntax
+      GeneralisedNewtypeDeriving
+      HexFloatLiterals
+      ImplicitPrelude
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      MonomorphismRestriction
+      MultiParamTypeClasses
+      NamedFieldPuns
+      NamedWildCards
+      NumericUnderscores
+      PatternGuards
+      PolyKinds
+      PostfixOperators
+      RankNTypes
+      RelaxedPolyRec
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      StarIsType
+      TraditionalRecordSyntax
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeSynonymInstances
+      OverloadedStrings
+      BlockArguments
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.15 && <5
+    , bytestring
+    , containers
+    , ghc-specter-daemon
+    , ghc-specter-plugin
+    , hspec
+    , text
+  default-language: Haskell2010

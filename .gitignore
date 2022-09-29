@@ -2,3 +2,4 @@
 *~
 /ghc-build-analyzer.cabal
 /dist-newstyle
+ghc-specter.yaml
