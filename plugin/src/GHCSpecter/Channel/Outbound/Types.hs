@@ -3,6 +3,7 @@
 
 module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
+    BreakpointLoc (..),
     SessionInfo (..),
     TimerTag (..),
     Timer (..),
@@ -46,6 +47,20 @@ data Channel
 instance FromJSON Channel
 
 instance ToJSON Channel
+
+data BreakpointLoc
+  = StartDriver
+  | AfterParser
+  | Typecheck
+  | PreRunPhase Text
+  | PostRunPhase Text
+  deriving (Show, Generic)
+
+instance Binary BreakpointLoc
+
+instance FromJSON BreakpointLoc
+
+instance ToJSON BreakpointLoc
 
 data ModuleGraphInfo = ModuleGraphInfo
   { mginfoModuleNameMap :: IntMap ModuleName
@@ -134,7 +149,7 @@ data ChanMessage (a :: Channel) where
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
-  CMPaused :: DriverId -> Text -> ChanMessage 'Paused
+  CMPaused :: DriverId -> BreakpointLoc -> ChanMessage 'Paused
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
@@ -162,9 +177,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMHsSource i h)) = do
     put (fromEnum HsSource)
     put (i, h)
-  put (CMBox (CMPaused i t)) = do
+  put (CMBox (CMPaused i l)) = do
     put (fromEnum Paused)
-    put (i, t)
+    put (i, l)
 
   get = do
     tag <- get

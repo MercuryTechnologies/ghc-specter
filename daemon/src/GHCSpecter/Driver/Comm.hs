@@ -95,7 +95,7 @@ listener socketFile ssess workQ = do
             void $ forkIO (moduleGraphWorker ssRef mgi)
           CMHsSource _drvId (HsSourceInfo hiefile) ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
-          CMPaused drvId msg -> do
+          CMPaused drvId loc -> do
             mmodu <-
               atomically $ do
                 ss <- readTVar ssRef
@@ -103,8 +103,16 @@ listener socketFile ssess workQ = do
                 pure $ forwardLookup drvId drvModMap
             case mmodu of
               Nothing -> do
-                TIO.putStrLn $ "paused GHC at driverId = " <> T.pack (show (unDriverId drvId)) <> ": " <> msg
+                TIO.putStrLn $
+                  "paused GHC at driverId = "
+                    <> T.pack (show (unDriverId drvId))
+                    <> ": "
+                    <> T.pack (show loc)
               Just modu ->
-                TIO.putStrLn $ "paused GHC at moduleName = " <> modu <> ": " <> msg
+                TIO.putStrLn $
+                  "paused GHC at moduleName = "
+                    <> modu
+                    <> ": "
+                    <> T.pack (show loc)
           _ -> pure ()
         atomically . modifyTVar' ssRef . updateInbox $ CMBox o
