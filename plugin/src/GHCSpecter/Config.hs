@@ -36,7 +36,7 @@ instance ToJSON Config where
   toJSON = genericToJSON defaultOptions {fieldLabelModifier = modifier}
 
 defaultGhcSpecterConfigFile :: FilePath
-defaultGhcSpecterConfigFile = "ghc-specter.yaml"
+defaultGhcSpecterConfigFile = "/Users/hw/m/ghc-specter/ghc-specter.yaml"
 
 loadConfig :: FilePath -> IO (Either String Config)
 loadConfig fp = do
