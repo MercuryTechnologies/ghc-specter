@@ -187,7 +187,7 @@ fullStep (clustering, graphState) =
 
 -- TODO: Place this to some common module for constants
 nodeSizeLimit :: Int
-nodeSizeLimit = 150
+nodeSizeLimit = 1
 
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
