@@ -67,7 +67,8 @@ updateInbox chanMsg = incrementSN . updater
         (serverSessionInfo .~ s')
       CMBox (CMHsSource _modu _info) ->
         id
-      CMBox _ -> id
+      CMBox (CMPaused drvId mloc) ->
+        (serverPaused %~ alterToKeyMap (const mloc) drvId)
 
 listener ::
   FilePath ->

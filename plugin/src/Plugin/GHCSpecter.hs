@@ -18,6 +18,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Concurrent.STM qualified as STM
+import Control.Exception qualified as E
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -163,10 +164,10 @@ sessionInPause queue drvId loc = do
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
     STM.check (unPause p)
-  queueMessage queue (CMPaused drvId loc)
+  queueMessage queue (CMPaused drvId (Just loc))
   -- idling
-  forever $ do
-    threadDelay 1_000_000
+  (forever $ threadDelay 1_000_000)
+    `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 -- | Called only once for sending session information
 startSession ::

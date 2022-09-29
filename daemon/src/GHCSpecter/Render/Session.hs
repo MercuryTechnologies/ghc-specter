@@ -34,7 +34,11 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
-import GHCSpecter.Util.Map (forwardLookup, keyMapToList)
+import GHCSpecter.Util.Map
+  ( forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
 import Prelude hiding (div)
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
@@ -67,6 +71,7 @@ render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
       drvModMap = ss ^. serverDriverModuleMap
+      pausedMap = ss ^. serverPaused
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -89,9 +94,13 @@ render ss =
                   <> T.pack (show nTot)
               messageModuleInProgress =
                 let is = fmap fst timingInProg
-                    imods = fmap (\i -> (unDriverId i, forwardLookup i drvModMap)) is
-                 in T.intercalate "\n" $
-                      fmap (\(i, mmod) -> T.pack (show i) <> ": " <> fromMaybe "" mmod) imods
+                    imodinfos = fmap (\i -> (unDriverId i, forwardLookup i drvModMap, lookupKey i pausedMap)) is
+                    formatMessage (i, mmod, mpaused) =
+                      let msgDrvId = T.pack (show i) <> ": "
+                          msgModName = fromMaybe "" mmod
+                          msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
+                       in msgDrvId <> msgModName <> msgPaused
+                 in T.intercalate "\n" (fmap formatMessage imodinfos)
            in div
                 []
                 [ renderSessionButtons sessionInfo

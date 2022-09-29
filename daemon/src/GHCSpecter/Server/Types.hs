@@ -45,7 +45,8 @@ import GHCSpecter.Channel.Common.Types
     type ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types
-  ( Channel,
+  ( BreakpointLoc,
+    Channel,
     SessionInfo (..),
     Timer,
     emptyModuleGraphInfo,
@@ -168,6 +169,7 @@ data ServerState = ServerState
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
   , _serverTiming :: KeyMap DriverId Timer
+  , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
@@ -188,6 +190,7 @@ emptyServerState =
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
+    , _serverPaused = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     }
