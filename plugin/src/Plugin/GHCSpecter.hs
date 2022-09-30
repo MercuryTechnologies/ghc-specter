@@ -9,7 +9,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO, forkOS, killThread, threadDelay)
+import Control.Concurrent (forkIO, forkOS, killThread)
 import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
@@ -18,6 +18,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Concurrent.STM qualified as STM
+import Control.Exception qualified as E
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -31,6 +32,7 @@ import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
@@ -67,7 +69,11 @@ import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
   )
-import GHCSpecter.Channel.Inbound.Types (Pause (..))
+import GHCSpecter.Channel.Inbound.Types
+  ( ConsoleRequest (..),
+    Request (..),
+    SessionRequest (..),
+  )
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
@@ -138,12 +144,22 @@ runMessageQueue opts queue = do
       putStrLn "################"
       putStrLn "receiver started"
       putStrLn "################"
-      msg :: Pause <- receiveObject sock
+      msg :: Request <- receiveObject sock
       putStrLn "################"
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
       atomically $
-        writeTVar (msgReceiverQueue queue) msg
+        case msg of
+          SessionReq sreq ->
+            modifyTVar' sessionRef $ \s ->
+              let isPaused
+                    | sreq == Pause = True
+                    | otherwise = False
+                  sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = isPaused}
+               in s {psSessionInfo = sinfo'}
+          ConsoleReq creq ->
+            writeTVar (msgReceiverQueue queue) (Just creq)
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -154,19 +170,38 @@ breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 breakPoint queue drvId loc = do
   tid <- forkIO $ sessionInPause queue drvId loc
   atomically $ do
-    p <- readTVar (msgReceiverQueue queue)
-    STM.check (not (unPause p))
+    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
+    -- block until the session is resumed.
+    STM.check (not isPaused)
   killThread tid
+
+consoleAction :: MsgQueue -> DriverId -> IO ()
+consoleAction queue drvId = do
+  let rQ = msgReceiverQueue queue
+  msg <-
+    atomically $ do
+      mreq <- readTVar rQ
+      case mreq of
+        Nothing -> retry
+        Just (Ping drvId' msg) ->
+          if drvId == drvId'
+            then do
+              writeTVar rQ Nothing
+              pure msg
+            else retry
+  TIO.putStrLn $ "ping: " <> msg
+  let pongMsg = "pong: " <> msg
+  queueMessage queue (CMConsole drvId pongMsg)
 
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
   atomically $ do
-    p <- readTVar (msgReceiverQueue queue)
-    STM.check (unPause p)
-  queueMessage queue (CMPaused drvId loc)
-  -- idling
-  forever $ do
-    threadDelay 1_000_000
+    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
+    -- prodceed when the session is paused.
+    STM.check isPaused
+  queueMessage queue (CMPaused drvId (Just loc))
+  (forever $ consoleAction queue drvId)
+    `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 -- | Called only once for sending session information
 startSession ::
@@ -329,9 +364,9 @@ driver opts env0 = do
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
-  breakPoint queue drvId StartDriver
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
+  breakPoint queue drvId StartDriver
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do

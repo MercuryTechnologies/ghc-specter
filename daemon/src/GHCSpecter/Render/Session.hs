@@ -7,18 +7,25 @@ import Concur.Core (Widget)
 import Concur.Replica
   ( classList,
     onClick,
+    style,
   )
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
-import GHCSpecter.Channel.Common.Types (DriverId (..))
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Outbound.Types
-  ( ModuleGraphInfo (..),
+  ( BreakpointLoc,
+    ModuleGraphInfo (..),
     SessionInfo (..),
+    Timer,
     getEndTime,
   )
+import GHCSpecter.Render.Components.Console qualified as Console
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -26,15 +33,27 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
+    p,
     pre,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Types
+  ( HasConsoleUI (..),
+    HasUIModel (..),
+    UIModel,
+  )
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
-import GHCSpecter.Util.Map (forwardLookup, keyMapToList)
+import GHCSpecter.Util.Map
+  ( BiKeyMap,
+    KeyMap,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
 import Prelude hiding (div)
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
@@ -61,12 +80,45 @@ renderSessionButtons session =
             ]
             [text txt]
 
+renderModuleInProgress ::
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId BreakpointLoc ->
+  [(DriverId, Timer)] ->
+  Widget IHTML Event
+renderModuleInProgress drvModMap pausedMap timingInProg =
+  let msgs =
+        let is = fmap fst timingInProg
+            imodinfos = fmap (\i -> (unDriverId i, forwardLookup i drvModMap, lookupKey i pausedMap)) is
+            formatMessage (i, mmod, mpaused) =
+              let msgDrvId = T.pack (show i) <> ": "
+                  msgModName = fromMaybe "" mmod
+                  msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
+               in msgDrvId <> msgModName <> msgPaused
+         in fmap formatMessage imodinfos
+   in div
+        [ classList [("box", True)]
+        , style
+            [ ("position", "absolute")
+            , ("width", "350px")
+            , ("height", "250px")
+            , ("top", "0")
+            , ("right", "0")
+            , ("font-family", "'Lucida Grande',sans-serif")
+            , ("font-size", "8px")
+            ]
+        ]
+        (fmap (\x -> p [] [text x]) msgs)
+
 -- | Top-level render function for the Session tab.
-render :: ServerState -> Widget IHTML Event
-render ss =
+render :: UIModel -> ServerState -> Widget IHTML Event
+render model ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
       drvModMap = ss ^. serverDriverModuleMap
+      pausedMap = ss ^. serverPaused
+      consoleMap = ss ^. serverConsole
+      mconsoleFocus = model ^. modelConsole . consoleFocus
+      inputEntry = model ^. modelConsole . consoleInputEntry
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -87,16 +139,22 @@ render ss =
                   <> T.pack (show nInProg)
                   <> " / "
                   <> T.pack (show nTot)
-              messageModuleInProgress =
-                let is = fmap fst timingInProg
-                    imods = fmap (\i -> (unDriverId i, forwardLookup i drvModMap)) is
-                 in T.intercalate "\n" $
-                      fmap (\(i, mmod) -> T.pack (show i) <> ": " <> fromMaybe "" mmod) imods
            in div
-                []
-                [ renderSessionButtons sessionInfo
-                , pre [] [text messageTime]
-                , pre [] [text messageProc]
-                , pre [] [text messageModuleStatus]
-                , pre [] [text messageModuleInProgress]
-                ]
+                [style [("position", "relative"), ("overflow", "hidden")]]
+                ( [ pre [] [text messageTime]
+                  , pre [] [text messageProc]
+                  , pre [] [text messageModuleStatus]
+                  , renderSessionButtons sessionInfo
+                  , renderModuleInProgress drvModMap pausedMap timingInProg
+                  ]
+                    ++ if (sessionIsPaused sessionInfo)
+                      then
+                        [ ConsoleEv
+                            <$> Console.render
+                              (fmap fst . keyMapToList $ pausedMap)
+                              consoleMap
+                              mconsoleFocus
+                              inputEntry
+                        ]
+                      else []
+                )

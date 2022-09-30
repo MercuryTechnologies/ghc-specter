@@ -25,7 +25,7 @@ import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
-import GHCSpecter.Channel.Inbound.Types (Pause)
+import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Control.Types
   ( ControlF (..),
     type Control,
@@ -48,7 +48,7 @@ tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
 type Runner =
-  ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Pause) IO
+  ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Request) IO
 
 getUI' :: Runner UIState
 getUI' = do
@@ -82,10 +82,10 @@ modifySS' f = do
   let s' = f s
   s' `seq` putSS' s'
 
-sendSignal' :: Pause -> Runner ()
-sendSignal' b = do
+sendRequest' :: Request -> Runner ()
+sendRequest' req = do
   (_, _, _, signalChan) <- ask
-  liftIO $ atomically $ writeTChan signalChan b
+  liftIO $ atomically $ writeTChan signalChan req
 
 {-
 
@@ -133,8 +133,8 @@ stepControl (Free (GetSS cont)) = do
 stepControl (Free (PutSS ss next)) = do
   putSS' ss
   pure (Left next)
-stepControl (Free (SendSignal b next)) = do
-  sendSignal' b
+stepControl (Free (SendRequest b next)) = do
+  sendRequest' b
   pure (Left next)
 stepControl (Free (NextEvent cont)) =
   pure (Right (Left cont))

@@ -6,7 +6,11 @@ where
 import Control.Lens ((&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import GHCSpecter.Channel.Inbound.Types (Pause (..))
+import GHCSpecter.Channel.Inbound.Types
+  ( ConsoleRequest (..),
+    Request (..),
+    SessionRequest (..),
+  )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types
   ( getCurrentTime,
@@ -19,7 +23,7 @@ import GHCSpecter.Control.Types
     putUI,
     refreshUIAfter,
     saveSession,
-    sendSignal,
+    sendRequest,
     shouldUpdate,
     type Control,
   )
@@ -29,7 +33,8 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Constants (uiUpdateInterval)
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
+  ( HasConsoleUI (..),
+    HasMainView (..),
     HasModuleGraphUI (..),
     HasSourceViewUI (..),
     HasTimingUI (..),
@@ -45,6 +50,7 @@ import GHCSpecter.UI.Types
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     ComponentTag (..),
+    ConsoleEvent (..),
     Event (..),
     ModuleGraphEvent (..),
     MouseEvent (..),
@@ -92,14 +98,18 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     SessionEv ResumeSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
-          newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendSignal (Pause False)
-      pure (oldModel, newSS)
+          newSS =
+            (serverSessionInfo .~ sinfo')
+              . (serverShouldUpdate .~ True)
+              $ oldSS
+          newModel = (modelConsole . consoleFocus .~ Nothing) oldModel
+      sendRequest (SessionReq Resume)
+      pure (newModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendSignal (Pause True)
+      sendRequest (SessionReq Pause)
       pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel
@@ -186,7 +196,27 @@ goCommon ev (view, model) = do
   pure (view', model')
 
 goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession = goCommon
+goSession ev (view0, model0) = do
+  model <-
+    case ev of
+      ConsoleEv (ConsoleTab i) -> do
+        printMsg ("console tab: " <> T.pack (show i))
+        pure (model0 & modelConsole . consoleFocus .~ Just i)
+      ConsoleEv (ConsoleKey key) ->
+        if key == "Enter"
+          then case model0 ^. modelConsole . consoleFocus of
+            Nothing -> pure model0
+            Just drvId -> do
+              let msg = model0 ^. modelConsole . consoleInputEntry
+                  model = (modelConsole . consoleInputEntry .~ "") model0
+              sendRequest $ ConsoleReq (Ping drvId msg)
+              pure model
+          else pure model0
+      ConsoleEv (ConsoleInput content) -> do
+        let model = (modelConsole . consoleInputEntry .~ content) model0
+        pure model
+      _ -> pure model0
+  goCommon ev (view0, model)
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph = goCommon

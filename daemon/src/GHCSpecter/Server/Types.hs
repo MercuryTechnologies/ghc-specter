@@ -35,7 +35,6 @@ where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
--- import Data.IntMap (IntMap)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest)
@@ -45,7 +44,8 @@ import GHCSpecter.Channel.Common.Types
     type ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types
-  ( Channel,
+  ( BreakpointLoc,
+    Channel,
     SessionInfo (..),
     Timer,
     emptyModuleGraphInfo,
@@ -168,6 +168,8 @@ data ServerState = ServerState
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
   , _serverTiming :: KeyMap DriverId Timer
+  , _serverPaused :: KeyMap DriverId BreakpointLoc
+  , _serverConsole :: KeyMap DriverId Text
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
@@ -188,6 +190,8 @@ emptyServerState =
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
+    , _serverPaused = emptyKeyMap
+    , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     }
