@@ -93,6 +93,9 @@ data UIModel = UIModel
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
   , _modelPausedConsole :: Maybe DriverId
+  -- ^ DriverId for the console
+  , _modelConsoleBuffer :: Text
+  -- ^ console buffer content
   }
 
 makeClassy ''UIModel
@@ -105,6 +108,7 @@ emptyUIModel =
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
     , _modelPausedConsole = Nothing
+    , _modelConsoleBuffer = ""
     }
 
 data UIView

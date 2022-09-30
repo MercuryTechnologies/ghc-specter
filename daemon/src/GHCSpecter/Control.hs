@@ -4,6 +4,7 @@ module GHCSpecter.Control
 where
 
 import Control.Lens ((&), (.~), (^.), _1, _2)
+import Control.Monad (when)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types (Pause (..))
@@ -93,9 +94,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     SessionEv ResumeSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = False}
-          newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
+          newSS =
+            (serverSessionInfo .~ sinfo')
+              . (serverShouldUpdate .~ True)
+              $ oldSS
+          newModel = (modelPausedConsole .~ Nothing) oldModel
       sendSignal (Pause False)
-      pure (oldModel, newSS)
+      pure (newModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
@@ -193,6 +198,14 @@ goSession ev (view0, model0) = do
       ConsoleEv (ConsoleTab i) -> do
         printMsg ("console tab: " <> T.pack (show i))
         pure (model0 & modelPausedConsole .~ Just i)
+      ConsoleEv (ConsoleKey key) -> do
+        let model
+              | key == "Enter" = (modelConsoleBuffer .~ "") model0
+              | otherwise = model0
+        pure model
+      ConsoleEv (ConsoleInput content) -> do
+        let model = (modelConsoleBuffer .~ content) model0
+        pure model
       _ -> pure model0
   goCommon ev (view0, model)
 
