@@ -7,7 +7,8 @@ import Control.Lens ((&), (.~), (^.), _1, _2)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types
-  ( Request (..),
+  ( ConsoleRequest (..),
+    Request (..),
     SessionRequest (..),
   )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
@@ -200,11 +201,16 @@ goSession ev (view0, model0) = do
       ConsoleEv (ConsoleTab i) -> do
         printMsg ("console tab: " <> T.pack (show i))
         pure (model0 & modelPausedConsole .~ Just i)
-      ConsoleEv (ConsoleKey key) -> do
-        let model
-              | key == "Enter" = (modelConsoleBuffer .~ "") model0
-              | otherwise = model0
-        pure model
+      ConsoleEv (ConsoleKey key) ->
+        if key == "Enter"
+          then case model0 ^. modelPausedConsole of
+            Nothing -> pure model0
+            Just drvId -> do
+              let msg = model0 ^. modelConsoleBuffer
+                  model = (modelConsoleBuffer .~ "") model0
+              sendRequest $ ConsoleReq (Ping drvId msg)
+              pure model
+          else pure model0
       ConsoleEv (ConsoleInput content) -> do
         let model = (modelConsoleBuffer .~ content) model0
         pure model

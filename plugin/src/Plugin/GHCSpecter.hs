@@ -9,7 +9,7 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO, forkOS, killThread, threadDelay)
+import Control.Concurrent (forkIO, forkOS, killThread)
 import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
@@ -32,6 +32,7 @@ import Data.Sequence qualified as Seq
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
@@ -158,7 +159,7 @@ runMessageQueue opts queue = do
                   sinfo' = sinfo {sessionIsPaused = isPaused}
                in s {psSessionInfo = sinfo'}
           ConsoleReq creq ->
-            writeTVar (msgReceiverQueue queue) creq
+            writeTVar (msgReceiverQueue queue) (Just creq)
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -181,8 +182,23 @@ sessionInPause queue drvId loc = do
     -- prodceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
-  -- idling
-  (forever $ threadDelay 1_000_000)
+  let rQ = msgReceiverQueue queue
+      consoleAction = do
+        msg <-
+          atomically $ do
+            mreq <- readTVar rQ
+            case mreq of
+              Nothing -> retry
+              Just (Ping drvId' msg) ->
+                if drvId == drvId'
+                  then do
+                    writeTVar rQ Nothing
+                    pure msg
+                  else retry
+        TIO.putStrLn $ "ping: " <> msg
+        let pongMsg = "pong: " <> msg
+        queueMessage queue (CMConsole drvId pongMsg)
+  (forever consoleAction)
     `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 -- | Called only once for sending session information

@@ -29,13 +29,13 @@ import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
   { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar ConsoleRequest
+  , msgReceiverQueue :: TVar (Maybe ConsoleRequest)
   }
 
 initMsgQueue :: IO MsgQueue
 initMsgQueue = do
   sQ <- newTVarIO Seq.empty
-  reqRef <- newTVarIO (Ping "hello world")
+  reqRef <- newTVarIO Nothing
   pure $ MsgQueue sQ reqRef
 
 data PluginSession = PluginSession

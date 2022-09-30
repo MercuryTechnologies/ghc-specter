@@ -12,6 +12,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import GHCSpecter.Channel.Common.Types (DriverId)
 
 data SessionRequest
   = Pause
@@ -24,7 +25,7 @@ instance FromJSON SessionRequest
 
 instance ToJSON SessionRequest
 
-data ConsoleRequest = Ping Text
+data ConsoleRequest = Ping DriverId Text
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest

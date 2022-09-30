@@ -77,6 +77,8 @@ updateInbox chanMsg = incrementSN . updater
             formatMsg Nothing = "resume"
          in (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
+      CMBox (CMConsole drvId txt) ->
+        (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
 
 listener ::
   FilePath ->

@@ -42,6 +42,7 @@ data Channel
   | Session
   | HsSource
   | Paused
+  | Console
   deriving (Enum, Eq, Ord, Show, Generic)
 
 instance FromJSON Channel
@@ -150,6 +151,7 @@ data ChanMessage (a :: Channel) where
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
   CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
+  CMConsole :: DriverId -> Text -> ChanMessage 'Console
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
@@ -180,6 +182,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMPaused i ml)) = do
     put (fromEnum Paused)
     put (i, ml)
+  put (CMBox (CMConsole i t)) = do
+    put (fromEnum Console)
+    put (i, t)
 
   get = do
     tag <- get
@@ -190,3 +195,4 @@ instance Binary ChanMessageBox where
       Session -> CMBox . CMSession <$> get
       HsSource -> CMBox . uncurry CMHsSource <$> get
       Paused -> CMBox . uncurry CMPaused <$> get
+      Console -> CMBox . uncurry CMConsole <$> get
