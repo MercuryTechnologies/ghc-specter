@@ -4,10 +4,12 @@ module GHCSpecter.Control
 where
 
 import Control.Lens ((&), (.~), (^.), _1, _2)
-import Control.Monad (when)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import GHCSpecter.Channel.Inbound.Types (Request (..))
+import GHCSpecter.Channel.Inbound.Types
+  ( Request (..),
+    SessionRequest (..),
+  )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types
   ( getCurrentTime,
@@ -99,13 +101,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
               . (serverShouldUpdate .~ True)
               $ oldSS
           newModel = (modelPausedConsole .~ Nothing) oldModel
-      sendRequest Resume
+      sendRequest (SessionReq Resume)
       pure (newModel, newSS)
     SessionEv PauseSessionEv -> do
       let sinfo = oldSS ^. serverSessionInfo
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendRequest Pause
+      sendRequest (SessionReq Pause)
       pure (oldModel, newSS)
     TimingEv (UpdateSticky b) -> do
       let newModel = (modelTiming . timingUISticky .~ b) oldModel

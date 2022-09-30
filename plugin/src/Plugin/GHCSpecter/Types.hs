@@ -19,7 +19,7 @@ import Control.Concurrent.STM
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Inbound.Types (Request (..))
+import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessageBox (..),
     SessionInfo (..),
@@ -29,13 +29,13 @@ import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
   { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar Request
+  , msgReceiverQueue :: TVar ConsoleRequest
   }
 
 initMsgQueue :: IO MsgQueue
 initMsgQueue = do
   sQ <- newTVarIO Seq.empty
-  reqRef <- newTVarIO Resume
+  reqRef <- newTVarIO (Ping "hello world")
   pure $ MsgQueue sQ reqRef
 
 data PluginSession = PluginSession

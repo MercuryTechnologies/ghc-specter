@@ -68,7 +68,11 @@ import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
   )
-import GHCSpecter.Channel.Inbound.Types (Request (..))
+import GHCSpecter.Channel.Inbound.Types
+  ( ConsoleRequest (..),
+    Request (..),
+    SessionRequest (..),
+  )
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
@@ -145,18 +149,16 @@ runMessageQueue opts queue = do
       putStrLn "################"
       atomically $
         case msg of
-          Pause ->
+          SessionReq sreq ->
             modifyTVar' sessionRef $ \s ->
-              let sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = True}
+              let isPaused
+                    | sreq == Pause = True
+                    | otherwise = False
+                  sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = isPaused}
                in s {psSessionInfo = sinfo'}
-          Resume ->
-            modifyTVar' sessionRef $ \s ->
-              let sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = False}
-               in s {psSessionInfo = sinfo'}
-          _ ->
-            writeTVar (msgReceiverQueue queue) msg
+          ConsoleReq creq ->
+            writeTVar (msgReceiverQueue queue) creq
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =

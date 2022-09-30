@@ -1,26 +1,41 @@
 module GHCSpecter.Channel.Inbound.Types
-  ( InquireMessage (..),
+  ( -- * subrequests
+    SessionRequest (..),
+    ConsoleRequest (..),
+
+    -- * top-level request
     Request (..),
   )
 where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
+import Data.Text (Text)
 import GHC.Generics (Generic)
 
-data InquireMessage = ListGlobalRdrElt
-  deriving (Eq, Ord, Show, Generic)
-
-instance Binary InquireMessage
-
-instance FromJSON InquireMessage
-
-instance ToJSON InquireMessage
-
-data Request
+data SessionRequest
   = Pause
   | Resume
-  --   | Inquire InquireMessage
+  deriving (Eq, Ord, Show, Generic)
+
+instance Binary SessionRequest
+
+instance FromJSON SessionRequest
+
+instance ToJSON SessionRequest
+
+data ConsoleRequest = Ping Text
+  deriving (Eq, Ord, Show, Generic)
+
+instance Binary ConsoleRequest
+
+instance FromJSON ConsoleRequest
+
+instance ToJSON ConsoleRequest
+
+data Request
+  = SessionReq SessionRequest
+  | ConsoleReq ConsoleRequest
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Request
