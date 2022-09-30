@@ -25,7 +25,9 @@ instance FromJSON SessionRequest
 
 instance ToJSON SessionRequest
 
-data ConsoleRequest = Ping DriverId Text
+data ConsoleRequest
+  = Ping Text
+  | NextBreakpoint
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest
@@ -36,7 +38,7 @@ instance ToJSON ConsoleRequest
 
 data Request
   = SessionReq SessionRequest
-  | ConsoleReq ConsoleRequest
+  | ConsoleReq DriverId ConsoleRequest
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Request

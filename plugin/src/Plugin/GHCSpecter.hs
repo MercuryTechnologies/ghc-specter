@@ -158,8 +158,8 @@ runMessageQueue opts queue = do
                   sinfo = psSessionInfo s
                   sinfo' = sinfo {sessionIsPaused = isPaused}
                in s {psSessionInfo = sinfo'}
-          ConsoleReq creq ->
-            writeTVar (msgReceiverQueue queue) (Just creq)
+          ConsoleReq drvId' creq ->
+            writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -170,28 +170,40 @@ breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 breakPoint queue drvId loc = do
   tid <- forkIO $ sessionInPause queue drvId loc
   atomically $ do
-    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
+    psess <- readTVar sessionRef
+    let sinfo = psSessionInfo psess
+        isSessionPaused = sessionIsPaused sinfo
+        isDriverInStep = maybe False (== drvId) $ psDriverInStep psess
     -- block until the session is resumed.
-    STM.check (not isPaused)
+    STM.check (not isSessionPaused || isDriverInStep)
+    when (isDriverInStep && isSessionPaused) $ do
+      let psess' = psess {psDriverInStep = Nothing}
+      writeTVar sessionRef psess'
   killThread tid
 
 consoleAction :: MsgQueue -> DriverId -> IO ()
 consoleAction queue drvId = do
   let rQ = msgReceiverQueue queue
-  msg <-
+  req <-
     atomically $ do
       mreq <- readTVar rQ
       case mreq of
         Nothing -> retry
-        Just (Ping drvId' msg) ->
+        Just (drvId', req) ->
           if drvId == drvId'
             then do
               writeTVar rQ Nothing
-              pure msg
+              pure req
             else retry
-  TIO.putStrLn $ "ping: " <> msg
-  let pongMsg = "pong: " <> msg
-  queueMessage queue (CMConsole drvId pongMsg)
+  case req of
+    Ping msg -> do
+      TIO.putStrLn $ "ping: " <> msg
+      let pongMsg = "pong: " <> msg
+      queueMessage queue (CMConsole drvId pongMsg)
+    NextBreakpoint -> do
+      putStrLn "NextBreakpoint"
+      atomically $
+        modifyTVar' sessionRef $ \psess -> psess {psDriverInStep = Just drvId}
 
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
