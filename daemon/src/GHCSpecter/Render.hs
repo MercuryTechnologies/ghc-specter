@@ -17,7 +17,9 @@ import Concur.Replica
 import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Assets (HasAssets (..))
+import GHCSpecter.Render.Components.Console qualified as Console
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
@@ -39,7 +41,8 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
+  ( HasConsoleUI (..),
+    HasMainView (..),
     HasUIModel (..),
     HasUIState (..),
     MainView,
@@ -51,6 +54,7 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     Tab (..),
   )
+import GHCSpecter.Util.Map (keyMapToList)
 import Prelude hiding (div, span)
 
 divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
@@ -63,7 +67,7 @@ renderMainPanel ::
   Widget IHTML Event
 renderMainPanel view model ss =
   case view ^. mainTab of
-    TabSession -> Session.render model ss
+    TabSession -> Session.render ss
     TabModuleGraph -> ModuleGraph.render model ss
     TabSourceView -> SourceView.render (model ^. modelSourceView) ss
     TabTiming -> Timing.render model ss
@@ -98,6 +102,29 @@ renderNavbar tab =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
+renderBottomPanel :: UIModel -> ServerState -> Widget IHTML Event
+renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    pausedMap = ss ^. serverPaused
+    consoleMap = ss ^. serverConsole
+    mconsoleFocus = model ^. modelConsole . consoleFocus
+    inputEntry = model ^. modelConsole . consoleInputEntry
+
+    consolePanel
+      | sessionIsPaused sessionInfo =
+          [ ConsoleEv
+              <$> Console.render
+                (fmap fst . keyMapToList $ pausedMap)
+                consoleMap
+                mconsoleFocus
+                inputEntry
+          ]
+      | otherwise = []
+
+    msgCounter =
+      divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]
+
 renderMainView :: (MainView, UIModel, ServerState) -> Widget IHTML Event
 renderMainView (view, model, ss) = do
   let (mainPanel, bottomPanel)
@@ -113,14 +140,7 @@ renderMainView (view, model, ss) = do
                     ]
                 ]
                 [renderMainPanel view model ss]
-            , section
-                []
-                [ divClass
-                    "box"
-                    []
-                    [ text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))
-                    ]
-                ]
+            , section [] [renderBottomPanel model ss]
             )
   div
     [ classList [("container is-fullheight is-size-7 m-4 p-4", True)]

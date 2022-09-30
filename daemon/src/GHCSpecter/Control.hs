@@ -181,22 +181,7 @@ showBanner = do
 
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goCommon ev (view, model) = do
-  ui <- getUI
-  ss <- getSS
-  (model', ss') <- defaultUpdateModel ev (model, ss)
-  let -- just placeholder
-      view' = view
-      ui' =
-        ui
-          & (uiView .~ MainMode view')
-            . (uiModel .~ model')
-  putUI ui'
-  putSS ss'
-  pure (view', model')
-
-goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession ev (view0, model0) = do
+goCommon ev (view, model0) = do
   model <-
     case ev of
       ConsoleEv (ConsoleTab i) -> do
@@ -218,7 +203,21 @@ goSession ev (view0, model0) = do
         let model = (modelConsole . consoleInputEntry .~ content) model0
         pure model
       _ -> pure model0
-  goCommon ev (view0, model)
+  ui <- getUI
+  ss <- getSS
+  (model', ss') <- defaultUpdateModel ev (model, ss)
+  let -- just placeholder
+      view' = view
+      ui' =
+        ui
+          & (uiView .~ MainMode view')
+            . (uiModel .~ model')
+  putUI ui'
+  putSS ss'
+  pure (view', model')
+
+goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goSession = goCommon
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph = goCommon

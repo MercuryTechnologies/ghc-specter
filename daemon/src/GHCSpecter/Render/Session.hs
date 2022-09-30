@@ -25,7 +25,6 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     getEndTime,
   )
-import GHCSpecter.Render.Components.Console qualified as Console
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -38,11 +37,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Types
-  ( HasConsoleUI (..),
-    HasUIModel (..),
-    UIModel,
-  )
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
@@ -110,15 +104,12 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
         (fmap (\x -> p [] [text x]) msgs)
 
 -- | Top-level render function for the Session tab.
-render :: UIModel -> ServerState -> Widget IHTML Event
-render model ss =
+render :: ServerState -> Widget IHTML Event
+render ss =
   let sessionInfo = ss ^. serverSessionInfo
       timing = ss ^. serverTiming
       drvModMap = ss ^. serverDriverModuleMap
       pausedMap = ss ^. serverPaused
-      consoleMap = ss ^. serverConsole
-      mconsoleFocus = model ^. modelConsole . consoleFocus
-      inputEntry = model ^. modelConsole . consoleInputEntry
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -147,14 +138,4 @@ render model ss =
                   , renderSessionButtons sessionInfo
                   , renderModuleInProgress drvModMap pausedMap timingInProg
                   ]
-                    ++ if (sessionIsPaused sessionInfo)
-                      then
-                        [ ConsoleEv
-                            <$> Console.render
-                              (fmap fst . keyMapToList $ pausedMap)
-                              consoleMap
-                              mconsoleFocus
-                              inputEntry
-                        ]
-                      else []
                 )

@@ -22,7 +22,7 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Control.Error.Util (note)
-import Control.Lens ((^.), _1)
+import Control.Lens (to, (^.), _1)
 import Control.Monad.Extra (loop)
 import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
@@ -233,34 +233,38 @@ renderDetailLevel model =
 -- | top-level render function for Module Graph tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  let sessionInfo = ss ^. serverSessionInfo
-      nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-      drvModMap = ss ^. serverDriverModuleMap
-      timing = ss ^. serverTiming
-      mgs = ss ^. serverModuleGraphState
-      clustering = mgs ^. mgsClustering
-   in case sessionStartTime sessionInfo of
-        Nothing ->
-          pre [] [text "GHC Session has not been started"]
-        Just _ ->
-          div
-            [style [("overflow", "scroll"), ("height", "75vh")]]
-            ( case mgs ^. mgsClusterGraph of
-                Nothing -> []
-                Just grVisInfo ->
-                  [ renderMainModuleGraph
-                      nameMap
-                      drvModMap
-                      timing
-                      clustering
-                      grVisInfo
-                      (model ^. modelMainModuleGraph)
-                  , renderDetailLevel model
-                  , renderSubModuleGraph
-                      nameMap
-                      drvModMap
-                      timing
-                      (mgs ^. mgsSubgraph)
-                      (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)
-                  ]
-            )
+  case sessionStartTime sessionInfo of
+    Nothing ->
+      pre [] [text "GHC Session has not been started"]
+    Just _ ->
+      div
+        [style [("overflow", "scroll"), ("height", widgetHeight)]]
+        ( case mgs ^. mgsClusterGraph of
+            Nothing -> []
+            Just grVisInfo ->
+              [ renderMainModuleGraph
+                  nameMap
+                  drvModMap
+                  timing
+                  clustering
+                  grVisInfo
+                  (model ^. modelMainModuleGraph)
+              , renderDetailLevel model
+              , renderSubModuleGraph
+                  nameMap
+                  drvModMap
+                  timing
+                  (mgs ^. mgsSubgraph)
+                  (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)
+              ]
+        )
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+    drvModMap = ss ^. serverDriverModuleMap
+    timing = ss ^. serverTiming
+    mgs = ss ^. serverModuleGraphState
+    clustering = mgs ^. mgsClustering
+    widgetHeight
+      | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
+      | otherwise = "75vh"
