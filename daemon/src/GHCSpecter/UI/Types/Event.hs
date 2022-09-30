@@ -64,8 +64,8 @@ data MouseEvent
   | MouseUp (Maybe (Double, Double))
   deriving (Show, Eq)
 
-data ConsoleEvent
-  = ConsoleTab DriverId
+data ConsoleEvent k
+  = ConsoleTab k
   | ConsoleKey Text
   | ConsoleInput Text
   deriving (Show, Eq)
@@ -83,6 +83,6 @@ data Event
   | SessionEv SessionEvent
   | TimingEv TimingEvent
   | MouseEv ComponentTag MouseEvent
-  | ConsoleEv ConsoleEvent
+  | ConsoleEv (ConsoleEvent DriverId)
   | BkgEv BackgroundEvent
   deriving (Show, Eq)

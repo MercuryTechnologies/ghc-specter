@@ -5,20 +5,14 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
     onClick,
-    onInput,
-    onKeyPress,
     style,
-    textProp,
   )
-import Concur.Replica.DOM.Events qualified as DE
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
-import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
@@ -31,6 +25,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     getEndTime,
   )
+import GHCSpecter.Render.Components.Console qualified as Console
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -38,9 +33,6 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
-    el,
-    input,
-    nav,
     p,
     pre,
     text,
@@ -51,8 +43,7 @@ import GHCSpecter.UI.Types
     UIModel,
   )
 import GHCSpecter.UI.Types.Event
-  ( ConsoleEvent (..),
-    Event (..),
+  ( Event (..),
     SessionEvent (..),
   )
 import GHCSpecter.Util.Map
@@ -117,67 +108,6 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
         ]
         (fmap (\x -> p [] [text x]) msgs)
 
-renderConsole ::
-  KeyMap DriverId BreakpointLoc ->
-  KeyMap DriverId Text ->
-  Maybe DriverId ->
-  Text ->
-  Widget IHTML Event
-renderConsole
-  pausedMap
-  consoleMap
-  mcurrConsole
-  consoleBuffer =
-    div [] [consoleTabs, console]
-    where
-      divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
-      divClass cls props = div (classList [(cls, True)] : props)
-      navbarMenu = divClass "navbar-menu" []
-      navbarStart = divClass "navbar-start" []
-      navItem drvId =
-        let isActive = Just drvId == mcurrConsole
-            clss
-              | isActive = ["navbar-item", "is-tab", "is-active", "m-0", "p-1"]
-              | otherwise = ["navbar-item", "is-tab", "m-0", "p-1"]
-            cls = classList $ map (\tag -> (tag, True)) clss
-         in el
-              "a"
-              [cls, ConsoleEv (ConsoleTab drvId) <$ onClick]
-              [text (T.pack (show (unDriverId drvId)))]
-      consoleTabs =
-        nav
-          [classList [("navbar m-0 p-0", True)]]
-          [navbarMenu [navbarStart (fmap (navItem . fst) (keyMapToList pausedMap))]]
-      consoleContent =
-        let mtxt = do
-              currConsole <- mcurrConsole
-              lookupKey currConsole consoleMap
-         in pre
-              [ style
-                  [ ("height", "200px")
-                  , ("background-color", "black")
-                  , ("color", "white")
-                  , ("overflow", "scroll")
-                  ]
-              ]
-              [text (fromMaybe "" mtxt)]
-      consoleInput =
-        divClass
-          "control"
-          []
-          [ input
-              [ ConsoleEv . ConsoleInput . DE.targetValue . DE.target <$> onInput
-              , ConsoleEv . ConsoleKey . DE.kbdKey <$> onKeyPress
-              , classList [("input", True)]
-              , style [("font-family", "monospace")]
-              , textProp "type" "text"
-              , textProp "placeholder" "type inspection command"
-              , textProp "value" consoleBuffer
-              ]
-          ]
-      console =
-        div [] [consoleContent, consoleInput]
-
 -- | Top-level render function for the Session tab.
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
@@ -217,6 +147,13 @@ render model ss =
                   , renderModuleInProgress drvModMap pausedMap timingInProg
                   ]
                     ++ if (sessionIsPaused sessionInfo)
-                      then [renderConsole pausedMap consoleMap mcurrConsole consoleBuffer]
+                      then
+                        [ ConsoleEv
+                            <$> Console.render
+                              (fmap fst . keyMapToList $ pausedMap)
+                              consoleMap
+                              mcurrConsole
+                              consoleBuffer
+                        ]
                       else []
                 )
