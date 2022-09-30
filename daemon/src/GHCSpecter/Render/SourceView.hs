@@ -18,7 +18,10 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree, foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.Channel.Outbound.Types (Channel (..))
+import GHCSpecter.Channel.Outbound.Types
+  ( Channel (..),
+    SessionInfo (..),
+  )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types
@@ -53,6 +56,11 @@ import GHCSpecter.Util.SourceTree
 import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
+
+widgetHeight :: ServerState -> Text
+widgetHeight ss
+  | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
+  | otherwise = "75vh"
 
 iconText :: Bool -> Text -> Text -> Text -> Widget IHTML MouseEvent
 iconText isBordered ico cls txt =
@@ -89,7 +97,7 @@ renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderModuleTree srcUI ss =
   div
     [ style
-        [ ("height", "75vh")
+        [ ("height", widgetHeight ss)
         , ("overflow", "scroll")
         ]
     ]
@@ -139,7 +147,7 @@ renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
   div
     [ style
-        [ ("height", "75vh")
+        [ ("height", widgetHeight ss)
         , ("overflow", "scroll")
         ]
     ]
