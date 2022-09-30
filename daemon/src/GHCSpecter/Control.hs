@@ -209,7 +209,9 @@ goSession ev (view0, model0) = do
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") model0
-              sendRequest $ ConsoleReq drvId (Ping msg)
+              if msg == ":next"
+                then sendRequest $ ConsoleReq drvId NextBreakpoint
+                else sendRequest $ ConsoleReq drvId (Ping msg)
               pure model
           else pure model0
       ConsoleEv (ConsoleInput content) -> do

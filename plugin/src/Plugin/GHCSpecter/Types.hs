@@ -42,11 +42,14 @@ data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
   , psNextDriverId :: DriverId
+  , psDriverInStep :: Maybe DriverId
+  -- ^ DriverId in next step operation
+  -- TODO: find a better place
   }
 
 emptyPluginSession :: PluginSession
 emptyPluginSession =
-  PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
+  PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1 Nothing
 
 -- | Global variable shared across the session
 sessionRef :: TVar PluginSession
