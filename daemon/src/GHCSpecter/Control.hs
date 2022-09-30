@@ -33,7 +33,8 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Constants (uiUpdateInterval)
 import GHCSpecter.UI.Types
-  ( HasMainView (..),
+  ( HasConsoleUI (..),
+    HasMainView (..),
     HasModuleGraphUI (..),
     HasSourceViewUI (..),
     HasTimingUI (..),
@@ -101,7 +102,7 @@ defaultUpdateModel topEv (oldModel, oldSS) =
             (serverSessionInfo .~ sinfo')
               . (serverShouldUpdate .~ True)
               $ oldSS
-          newModel = (modelPausedConsole .~ Nothing) oldModel
+          newModel = (modelConsole . consoleFocus .~ Nothing) oldModel
       sendRequest (SessionReq Resume)
       pure (newModel, newSS)
     SessionEv PauseSessionEv -> do
@@ -200,19 +201,19 @@ goSession ev (view0, model0) = do
     case ev of
       ConsoleEv (ConsoleTab i) -> do
         printMsg ("console tab: " <> T.pack (show i))
-        pure (model0 & modelPausedConsole .~ Just i)
+        pure (model0 & modelConsole . consoleFocus .~ Just i)
       ConsoleEv (ConsoleKey key) ->
         if key == "Enter"
-          then case model0 ^. modelPausedConsole of
+          then case model0 ^. modelConsole . consoleFocus of
             Nothing -> pure model0
             Just drvId -> do
-              let msg = model0 ^. modelConsoleBuffer
-                  model = (modelConsoleBuffer .~ "") model0
+              let msg = model0 ^. modelConsole . consoleInputEntry
+                  model = (modelConsole . consoleInputEntry .~ "") model0
               sendRequest $ ConsoleReq (Ping drvId msg)
               pure model
           else pure model0
       ConsoleEv (ConsoleInput content) -> do
-        let model = (modelConsoleBuffer .~ content) model0
+        let model = (modelConsole . consoleInputEntry .~ content) model0
         pure model
       _ -> pure model0
   goCommon ev (view0, model)

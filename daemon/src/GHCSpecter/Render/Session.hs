@@ -39,7 +39,8 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types
-  ( HasUIModel (..),
+  ( HasConsoleUI (..),
+    HasUIModel (..),
     UIModel,
   )
 import GHCSpecter.UI.Types.Event
@@ -116,8 +117,8 @@ render model ss =
       drvModMap = ss ^. serverDriverModuleMap
       pausedMap = ss ^. serverPaused
       consoleMap = ss ^. serverConsole
-      mcurrConsole = model ^. modelPausedConsole
-      consoleBuffer = model ^. modelConsoleBuffer
+      mconsoleFocus = model ^. modelConsole . consoleFocus
+      inputEntry = model ^. modelConsole . consoleInputEntry
    in case sessionStartTime sessionInfo of
         Nothing ->
           pre [] [text "GHC Session has not been started"]
@@ -152,8 +153,8 @@ render model ss =
                             <$> Console.render
                               (fmap fst . keyMapToList $ pausedMap)
                               consoleMap
-                              mcurrConsole
-                              consoleBuffer
+                              mconsoleFocus
+                              inputEntry
                         ]
                       else []
                 )

@@ -10,6 +10,9 @@ module GHCSpecter.UI.Types
     TimingUI,
     HasTimingUI (..),
     emptyTimingUI,
+    ConsoleUI,
+    HasConsoleUI (..),
+    emptyConsoleUI,
     MainView (..),
     HasMainView (..),
     emptyMainView,
@@ -70,6 +73,18 @@ makeClassy ''TimingUI
 emptyTimingUI :: TimingUI
 emptyTimingUI = TimingUI False False False (0, 0) False
 
+data ConsoleUI = ConsoleUI
+  { _consoleFocus :: Maybe DriverId
+  -- ^ focused console tab
+  , _consoleInputEntry :: Text
+  -- ^ console input entry
+  }
+
+makeClassy ''ConsoleUI
+
+emptyConsoleUI :: ConsoleUI
+emptyConsoleUI = ConsoleUI Nothing ""
+
 data MainView = MainView
   { _mainTab :: Tab
   -- ^ current tab
@@ -92,10 +107,7 @@ data UIModel = UIModel
   -- ^ UI state of source view UI
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
-  , _modelPausedConsole :: Maybe DriverId
-  -- ^ DriverId for the console
-  , _modelConsoleBuffer :: Text
-  -- ^ console buffer content
+  , _modelConsole :: ConsoleUI
   }
 
 makeClassy ''UIModel
@@ -107,8 +119,7 @@ emptyUIModel =
     , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
-    , _modelPausedConsole = Nothing
-    , _modelConsoleBuffer = ""
+    , _modelConsole = emptyConsoleUI
     }
 
 data UIView
