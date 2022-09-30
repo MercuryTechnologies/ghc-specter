@@ -66,6 +66,7 @@ data MouseEvent
 
 data ConsoleEvent
   = ConsoleTab DriverId
+  | ConsoleInput -- Text
   deriving (Show, Eq)
 
 data BackgroundEvent

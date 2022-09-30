@@ -8,7 +8,9 @@ import Concur.Replica
   ( Props,
     classList,
     onClick,
+    onInput,
     style,
+    textProp,
   )
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
@@ -35,6 +37,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
     el,
+    input,
     nav,
     p,
     pre,
@@ -150,7 +153,20 @@ renderConsole pausedMap consoleMap mcurrConsole = div [] [consoleTabs, console]
                 ]
             ]
             [text (fromMaybe "" mtxt)]
-    console = div [] [consoleContent]
+    consoleInput =
+      divClass
+        "control"
+        []
+        [ input
+            [ ConsoleEv ConsoleInput <$ onInput
+            , classList [("input", True)]
+            , style [("font-family", "monospace")]
+            , textProp "type" "text"
+            , textProp "placeholder" "type inspection command"
+            ]
+        ]
+    console =
+      div [] [consoleContent, consoleInput]
 
 -- | Top-level render function for the Session tab.
 render :: UIModel -> ServerState -> Widget IHTML Event
