@@ -1,10 +1,19 @@
 module GHCSpecter.Channel.Inbound.Types
-  ( Pause (..),
+  ( Request (..),
   )
 where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
+import GHC.Generics (Generic)
 
-newtype Pause = Pause {unPause :: Bool}
-  deriving (Eq, Ord, Show, Binary, FromJSON, ToJSON)
+data Request
+  = Pause
+  | Resume
+  deriving (Eq, Ord, Show, Generic)
+
+instance Binary Request
+
+instance FromJSON Request
+
+instance ToJSON Request

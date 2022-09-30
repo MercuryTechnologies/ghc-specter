@@ -68,7 +68,7 @@ import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
   )
-import GHCSpecter.Channel.Inbound.Types (Pause (..))
+import GHCSpecter.Channel.Inbound.Types (Request (..))
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
@@ -139,7 +139,7 @@ runMessageQueue opts queue = do
       putStrLn "################"
       putStrLn "receiver started"
       putStrLn "################"
-      msg :: Pause <- receiveObject sock
+      msg :: Request <- receiveObject sock
       putStrLn "################"
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
@@ -156,14 +156,14 @@ breakPoint queue drvId loc = do
   tid <- forkIO $ sessionInPause queue drvId loc
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
-    STM.check (not (unPause p))
+    STM.check (p == Resume)
   killThread tid
 
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
   atomically $ do
     p <- readTVar (msgReceiverQueue queue)
-    STM.check (unPause p)
+    STM.check (p == Pause)
   queueMessage queue (CMPaused drvId (Just loc))
   -- idling
   (forever $ threadDelay 1_000_000)

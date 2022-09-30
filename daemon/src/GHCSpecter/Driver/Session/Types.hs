@@ -15,7 +15,7 @@ where
 
 import Control.Concurrent.STM (TChan, TVar)
 import Control.Lens (makeClassy)
-import GHCSpecter.Channel.Inbound.Types (Pause)
+import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (BackgroundEvent, Event)
@@ -24,7 +24,7 @@ import GHCSpecter.UI.Types.Event (BackgroundEvent, Event)
 
 data ServerSession = ServerSession
   { _ssServerStateRef :: TVar ServerState
-  , _ssSubscriberSignal :: TChan Pause
+  , _ssSubscriberSignal :: TChan Request
   }
 
 makeClassy ''ServerSession
