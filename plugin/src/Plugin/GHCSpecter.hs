@@ -144,7 +144,19 @@ runMessageQueue opts queue = do
       putStrLn $ "message received: " ++ show msg
       putStrLn "################"
       atomically $
-        writeTVar (msgReceiverQueue queue) msg
+        case msg of
+          Pause ->
+            modifyTVar' sessionRef $ \s ->
+              let sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = True}
+               in s {psSessionInfo = sinfo'}
+          Resume ->
+            modifyTVar' sessionRef $ \s ->
+              let sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = False}
+               in s {psSessionInfo = sinfo'}
+          _ ->
+            writeTVar (msgReceiverQueue queue) msg
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -155,15 +167,17 @@ breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 breakPoint queue drvId loc = do
   tid <- forkIO $ sessionInPause queue drvId loc
   atomically $ do
-    p <- readTVar (msgReceiverQueue queue)
-    STM.check (p == Resume)
+    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
+    -- block until the session is resumed.
+    STM.check (not isPaused)
   killThread tid
 
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
   atomically $ do
-    p <- readTVar (msgReceiverQueue queue)
-    STM.check (p == Pause)
+    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
+    -- prodceed when the session is paused.
+    STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
   -- idling
   (forever $ threadDelay 1_000_000)

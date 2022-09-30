@@ -45,7 +45,8 @@ data PluginSession = PluginSession
   }
 
 emptyPluginSession :: PluginSession
-emptyPluginSession = PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
+emptyPluginSession =
+  PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1
 
 -- | Global variable shared across the session
 sessionRef :: TVar PluginSession
