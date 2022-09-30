@@ -28,6 +28,7 @@ instance ToJSON SessionRequest
 data ConsoleRequest
   = Ping Text
   | NextBreakpoint
+  --   | ShowUnqualifiedImports
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest
