@@ -35,8 +35,8 @@ data MsgQueue = MsgQueue
 initMsgQueue :: IO MsgQueue
 initMsgQueue = do
   sQ <- newTVarIO Seq.empty
-  reqRef <- newTVarIO Nothing
-  pure $ MsgQueue sQ reqRef
+  rQ <- newTVarIO Nothing
+  pure $ MsgQueue sQ rQ
 
 data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo

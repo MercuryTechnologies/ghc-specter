@@ -175,6 +175,24 @@ breakPoint queue drvId loc = do
     STM.check (not isPaused)
   killThread tid
 
+consoleAction :: MsgQueue -> DriverId -> IO ()
+consoleAction queue drvId = do
+  let rQ = msgReceiverQueue queue
+  msg <-
+    atomically $ do
+      mreq <- readTVar rQ
+      case mreq of
+        Nothing -> retry
+        Just (Ping drvId' msg) ->
+          if drvId == drvId'
+            then do
+              writeTVar rQ Nothing
+              pure msg
+            else retry
+  TIO.putStrLn $ "ping: " <> msg
+  let pongMsg = "pong: " <> msg
+  queueMessage queue (CMConsole drvId pongMsg)
+
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
   atomically $ do
@@ -182,23 +200,7 @@ sessionInPause queue drvId loc = do
     -- prodceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
-  let rQ = msgReceiverQueue queue
-      consoleAction = do
-        msg <-
-          atomically $ do
-            mreq <- readTVar rQ
-            case mreq of
-              Nothing -> retry
-              Just (Ping drvId' msg) ->
-                if drvId == drvId'
-                  then do
-                    writeTVar rQ Nothing
-                    pure msg
-                  else retry
-        TIO.putStrLn $ "ping: " <> msg
-        let pongMsg = "pong: " <> msg
-        queueMessage queue (CMConsole drvId pongMsg)
-  (forever consoleAction)
+  (forever $ consoleAction queue drvId)
     `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 -- | Called only once for sending session information
