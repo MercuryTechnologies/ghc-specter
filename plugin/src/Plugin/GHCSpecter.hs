@@ -158,8 +158,8 @@ runMessageQueue opts queue = do
                   sinfo = psSessionInfo s
                   sinfo' = sinfo {sessionIsPaused = isPaused}
                in s {psSessionInfo = sinfo'}
-          ConsoleReq creq ->
-            writeTVar (msgReceiverQueue queue) (Just creq)
+          ConsoleReq drvId' creq ->
+            writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =
@@ -183,7 +183,7 @@ consoleAction queue drvId = do
       mreq <- readTVar rQ
       case mreq of
         Nothing -> retry
-        Just (Ping drvId' msg) ->
+        Just (drvId', Ping msg) ->
           if drvId == drvId'
             then do
               writeTVar rQ Nothing

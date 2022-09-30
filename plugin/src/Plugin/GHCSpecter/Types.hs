@@ -29,7 +29,7 @@ import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
   { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar (Maybe ConsoleRequest)
+  , msgReceiverQueue :: TVar (Maybe (DriverId, ConsoleRequest))
   }
 
 initMsgQueue :: IO MsgQueue
