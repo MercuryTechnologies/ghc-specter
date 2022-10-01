@@ -3,6 +3,10 @@ module Plugin.GHCSpecter.Types
     MsgQueue (..),
     initMsgQueue,
 
+    -- * Console state
+    ConsoleState (..),
+    emptyConsoleState,
+
     -- * PluginSession
     PluginSession (..),
     emptyPluginSession,
@@ -38,18 +42,29 @@ initMsgQueue = do
   rQ <- newTVarIO Nothing
   pure $ MsgQueue sQ rQ
 
+newtype ConsoleState = ConsoleState
+  { consoleDriverInStep :: Maybe DriverId
+  -- ^ DriverId in next step operation
+  }
+
+emptyConsoleState :: ConsoleState
+emptyConsoleState = ConsoleState Nothing
+
 data PluginSession = PluginSession
   { psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
   , psNextDriverId :: DriverId
-  , psDriverInStep :: Maybe DriverId
-  -- ^ DriverId in next step operation
-  -- TODO: find a better place
+  , psConsoleState :: ConsoleState
   }
 
 emptyPluginSession :: PluginSession
 emptyPluginSession =
-  PluginSession (SessionInfo 0 Nothing emptyModuleGraphInfo False) Nothing 1 Nothing
+  PluginSession
+    { psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
+    , psMessageQueue = Nothing
+    , psNextDriverId = 1
+    , psConsoleState = emptyConsoleState
+    }
 
 -- | Global variable shared across the session
 sessionRef :: TVar PluginSession

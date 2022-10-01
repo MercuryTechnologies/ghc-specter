@@ -9,30 +9,17 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Concurrent (forkIO, forkOS, killThread)
+import Control.Concurrent (forkOS)
 import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
     readTVar,
-    retry,
-    writeTVar,
   )
-import Control.Concurrent.STM qualified as STM
-import Control.Exception qualified as E
-import Control.Monad (forever, void, when)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
-import Data.Foldable qualified as F
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List qualified as L
-import Data.Map (Map)
-import Data.Map qualified as M
-import Data.Sequence ((|>))
-import Data.Sequence qualified as Seq
-import Data.Set (Set)
-import Data.Set qualified as S
+import Data.IORef (IORef, newIORef, writeIORef)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
@@ -54,13 +41,11 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session
   ( DynFlags,
-    getDynFlags,
     gopt,
   )
 import GHC.Hs (HsParsedModule)
-import GHC.Plugins (ModSummary, Name)
+import GHC.Plugins (ModSummary)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
@@ -69,32 +54,22 @@ import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
   )
-import GHCSpecter.Channel.Inbound.Types
-  ( ConsoleRequest (..),
-    Request (..),
-    SessionRequest (..),
-  )
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
-    ChanMessageBox (..),
     HsSourceInfo (..),
     SessionInfo (..),
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Comm
-  ( receiveObject,
-    runClient,
-    sendObject,
-  )
-import GHCSpecter.Config
-  ( Config (..),
-    defaultGhcSpecterConfigFile,
-    loadConfig,
-  )
 import GHCSpecter.Util.GHC (showPpr)
-import Network.Socket (Socket)
+import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
+import Plugin.GHCSpecter.Console
+  ( CommandSet (..),
+    breakPoint,
+    emptyCommandSet,
+  )
+import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
     PluginSession (..),
@@ -103,117 +78,10 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
-    formatImportedNames,
-    formatName,
     getModuleName,
-    mkModuleNameMap,
   )
-import System.Directory (canonicalizePath, doesFileExist)
+import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
-
-runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
-runMessageQueue opts queue = do
-  mipcfile <-
-    case opts of
-      ipcfile : _ -> pure (Just ipcfile)
-      [] -> do
-        ecfg <- loadConfig defaultGhcSpecterConfigFile
-        case ecfg of
-          Left _ -> pure Nothing
-          Right cfg -> pure (Just (configSocket cfg))
-  for_ mipcfile $ \ipcfile -> do
-    socketExists <- doesFileExist ipcfile
-    when socketExists $
-      runClient ipcfile $ \sock -> do
-        _ <- forkIO $ receiver sock
-        sender sock
-  where
-    sender :: Socket -> IO ()
-    sender sock = forever $ do
-      msgs <- atomically $ do
-        queued <- readTVar (msgSenderQueue queue)
-        if Seq.null queued
-          then retry
-          else do
-            writeTVar (msgSenderQueue queue) Seq.empty
-            pure queued
-      let msgList = F.toList msgs
-      msgList `seq` sendObject sock msgList
-    receiver :: Socket -> IO ()
-    receiver sock = forever $ do
-      putStrLn "################"
-      putStrLn "receiver started"
-      putStrLn "################"
-      msg :: Request <- receiveObject sock
-      putStrLn "################"
-      putStrLn $ "message received: " ++ show msg
-      putStrLn "################"
-      atomically $
-        case msg of
-          SessionReq sreq ->
-            modifyTVar' sessionRef $ \s ->
-              let isPaused
-                    | sreq == Pause = True
-                    | otherwise = False
-                  sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = isPaused}
-               in s {psSessionInfo = sinfo'}
-          ConsoleReq drvId' creq ->
-            writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
-
-queueMessage :: MsgQueue -> ChanMessage a -> IO ()
-queueMessage queue !msg =
-  atomically $
-    modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
-
-breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
-breakPoint queue drvId loc = do
-  tid <- forkIO $ sessionInPause queue drvId loc
-  atomically $ do
-    psess <- readTVar sessionRef
-    let sinfo = psSessionInfo psess
-        isSessionPaused = sessionIsPaused sinfo
-        isDriverInStep = maybe False (== drvId) $ psDriverInStep psess
-    -- block until the session is resumed.
-    STM.check (not isSessionPaused || isDriverInStep)
-    when (isDriverInStep && isSessionPaused) $ do
-      let psess' = psess {psDriverInStep = Nothing}
-      writeTVar sessionRef psess'
-  killThread tid
-
-consoleAction :: MsgQueue -> DriverId -> IO ()
-consoleAction queue drvId = do
-  let rQ = msgReceiverQueue queue
-  req <-
-    atomically $ do
-      mreq <- readTVar rQ
-      case mreq of
-        Nothing -> retry
-        Just (drvId', req) ->
-          if drvId == drvId'
-            then do
-              writeTVar rQ Nothing
-              pure req
-            else retry
-  case req of
-    Ping msg -> do
-      TIO.putStrLn $ "ping: " <> msg
-      let pongMsg = "pong: " <> msg
-      queueMessage queue (CMConsole drvId pongMsg)
-    NextBreakpoint -> do
-      putStrLn "NextBreakpoint"
-      atomically $
-        modifyTVar' sessionRef $ \psess -> psess {psDriverInStep = Just drvId}
-
-sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
-sessionInPause queue drvId loc = do
-  atomically $ do
-    isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
-    -- prodceed when the session is paused.
-    STM.check isPaused
-  queueMessage queue (CMPaused drvId (Just loc))
-  (forever $ consoleAction queue drvId)
-    `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 -- | Called only once for sending session information
 startSession ::
@@ -326,7 +194,7 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
   pure parsedMod
 
 --
--- typechecker plugin
+-- typecheck plugin
 --
 
 typecheckPlugin ::
@@ -336,23 +204,11 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin queue drvId modsummary tc = do
-  dflags <- getDynFlags
-  usedGREs :: [GlobalRdrElt] <-
-    liftIO $ readIORef (tcg_used_gres tc)
-  let moduleImportMap :: Map ModuleName (Set Name)
-      moduleImportMap =
-        L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
-          concatMap mkModuleNameMap usedGREs
-
-      rendered =
-        unlines $ do
-          (modu, names) <- M.toList moduleImportMap
-          let imported = fmap (formatName dflags) $ S.toList names
-          [T.unpack modu, formatImportedNames imported]
-
-      modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ breakPoint queue drvId Typecheck
-  liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
+  let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
+  breakPoint queue drvId Typecheck cmdSet
+  rendered <- fetchUnqualifiedImports tc
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ queueMessage queue (CMCheckImports modName rendered)
   pure tc
 
 --
@@ -378,17 +234,19 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
-  breakPoint queue drvId StartDriver
+  breakPoint queue drvId StartDriver emptyCommandSet
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        liftIO $ breakPoint queue drvId (PreRunPhase (T.pack (showPpr dflags phase)))
+        let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
+        breakPoint queue drvId locPrePhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        liftIO $ breakPoint queue drvId (PostRunPhase (T.pack (showPpr dflags phase')))
+        let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
+        breakPoint queue drvId locPostPhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}

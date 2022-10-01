@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiWayIf #-}
+
 module GHCSpecter.Control
   ( main,
   )
@@ -194,9 +196,13 @@ goCommon ev (view, model0) = do
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") model0
-              if msg == ":next"
-                then sendRequest $ ConsoleReq drvId NextBreakpoint
-                else sendRequest $ ConsoleReq drvId (Ping msg)
+              if
+                  | msg == ":next" ->
+                      sendRequest $ ConsoleReq drvId NextBreakpoint
+                  | msg == ":unqualified" ->
+                      sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+                  | otherwise ->
+                      sendRequest $ ConsoleReq drvId (Ping msg)
               pure model
           else pure model0
       ConsoleEv (ConsoleInput content) -> do
