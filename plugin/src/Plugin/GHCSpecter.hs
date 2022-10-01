@@ -206,9 +206,9 @@ typecheckPlugin ::
 typecheckPlugin queue drvId modsummary tc = do
   let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
   breakPoint queue drvId Typecheck cmdSet
-  -- rendered <- fetchUnqualifiedImports tc
-  -- let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  -- liftIO $ queueMessage queue (CMCheckImports modName rendered)
+  rendered <- fetchUnqualifiedImports tc
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ queueMessage queue (CMCheckImports modName rendered)
   pure tc
 
 --
