@@ -10,8 +10,10 @@ where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM
-  ( atomically,
+  ( TVar,
+    atomically,
     modifyTVar',
+    newTVarIO,
     readTVar,
     retry,
     writeTVar,
@@ -21,6 +23,8 @@ import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (MonadIO (..))
+import Data.List qualified as L
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -53,8 +57,9 @@ consoleAction ::
   DriverId ->
   BreakpointLoc ->
   CommandSet m ->
+  TVar (Maybe (m ())) ->
   IO ()
-consoleAction queue drvId loc cmds = liftIO $ do
+consoleAction queue drvId loc cmds actionRef = liftIO $ do
   let rQ = msgReceiverQueue queue
   req <-
     atomically $ do
@@ -82,7 +87,14 @@ consoleAction queue drvId loc cmds = liftIO $ do
     ShowUnqualifiedImports ->
       if loc == Typecheck
         then do
-          consoleMessage "show unqualified imports not implemented"
+          case L.lookup ":unqualified" (unCommandSet cmds) of
+            Just cmd -> do
+              let action = do
+                    txt <- cmd
+                    liftIO $ consoleMessage txt
+              atomically $
+                writeTVar actionRef (Just action)
+            Nothing -> consoleMessage "show unqualified imports not implemented"
         else do
           consoleMessage $
             "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
@@ -95,44 +107,60 @@ sessionInPause ::
   DriverId ->
   BreakpointLoc ->
   CommandSet m ->
+  TVar (Maybe (m ())) ->
   IO ()
-sessionInPause queue drvId loc cmds = do
+sessionInPause queue drvId loc cmds actionRef = do
   atomically $ do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
     -- prodceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
-  (forever $ consoleAction queue drvId loc cmds)
+  (forever $ consoleAction queue drvId loc cmds actionRef)
     `catch` (\(_e :: AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
 
 breakPoint ::
+  forall m.
   MonadIO m =>
   MsgQueue ->
   DriverId ->
   BreakpointLoc ->
   CommandSet m ->
   m ()
-breakPoint queue drvId loc cmds = liftIO $ do
-  tid <- forkIO $ sessionInPause queue drvId loc cmds
-  loopM go (pure ())
-  killThread tid
+breakPoint queue drvId loc cmds = do
+  actionRef <- liftIO $ newTVarIO Nothing
+  tid <- liftIO $ forkIO $ sessionInPause queue drvId loc cmds actionRef
+  loopM (go actionRef) (pure (), True)
+  liftIO $ killThread tid
   where
-    go action = do
+    go :: TVar (Maybe (m ())) -> (m (), Bool) -> m (Either (m (), Bool) ())
+    go actionRef (action, isBlocked) = do
       action
-      atomically $ do
-        psess <- readTVar sessionRef
-        let sinfo = psSessionInfo psess
-            isSessionPaused = sessionIsPaused sinfo
-            isDriverInStep =
-              maybe False (== drvId)
-                . consoleDriverInStep
-                . psConsoleState
-                $ psess
-        -- block until the session is resumed.
-        STM.check (not isSessionPaused || isDriverInStep)
-        when (isDriverInStep && isSessionPaused) $ do
-          let console = psConsoleState psess
-              console' = console {consoleDriverInStep = Nothing}
-              psess' = psess {psConsoleState = console'}
-          writeTVar sessionRef psess'
-        pure (Right ())
+      liftIO $
+        atomically $ do
+          psess <- readTVar sessionRef
+          let sinfo = psSessionInfo psess
+              isSessionPaused = sessionIsPaused sinfo
+              isDriverInStep =
+                maybe False (== drvId)
+                  . consoleDriverInStep
+                  . psConsoleState
+                  $ psess
+              isBlocked' = isSessionPaused && not isDriverInStep
+          mstagedAction <- readTVar actionRef
+          if isNothing mstagedAction && isBlocked == isBlocked'
+            then retry
+            else case mstagedAction of
+              Just stagedAction -> do
+                writeTVar actionRef Nothing
+                pure $ Left (stagedAction, isBlocked)
+              Nothing ->
+                -- loop until the session is resumed.
+                if isBlocked'
+                  then pure $ Left (pure (), isBlocked')
+                  else do
+                    when (isDriverInStep && isSessionPaused) $ do
+                      let console = psConsoleState psess
+                          console' = console {consoleDriverInStep = Nothing}
+                          psess' = psess {psConsoleState = console'}
+                      writeTVar sessionRef psess'
+                    pure (Right ())
