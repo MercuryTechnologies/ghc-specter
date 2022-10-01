@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# OPTIONS_GHC -Werror #-}
 
 -- This module provides the current module under compilation.
 module Plugin.GHCSpecter
@@ -65,7 +64,11 @@ import GHCSpecter.Channel.Outbound.Types
   )
 import GHCSpecter.Util.GHC (showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
-import Plugin.GHCSpecter.Console (breakPoint)
+import Plugin.GHCSpecter.Console
+  ( CommandSet (..),
+    breakPoint,
+    emptyCommandSet,
+  )
 import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -201,10 +204,11 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin queue drvId modsummary tc = do
-  liftIO $ breakPoint queue drvId Typecheck
-  rendered <- fetchUnqualifiedImports tc
-  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  liftIO $ queueMessage queue (CMCheckImports modName rendered)
+  let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
+  breakPoint queue drvId Typecheck cmdSet
+  -- rendered <- fetchUnqualifiedImports tc
+  -- let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  -- liftIO $ queueMessage queue (CMCheckImports modName rendered)
   pure tc
 
 --
@@ -230,17 +234,19 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
-  breakPoint queue drvId StartDriver
+  breakPoint queue drvId StartDriver emptyCommandSet
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        liftIO $ breakPoint queue drvId (PreRunPhase (T.pack (showPpr dflags phase)))
+        let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
+        breakPoint queue drvId locPrePhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        liftIO $ breakPoint queue drvId (PostRunPhase (T.pack (showPpr dflags phase')))
+        let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
+        breakPoint queue drvId locPostPhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}

@@ -1,5 +1,10 @@
 module Plugin.GHCSpecter.Console
-  ( breakPoint,
+  ( -- * A list of available commands
+    CommandSet (..),
+    emptyCommandSet,
+
+    -- * entry point to console when paused
+    breakPoint,
   )
 where
 
@@ -12,8 +17,11 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Concurrent.STM qualified as STM
-import Control.Exception qualified as E
+import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
+import Control.Monad.Extra (loopM)
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -32,23 +40,20 @@ import Plugin.GHCSpecter.Types
     sessionRef,
   )
 
-breakPoint :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
-breakPoint queue drvId loc = do
-  tid <- forkIO $ sessionInPause queue drvId loc
-  atomically $ do
-    psess <- readTVar sessionRef
-    let sinfo = psSessionInfo psess
-        isSessionPaused = sessionIsPaused sinfo
-        isDriverInStep = maybe False (== drvId) $ psDriverInStep psess
-    -- block until the session is resumed.
-    STM.check (not isSessionPaused || isDriverInStep)
-    when (isDriverInStep && isSessionPaused) $ do
-      let psess' = psess {psDriverInStep = Nothing}
-      writeTVar sessionRef psess'
-  killThread tid
+-- | a list of (command name, command action)
+newtype CommandSet m = CommandSet {unCommandSet :: [(Text, m Text)]}
 
-consoleAction :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
-consoleAction queue drvId loc = do
+emptyCommandSet :: CommandSet m
+emptyCommandSet = CommandSet []
+
+consoleAction ::
+  MonadIO m =>
+  MsgQueue ->
+  DriverId ->
+  BreakpointLoc ->
+  CommandSet m ->
+  IO ()
+consoleAction queue drvId loc cmds = liftIO $ do
   let rQ = msgReceiverQueue queue
   req <-
     atomically $ do
@@ -80,12 +85,44 @@ consoleAction queue drvId loc = do
   where
     consoleMessage = queueMessage queue . CMConsole drvId
 
-sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
-sessionInPause queue drvId loc = do
+sessionInPause ::
+  MonadIO m =>
+  MsgQueue ->
+  DriverId ->
+  BreakpointLoc ->
+  CommandSet m ->
+  IO ()
+sessionInPause queue drvId loc cmds = do
   atomically $ do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
     -- prodceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
-  (forever $ consoleAction queue drvId loc)
-    `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
+  (forever $ consoleAction queue drvId loc cmds)
+    `catch` (\(_e :: AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
+
+breakPoint ::
+  MonadIO m =>
+  MsgQueue ->
+  DriverId ->
+  BreakpointLoc ->
+  CommandSet m ->
+  m ()
+breakPoint queue drvId loc cmds = liftIO $ do
+  tid <- forkIO $ sessionInPause queue drvId loc cmds
+  loopM go (pure ())
+  killThread tid
+  where
+    go action = do
+      action
+      atomically $ do
+        psess <- readTVar sessionRef
+        let sinfo = psSessionInfo psess
+            isSessionPaused = sessionIsPaused sinfo
+            isDriverInStep = maybe False (== drvId) $ psDriverInStep psess
+        -- block until the session is resumed.
+        STM.check (not isSessionPaused || isDriverInStep)
+        when (isDriverInStep && isSessionPaused) $ do
+          let psess' = psess {psDriverInStep = Nothing}
+          writeTVar sessionRef psess'
+        pure (Right ())
