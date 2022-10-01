@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# OPTIONS_GHC -Werror #-}
 
 -- This module provides the current module under compilation.
 module Plugin.GHCSpecter
@@ -18,12 +19,7 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List qualified as L
-import Data.Map (Map)
-import Data.Map qualified as M
-import Data.Set (Set)
-import Data.Set qualified as S
+import Data.IORef (IORef, newIORef, writeIORef)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Driver.Env (Hsc, HscEnv (..))
@@ -46,13 +42,11 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session
   ( DynFlags,
-    getDynFlags,
     gopt,
   )
 import GHC.Hs (HsParsedModule)
-import GHC.Plugins (ModSummary, Name)
+import GHC.Plugins (ModSummary)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
@@ -72,6 +66,7 @@ import GHCSpecter.Channel.Outbound.Types
 import GHCSpecter.Util.GHC (showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
+import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
     PluginSession (..),
@@ -80,10 +75,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
-    formatImportedNames,
-    formatName,
     getModuleName,
-    mkModuleNameMap,
   )
 import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
@@ -199,7 +191,7 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
   pure parsedMod
 
 --
--- typechecker plugin
+-- typecheck plugin
 --
 
 typecheckPlugin ::
@@ -209,23 +201,10 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin queue drvId modsummary tc = do
-  dflags <- getDynFlags
-  usedGREs :: [GlobalRdrElt] <-
-    liftIO $ readIORef (tcg_used_gres tc)
-  let moduleImportMap :: Map ModuleName (Set Name)
-      moduleImportMap =
-        L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
-          concatMap mkModuleNameMap usedGREs
-
-      rendered =
-        unlines $ do
-          (modu, names) <- M.toList moduleImportMap
-          let imported = fmap (formatName dflags) $ S.toList names
-          [T.unpack modu, formatImportedNames imported]
-
-      modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
   liftIO $ breakPoint queue drvId Typecheck
-  liftIO $ queueMessage queue (CMCheckImports modName (T.pack rendered))
+  rendered <- fetchUnqualifiedImports tc
+  let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
+  liftIO $ queueMessage queue (CMCheckImports modName rendered)
   pure tc
 
 --

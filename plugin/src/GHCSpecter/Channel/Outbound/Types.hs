@@ -55,7 +55,7 @@ data BreakpointLoc
   | Typecheck
   | PreRunPhase Text
   | PostRunPhase Text
-  deriving (Show, Generic)
+  deriving (Show, Eq, Generic)
 
 instance Binary BreakpointLoc
 
@@ -162,6 +162,7 @@ instance Show ChanMessageBox where
   show (CMBox (CMSession {})) = "CMSession"
   show (CMBox (CMHsSource {})) = "CMHsSource"
   show (CMBox (CMPaused {})) = "CMPaused"
+  show (CMBox (CMConsole {})) = "CMConsole"
 
 instance Binary ChanMessageBox where
   put (CMBox (CMCheckImports m t)) = do

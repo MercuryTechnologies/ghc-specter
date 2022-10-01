@@ -14,6 +14,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM qualified as STM
 import Control.Exception qualified as E
 import Control.Monad (forever, when)
+import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Inbound.Types
@@ -46,8 +47,8 @@ breakPoint queue drvId loc = do
       writeTVar sessionRef psess'
   killThread tid
 
-consoleAction :: MsgQueue -> DriverId -> IO ()
-consoleAction queue drvId = do
+consoleAction :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
+consoleAction queue drvId loc = do
   let rQ = msgReceiverQueue queue
   req <-
     atomically $ do
@@ -64,11 +65,20 @@ consoleAction queue drvId = do
     Ping msg -> do
       TIO.putStrLn $ "ping: " <> msg
       let pongMsg = "pong: " <> msg
-      queueMessage queue (CMConsole drvId pongMsg)
+      consoleMessage pongMsg
     NextBreakpoint -> do
       putStrLn "NextBreakpoint"
       atomically $
         modifyTVar' sessionRef $ \psess -> psess {psDriverInStep = Just drvId}
+    ShowUnqualifiedImports ->
+      if loc == Typecheck
+        then do
+          consoleMessage "show unqualified imports not implemented"
+        else do
+          consoleMessage $
+            "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+  where
+    consoleMessage = queueMessage queue . CMConsole drvId
 
 sessionInPause :: MsgQueue -> DriverId -> BreakpointLoc -> IO ()
 sessionInPause queue drvId loc = do
@@ -77,5 +87,5 @@ sessionInPause queue drvId loc = do
     -- prodceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
-  (forever $ consoleAction queue drvId)
+  (forever $ consoleAction queue drvId loc)
     `E.catch` (\(_e :: E.AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
