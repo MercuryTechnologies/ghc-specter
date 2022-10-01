@@ -35,7 +35,8 @@ import GHCSpecter.Channel.Outbound.Types
   )
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Types
-  ( MsgQueue (..),
+  ( ConsoleState (..),
+    MsgQueue (..),
     PluginSession (..),
     sessionRef,
   )
@@ -74,7 +75,10 @@ consoleAction queue drvId loc cmds = liftIO $ do
     NextBreakpoint -> do
       putStrLn "NextBreakpoint"
       atomically $
-        modifyTVar' sessionRef $ \psess -> psess {psDriverInStep = Just drvId}
+        modifyTVar' sessionRef $ \psess ->
+          let console = psConsoleState psess
+              console' = console {consoleDriverInStep = Just drvId}
+           in psess {psConsoleState = console'}
     ShowUnqualifiedImports ->
       if loc == Typecheck
         then do
@@ -119,10 +123,16 @@ breakPoint queue drvId loc cmds = liftIO $ do
         psess <- readTVar sessionRef
         let sinfo = psSessionInfo psess
             isSessionPaused = sessionIsPaused sinfo
-            isDriverInStep = maybe False (== drvId) $ psDriverInStep psess
+            isDriverInStep =
+              maybe False (== drvId)
+                . consoleDriverInStep
+                . psConsoleState
+                $ psess
         -- block until the session is resumed.
         STM.check (not isSessionPaused || isDriverInStep)
         when (isDriverInStep && isSessionPaused) $ do
-          let psess' = psess {psDriverInStep = Nothing}
+          let console = psConsoleState psess
+              console' = console {consoleDriverInStep = Nothing}
+              psess' = psess {psConsoleState = console'}
           writeTVar sessionRef psess'
         pure (Right ())
