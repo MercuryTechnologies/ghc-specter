@@ -146,8 +146,9 @@ renderMainView (view, model, ss) = do
     [ classList [("container is-fullheight is-size-7 m-4 p-4", True)]
     , style [("overflow", "hidden")]
     ]
-    [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
-    , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
+    [ -- cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    -- ,
+      cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
     , renderNavbar (view ^. mainTab)
     , mainPanel
     , bottomPanel
