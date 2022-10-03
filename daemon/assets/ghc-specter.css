@@ -50,10 +50,27 @@ nav {
     padding: 0;
 }
 
+.console {
+    margin: 0;
+    padding: 2px 0 0 0;
+}
+
+.console pre {
+    margin: 0;
+    padding: 0;
+}
+
+.console-input {
+    margin: 0;
+    padding: 0 5px 0 0;
+}
+
+.console-input input {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
 ul > li {
     margin-left: 10px;
 }
-
-/*  */
-
-/* --family-primary: "Arial", Sans-Serif; */
