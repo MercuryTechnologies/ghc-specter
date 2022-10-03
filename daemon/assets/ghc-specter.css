@@ -9,6 +9,7 @@ body {
     overflow: hidden;
     font-family: "Arial", Sans-Serif;
     font-size: 10px;
+    background: white;
 }
 
 nav {
@@ -28,6 +29,25 @@ nav {
     padding: 2px 2px 3.1px 2px;
     background: lightskyblue;
     border-bottom: none;
+}
+
+.box {
+    border: solid 0.5px grey;
+}
+
+.module-status {
+    position: absolute;
+    width: 350px;
+    height: 250px;
+    top: 0;
+    right: 0;
+}
+
+.module-status p {
+    font-family: "Courier", monospace;
+    font-size: 6px;
+    margin: 0;
+    padding: 0;
 }
 
 ul > li {
