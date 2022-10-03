@@ -88,6 +88,15 @@ nav {
     width: 100%;
 }
 
-ul > li {
-    margin-left: 10px;
+.icon-text {
+    font-family: "Courier", monospace;
 }
+
+ul {
+    list-style-type: none;
+    padding-inline-start: 10px;
+}
+
+/* ul > li {
+    margin-left: 10px;
+} */

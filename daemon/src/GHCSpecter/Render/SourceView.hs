@@ -180,12 +180,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-one-fifths", True)]
+        [ classList [("column box is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-four-fifths", True)]
+        [ classList [("column box is-four-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
