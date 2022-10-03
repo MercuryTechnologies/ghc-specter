@@ -1,0 +1,7 @@
+body {
+    overflow: hidden;
+}
+
+ul > li {
+    margin-left: 10px;
+}

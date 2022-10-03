@@ -15,7 +15,6 @@ import Control.Concurrent.STM
   )
 import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
-import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Data.Assets qualified as Assets
@@ -50,13 +49,12 @@ import GHCSpecter.UI.Types.Event
 -- ui state: per web view.
 -- control: per web view
 
-styleText :: Text
-styleText = "body { overflow: hidden; }\nul > li { margin-left: 10px; }"
-
 webServer :: Config -> ServerSession -> IO ()
 webServer cfg servSess = do
   let port = configWebPort cfg
   assets <- Assets.loadAssets
+  let styleText = assets ^. Assets.assetsGhcSpecterCss
+  print styleText
   runDefaultWithStyle port "ghc-specter" styleText $
     \_ -> do
       uiRef <-
