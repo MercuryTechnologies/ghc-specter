@@ -143,7 +143,7 @@ renderMainView (view, model, ss) = do
             , section [] [renderBottomPanel model ss]
             )
   div
-    [ classList [("container is-fullheight is-size-7 m-4 p-4", True)]
+    [ classList [("is-fullheight is-size-7 m-4 p-4", True)]
     , style [("overflow", "hidden")]
     ]
     [ -- cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"

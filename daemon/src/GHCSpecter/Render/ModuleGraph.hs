@@ -238,7 +238,8 @@ render model ss =
       pre [] [text "GHC Session has not been started"]
     Just _ ->
       div
-        [style [("overflow", "scroll"), ("height", widgetHeight)]]
+        [ style [("overflow", "scroll"), ("height", widgetHeight)]
+        ]
         ( case mgs ^. mgsClusterGraph of
             Nothing -> []
             Just grVisInfo ->

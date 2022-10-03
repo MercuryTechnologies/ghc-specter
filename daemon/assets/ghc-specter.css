@@ -31,6 +31,23 @@ nav {
     border-bottom: none;
 }
 
+.columns {
+    width: 100%;
+    display: flex;
+}
+
+.column.is-one-fifths {
+    width: 20%;
+}
+
+.column.is-four-fifths {
+    width: 80%;
+}
+
+nav {
+    width: 100%;
+}
+
 .box {
     border: solid 0.5px grey;
 }
