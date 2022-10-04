@@ -36,7 +36,7 @@ import Prelude hiding (div)
 
 render ::
   (IsKey k, Eq k) =>
-  [k] ->
+  [(k, Text)] ->
   KeyMap k Text ->
   Maybe k ->
   Text ->
@@ -45,7 +45,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
   where
     navbarMenu = divClass "navbar-menu" []
     navbarStart = divClass "navbar-start" []
-    navItem k =
+    navItem (k, tab) =
       let isActive = Just k == mfocus
           clss
             | isActive = ["navbar-item", "is-tab", "console-tab", "is-active"]
@@ -54,7 +54,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
        in el
             "a"
             [cls, ConsoleTab k <$ onClick]
-            [text (T.pack (show (fromKey k)))]
+            [text tab]
     consoleTabs =
       nav
         [classList [("navbar", True)]]

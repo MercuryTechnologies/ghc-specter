@@ -18,6 +18,7 @@ import Concur.Replica
 import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Assets (HasAssets (..))
 import GHCSpecter.Render.Components.Console qualified as Console
@@ -55,7 +56,7 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     Tab (..),
   )
-import GHCSpecter.Util.Map (keyMapToList)
+import GHCSpecter.Util.Map (forwardLookup, keyMapToList)
 import Prelude hiding (div, span)
 
 renderBanner :: Text -> Double -> Widget IHTML a
@@ -117,12 +118,16 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
     consoleMap = ss ^. serverConsole
     mconsoleFocus = model ^. modelConsole . consoleFocus
     inputEntry = model ^. modelConsole . consoleInputEntry
+    getTabName k =
+      let ktxt = T.pack $ show (unDriverId k)
+          mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
+       in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
 
     consolePanel
       | sessionIsPaused sessionInfo =
           [ ConsoleEv
               <$> Console.render
-                (fmap fst . keyMapToList $ pausedMap)
+                (fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap)
                 consoleMap
                 mconsoleFocus
                 inputEntry
