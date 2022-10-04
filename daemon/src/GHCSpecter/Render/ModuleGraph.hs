@@ -223,7 +223,9 @@ renderDetailLevel :: UIModel -> Widget IHTML Event
 renderDetailLevel model =
   SubModuleEv . SubModuleLevelEv
     <$> div
-      [classList [("control", True)]]
+      [ classList [("control", True)]
+      , style [("position", "absolute"), ("top", "0"), ("right", "0")]
+      ]
       [detail30, detail100, detail300]
   where
     currLevel = model ^. modelSubModuleGraph . _1
@@ -261,13 +263,20 @@ render model ss =
                   clustering
                   grVisInfo
                   (model ^. modelMainModuleGraph)
-              , renderDetailLevel model
-              , renderSubModuleGraph
-                  nameMap
-                  drvModMap
-                  timing
-                  (mgs ^. mgsSubgraph)
-                  (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)
+              , div
+                  [ style
+                      [ ("width", "100%")
+                      , ("position", "relative")
+                      ]
+                  ]
+                  [ renderDetailLevel model
+                  , renderSubModuleGraph
+                      nameMap
+                      drvModMap
+                      timing
+                      (mgs ^. mgsSubgraph)
+                      (model ^. modelMainModuleGraph, model ^. modelSubModuleGraph)
+                  ]
               ]
         )
   where

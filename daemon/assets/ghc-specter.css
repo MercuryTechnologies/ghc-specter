@@ -5,6 +5,11 @@ body {
     background: white;
 }
 
+.banner {
+    overflow: hidden;
+    text-align: center;
+}
+
 nav {
     margin: 2px 2px 1px 0px;
     padding: 2px 2px 2px 0px;
@@ -15,7 +20,7 @@ nav {
     margin-right: 2px;
     padding: 2px 2px 2px 2px;
     background: white;
-    border: solid 0.5px grey;
+    border-left: solid 0.5px grey;
 }
 
 .is-tab.is-active {

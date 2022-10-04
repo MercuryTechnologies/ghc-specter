@@ -25,6 +25,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     getEndTime,
   )
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -62,7 +63,7 @@ renderSessionButtons session =
     buttonSaveSession =
       button
         [ SessionEv SaveSessionEv <$ onClick
-        , classList [("button is-primary is-size-7 m-1 p-1", True)]
+        , classList [("button", True)]
         ]
         [text "Save Session"]
     buttonPauseResumeSession =
@@ -71,7 +72,7 @@ renderSessionButtons session =
             | otherwise = ("Pause Session", PauseSessionEv)
        in button
             [ SessionEv ev <$ onClick
-            , classList [("button is-primary is-size-7 m-1 p-1", True)]
+            , classList [("button", True)]
             ]
             [text txt]
 
@@ -122,7 +123,8 @@ render ss =
                   <> T.pack (show nInProg)
                   <> " / "
                   <> T.pack (show nTot)
-           in div
+           in divClass
+                "box"
                 [ style
                     [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
                     , ("position", "relative")

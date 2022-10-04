@@ -5,8 +5,7 @@ where
 
 import Concur.Core (Widget)
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
     onClick,
     onInput,
     onKeyPress,
@@ -17,6 +16,7 @@ import Concur.Replica.DOM.Events qualified as DE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
@@ -36,18 +36,16 @@ import Prelude hiding (div)
 
 render ::
   (IsKey k, Eq k) =>
-  [k] ->
+  [(k, Text)] ->
   KeyMap k Text ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
 render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
   where
-    divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
-    divClass cls props = div (classList [(cls, True)] : props)
     navbarMenu = divClass "navbar-menu" []
     navbarStart = divClass "navbar-start" []
-    navItem k =
+    navItem (k, tab) =
       let isActive = Just k == mfocus
           clss
             | isActive = ["navbar-item", "is-tab", "console-tab", "is-active"]
@@ -56,7 +54,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
        in el
             "a"
             [cls, ConsoleTab k <$ onClick]
-            [text (T.pack (show (fromKey k)))]
+            [text tab]
     consoleTabs =
       nav
         [classList [("navbar", True)]]
