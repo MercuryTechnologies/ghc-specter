@@ -2,18 +2,18 @@
 
 module GHCSpecter.Render
   ( render,
-    cssLink,
   )
 where
 
 import Concur.Core (Widget (..))
 import Concur.Replica
-  ( Props,
-    classList,
+  ( classList,
+    height,
     onClick,
     src,
     style,
     textProp,
+    width,
   )
 import Control.Lens (to, (^.))
 import Data.Text (Text)
@@ -25,6 +25,7 @@ import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
 import GHCSpecter.Render.Timing qualified as Timing
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -32,10 +33,9 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
-    figure,
     img,
-    link,
     nav,
+    p,
     progress,
     section,
     text,
@@ -58,27 +58,21 @@ import GHCSpecter.UI.Types.Event
 import GHCSpecter.Util.Map (keyMapToList)
 import Prelude hiding (div, span)
 
-divClass :: Text -> [Props a] -> [Widget IHTML a] -> Widget IHTML a
-divClass cls props = div (classList [(cls, True)] : props)
-
-renderMainPanel ::
-  MainView ->
-  UIModel ->
-  ServerState ->
-  Widget IHTML Event
-renderMainPanel view model ss =
-  case view ^. mainTab of
-    TabSession -> Session.render ss
-    TabModuleGraph -> ModuleGraph.render model ss
-    TabSourceView -> SourceView.render (model ^. modelSourceView) ss
-    TabTiming -> Timing.render model ss
-
-cssLink :: Text -> Widget IHTML a
-cssLink url =
-  link
-    [ textProp "rel" "stylesheet"
-    , textProp "href" url
-    ]
+renderBanner :: Text -> Double -> Widget IHTML a
+renderBanner png fraction = divClass "banner" [] [contents]
+  where
+    progressBar =
+      progress
+        [ textProp "value" (T.pack $ show $ floor @_ @Int (fraction * 100.0))
+        , textProp "max" "100"
+        ]
+        []
+    contents =
+      div
+        []
+        [ img [src png, width "150px", height "150px"]
+        , div [] [p [] [text "ghc-specter"], p [] [progressBar]]
+        ]
 
 renderNavbar :: Tab -> Widget IHTML Event
 renderNavbar tab =
@@ -102,6 +96,18 @@ renderNavbar tab =
             | otherwise = ["navbar-item", "is-tab"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
+
+renderMainPanel ::
+  MainView ->
+  UIModel ->
+  ServerState ->
+  Widget IHTML Event
+renderMainPanel view model ss =
+  case view ^. mainTab of
+    TabSession -> Session.render ss
+    TabModuleGraph -> ModuleGraph.render model ss
+    TabSourceView -> SourceView.render (model ^. modelSourceView) ss
+    TabTiming -> Timing.render model ss
 
 renderBottomPanel :: UIModel -> ServerState -> Widget IHTML Event
 renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
@@ -157,28 +163,5 @@ render ::
   Widget IHTML Event
 render (ui, ss) =
   case ui ^. uiView of
-    BannerMode v ->
-      div
-        [ classList [("is-fullheight", True)]
-        , style [("overflow", "hidden")]
-        ]
-        [ section
-            []
-            [ div
-                []
-                [ figure
-                    []
-                    [img [src (ui ^. uiAssets . assetsGhcSpecterPng)]]
-                , div
-                    []
-                    [ text "ghc-specter"
-                    , progress
-                        [ textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
-                        , textProp "max" "100"
-                        ]
-                        []
-                    ]
-                ]
-            ]
-        ]
+    BannerMode fraction -> renderBanner (ui ^. uiAssets . assetsGhcSpecterPng) fraction
     MainMode view -> renderMainView (view, ui ^. uiModel, ss)

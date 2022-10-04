@@ -5,6 +5,11 @@ body {
     background: white;
 }
 
+.banner {
+    overflow: hidden;
+    text-align: center;
+}
+
 nav {
     margin: 2px 2px 1px 0px;
     padding: 2px 2px 2px 0px;
