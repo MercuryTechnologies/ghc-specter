@@ -126,6 +126,7 @@ renderModuleGraphSVG
                 , height "13"
                 , SP.stroke "dimgray"
                 , SP.fill color
+                , SP.pointerEvents "visible"
                 ]
                 []
         box1 (NodeLayout _ (Point x y) (Dim w h)) =
@@ -136,6 +137,7 @@ renderModuleGraphSVG
             , height "4"
             , SP.stroke "black"
             , SP.fill "none"
+            , SP.pointerEvents "none"
             ]
             []
         box2 (NodeLayout (_, name) (Point x y) (Dim w h)) =
@@ -155,19 +157,17 @@ renderModuleGraphSVG
                 , width (T.pack $ show (w' * aFactor))
                 , height "4"
                 , SP.fill "blue"
+                , SP.pointerEvents "none"
                 ]
                 []
         moduleText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
           S.text
-            [ HoverOnModuleEv (Just name) <$ onMouseEnter
-            , HoverOnModuleEv Nothing <$ onMouseLeave
-            , ClickOnModuleEv (Just name) <$ onClick
-            , SP.x (T.pack $ show (x + offX + 2))
+            [ SP.x (T.pack $ show (x + offX + 2))
             , SP.y (T.pack $ show (y + h * offYFactor + h))
             , classList [("small", True)]
+            , SP.pointerEvents "none"
             ]
             [text name]
-
         edges = fmap edge (grVisInfo ^. gviEdges)
         nodes =
           concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (grVisInfo ^. gviNodes)
