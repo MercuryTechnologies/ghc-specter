@@ -47,8 +47,8 @@ nav {
 
 .module-status {
     position: absolute;
-    width: 350px;
-    height: 250px;
+    width: 250px;
+    min-height: 80px;
     top: 0;
     right: 0;
 }
@@ -78,7 +78,13 @@ nav {
 .console-input input {
     margin: 0;
     padding: 0;
+    font-family: monospace;
     width: 100%;
+}
+
+.console pre {
+    background-color: white;
+    color: black;
 }
 
 .expandable {
