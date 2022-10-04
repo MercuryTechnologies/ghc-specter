@@ -50,8 +50,8 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
     navItem k =
       let isActive = Just k == mfocus
           clss
-            | isActive = ["navbar-item", "is-tab", "is-active"]
-            | otherwise = ["navbar-item", "is-tab"]
+            | isActive = ["navbar-item", "is-tab", "console-tab", "is-active"]
+            | otherwise = ["navbar-item", "is-tab", "console-tab"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el
             "a"
@@ -59,7 +59,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             [text (T.pack (show (fromKey k)))]
     consoleTabs =
       nav
-        [classList [("navbar m-0 p-0", True)]]
+        [classList [("navbar", True)]]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
       let mtxt = do

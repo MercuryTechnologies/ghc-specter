@@ -24,6 +24,10 @@ nav {
     border-bottom: none;
 }
 
+.is-tab.is-active.console-tab {
+    background: lightgrey;
+}
+
 .columns {
     width: 100%;
     display: flex;
@@ -51,6 +55,7 @@ nav {
     min-height: 80px;
     top: 0;
     right: 0;
+    background: ivory;
 }
 
 .module-status p {
@@ -79,12 +84,14 @@ nav {
     margin: 0;
     padding: 0;
     font-family: monospace;
+    font-size: 10px;
     width: 100%;
 }
 
 .console pre {
     background-color: white;
     color: black;
+    font-size: 10px;
 }
 
 .expandable {
