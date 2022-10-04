@@ -20,12 +20,12 @@ nav {
     margin-right: 2px;
     padding: 2px 2px 2px 2px;
     background: white;
-    border: solid 0.5px grey;
 }
 
 .is-tab.is-active {
     padding: 2px 2px 3.1px 2px;
     background: lightskyblue;
+    border: solid 0.5px grey;
     border-bottom: none;
 }
 
