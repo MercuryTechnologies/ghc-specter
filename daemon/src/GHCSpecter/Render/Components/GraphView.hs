@@ -77,7 +77,7 @@ renderModuleGraphSVG
         nodeLayoutMap =
           IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
         -- graph layout parameter
-        aFactor = 0.9
+        aFactor = 0.95
         offX = -15
         offYFactor = -1.0
         -- the center of left side of a node
@@ -186,7 +186,7 @@ renderModuleGraphSVG
         svgElement =
           S.svg
             svgProps
-            (S.style [] [text ".small { font: 6px sans-serif; } text { user-select: none; }"] : (edges ++ nodes))
+            (S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"] : (edges ++ nodes))
      in div [classList [("is-fullwidth", True)]] [svgElement]
 
 -- | render graph more simply
@@ -196,7 +196,7 @@ renderGraph cond grVisInfo =
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
       -- graph layout parameter
-      aFactor = 0.9
+      aFactor = 0.95
       offX = -15
       offYFactor = -1.0
       -- the center of left side of a node
@@ -262,5 +262,5 @@ renderGraph cond grVisInfo =
       svgElement =
         S.svg
           svgProps
-          (S.style [] [text ".small { font: 6px sans-serif; } text { user-select: none; }"] : (edges ++ nodes))
+          (S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"] : (edges ++ nodes))
    in div [classList [("is-fullwidth", True)]] [svgElement]
