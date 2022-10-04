@@ -62,7 +62,7 @@ renderSessionButtons session =
     buttonSaveSession =
       button
         [ SessionEv SaveSessionEv <$ onClick
-        , classList [("button is-primary is-size-7 m-1 p-1", True)]
+        , classList [("button", True)]
         ]
         [text "Save Session"]
     buttonPauseResumeSession =
@@ -71,7 +71,7 @@ renderSessionButtons session =
             | otherwise = ("Pause Session", PauseSessionEv)
        in button
             [ SessionEv ev <$ onClick
-            , classList [("button is-primary is-size-7 m-1 p-1", True)]
+            , classList [("button", True)]
             ]
             [text txt]
 

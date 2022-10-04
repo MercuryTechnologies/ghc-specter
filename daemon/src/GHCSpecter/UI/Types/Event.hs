@@ -53,7 +53,7 @@ data SessionEvent
   deriving (Show, Eq)
 
 data TimingEvent
-  = UpdateSticky Bool
+  = ToCurrentTime
   | UpdatePartition Bool
   | UpdateParallel Bool
   deriving (Show, Eq)

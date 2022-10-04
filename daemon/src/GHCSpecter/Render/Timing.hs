@@ -12,6 +12,7 @@ import Concur.Replica
   ( classList,
     height,
     onChange,
+    onClick,
     style,
     width,
   )
@@ -33,7 +34,8 @@ import GHCSpecter.Server.Types
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
+  ( button,
+    div,
     input,
     label,
     text,
@@ -134,16 +136,10 @@ renderRules showParallel table totalHeight totalTime =
         []
 
 viewPortX :: TimingUI -> Int
-viewPortX tui
-  | tui ^. timingUISticky = timingMaxWidth - timingWidth
-  | otherwise = tui ^. timingUIViewPortTopLeft . _1 . to floor
+viewPortX tui = tui ^. timingUIViewPortTopLeft . _1 . to floor
 
-viewPortY :: Int -> TimingUI -> Int
-viewPortY nMods tui
-  | tui ^. timingUISticky = totalHeight - timingHeight
-  | otherwise = tui ^. timingUIViewPortTopLeft . _2 . to floor
-  where
-    totalHeight = 5 * nMods
+viewPortY :: TimingUI -> Int
+viewPortY tui = tui ^. timingUIViewPortTopLeft . _2 . to floor
 
 diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
 diffTime2X totalTime time =
@@ -234,7 +230,7 @@ renderTimingChart tui timingInfos =
       svgProps =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
-                [viewPortX tui, viewPortY nMods tui, timingWidth, timingHeight]
+                [viewPortX tui, viewPortY tui, timingWidth, timingHeight]
             prop1 =
               [ MouseEv TimingView . MouseDown <$> onMouseDown
               , MouseEv TimingView . MouseUp <$> onMouseUp
@@ -251,7 +247,7 @@ renderTimingChart tui timingInfos =
 
       allItems = zip [0 ..] timingInfos
       filteredItems =
-        filter (`isInRange` (viewPortY nMods tui, viewPortY nMods tui + timingHeight)) allItems
+        filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
       svgElement =
         S.svg
@@ -274,26 +270,15 @@ renderTimingChart tui timingInfos =
         [svgElement]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
-renderCheckbox tui = div [] [checkSticky, checkPartition, checkHowParallel]
+renderCheckbox tui = div [] [buttonToCurrent, checkPartition, checkHowParallel]
   where
-    isSticky = tui ^. timingUISticky
     isPartitioned = tui ^. timingUIPartition
     howParallel = tui ^. timingUIHowParallel
     mkEvent f b = TimingEv (f (not b)) <$ onChange
-    checkSticky =
+    buttonToCurrent =
       div
         [classList [("control", True)]]
-        [ label
-            [classList [("checkbox", True)]]
-            [ input
-                [ DP.type_ "checkbox"
-                , DP.name "sticky"
-                , DP.checked isSticky
-                , mkEvent UpdateSticky isSticky
-                ]
-            , text "Sticky"
-            ]
-        ]
+        [button [TimingEv ToCurrentTime <$ onClick] [text "To Current Time"]]
     checkPartition =
       div
         [classList [("control", True)]]
@@ -341,7 +326,7 @@ renderTimingBar tui timingInfos =
 
     allItems = zip [0 ..] timingInfos
     filteredItems =
-      filter (`isInRange` (viewPortY nMods tui, viewPortY nMods tui + timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
     (minI, maxI) =
       let idxs = fmap (^. _1) filteredItems
@@ -394,6 +379,7 @@ renderTimingBar tui timingInfos =
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
+  -- TODO: this is inefficient. Make a cache for timing table
   let timingInfos = makeTimingTable ss
    in div
         [ style

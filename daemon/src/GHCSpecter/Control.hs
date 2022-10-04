@@ -33,7 +33,12 @@ import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
   )
-import GHCSpecter.UI.Constants (uiUpdateInterval)
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingMaxWidth,
+    timingWidth,
+    uiUpdateInterval,
+  )
 import GHCSpecter.UI.Types
   ( HasConsoleUI (..),
     HasMainView (..),
@@ -61,6 +66,7 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
+import GHCSpecter.Util.Timing (makeTimingTable)
 
 defaultUpdateModel ::
   Event ->
@@ -113,8 +119,18 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
       sendRequest (SessionReq Pause)
       pure (oldModel, newSS)
-    TimingEv (UpdateSticky b) -> do
-      let newModel = (modelTiming . timingUISticky .~ b) oldModel
+    TimingEv ToCurrentTime -> do
+      let -- TODO: This is inefficient. Make a cache for timing table.
+          timingInfos = makeTimingTable oldSS
+          nMods = length timingInfos
+          totalHeight = 5 * nMods
+          newModel =
+            oldModel
+              & ( modelTiming . timingUIViewPortTopLeft
+                    .~ ( fromIntegral (timingMaxWidth - timingWidth)
+                       , fromIntegral (totalHeight - timingHeight)
+                       )
+                )
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
     TimingEv (UpdatePartition b) -> do

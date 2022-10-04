@@ -57,9 +57,7 @@ emptySourceViewUI :: SourceViewUI
 emptySourceViewUI = SourceViewUI Nothing
 
 data TimingUI = TimingUI
-  { _timingUISticky :: Bool
-  -- ^ Whether the timing view is sticky to the current time or not
-  , _timingUIPartition :: Bool
+  { _timingUIPartition :: Bool
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
@@ -71,7 +69,7 @@ data TimingUI = TimingUI
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False False (0, 0) False
+emptyTimingUI = TimingUI False False (0, 0) False
 
 data ConsoleUI = ConsoleUI
   { _consoleFocus :: Maybe DriverId
