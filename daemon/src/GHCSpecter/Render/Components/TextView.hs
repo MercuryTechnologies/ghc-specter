@@ -57,32 +57,40 @@ render showCharBox txt highlighted =
         , SP.fill "none"
         ]
         []
-    highlightBox ((startI, startJ), (endI, endJ)) =
+
+    boxSize ((startI, startJ), (endI, endJ)) =
+      let w1 = charSize * fromIntegral (endJ - startJ + 1)
+          h1 = rowSize * fromIntegral (endI - startI + 1)
+       in (w1, h1 + 2)
+
+    highlightBox range@((startI, startJ), _) =
       S.rect
         [ SP.x (packShow $ leftOfBox startJ)
         , SP.y (packShow $ topOfBox startI)
-        , SP.width (packShow (charSize * fromIntegral (endJ - startJ + 1)))
-        , SP.height (packShow (rowSize * fromIntegral (endI - startI + 1)))
+        , SP.width (packShow $ fst (boxSize range))
+        , SP.height (packShow $ snd (boxSize range))
         , SP.fill "yellow"
         ]
         []
-    highlightBox2 ((startI, startJ), (endI, endJ)) =
+    highlightBox2 range@((startI, startJ), _) =
       S.rect
         [ SP.x (packShow $ leftOfBox startJ)
         , SP.y (packShow $ topOfBox startI)
-        , SP.width (packShow (charSize * fromIntegral (endJ - startJ + 1)))
-        , SP.height (packShow (rowSize * fromIntegral (endI - startI + 1)))
+        , SP.width (packShow $ fst (boxSize range))
+        , SP.height (packShow $ snd (boxSize range))
         , SP.stroke "red"
         , SP.strokeWidth "1px"
         , SP.fill "none"
         ]
         []
+
     mkText (i, t) =
       S.text
         [ SP.x (packShow $ leftOfBox 1)
         , SP.y (packShow $ bottomOfBox i)
         ]
         [text t]
+
     contents =
       let contents_ =
             fmap highlightBox highlighted

@@ -231,7 +231,7 @@ renderGraph cond grVisInfo =
               [ SP.x (T.pack $ show (x + offX))
               , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
               , width (T.pack $ show (w * aFactor))
-              , height "13"
+              , height "10"
               , SP.stroke "dimgray"
               , SP.fill color
               ]
