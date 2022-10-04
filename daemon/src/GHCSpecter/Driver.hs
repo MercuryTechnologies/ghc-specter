@@ -54,7 +54,6 @@ webServer cfg servSess = do
   let port = configWebPort cfg
   assets <- Assets.loadAssets
   let styleText = assets ^. Assets.assetsGhcSpecterCss
-  print styleText
   runDefaultWithStyle port "ghc-specter" styleText $
     \_ -> do
       uiRef <-

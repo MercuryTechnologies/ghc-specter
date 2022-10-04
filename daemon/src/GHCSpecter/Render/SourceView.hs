@@ -123,7 +123,6 @@ renderModuleTree srcUI ss =
     contents = fmap renderTree displayedForest'
       where
         renderTree = foldTree convert . fmap renderNode --  . foldTree markLeaf
-
     renderNode :: (ModuleName, Bool) -> Widget IHTML Event
     renderNode (modu, b) =
       let colorTxt
@@ -133,7 +132,7 @@ renderModuleTree srcUI ss =
             case mexpandedModu of
               Just modu'
                 | modu == modu' ->
-                  ExpandModuleEv Nothing <$ expandableText True (not b) colorTxt modu
+                    ExpandModuleEv Nothing <$ expandableText True (not b) colorTxt modu
               _ ->
                 ExpandModuleEv (Just modu) <$ expandableText False (not b) colorTxt modu
        in modItem
