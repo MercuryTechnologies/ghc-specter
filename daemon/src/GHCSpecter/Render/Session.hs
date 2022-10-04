@@ -9,7 +9,7 @@ import Concur.Replica
     onClick,
     style,
   )
-import Control.Lens ((^.))
+import Control.Lens (to, (^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
@@ -37,6 +37,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
@@ -122,7 +123,12 @@ render ss =
                   <> " / "
                   <> T.pack (show nTot)
            in div
-                [style [("position", "relative"), ("overflow", "hidden")]]
+                [ style
+                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+                    , ("position", "relative")
+                    , ("overflow", "hidden")
+                    ]
+                ]
                 ( [ pre [] [text messageTime]
                   , pre [] [text messageProc]
                   , pre [] [text messageModuleStatus]

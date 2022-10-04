@@ -58,6 +58,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasUIModel (..),
@@ -238,7 +239,10 @@ render model ss =
       pre [] [text "GHC Session has not been started"]
     Just _ ->
       div
-        [ style [("overflow", "scroll"), ("height", widgetHeight)]
+        [ style
+            [ ("overflow", "scroll")
+            , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+            ]
         ]
         ( case mgs ^. mgsClusterGraph of
             Nothing -> []
@@ -266,6 +270,3 @@ render model ss =
     timing = ss ^. serverTiming
     mgs = ss ^. serverModuleGraphState
     clustering = mgs ^. mgsClustering
-    widgetHeight
-      | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
-      | otherwise = "75vh"

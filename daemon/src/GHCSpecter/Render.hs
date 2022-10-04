@@ -98,8 +98,8 @@ renderNavbar tab =
     navbarStart = divClass "navbar-start" []
     navItem isActive =
       let clss
-            | isActive = ["navbar-item", "is-tab", "is-active", "m-0", "p-1"]
-            | otherwise = ["navbar-item", "is-tab", "m-0", "p-1"]
+            | isActive = ["navbar-item", "is-tab", "is-active"]
+            | otherwise = ["navbar-item", "is-tab"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el "a" [cls, onClick]
 
@@ -136,7 +136,7 @@ renderMainView (view, model, ss) = do
         | otherwise =
             ( section
                 [ style
-                    [ ("max-height", "80vh")
+                    [ ("max-height", "70vh")
                     , ("overflow", "hidden")
                     ]
                 ]
