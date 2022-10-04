@@ -29,7 +29,7 @@ timingMaxWidth :: (Num a) => a
 timingMaxWidth = 10240
 
 timingWidth :: Int
-timingWidth = 800
+timingWidth = 1600
 
 timingHeight :: Int
 timingHeight = 600

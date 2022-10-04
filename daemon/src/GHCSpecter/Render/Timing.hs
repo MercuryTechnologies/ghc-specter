@@ -264,7 +264,8 @@ renderTimingChart tui timingInfos =
               )
           ]
    in div
-        [ style
+        [ classList [("box", True)]
+        , style
             [ ("width", T.pack (show timingWidth))
             , ("height", T.pack (show timingHeight))
             , ("overflow", "hidden")
