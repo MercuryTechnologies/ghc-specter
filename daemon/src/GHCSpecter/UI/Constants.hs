@@ -9,9 +9,11 @@ module GHCSpecter.UI.Constants
     timingWidth,
     timingHeight,
     timingBarHeight,
+    widgetHeight,
   )
 where
 
+import Data.Text (Text)
 import Data.Time.Clock (NominalDiffTime, secondsToNominalDiffTime)
 
 chanUpdateInterval :: NominalDiffTime
@@ -27,10 +29,15 @@ timingMaxWidth :: (Num a) => a
 timingMaxWidth = 10240
 
 timingWidth :: Int
-timingWidth = 800
+timingWidth = 1600
 
 timingHeight :: Int
 timingHeight = 600
 
 timingBarHeight :: Int
 timingBarHeight = 10
+
+widgetHeight :: Bool -> Text
+widgetHeight isPaused
+  | isPaused = "50vh"
+  | otherwise = "75vh"

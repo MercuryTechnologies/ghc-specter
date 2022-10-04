@@ -44,6 +44,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     ul,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
     SourceViewUI (..),
@@ -57,11 +58,6 @@ import GHCSpecter.Util.SourceTree
 import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
-
-widgetHeight :: ServerState -> Text
-widgetHeight ss
-  | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
-  | otherwise = "75vh"
 
 expandableText :: Bool -> Bool -> Text -> Text -> Widget IHTML MouseEvent
 expandableText isBordered isExpandable cls txt =
@@ -98,7 +94,7 @@ renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderModuleTree srcUI ss =
   div
     [ style
-        [ ("height", widgetHeight ss)
+        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
         , ("overflow", "scroll")
         ]
     ]
@@ -150,7 +146,7 @@ renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
   div
     [ style
-        [ ("height", widgetHeight ss)
+        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
         , ("overflow", "scroll")
         ]
     ]

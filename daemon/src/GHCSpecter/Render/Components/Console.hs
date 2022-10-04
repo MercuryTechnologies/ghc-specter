@@ -50,8 +50,8 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
     navItem k =
       let isActive = Just k == mfocus
           clss
-            | isActive = ["navbar-item", "is-tab", "is-active", "m-0", "p-1"]
-            | otherwise = ["navbar-item", "is-tab", "m-0", "p-1"]
+            | isActive = ["navbar-item", "is-tab", "console-tab", "is-active"]
+            | otherwise = ["navbar-item", "is-tab", "console-tab"]
           cls = classList $ map (\tag -> (tag, True)) clss
        in el
             "a"
@@ -59,7 +59,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             [text (T.pack (show (fromKey k)))]
     consoleTabs =
       nav
-        [classList [("navbar m-0 p-0", True)]]
+        [classList [("navbar", True)]]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
       let mtxt = do
@@ -68,8 +68,6 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
        in pre
             [ style
                 [ ("height", "200px")
-                , ("background-color", "black")
-                , ("color", "white")
                 , ("overflow", "scroll")
                 ]
             ]
@@ -82,7 +80,6 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             [ ConsoleInput . DE.targetValue . DE.target <$> onInput
             , ConsoleKey . DE.kbdKey <$> onKeyPress
             , classList [("input", True)]
-            , style [("font-family", "monospace")]
             , textProp "type" "text"
             , textProp "placeholder" "type inspection command"
             , textProp "value" inputEntry

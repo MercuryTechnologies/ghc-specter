@@ -26,8 +26,12 @@ import Data.Time.Clock
     secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Render.Util (xmlns)
-import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     input,
@@ -46,6 +50,7 @@ import GHCSpecter.UI.Constants
     timingHeight,
     timingMaxWidth,
     timingWidth,
+    widgetHeight,
   )
 import GHCSpecter.UI.Types
   ( HasTimingUI (..),
@@ -259,7 +264,8 @@ renderTimingChart tui timingInfos =
               )
           ]
    in div
-        [ style
+        [ classList [("box", True)]
+        , style
             [ ("width", T.pack (show timingWidth))
             , ("height", T.pack (show timingHeight))
             , ("overflow", "hidden")
@@ -390,7 +396,12 @@ render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
   let timingInfos = makeTimingTable ss
    in div
-        [style [("width", "100%"), ("height", "100%"), ("position", "relative")]]
+        [ style
+            [ ("width", "100%")
+            , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+            , ("position", "relative")
+            ]
+        ]
         [ renderTimingChart (model ^. modelTiming) timingInfos
         , div
             [style [("position", "absolute"), ("top", "0"), ("right", "0")]]

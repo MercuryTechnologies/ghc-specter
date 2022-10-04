@@ -58,6 +58,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types
   ( HasModuleGraphUI (..),
     HasUIModel (..),
@@ -157,9 +158,9 @@ renderMainModuleGraph
   clustering
   grVisInfo
   mgUI =
-    let mclicked = mgUI ^. modGraphUIClick
-        mhovered = mgUI ^. modGraphUIHover
-     in MainModuleEv
+    div
+      [classList [("box", True)]]
+      [ MainModuleEv
           <$> GraphView.renderModuleGraphSVG
             nameMap
             drvModMap
@@ -167,6 +168,10 @@ renderMainModuleGraph
             clustering
             grVisInfo
             (mclicked, mhovered)
+      ]
+    where
+      mclicked = mgUI ^. modGraphUIClick
+      mhovered = mgUI ^. modGraphUIHover
 
 renderSubModuleGraph ::
   -- | key = graph id
@@ -202,14 +207,17 @@ renderSubModuleGraph
                   fmap
                     (\(NodeLayout (_, name) _ _) -> (name, [name]))
                     (subgraph ^. gviNodes)
-             in SubModuleEv . SubModuleGraphEv
-                  <$> GraphView.renderModuleGraphSVG
-                    nameMap
-                    drvModMap
-                    timing
-                    tempclustering
-                    subgraph
-                    (mainModuleClicked, subModuleHovered)
+             in div
+                  [classList [("box", True)]]
+                  [ SubModuleEv . SubModuleGraphEv
+                      <$> GraphView.renderModuleGraphSVG
+                        nameMap
+                        drvModMap
+                        timing
+                        tempclustering
+                        subgraph
+                        (mainModuleClicked, subModuleHovered)
+                  ]
 
 renderDetailLevel :: UIModel -> Widget IHTML Event
 renderDetailLevel model =
@@ -238,7 +246,10 @@ render model ss =
       pre [] [text "GHC Session has not been started"]
     Just _ ->
       div
-        [ style [("overflow", "scroll"), ("height", widgetHeight)]
+        [ style
+            [ ("overflow", "scroll")
+            , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+            ]
         ]
         ( case mgs ^. mgsClusterGraph of
             Nothing -> []
@@ -266,6 +277,3 @@ render model ss =
     timing = ss ^. serverTiming
     mgs = ss ^. serverModuleGraphState
     clustering = mgs ^. mgsClustering
-    widgetHeight
-      | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
-      | otherwise = "75vh"
