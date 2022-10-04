@@ -144,7 +144,7 @@ renderMainView (view, model, ss) = do
             , section [] [renderBottomPanel model ss]
             )
   div
-    [ classList [("is-fullheight is-size-7 m-4 p-4", True)]
+    [ classList [("is-fullheight", True)]
     , style [("overflow", "hidden")]
     ]
     [ renderNavbar (view ^. mainTab)
@@ -173,8 +173,7 @@ render (ui, ss) =
                     []
                     [ text "ghc-specter"
                     , progress
-                        [ classList [("progress is-primary", True)]
-                        , textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
+                        [ textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
                         , textProp "max" "100"
                         ]
                         []
