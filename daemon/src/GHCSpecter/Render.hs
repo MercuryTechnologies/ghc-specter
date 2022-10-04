@@ -2,6 +2,7 @@
 
 module GHCSpecter.Render
   ( render,
+    cssLink,
   )
 where
 
@@ -143,12 +144,10 @@ renderMainView (view, model, ss) = do
             , section [] [renderBottomPanel model ss]
             )
   div
-    [ classList [("container is-fullheight is-size-7 m-4 p-4", True)]
+    [ classList [("is-fullheight", True)]
     , style [("overflow", "hidden")]
     ]
-    [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
-    , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-    , renderNavbar (view ^. mainTab)
+    [ renderNavbar (view ^. mainTab)
     , mainPanel
     , bottomPanel
     ]
@@ -160,24 +159,21 @@ render (ui, ss) =
   case ui ^. uiView of
     BannerMode v ->
       div
-        [ classList [("container is-fullheight is-size-7 m-4 p-4", True)]
+        [ classList [("is-fullheight", True)]
         , style [("overflow", "hidden")]
         ]
-        [ cssLink "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
-        , cssLink "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.2/css/all.min.css"
-        , section
-            [classList [("hero is-medium is-link is-size-1 m-1 p-1", True)]]
+        [ section
+            []
             [ div
-                [classList [("hero-body columns", True)]]
+                []
                 [ figure
-                    [classList [("column image", True)]]
+                    []
                     [img [src (ui ^. uiAssets . assetsGhcSpecterPng)]]
                 , div
-                    [classList [("column has-text-centered", True)]]
+                    []
                     [ text "ghc-specter"
                     , progress
-                        [ classList [("progress is-primary", True)]
-                        , textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
+                        [ textProp "value" (T.pack $ show $ floor @_ @Int (v * 100.0))
                         , textProp "max" "100"
                         ]
                         []

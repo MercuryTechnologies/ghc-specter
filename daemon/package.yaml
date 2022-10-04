@@ -78,6 +78,7 @@ extra-source-files:
 
 data-files:
   - assets/*.png
+  - assets/*.css
 
 library:
   source-dirs: src

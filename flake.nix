@@ -56,6 +56,7 @@
                 self.callCabal2nix "concur-core" (concur + "/concur-core") { };
               "concur-replica" =
                 self.callCabal2nix "concur-replica" concur-replica { };
+              "http2" = pkgs.haskell.lib.dontCheck super.http2;
               "replica" = self.callCabal2nix "replica" replica { };
               "retry" = pkgs.haskell.lib.dontCheck super.retry;
             });

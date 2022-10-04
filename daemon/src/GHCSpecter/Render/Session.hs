@@ -90,16 +90,7 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
                in msgDrvId <> msgModName <> msgPaused
          in fmap formatMessage imodinfos
    in div
-        [ classList [("box", True)]
-        , style
-            [ ("position", "absolute")
-            , ("width", "350px")
-            , ("height", "250px")
-            , ("top", "0")
-            , ("right", "0")
-            , ("font-family", "'Lucida Grande',sans-serif")
-            , ("font-size", "8px")
-            ]
+        [ classList [("box module-status", True)]
         ]
         (fmap (\x -> p [] [text x]) msgs)
 

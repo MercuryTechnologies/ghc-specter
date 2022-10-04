@@ -1,5 +1,6 @@
 module GHCSpecter.Util.SourceTree
   ( makeSourceTree,
+    markLeaf,
     accumPrefix,
     expandFocusOnly,
   )
@@ -8,7 +9,7 @@ where
 import Control.Lens (to, (^..))
 import Data.List qualified as L
 import Data.Text qualified as T
-import Data.Tree (Forest, Tree (..))
+import Data.Tree (Forest, Tree (..), foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 
@@ -28,17 +29,25 @@ makeSourceTree mgi =
               . to (T.splitOn ".")
    in L.foldl' (\(!ts) m -> appendTo m ts) [] modNames
 
+markLeaf :: Tree a -> Tree (a, Bool)
+markLeaf = foldTree go
+  where
+    go :: a -> [Tree (a, Bool)] -> Tree (a, Bool)
+    go x ys
+      | null ys = Node (x, True) []
+      | otherwise = Node (x, False) ys
+
 stripSubTree :: Tree a -> Tree a
 stripSubTree (Node x _) = Node x []
 
-accumPrefix :: [a] -> Tree a -> Tree [a]
-accumPrefix prefix (Node x xs) =
+accumPrefix :: [a] -> Tree (a, Bool) -> Tree ([a], Bool)
+accumPrefix prefix (Node (x, b) xs) =
   let prefix' = prefix ++ [x]
-   in Node prefix' (fmap (accumPrefix prefix') xs)
+   in Node (prefix', b) (fmap (accumPrefix prefix') xs)
 
-expandFocusOnly :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
+expandFocusOnly :: [ModuleName] -> Forest (ModuleName, Bool) -> Forest (ModuleName, Bool)
 expandFocusOnly [] ts = fmap stripSubTree ts
 expandFocusOnly _ [] = []
 expandFocusOnly (x : xs) (t : ts)
-  | x == rootLabel t = Node x (expandFocusOnly xs (subForest t)) : fmap stripSubTree ts
+  | x == fst (rootLabel t) = Node (rootLabel t) (expandFocusOnly xs (subForest t)) : fmap stripSubTree ts
   | otherwise = Node (rootLabel t) [] : expandFocusOnly (x : xs) ts

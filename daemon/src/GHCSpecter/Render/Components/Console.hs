@@ -76,7 +76,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             [text (fromMaybe "" mtxt)]
     consoleInput =
       divClass
-        "control"
+        "console-input"
         []
         [ input
             [ ConsoleInput . DE.targetValue . DE.target <$> onInput
@@ -89,4 +89,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             ]
         ]
     console =
-      div [] [consoleContent, consoleInput]
+      divClass
+        "console"
+        []
+        [consoleContent, consoleInput]

@@ -1,0 +1,137 @@
+body {
+    overflow: hidden;
+    font-family: "Arial", Sans-Serif;
+    font-size: 10px;
+    background: white;
+}
+
+nav {
+    margin: 2px 2px 1px 0px;
+    padding: 2px 2px 2px 0px;
+    border-bottom: solid 0.5px grey;
+}
+
+.is-tab {
+    margin-right: 2px;
+    padding: 2px 2px 2px 2px;
+    background: white;
+    border: solid 0.5px grey;
+}
+
+.is-tab.is-active {
+    padding: 2px 2px 3.1px 2px;
+    background: lightskyblue;
+    border-bottom: none;
+}
+
+.columns {
+    width: 100%;
+    display: flex;
+}
+
+.column.is-one-fifths {
+    width: 20%;
+}
+
+.column.is-four-fifths {
+    width: 80%;
+}
+
+nav {
+    width: 100%;
+}
+
+.box {
+    border: solid 0.5px grey;
+}
+
+.module-status {
+    position: absolute;
+    width: 350px;
+    height: 250px;
+    top: 0;
+    right: 0;
+}
+
+.module-status p {
+    font-family: "Courier", monospace;
+    font-size: 6px;
+    margin: 0;
+    padding: 0;
+}
+
+.console {
+    margin: 0;
+    padding: 2px 0 0 0;
+}
+
+.console pre {
+    margin: 0;
+    padding: 0;
+}
+
+.console-input {
+    margin: 0;
+    padding: 0 5px 0 0;
+}
+
+.console-input input {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.expandable {
+    font-family: "Arial", San-Serif;
+    font-size: 8px;
+}
+
+.has-text-black {
+    color: black;
+}
+
+.has-text-green {
+    color: green;
+}
+
+ul.tree, ul.tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+ul.tree ul {
+    margin-left: 5px;
+}
+
+ul.tree li {
+    margin: -3px;
+    padding: 0 7px;
+    line-height: 15px;
+    border-left:1px solid rgb(100,100,100);
+}
+
+ul.tree li:last-child {
+    border-left:none;
+}
+
+ul.tree li::before {
+    position:relative;
+    top:-0.83px;
+    height:12px;
+    width:8px;
+    color:white;
+    border-bottom:1px solid rgb(100,100,100);
+    content:"";
+    display:inline-block;
+    left:-7px;
+    right: 0;
+}
+
+ul.tree li:last-child::before {
+   border-left:1px solid rgb(100,100,100);
+}
+
+ul.tree span::before {
+    width: 10px;
+    background: black;
+}

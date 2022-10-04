@@ -12,11 +12,12 @@ import Concur.Replica
     style,
   )
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
+import Data.Bifunctor (first)
 import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Tree (Tree, foldTree)
+import Data.Tree (Tree (..), foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
@@ -35,7 +36,6 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
-    el,
     hr,
     li,
     pre,
@@ -52,6 +52,7 @@ import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Util.SourceTree
   ( accumPrefix,
     expandFocusOnly,
+    markLeaf,
   )
 import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
@@ -62,19 +63,19 @@ widgetHeight ss
   | ss ^. serverSessionInfo . to sessionIsPaused = "50vh"
   | otherwise = "75vh"
 
-iconText :: Bool -> Text -> Text -> Text -> Widget IHTML MouseEvent
-iconText isBordered ico cls txt =
-  let iconCls = classList [("fas", True), (ico, True)]
-      iconProps = [iconCls, onClick]
+expandableText :: Bool -> Bool -> Text -> Text -> Widget IHTML MouseEvent
+expandableText isBordered isExpandable cls txt =
+  let txt'
+        | not isBordered && isExpandable = txt <> " ... "
+        | otherwise = txt
       spanProps =
-        classList [("icon-text " <> cls, True)] :
+        classList [("expandable " <> cls, True)] :
         if isBordered
           then [style [("border", "solid")]]
           else []
    in span
         spanProps
-        [ span [classList [("icon", True)]] [el "i" iconProps []]
-        , span [onClick, style [("font-size", "0.65em")]] [text txt]
+        [ span [onClick] [text txt']
         ]
 
 -- | show information on unqualified imports
@@ -101,17 +102,17 @@ renderModuleTree srcUI ss =
         , ("overflow", "scroll")
         ]
     ]
-    [ul [] contents]
+    [ul [classList [("tree", True)]] contents]
   where
     timing = ss ^. serverTiming
     drvModMap = ss ^. serverDriverModuleMap
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
-      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded)
-    displayedForest' :: [Tree ModuleName]
+      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded . fmap markLeaf)
+    displayedForest' :: [Tree (ModuleName, Bool)]
     displayedForest' =
-      fmap (fmap (T.intercalate ".")) . fmap (accumPrefix []) $ displayedForest
+      fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
 
     convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
     convert x ys
@@ -119,19 +120,21 @@ renderModuleTree srcUI ss =
       | otherwise = li [] [x, ul [] ys]
 
     contents :: [Widget IHTML Event]
-    contents =
-      fmap (\tr -> foldTree convert (fmap eachRender tr)) displayedForest'
-
-    eachRender :: ModuleName -> Widget IHTML Event
-    eachRender modu =
+    contents = fmap renderTree displayedForest'
+      where
+        renderTree = foldTree convert . fmap renderNode --  . foldTree markLeaf
+    renderNode :: (ModuleName, Bool) -> Widget IHTML Event
+    renderNode (modu, b) =
       let colorTxt
-            | isModuleCompilationDone drvModMap timing modu = "has-text-success-dark"
-            | otherwise = "has-text-grey"
+            | isModuleCompilationDone drvModMap timing modu = "has-text-green"
+            | otherwise = "has-text-black"
           modItem =
             case mexpandedModu of
               Just modu'
-                | modu == modu' -> ExpandModuleEv Nothing <$ iconText True "fa-minus" colorTxt modu
-              _ -> ExpandModuleEv (Just modu) <$ iconText False "fa-plus" colorTxt modu
+                | modu == modu' ->
+                    ExpandModuleEv Nothing <$ expandableText True (not b) colorTxt modu
+              _ ->
+                ExpandModuleEv (Just modu) <$ expandableText False (not b) colorTxt modu
        in modItem
 
 renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
@@ -180,12 +183,12 @@ render srcUI ss =
     , height "100%"
     ]
     [ div
-        [ classList [("column is-one-fifths", True)]
+        [ classList [("column box is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderModuleTree srcUI ss]
     , div
-        [ classList [("column is-four-fifths", True)]
+        [ classList [("column box is-four-fifths", True)]
         , style [("overflow", "scroll")]
         ]
         [renderSourceView srcUI ss]
