@@ -217,21 +217,22 @@ typecheckPlugin queue drvId modsummary tc = do
 -- core plugin
 --
 
-corePlugin :: [CoreToDo] -> CoreM [CoreToDo]
-corePlugin todos = do
+corePlugin :: MsgQueue -> DriverId -> [CoreToDo] -> CoreM [CoreToDo]
+corePlugin queue drvId todos = do
   dflags <- getDynFlags
-  let n = length todos
-  liftIO $ putStrLn $ "corePlugin n = " <> show n
-  liftIO $ printPpr dflags todos
-  let printMe pass guts = do
-        liftIO $ putStrLn pass
-        pure guts
-      firstPlugin = CoreDoPluginPass "CoreStart" (printMe "CoreStart")
+  let startPlugin =
+        CoreDoPluginPass
+          "Core2CoreStart"
+          (eachPlugin (T.pack "Core2CoreStart"))
       mkPlugin pass =
         let label = "After:" <> show pass
-         in CoreDoPluginPass label (printMe label)
-      todos' = firstPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
+         in CoreDoPluginPass label (eachPlugin (T.pack label))
+      todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
   pure todos'
+  where
+    eachPlugin pass guts = do
+      breakPoint queue drvId (Core2Core pass) emptyCommandSet
+      pure guts
 
 --
 -- top-level driver plugin
@@ -250,7 +251,7 @@ driver opts env0 = do
       -- TODO: if other plugins exist, throw exception.
       newPlugin =
         plugin
-          { installCoreToDos = \_opts -> corePlugin
+          { installCoreToDos = \_opts -> corePlugin queue drvId
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }

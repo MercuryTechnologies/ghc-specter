@@ -53,6 +53,7 @@ data BreakpointLoc
   = StartDriver
   | AfterParser
   | Typecheck
+  | Core2Core Text
   | PreRunPhase Text
   | PostRunPhase Text
   deriving (Show, Eq, Generic)
