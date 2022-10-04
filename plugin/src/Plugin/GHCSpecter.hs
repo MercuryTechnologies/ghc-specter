@@ -71,6 +71,7 @@ import Plugin.GHCSpecter.Console
     breakPoint,
     emptyCommandSet,
   )
+import Plugin.GHCSpecter.Task.PrintCore (printCore)
 import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -230,8 +231,10 @@ corePlugin queue drvId todos = do
       todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
   pure todos'
   where
+    cmdSet guts = CommandSet [(":print-core", printCore guts)]
+
     eachPlugin pass guts = do
-      breakPoint queue drvId (Core2Core pass) emptyCommandSet
+      breakPoint queue drvId (Core2Core pass) (cmdSet guts)
       pure guts
 
 --

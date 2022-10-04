@@ -217,6 +217,8 @@ goCommon ev (view, model0) = do
                       sendRequest $ ConsoleReq drvId NextBreakpoint
                   | msg == ":unqualified" ->
                       sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+                  | msg == ":print-core" ->
+                      sendRequest $ ConsoleReq drvId PrintCore
                   | otherwise ->
                       sendRequest $ ConsoleReq drvId (Ping msg)
               pure model

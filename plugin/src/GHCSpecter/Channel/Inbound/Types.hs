@@ -29,6 +29,7 @@ data ConsoleRequest
   = Ping Text
   | NextBreakpoint
   | ShowUnqualifiedImports
+  | PrintCore
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest
