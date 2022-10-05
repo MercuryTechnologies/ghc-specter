@@ -19,8 +19,10 @@ import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
+import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (runPhaseHook)
@@ -62,13 +64,14 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Util.GHC (showPpr)
+import GHCSpecter.Util.GHC (printPpr, showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
   ( CommandSet (..),
     breakPoint,
     emptyCommandSet,
   )
+import Plugin.GHCSpecter.Task.PrintCore (printCore)
 import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -212,6 +215,29 @@ typecheckPlugin queue drvId modsummary tc = do
   pure tc
 
 --
+-- core plugin
+--
+
+corePlugin :: MsgQueue -> DriverId -> [CoreToDo] -> CoreM [CoreToDo]
+corePlugin queue drvId todos = do
+  dflags <- getDynFlags
+  let startPlugin =
+        CoreDoPluginPass
+          "Core2CoreStart"
+          (eachPlugin (T.pack "Core2CoreStart"))
+      mkPlugin pass =
+        let label = "After:" <> show pass
+         in CoreDoPluginPass label (eachPlugin (T.pack label))
+      todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
+  pure todos'
+  where
+    cmdSet guts = CommandSet [(":print-core", printCore guts)]
+
+    eachPlugin pass guts = do
+      breakPoint queue drvId (Core2Core pass) (cmdSet guts)
+      pure guts
+
+--
 -- top-level driver plugin
 --
 
@@ -228,7 +254,8 @@ driver opts env0 = do
       -- TODO: if other plugins exist, throw exception.
       newPlugin =
         plugin
-          { parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
+          { installCoreToDos = \_opts -> corePlugin queue drvId
+          , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}

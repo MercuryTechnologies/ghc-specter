@@ -78,7 +78,7 @@ renderBanner png fraction = divClass "banner" [] [contents]
 renderNavbar :: Tab -> Widget IHTML Event
 renderNavbar tab =
   nav
-    [classList [("navbar m-0 p-0", True)]]
+    [classList [("navbar", True)]]
     [ navbarMenu
         [ navbarStart
             [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]

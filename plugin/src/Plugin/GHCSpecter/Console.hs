@@ -94,10 +94,28 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
                     liftIO $ consoleMessage txt
               atomically $
                 writeTVar actionRef (Just action)
-            Nothing -> consoleMessage "show unqualified imports not implemented"
+            Nothing ->
+              consoleMessage $
+                "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
         else do
           consoleMessage $
             "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+    PrintCore ->
+      case loc of
+        Core2Core _ -> do
+          case L.lookup ":print-core" (unCommandSet cmds) of
+            Just cmd -> do
+              let action = do
+                    txt <- cmd
+                    liftIO $ consoleMessage txt
+              atomically $
+                writeTVar actionRef (Just action)
+            Nothing ->
+              consoleMessage $
+                "cannot print core at the breakpoint: " <> T.pack (show loc)
+        _ ->
+          consoleMessage $
+            "cannot print core at the breakpoint: " <> T.pack (show loc)
   where
     consoleMessage = queueMessage queue . CMConsole drvId
 
