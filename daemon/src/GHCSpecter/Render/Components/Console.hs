@@ -15,6 +15,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Events qualified as DE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.Text qualified as T
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
@@ -37,7 +38,7 @@ import Prelude hiding (div)
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
-  KeyMap k Text ->
+  KeyMap k [Text] ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
@@ -60,9 +61,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
         [classList [("navbar", True)]]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
-      let mtxt = do
-            focus <- mfocus
-            lookupKey focus contents
+      let mtxts = mfocus >>= (`lookupKey` contents)
 
           -- This is a hack. Property update should be supported by concur-replica.
           -- TODO: implement prop update in internalized concur-replica.
@@ -81,13 +80,14 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
                   \observer.observe(myParent, config);\n"
               ]
        in pre
-            [ style
+            [ classList [("box", True)]
+            , style
                 [ ("height", "200px")
                 , ("overflow", "scroll")
                 ]
             ]
             [ scriptContent
-            , text (fromMaybe "" mtxt)
+            , text (maybe "" (T.intercalate "\n") mtxts)
             ]
     consoleInput =
       divClass

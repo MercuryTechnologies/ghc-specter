@@ -17,6 +17,7 @@ import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -53,8 +54,9 @@ import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
   where
-    appendConsoleMsg newMsg Nothing = Just newMsg
-    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs <> "\n" <> newMsg)
+    appendConsoleMsg :: Text -> Maybe [Text] -> Maybe [Text]
+    appendConsoleMsg newMsg Nothing = Just [newMsg]
+    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
 
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
