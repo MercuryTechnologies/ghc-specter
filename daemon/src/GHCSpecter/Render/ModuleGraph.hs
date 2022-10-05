@@ -79,7 +79,9 @@ renderMainModuleGraph
   grVisInfo
   mgUI =
     div
-      [classList [("box", True)]]
+      [ classList [("box", True)]
+      , style [("overflow", "scroll")]
+      ]
       [ MainModuleEv
           <$> GraphView.renderModuleGraphSVG
             nameMap
@@ -128,7 +130,9 @@ renderSubModuleGraph
                     (\(NodeLayout (_, name) _ _) -> (name, [name]))
                     (subgraph ^. gviNodes)
              in div
-                  [classList [("box", True)]]
+                  [ classList [("box", True)]
+                  , style [("overflow", "scroll")]
+                  ]
                   [ SubModuleEv . SubModuleGraphEv
                       <$> GraphView.renderModuleGraphSVG
                         nameMap
