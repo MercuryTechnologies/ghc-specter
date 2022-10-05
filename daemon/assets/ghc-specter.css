@@ -5,6 +5,17 @@ body {
     background: white;
 }
 
+button {
+    font-size: 10px;
+    padding: 2px;
+    border: solid 0.5px grey;
+    background: white;
+}
+
+button:hover {
+    background: lightgrey;
+}
+
 .banner {
     overflow: hidden;
     text-align: center;
@@ -75,11 +86,31 @@ nav {
 .console {
     margin: 0;
     padding: 2px 0 0 0;
+    background-color: white;
+    color: black;
 }
 
-.console pre {
+.console-item {
+    margin: 0;
+    padding: 2px 0 2px 0;
+    border-bottom: solid 0.3px lightgrey;
+    display: block;
+}
+
+.console-item > div {
+    margin: 0 5px;
+    padding: 0;
+    font-size: 8px;
+    font-family: monospace;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.console-item > pre {
     margin: 0;
     padding: 0;
+    font-size: 8px;
+    display: inline-block;
 }
 
 .console-input {
@@ -93,12 +124,6 @@ nav {
     font-family: monospace;
     font-size: 10px;
     width: 100%;
-}
-
-.console pre {
-    background-color: white;
-    color: black;
-    font-size: 10px;
 }
 
 .expandable {
