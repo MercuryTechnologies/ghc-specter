@@ -233,6 +233,7 @@ corePlugin queue drvId todos = do
     cmdSet guts = CommandSet [(":print-core", printCore guts)]
 
     eachPlugin pass guts = do
+      _ <- printCore guts
       breakPoint queue drvId (Core2Core pass) (cmdSet guts)
       pure guts
 
