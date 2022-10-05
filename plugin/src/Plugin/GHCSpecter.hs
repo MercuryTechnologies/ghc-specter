@@ -19,7 +19,6 @@ import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, writeIORef)
-import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -64,7 +63,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Util.GHC (printPpr, showPpr)
+import GHCSpecter.Util.GHC (showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
   ( CommandSet (..),
