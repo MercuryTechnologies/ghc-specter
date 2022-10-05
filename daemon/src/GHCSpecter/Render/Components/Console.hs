@@ -6,7 +6,6 @@ where
 import Concur.Core (Widget)
 import Concur.Replica
   ( classList,
-    id,
     onClick,
     onInput,
     onKeyPress,
@@ -33,7 +32,7 @@ import GHCSpecter.Util.Map
     KeyMap,
     lookupKey,
   )
-import Prelude hiding (div, id)
+import Prelude hiding (div)
 
 render ::
   (IsKey k, Eq k) =>
@@ -82,8 +81,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
                   \observer.observe(myParent, config);\n"
               ]
        in pre
-            [ id "console"
-            , style
+            [ style
                 [ ("height", "200px")
                 , ("overflow", "scroll")
                 ]
