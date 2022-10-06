@@ -3,22 +3,29 @@ module Plugin.GHCSpecter.Task.PrintCore
   )
 where
 
-import Control.Monad.IO.Class
+import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Tree
 import Data.Tree (Tree (..))
 import Data.Typeable (Typeable)
-import GHC.Core.Opt.Monad (CoreM, getDynFlags)
+import GHC.Core.Class (Class)
+import GHC.Core.ConLike (ConLike)
+import GHC.Core.DataCon (DataCon)
+import GHC.Core.Opt.Monad (CoreM)
+import GHC.Core.PatSyn (PatSyn)
 import GHC.Core.TyCon (TyCon)
-import GHC.Types.Name (NamedThing (getOccName))
+import GHC.Data.FastString (FastString (..))
+import GHC.Types.Name (Name, NamedThing (getOccName), OccName)
 import GHC.Types.Name.Occurrence (occNameString)
+import GHC.Types.SrcLoc (RealSrcSpan, SrcSpan)
 import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
+import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 
 getOccNameDynamically ::
@@ -42,8 +49,43 @@ getContent x = (T.pack dtypName, evalue)
       | dtypName == "Data.ByteString.ByteString" =
           let mbs = cast x
            in Right (fmap decodeUtf8 mbs)
-      | dtypName == "Var" = Right $ getOccNameDynamically (Proxy @Var) x
+      -- unclear how to treat Bag
+      | dtypName == "Bag" = Right Nothing
+      | dtypName == "Class" = Right $ getOccNameDynamically (Proxy @Class) x
+      -- unclear how to handle CoAxiom
+      | dtypName == "CoAxiom" = Right Nothing
+      -- unclear how to treat CoAxiomRule (coaxrProves is a function)
+      | dtypName == "CoAxiomRule" = Right Nothing
+      -- unclear how to treat CoercionHole (ch_ref :: IORef)
+      | dtypName == "CoercionHole" = Right Nothing
+      | dtypName == "ConLike" = Right $ getOccNameDynamically (Proxy @ConLike) x
+      | dtypName == "DataCon" = Right $ getOccNameDynamically (Proxy @DataCon) x
+      | dtypName == "FastString" =
+          let my = cast x
+           in Right (fmap (decodeUtf8 . SB.fromShort . fs_sbs) my)
+      -- unclear how to treat HoleExprRef
+      | dtypName == "HoleExprRef" = Right Nothing
+      | dtypName == "ModuleName" =
+          let my :: Maybe ModuleName = cast x
+           in Right $ fmap (T.pack . moduleNameString) my
+      | dtypName == "Name" = Right $ getOccNameDynamically (Proxy @Name) x
+      | dtypName == "OccName" =
+          let my :: Maybe OccName = cast x
+           in Right $ fmap (T.pack . occNameString) my
+      | dtypName == "PatSyn" = Right $ getOccNameDynamically (Proxy @PatSyn) x
+      | dtypName == "RealSrcSpan" =
+          let my :: Maybe RealSrcSpan = cast x
+           in Right $ fmap (T.pack . show) my
+      | dtypName == "SrcSpan" =
+          let my :: Maybe SrcSpan = cast x
+           in Right $ fmap (T.pack . show) my
+      -- unclear how to treat TcEvBinds
+      | dtypName == "TcEvBinds" = Right Nothing
       | dtypName == "TyCon" = Right $ getOccNameDynamically (Proxy @TyCon) x
+      | dtypName == "Unit" =
+          let my :: Maybe Unit = cast x
+           in Right $ fmap (T.pack . unitString . toUnitId) my
+      | dtypName == "Var" = Right $ getOccNameDynamically (Proxy @Var) x
       | otherwise = Left (T.pack (show (toConstr x)))
 
 core2tree :: forall a. Data a => a -> Const [Tree (Text, Text)] a
@@ -62,5 +104,4 @@ printCore :: ModGuts -> CoreM ConsoleReply
 printCore guts = do
   let binds = mg_binds guts
       forest = getConst (core2tree binds)
-  -- liftIO $ putStrLn $ drawForest . fmap (fmap show) $ forest
   pure (ConsoleReplyCore forest)

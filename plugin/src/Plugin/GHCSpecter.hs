@@ -45,12 +45,9 @@ import GHC.Driver.Session
     gopt,
   )
 import GHC.Hs (HsParsedModule)
-import GHC.Plugins (ModSummary)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHC.Unit.Module.Name (moduleNameString)
-import GHC.Unit.Types (GenModule (moduleName))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -205,12 +202,9 @@ typecheckPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId modsummary tc = do
+typecheckPlugin queue drvId _modsummary tc = do
   let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
   breakPoint queue drvId Typecheck cmdSet
-  -- rendered <- fetchUnqualifiedImports tc
-  -- let modName = T.pack $ moduleNameString $ moduleName $ ms_mod modsummary
-  -- liftIO $ queueMessage queue (CMCheckImports modName rendered)
   pure tc
 
 --
