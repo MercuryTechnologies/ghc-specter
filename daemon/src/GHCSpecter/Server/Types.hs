@@ -15,7 +15,7 @@ module GHCSpecter.Server.Types
     HieState (..),
     HasHieState (..),
     emptyHieState,
-    type ConsoleItem,
+    ConsoleItem (..),
 
     -- * Server state
     ServerState (..),
@@ -83,7 +83,12 @@ instance ToJSON HieState
 emptyHieState :: HieState
 emptyHieState = HieState mempty mempty
 
-type ConsoleItem = Text
+newtype ConsoleItem = ConsoleItem {unConsoleItem :: Text}
+  deriving (Show, Generic)
+
+instance FromJSON ConsoleItem
+
+instance ToJSON ConsoleItem
 
 data ServerState = ServerState
   { _serverMessageSN :: Int

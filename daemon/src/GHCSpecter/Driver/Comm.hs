@@ -41,7 +41,8 @@ import GHCSpecter.Driver.Session.Types
     ServerSession (..),
   )
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
+  ( ConsoleItem (..),
+    HasServerState (..),
     ServerState (..),
     incrementSN,
   )
@@ -56,7 +57,7 @@ import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
   where
-    appendConsoleMsg :: Text -> Maybe [Text] -> Maybe [Text]
+    appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
     appendConsoleMsg newMsg Nothing = Just [newMsg]
     appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
 
@@ -64,7 +65,7 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMModuleInfo drvId modu) ->
-        let msg = "module name: " <> modu
+        let msg = ConsoleItem ("module name: " <> modu)
          in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMTiming drvId timer') ->
@@ -77,16 +78,18 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMHsSource _modu _info) ->
         id
       CMBox (CMPaused drvId mloc) ->
-        let formatMsg (Just loc) = "paused at " <> T.pack (show loc)
-            formatMsg Nothing = "resume"
+        let formatMsg (Just loc) = ConsoleItem ("paused at " <> T.pack (show loc))
+            formatMsg Nothing = ConsoleItem "resume"
          in (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of
-          ConsoleReplyText txt -> (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
+          ConsoleReplyText txt ->
+            let msg = ConsoleItem txt
+             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
           ConsoleReplyCore forest ->
-            let txt = T.pack . drawForest . fmap (fmap show) $ forest
-             in (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
+            let msg = ConsoleItem (T.pack . drawForest . fmap (fmap show) $ forest)
+             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
 
 listener ::
   FilePath ->

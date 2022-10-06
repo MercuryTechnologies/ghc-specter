@@ -17,7 +17,7 @@ import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Server.Types (ConsoleItem)
+import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
@@ -63,7 +63,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
       let mtxts = mfocus >>= (`lookupKey` contents)
-          makeConsoleItem txt =
+          renderConsoleItem (ConsoleItem txt) =
             divClass
               "console-item"
               []
@@ -94,7 +94,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
                 , ("overflow", "scroll")
                 ]
             ]
-            (scriptContent : fmap makeConsoleItem (join (maybeToList mtxts)))
+            (scriptContent : fmap renderConsoleItem (join (maybeToList mtxts)))
     consoleInput =
       divClass
         "console-input"
