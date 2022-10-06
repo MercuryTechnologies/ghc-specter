@@ -94,20 +94,18 @@ getContent x = (T.pack dtypName, evalue)
       | dtypName == "Var" = Right $ getOccNameDynamically (Proxy @Var) x
       | otherwise = Left (T.pack (show (toConstr x)))
 
-core2tree :: forall a. Data a => a -> Const [Tree (Text, Text)] a
-core2tree = gfoldl k mkEmpty
+core2tree :: forall a. Data a => a -> Tree (Text, Text)
+core2tree a =
+  case getContent a of
+    (typ, Left val) -> Node (typ, val) (getConst (gfoldl k z a))
+    (typ, Right (Just val)) -> Node (typ, val) []
+    (typ, Right Nothing) -> Node (typ, "#######") []
   where
-    mkEmpty _ = Const []
-    k (Const acc) x =
-      let delta =
-            case getContent x of
-              (typ, Left val) -> [Node (typ, val) (getConst (core2tree x))]
-              (typ, Right (Just val)) -> [Node (typ, val) []]
-              (typ, Right Nothing) -> [Node (typ, "#######") []]
-       in Const (acc ++ delta)
+    z _ = Const []
+    k (Const acc) x = Const (acc ++ [core2tree x])
 
 printCore :: ModGuts -> CoreM ConsoleReply
 printCore guts = do
   let binds = mg_binds guts
-      forest = getConst (core2tree binds)
+      forest = fmap core2tree binds
   pure (ConsoleReplyCore forest)

@@ -10,7 +10,6 @@ import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Set (Set)
 import Data.Set qualified as S
-import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Driver.Session (getDynFlags)
 import GHC.Plugins (Name)
