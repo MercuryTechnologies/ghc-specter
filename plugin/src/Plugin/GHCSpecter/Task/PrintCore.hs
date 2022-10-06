@@ -39,7 +39,13 @@ getOccNameDynamically _ x =
       my = cast x
    in fmap (T.pack . occNameString . getOccName) my
 
--- | Left: ordinary node, Right: short-circuit to terminal
+-- NOTE: a few data types used in Core has partial toConstr (Data.ByteString.ByteString)
+-- or abstractConstr, which causes an exception or not inspectable expression
+-- after conversion.
+-- Many of them contain stringy information (usually name), so we extract the names
+-- in such cases and do not proceed the conversion to the children of the node.
+
+-- | Left: ordinary node, Right: extract and do not proceed to the children
 getContent :: forall a. Data a => a -> (Text, Either Text (Maybe Text))
 getContent x = (T.pack dtypName, evalue)
   where
