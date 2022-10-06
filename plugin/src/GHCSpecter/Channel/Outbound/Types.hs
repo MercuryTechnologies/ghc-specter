@@ -26,11 +26,11 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
-import Data.Tree (Forest)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import Data.Tree (Forest)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
