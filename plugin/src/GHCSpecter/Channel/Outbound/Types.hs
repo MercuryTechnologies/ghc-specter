@@ -25,6 +25,7 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
+import Data.Tree (Forest)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Text (Text)
@@ -145,6 +146,10 @@ instance FromJSON HsSourceInfo
 
 instance ToJSON HsSourceInfo
 
+data ConsoleReply
+  = ConsoleReplyText Text
+  | ConsoleReplyCore (Forest (Text, Text))
+
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
   CMModuleInfo :: DriverId -> ModuleName -> ChanMessage 'ModuleInfo
@@ -152,7 +157,7 @@ data ChanMessage (a :: Channel) where
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
   CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
-  CMConsole :: DriverId -> Text -> ChanMessage 'Console
+  CMConsole :: DriverId -> Text {- ConsoleReply -} -> ChanMessage 'Console
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 
