@@ -17,13 +17,16 @@ import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import Data.Tree (drawForest)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
     ChanMessageBox (..),
     Channel (..),
+    ConsoleReply (..),
     HsSourceInfo (..),
     SessionInfo (..),
     Timer (..),
@@ -53,8 +56,9 @@ import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
   where
-    appendConsoleMsg newMsg Nothing = Just newMsg
-    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs <> "\n" <> newMsg)
+    appendConsoleMsg :: Text -> Maybe [Text] -> Maybe [Text]
+    appendConsoleMsg newMsg Nothing = Just [newMsg]
+    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
 
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
@@ -77,8 +81,12 @@ updateInbox chanMsg = incrementSN . updater
             formatMsg Nothing = "resume"
          in (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
-      CMBox (CMConsole drvId txt) ->
-        (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
+      CMBox (CMConsole drvId creply) ->
+        case creply of
+          ConsoleReplyText txt -> (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
+          ConsoleReplyCore forest ->
+            let txt = T.pack . drawForest . fmap (fmap show) $ forest
+             in (serverConsole %~ alterToKeyMap (appendConsoleMsg txt) drvId)
 
 listener ::
   FilePath ->
