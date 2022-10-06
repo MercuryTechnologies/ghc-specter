@@ -24,15 +24,17 @@ import GHC.Iface.Ext.Binary
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
 import GHC.Iface.Ext.Utils (generateReferencesMap)
 import GHC.Types.Name.Cache (initNameCache)
-import GHCSpecter.Server.Types
+import GHCSpecter.Data.Hie
   ( DeclRow' (..),
     DefRow' (..),
-    HasHieState (..),
     HasModuleHieInfo (..),
-    HasServerState (..),
     RefRow' (..),
-    ServerState (..),
     emptyModuleHieInfo,
+  )
+import GHCSpecter.Server.Types
+  ( HasHieState (..),
+    HasServerState (..),
+    ServerState (..),
   )
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import HieDb.Compat

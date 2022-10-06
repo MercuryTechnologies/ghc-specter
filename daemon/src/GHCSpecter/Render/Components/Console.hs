@@ -17,6 +17,7 @@ import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import GHCSpecter.Render.Util (divClass)
+import GHCSpecter.Server.Types (ConsoleItem)
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
@@ -38,7 +39,7 @@ import Prelude hiding (div)
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
-  KeyMap k [Text] ->
+  KeyMap k [ConsoleItem] ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)

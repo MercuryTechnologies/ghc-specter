@@ -47,16 +47,18 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (ModuleName)
+import GHCSpecter.Data.Hie
+  ( HasDeclRow' (..),
+    HasModuleHieInfo (..),
+    HasRefRow' (..),
+    ModuleHieInfo,
+  )
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
-  ( HasDeclRow' (..),
-    HasHieState (..),
-    HasModuleHieInfo (..),
-    HasRefRow' (..),
+  ( HasHieState (..),
     HasServerState (..),
-    ModuleHieInfo,
     ServerState (..),
   )
 import GHCSpecter.Util.SourceText

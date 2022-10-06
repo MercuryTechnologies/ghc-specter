@@ -12,18 +12,10 @@ module GHCSpecter.Server.Types
     emptyModuleGraphState,
 
     -- * Hie state
-    RefRow' (..),
-    HasRefRow' (..),
-    DeclRow' (..),
-    HasDeclRow' (..),
-    DefRow' (..),
-    HasDefRow' (..),
-    ModuleHieInfo (..),
-    HasModuleHieInfo (..),
-    emptyModuleHieInfo,
     HieState (..),
     HasHieState (..),
     emptyHieState,
+    type ConsoleItem,
 
     -- * Server state
     ServerState (..),
@@ -50,6 +42,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     emptyModuleGraphInfo,
   )
+import GHCSpecter.Data.Hie (ModuleHieInfo)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
 import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
@@ -75,77 +68,6 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState = ModuleGraphState [] Nothing [] []
 
--- | RefRow has OccName and Unit which are not JSON-serializable.
-data RefRow' = RefRow'
-  { _ref'Src :: FilePath
-  , _ref'NameOcc :: Text
-  , _ref'NameMod :: ModuleName
-  , _ref'NameUnit :: Text
-  , _ref'SLine :: Int
-  , _ref'SCol :: Int
-  , _ref'ELine :: Int
-  , _ref'ECol :: Int
-  }
-  deriving (Show, Generic)
-
-makeClassy ''RefRow'
-
-instance FromJSON RefRow'
-
-instance ToJSON RefRow'
-
--- | DeclRow has OccName
-data DeclRow' = DeclRow'
-  { _decl'Src :: FilePath
-  , _decl'NameOcc :: Text
-  , _decl'SLine :: Int
-  , _decl'SCol :: Int
-  , _decl'ELine :: Int
-  , _decl'ECol :: Int
-  , _decl'Root :: Bool
-  }
-  deriving (Show, Generic)
-
-makeClassy ''DeclRow'
-
-instance FromJSON DeclRow'
-
-instance ToJSON DeclRow'
-
--- | DefRow has OccName
-data DefRow' = DefRow'
-  { _def'Src :: FilePath
-  , _def'NameOcc :: Text
-  , _def'SLine :: Int
-  , _def'SCol :: Int
-  , _def'ELine :: Int
-  , _def'ECol :: Int
-  }
-  deriving (Show, Generic)
-
-makeClassy ''DefRow'
-
-instance FromJSON DefRow'
-
-instance ToJSON DefRow'
-
-data ModuleHieInfo = ModuleHieInfo
-  { _modHieRefs :: [RefRow']
-  , _modHieDecls :: [DeclRow']
-  , _modHieDefs :: [DefRow']
-  , _modHieSource :: Text
-  }
-  deriving (Show, Generic)
-
-makeClassy ''ModuleHieInfo
-
-instance FromJSON ModuleHieInfo
-
-instance ToJSON ModuleHieInfo
-
-emptyModuleHieInfo :: ModuleHieInfo
-emptyModuleHieInfo = ModuleHieInfo [] [] [] ""
-
 data HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
   , _hieCallGraphMap :: Map ModuleName GraphVisInfo
@@ -161,6 +83,8 @@ instance ToJSON HieState
 emptyHieState :: HieState
 emptyHieState = HieState mempty mempty
 
+type ConsoleItem = Text
+
 data ServerState = ServerState
   { _serverMessageSN :: Int
   , _serverShouldUpdate :: Bool
@@ -169,7 +93,7 @@ data ServerState = ServerState
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
   , _serverTiming :: KeyMap DriverId Timer
   , _serverPaused :: KeyMap DriverId BreakpointLoc
-  , _serverConsole :: KeyMap DriverId [Text]
+  , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   }
