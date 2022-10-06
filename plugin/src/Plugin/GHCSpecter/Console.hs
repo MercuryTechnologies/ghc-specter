@@ -35,6 +35,7 @@ import GHCSpecter.Channel.Inbound.Types
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
+    ConsoleReply (..),
     SessionInfo (..),
   )
 import Plugin.GHCSpecter.Comm (queueMessage)
@@ -46,7 +47,7 @@ import Plugin.GHCSpecter.Types
   )
 
 -- | a list of (command name, command action)
-newtype CommandSet m = CommandSet {unCommandSet :: [(Text, m Text)]}
+newtype CommandSet m = CommandSet {unCommandSet :: [(Text, m ConsoleReply)]}
 
 emptyCommandSet :: CommandSet m
 emptyCommandSet = CommandSet []
@@ -76,7 +77,7 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
     Ping msg -> do
       TIO.putStrLn $ "ping: " <> msg
       let pongMsg = "pong: " <> msg
-      consoleMessage pongMsg
+      reply (ConsoleReplyText pongMsg)
     NextBreakpoint -> do
       putStrLn "NextBreakpoint"
       atomically $
@@ -89,35 +90,35 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
         then do
           case L.lookup ":unqualified" (unCommandSet cmds) of
             Just cmd -> do
-              let action = do
-                    txt <- cmd
-                    liftIO $ consoleMessage txt
+              let action = liftIO . reply =<< cmd
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->
-              consoleMessage $
-                "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+              reply $
+                ConsoleReplyText $
+                  "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
         else do
-          consoleMessage $
-            "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+          reply $
+            ConsoleReplyText $
+              "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
     PrintCore ->
       case loc of
         Core2Core _ -> do
           case L.lookup ":print-core" (unCommandSet cmds) of
             Just cmd -> do
-              let action = do
-                    txt <- cmd
-                    liftIO $ consoleMessage txt
+              let action = liftIO . reply =<< cmd
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->
-              consoleMessage $
-                "cannot print core at the breakpoint: " <> T.pack (show loc)
+              reply $
+                ConsoleReplyText $
+                  "cannot print core at the breakpoint: " <> T.pack (show loc)
         _ ->
-          consoleMessage $
-            "cannot print core at the breakpoint: " <> T.pack (show loc)
+          reply $
+            ConsoleReplyText $
+              "cannot print core at the breakpoint: " <> T.pack (show loc)
   where
-    consoleMessage = queueMessage queue . CMConsole drvId
+    reply = queueMessage queue . CMConsole drvId
 
 sessionInPause ::
   MonadIO m =>

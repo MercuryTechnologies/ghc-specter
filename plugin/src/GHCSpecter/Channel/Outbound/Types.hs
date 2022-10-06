@@ -14,6 +14,7 @@ module GHCSpecter.Channel.Outbound.Types
     HsSourceInfo (..),
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
+    ConsoleReply (..),
 
     -- * channel
     Channel (..),
@@ -149,6 +150,17 @@ instance ToJSON HsSourceInfo
 data ConsoleReply
   = ConsoleReplyText Text
   | ConsoleReplyCore (Forest (Text, Text))
+  deriving (Show, Generic)
+
+instance Binary ConsoleReply where
+  put (ConsoleReplyText t) = put (1 :: Int) >> put t
+  put (ConsoleReplyCore f) = put (2 :: Int) >> put f
+  get = do
+    tag :: Int <- get
+    case tag of
+      1 -> ConsoleReplyText <$> get
+      2 -> ConsoleReplyCore <$> get
+      _ -> error "Binary: ConsoleReply"
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
@@ -157,7 +169,7 @@ data ChanMessage (a :: Channel) where
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
   CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
-  CMConsole :: DriverId -> Text {- ConsoleReply -} -> ChanMessage 'Console
+  CMConsole :: DriverId -> ConsoleReply -> ChanMessage 'Console
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
 

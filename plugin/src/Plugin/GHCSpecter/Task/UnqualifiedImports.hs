@@ -19,13 +19,14 @@ import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHCSpecter.Channel.Common.Types
   ( type ModuleName,
   )
+import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Plugin.GHCSpecter.Util
   ( formatImportedNames,
     formatName,
     mkModuleNameMap,
   )
 
-fetchUnqualifiedImports :: TcGblEnv -> TcM Text
+fetchUnqualifiedImports :: TcGblEnv -> TcM ConsoleReply
 fetchUnqualifiedImports tc = do
   dflags <- getDynFlags
   usedGREs :: [GlobalRdrElt] <- liftIO $ readIORef (tcg_used_gres tc)
@@ -38,4 +39,4 @@ fetchUnqualifiedImports tc = do
           (modu, names) <- M.toList moduleImportMap
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
-  pure (T.pack rendered)
+  pure (ConsoleReplyText (T.pack rendered))
