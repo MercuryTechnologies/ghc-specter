@@ -61,14 +61,18 @@ toExpr (Node x xs) = do
     else Other x <$> traverse toExpr xs
 
 renderExpr :: Expr -> Widget IHTML a
-renderExpr tr = go tr
+renderExpr tr = go 0 tr
   where
-    go (Bind var exp) =
-      let content = pre [] [text var]
-       in divClass "core-expr" [] [content, go exp]
-    go (Other (typ, val) ys) =
+    go lvl (Bind var exp) =
+      let varEl = pre [classList [("bind", True)]] [text var]
+          eqEl = divClass "bind eq" [] [text "="]
+          expEl = divClass "bind" [] [go (lvl + 1) exp]
+          cls = if lvl == 0 then "core-expr top" else "core-expr"
+       in divClass cls [] [varEl, eqEl, expEl]
+    go lvl (Other (typ, val) ys) =
       let content = pre [] [text (T.pack (show (typ, val)))]
-       in divClass "core-expr" [] (content : fmap go ys)
+          cls = if lvl == 0 then "core-expr top" else "core-expr"
+       in divClass cls [] (content : fmap (go (lvl + 1)) ys)
 
 renderConsoleItem :: ConsoleItem -> Widget IHTML a
 renderConsoleItem (ConsoleText txt) =
@@ -82,11 +86,7 @@ renderConsoleItem (ConsoleCore forest) =
   divClass
     "console-item"
     []
-    [ div [style [("width", "10px")]] [text "<"]
-    , div
-        []
-        renderedForest
-    ]
+    (divClass "langle" [] [text "<"] : renderedForest)
   where
     -- for now, show first 3 items
     forest' = take 3 forest
