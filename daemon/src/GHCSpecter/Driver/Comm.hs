@@ -17,10 +17,8 @@ import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import Data.Tree (drawForest)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessage (..),
@@ -65,7 +63,7 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
       CMBox (CMModuleInfo drvId modu) ->
-        let msg = ConsoleItem ("module name: " <> modu)
+        let msg = ConsoleText ("module name: " <> modu)
          in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMTiming drvId timer') ->
@@ -78,17 +76,17 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMHsSource _modu _info) ->
         id
       CMBox (CMPaused drvId mloc) ->
-        let formatMsg (Just loc) = ConsoleItem ("paused at " <> T.pack (show loc))
-            formatMsg Nothing = ConsoleItem "resume"
+        let formatMsg (Just loc) = ConsoleText ("paused at " <> T.pack (show loc))
+            formatMsg Nothing = ConsoleText "resume"
          in (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of
           ConsoleReplyText txt ->
-            let msg = ConsoleItem txt
+            let msg = ConsoleText txt
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
           ConsoleReplyCore forest ->
-            let msg = ConsoleItem (T.pack . drawForest . fmap (fmap show) $ forest)
+            let msg = ConsoleCore forest
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
 
 listener ::

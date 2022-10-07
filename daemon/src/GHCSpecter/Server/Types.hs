@@ -29,7 +29,7 @@ import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Data.Tree (Forest)
+import Data.Tree (Forest, Tree)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types
   ( DriverId,
@@ -83,7 +83,9 @@ instance ToJSON HieState
 emptyHieState :: HieState
 emptyHieState = HieState mempty mempty
 
-newtype ConsoleItem = ConsoleItem {unConsoleItem :: Text}
+data ConsoleItem
+  = ConsoleText Text
+  | ConsoleCore [Tree (Text, Text)]
   deriving (Show, Generic)
 
 instance FromJSON ConsoleItem

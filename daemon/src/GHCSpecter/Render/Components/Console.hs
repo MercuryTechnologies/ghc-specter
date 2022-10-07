@@ -16,6 +16,8 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Tree (drawForest)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -36,6 +38,25 @@ import GHCSpecter.Util.Map
   )
 import Prelude hiding (div)
 
+renderConsoleItem :: ConsoleItem -> Widget IHTML a
+renderConsoleItem (ConsoleText txt) =
+  divClass
+    "console-item"
+    []
+    [ div [style [("width", "10px")]] [text "<"]
+    , pre [] [text txt]
+    ]
+renderConsoleItem (ConsoleCore forest) =
+  divClass
+    "console-item"
+    []
+    [ div [style [("width", "10px")]] [text "<"]
+    , pre [] [text txt]
+    ]
+  where
+    -- for now, show first 3 items
+    txt = T.pack . drawForest . fmap (fmap show) $ take 3 forest
+    
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
@@ -63,14 +84,6 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
       let mtxts = mfocus >>= (`lookupKey` contents)
-          renderConsoleItem (ConsoleItem txt) =
-            divClass
-              "console-item"
-              []
-              [ div [style [("width", "10px")]] [text "<"]
-              , pre [] [text txt]
-              ]
-
           -- This is a hack. Property update should be supported by concur-replica.
           -- TODO: implement prop update in internalized concur-replica.
           scriptContent =
