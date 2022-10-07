@@ -58,7 +58,7 @@ renderConsoleItem (ConsoleCore forest) =
     renderErr err = divClass "error" [] [pre [] [text err]]
     render1 tr =
       let -- for debug
-          txt = T.pack $ drawTree $ fmap show tr
+          -- txt = T.pack $ drawTree $ fmap show tr
           ebind = toBind tr
           rendered =
             case ebind of
@@ -67,8 +67,8 @@ renderConsoleItem (ConsoleCore forest) =
        in div
             [style [("display", "inline-block"), ("margin", "0"), ("padding", "0")]]
             [ -- for debug
-              divClass "noinline" [] [pre [] [text txt]]
-            , div [style [("display", "block")]] [rendered]
+              -- divClass "noinline" [] [pre [] [text txt]]
+              div [style [("display", "block")]] [rendered]
             ]
     renderedForest = fmap render1 forest'
 

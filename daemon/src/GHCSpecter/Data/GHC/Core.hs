@@ -20,6 +20,7 @@ module GHCSpecter.Data.GHC.Core
   )
 where
 
+import Control.Monad ((<=<))
 import Data.Text (Text)
 import Data.Tree (Tree (..), drawTree)
 
@@ -28,7 +29,9 @@ import Data.Tree (Tree (..), drawTree)
 newtype Id = Id {unId :: Text}
   deriving (Show)
 
-data Bind = Bind Id Expr
+data Bind
+  = NonRec Id Expr
+  | Rec [(Id, Expr)]
   deriving (Show)
 
 data Literal
@@ -81,13 +84,30 @@ toVar (Node (typ, val) xs)
   | otherwise = Left "Not Id"
 
 toBind :: Tree (Text, Text) -> Either Text Bind
-toBind (Node (typ, _) xs)
+toBind (Node (typ, val) xs)
   | typ == "Bind" =
-      case xs of
-        v : e : [] -> Bind <$> toVar v <*> toExpr e
-        -- TODO: should handle recursive case
-        _ -> Left "Bind, not 2 children"
+      if
+          | val == "NonRec" ->
+              case xs of
+                v : e : [] -> NonRec <$> toVar v <*> toExpr e
+                _ -> Left "Bind:NonRec, not 2 children"
+          | val == "Rec" ->
+              case xs of
+                bs : [] -> do
+                  trs <- toListTree bs
+                  Rec <$> traverse (toBTuple <=< to2Tuple) trs
+                _ -> Left "Bind:Rec, not 1 child"
+          | otherwise -> Left "Bind, unknown constructor"
   | otherwise = Left "not Bind"
+  where
+    to2Tuple (Node (typ', _) xs')
+      | typ' == "(,)" =
+          case xs' of
+            e1 : e2 : [] -> pure (e1, e2)
+            _ -> Left "Bind:Rec: 2-tuple, not 2 children"
+      | otherwise = Left "Bind:Rec: not 2-tuple"
+    toBTuple (v, e) =
+      (,) <$> toVar v <*> toExpr e
 
 toLiteral :: Tree (Text, Text) -> Either Text Literal
 toLiteral x@(Node (typ, val) xs)

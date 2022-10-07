@@ -50,10 +50,15 @@ renderTopBind bind = goB 0 bind
       | otherwise = [rendered]
 
     goB :: Int -> Bind -> Widget IHTML a
-    goB lvl (Bind var expr) =
-      let varEl = span [] [text (unId var)]
-          expEl = goE (lvl + 1) expr
-       in divClass (cls lvl) [] [varEl, eqEl, expEl]
+    goB lvl b =
+      case b of
+        NonRec var expr -> goB1 lvl (var, expr)
+        Rec bs -> divClass (cls lvl) [] (fmap (goB1 (lvl + 1)) bs)
+      where
+        goB1 lvl' (var', expr') =
+          let varEl = span [] [text (unId var')]
+              expEl = goE (lvl' + 1) expr'
+           in divClass (cls lvl') [] [varEl, eqEl, expEl]
 
     goApp lvl e1 e2
       | isInlineable e1 =
