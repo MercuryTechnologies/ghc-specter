@@ -53,19 +53,52 @@ data Literal
   | LitOther Expr
   deriving (Show)
 
+data AltCon
+  = DataAlt Text
+  | LitAlt Literal
+  | DEFAULT
+  deriving (Show)
+
+data Alt = Alt AltCon [Expr] Expr
+  deriving (Show)
+
 data Expr
   = Var Id
   | Lit Literal
   | App Expr Expr
   | Lam Id Expr
   | Let Bind Expr
+  | Case Expr Id Expr [Alt]
   | Other (Text, Text) [Expr]
   deriving (Show)
 
 isInlineable :: Expr -> Bool
 isInlineable (Var _) = True
 isInlineable (Lit _) = True
+isInlineable (App e1 e2) = isInlineable e1 && isInlineable e2
 isInlineable _ = False
+
+doesNeedParen :: Expr -> Bool
+doesNeedParen (Var _) = False
+doesNeedParen (Lit _) = False
+doesNeedParen _ = True
+
+toListTree :: Tree (Text, Text) -> Either Text [Tree (Text, Text)]
+toListTree (Node (typ, val) xs)
+  | typ == "Prelude.[]" =
+      if
+          | val == "[]" ->
+              if null xs
+                then pure []
+                else Left "[]: not null"
+          | val == "(:)" ->
+              case xs of
+                e1 : e2 : [] ->
+                  (e1 :) <$> toListTree e2
+                _ -> Left "[(:)]: not 2 children"
+          | otherwise -> Left "[]: not a list constructor"
+  | otherwise =
+      Left "[Expr], Not a list"
 
 -- Var is Id
 toVar :: Tree (Text, Text) -> Either Text Id
@@ -90,32 +123,68 @@ toLiteral x@(Node (typ, val) xs)
         _ -> Left "LitStrign, not 1 child"
   | otherwise = LitOther <$> toExpr x
 
+toAltCon :: Tree (Text, Text) -> Either Text AltCon
+toAltCon (Node (typ, val) xs)
+  | typ == "AltCon" =
+      if
+          | val == "DataAlt" ->
+              case xs of
+                Node (_, v) [] : [] -> pure $ DataAlt v
+                _ -> Left "DataAlt, not a leaf node"
+          | val == "LitAlt" ->
+              case xs of
+                l : [] -> LitAlt <$> toLiteral l
+                _ -> Left "LitAlt, not a leaf node"
+          | val == "DEFAULT" -> pure DEFAULT
+  | otherwise = Left "not AltCon"
+
+toAlt :: Tree (Text, Text) -> Either Text Alt
+toAlt (Node (typ, _val) xs)
+  | typ == "Alt" =
+      case xs of
+        a : is : e : [] ->
+          Alt
+            <$> toAltCon a
+            <*> (traverse toExpr =<< toListTree is)
+            <*> toExpr e
+        _ -> Left "Alt: not 3 children"
+  | otherwise = Left "not Alt"
+
 toExpr :: Tree (Text, Text) -> Either Text Expr
 toExpr x@(Node (typ, val) xs)
   | typ == "Expr" =
       if
-          | val == "Var" -> do
+          | val == "Var" ->
               case xs of
                 v : [] -> Var <$> toVar v
                 _ -> Left "Var, not 1 child"
-          | val == "Lit" -> do
+          | val == "Lit" ->
               case xs of
                 l : [] -> Lit <$> toLiteral l
                 _ -> Left "Lit, not 1 child"
-          | val == "App" -> do
+          | val == "App" ->
               case xs of
                 e1 : e2 : [] ->
                   App <$> toExpr e1 <*> toExpr e2
                 _ -> Left "App, not 2 children"
-          | val == "Lam" -> do
+          | val == "Lam" ->
               case xs of
                 v : e : [] -> Lam <$> toVar v <*> toExpr e
                 _ -> Left "Lam, not 2 children"
-          | val == "Let" -> do
+          | val == "Let" ->
               case xs of
                 b : e : [] ->
                   Let <$> toBind b <*> toExpr e
                 _ -> Left "Lam, not 2 children"
+          | val == "Case" ->
+              case xs of
+                scrut : id_ : typ : altsExp : [] ->
+                  Case
+                    <$> toExpr scrut
+                    <*> toVar id_
+                    <*> toExpr typ
+                    <*> (traverse toAlt =<< toListTree altsExp)
+                _ -> Left "Case, less than 3 children"
           | otherwise ->
               Other (typ, val) <$> traverse toExpr xs
   -- TODO: implement toType, toCoercion ..
@@ -126,6 +195,12 @@ renderTopBind :: Bind -> Widget IHTML a
 renderTopBind bind = goB 0 bind
   where
     cls l = if l == 0 then "core-expr top" else "core-expr"
+    space = divClass "core-expr-inline space" [] []
+    parenLEl = divClass "core-expr-inline paren" [] [text "("]
+    parenREl = divClass "core-expr-inline paren" [] [text ")"]
+    wrapParen (e, rendered)
+      | doesNeedParen e = [parenLEl, rendered, parenREl]
+      | otherwise = [rendered]
 
     goB lvl (Bind var exp) =
       let varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
@@ -133,28 +208,56 @@ renderTopBind bind = goB 0 bind
           expEl = goE (lvl + 1) exp
        in divClass (cls lvl) [] [varEl, eqEl, expEl]
 
-    space = divClass "core-expr-inline space" [] []
-
-    renderApp lvl e1 e2
+    goApp lvl e1 e2
       | isInlineable e1 && isInlineable e2 =
           let e1El = divClass "core-expr-inline" [] [goE lvl e1]
               space = divClass "core-expr-inline space" [] []
               e2El = divClass "core-expr-inline" [] [goE lvl e2]
-           in divClass (cls lvl) [] [e1El, space, e2El]
+           in divClass
+                (cls lvl)
+                []
+                (wrapParen (e1, e1El) ++ [space] ++ wrapParen (e2, e2El))
       | isInlineable e1 =
           let e1El = divClass "core-expr-inline" [] [goE lvl e1]
-              parenLEl = divClass "core-expr-inline paren" [] [text "("]
-              parenREl = divClass "core-expr-inline paren" [] [text ")"]
               e2El = goE (lvl + 1) e2
            in divClass
                 (cls lvl)
                 []
-                [e1El, space, parenLEl, space, e2El, space, parenREl]
+                (wrapParen (e1, e1El) ++ [parenLEl, e2El, parenREl])
       | otherwise =
           let appEl = divClass "core-expr-inline" [] [text "App"]
               e1El = goE (lvl + 1) e1
               e2El = goE (lvl + 1) e2
-           in divClass (cls lvl) [] [appEl, e1El, e2El]
+           in divClass
+                (cls lvl)
+                []
+                [ parenLEl
+                , e1El
+                , parenREl
+                , parenLEl
+                , e2El
+                , parenREl
+                ]
+
+    goAlt lvl (Alt con is expr) =
+      let conTxt =
+            case con of
+              DataAlt txt -> txt
+              LitAlt (LitString txt) -> txt
+              LitAlt _ -> "LitOther"
+              DEFAULT -> "DEFAULT"
+
+          conEl = divClass "core-expr-inline" [] [text conTxt]
+          arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
+          expEl = goE (lvl + 1) expr
+       in divClass (cls lvl) [] [conEl, space, arrowEl, space, expEl]
+
+    goCase lvl scrut _i _t alts =
+      let caseEl = divClass "core-expr-inline" [] [text "case"]
+          ofEl = divClass "core-expr-inline" [] [text "of"]
+          scrutEl = goE (lvl + 1) scrut
+          altEls = fmap (goAlt (lvl + 1)) alts
+       in divClass (cls lvl) [] ([caseEl, scrutEl, ofEl] ++ altEls)
 
     goE lvl expr =
       case expr of
@@ -166,7 +269,7 @@ renderTopBind bind = goB 0 bind
            in pre [style [("margin", "0"), ("padding", "0")]] [text txt']
         Lit (LitOther e) ->
           goE lvl e
-        App e1 e2 -> renderApp lvl e1 e2
+        App e1 e2 -> goApp lvl e1 e2
         Lam var exp ->
           let lambdaEl = divClass "core-expr-inline lambda" [] [text "\\"]
               varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
@@ -179,6 +282,7 @@ renderTopBind bind = goB 0 bind
               inEl = divClass "core-expr-inline" [] [text "in"]
               expEl = goE (lvl + 1) exp
            in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
+        Case scrut id_ typ alts -> goCase lvl scrut id_ typ alts
         Other (typ, val) ys ->
           let content = pre [] [text (T.pack (show (typ, val)))]
            in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)
