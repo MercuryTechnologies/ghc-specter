@@ -180,3 +180,8 @@ ul.tree span::before {
     width: 10px;
     background: black;
 }
+
+.core-expr {
+    margin-left: 10px;
+    border-left: dashed 1px black;
+}

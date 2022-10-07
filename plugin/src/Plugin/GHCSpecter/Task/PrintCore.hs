@@ -28,11 +28,6 @@ import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 
-{-
-data SemiExpr = Bind
-              | Other (Text, Text)
--}
-
 getOccNameDynamically ::
   forall t a.
   (Typeable t, NamedThing t, Data a) =>

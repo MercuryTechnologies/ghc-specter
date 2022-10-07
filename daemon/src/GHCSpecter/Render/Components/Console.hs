@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module GHCSpecter.Render.Components.Console
   ( render,
   )
@@ -17,7 +19,7 @@ import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Tree (drawForest)
+import Data.Tree (Tree (..), drawTree, foldTree)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -38,6 +40,36 @@ import GHCSpecter.Util.Map
   )
 import Prelude hiding (div)
 
+data Expr
+  = Bind Text Expr
+  | --   | Let
+    Other (Text, Text) [Expr]
+  deriving (Show)
+
+toExpr :: Tree (Text, Text) -> Either Text Expr
+toExpr (Node x []) = Right (Other x [])
+toExpr (Node x xs) = do
+  let (typ, val) = x
+  if typ == "Bind"
+    then do
+      case xs of
+        Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] -> do
+          if (vtyp == "Var" && etyp == "Expr")
+            then Bind vval <$> toExpr e
+            else Left "Bind, not (Var, Expr)"
+        _ -> Left "Bind, not 2 children"
+    else Other x <$> traverse toExpr xs
+
+renderExpr :: Expr -> Widget IHTML a
+renderExpr tr = go tr
+  where
+    go (Bind var exp) =
+      let content = pre [] [text var]
+       in divClass "core-expr" [] [content, go exp]
+    go (Other (typ, val) ys) =
+      let content = pre [] [text (T.pack (show (typ, val)))]
+       in divClass "core-expr" [] (content : fmap go ys)
+
 renderConsoleItem :: ConsoleItem -> Widget IHTML a
 renderConsoleItem (ConsoleText txt) =
   divClass
@@ -51,12 +83,17 @@ renderConsoleItem (ConsoleCore forest) =
     "console-item"
     []
     [ div [style [("width", "10px")]] [text "<"]
-    , pre [] [text txt]
+    , div
+        []
+        renderedForest
     ]
   where
     -- for now, show first 3 items
-    txt = T.pack . drawForest . fmap (fmap show) $ take 3 forest
-    
+    forest' = take 3 forest
+    renderErr err = div [] [pre [] [text err]]
+    renderedForest =
+      fmap ((\case Left err -> renderErr err; Right e -> renderExpr e) . toExpr) forest'
+
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
