@@ -69,6 +69,8 @@ data Expr
   | Lam Id Expr
   | Let Bind Expr
   | Case Expr Id Expr [Alt]
+  | Cast Expr Expr
+  | Type Expr
   | Other (Text, Text) [Expr]
   deriving (Show)
 
@@ -184,12 +186,21 @@ toExpr x@(Node (typ, val) xs)
                     <*> toVar id_
                     <*> toExpr typ
                     <*> (traverse toAlt =<< toListTree altsExp)
-                _ -> Left "Case, less than 3 children"
+                _ -> Left "Case, not 4 children"
+          | val == "Cast" ->
+              case xs of
+                e1 : e2 : [] ->
+                  Cast <$> toExpr e1 <*> toExpr e2
+                _ -> Left "Cast, not 2 children"
+          | val == "Type" ->
+              case xs of
+                t : [] -> Type <$> toExpr t
+                _ -> Left "Type, not 1 child"
           | otherwise ->
               Other (typ, val) <$> traverse toExpr xs
   -- TODO: implement toType, toCoercion ..
   --  | typ == "Type" = Other (typ, val) <$> traverse toExpr xs
-  | otherwise = Other (typ, val) <$> traverse toExpr xs -- Left "Not Expr"
+  | otherwise = Other (typ, val) <$> traverse toExpr xs
 
 renderTopBind :: Bind -> Widget IHTML a
 renderTopBind bind = goB 0 bind
@@ -283,6 +294,12 @@ renderTopBind bind = goB 0 bind
               expEl = goE (lvl + 1) exp
            in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
         Case scrut id_ typ alts -> goCase lvl scrut id_ typ alts
+        -- ignore Coercion for now
+        -- TODO: will be available as user asks.
+        Cast e _ -> goE lvl e
+        -- ignore Type for now
+        -- TODO: will be available as user asks.
+        Type _ -> divClass (cls lvl) [] [text "Type"]
         Other (typ, val) ys ->
           let content = pre [] [text (T.pack (show (typ, val)))]
            in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)
