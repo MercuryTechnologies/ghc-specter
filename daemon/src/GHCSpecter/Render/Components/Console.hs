@@ -326,7 +326,8 @@ renderConsoleItem (ConsoleCore forest) =
     forest' = take 3 forest
     renderErr err = divClass "error" [] [pre [] [text err]]
     render1 tr =
-      let txt = T.pack $ drawTree $ fmap show tr
+      let -- for debug
+          -- txt = T.pack $ drawTree $ fmap show tr
           ebind = toBind tr
           rendered =
             case ebind of
@@ -335,8 +336,9 @@ renderConsoleItem (ConsoleCore forest) =
        in divClass
             "nomargin"
             []
-            [ divClass "noinline" [] [pre [] [text txt]]
-            , divClass "noinline" [] [rendered]
+            [ -- for debug
+              -- divClass "noinline" [] [pre [] [text txt]],
+              divClass "noinline" [] [rendered]
             ]
     renderedForest = fmap render1 forest'
 
