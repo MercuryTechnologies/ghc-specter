@@ -9,10 +9,6 @@ module GHCSpecter.Data.GHC.Core
     Alt (..),
     Expr (..),
 
-    -- * property check
-    isInlineable,
-    doesNeedParens,
-
     -- * conversion
     toListTree,
     toVar,
@@ -60,19 +56,6 @@ data Expr
   | Type Expr
   | Other (Text, Text) [Expr]
   deriving (Show)
-
-isInlineable :: Expr -> Bool
-isInlineable (Var _) = True
-isInlineable (Lit _) = True
-isInlineable (App e1 e2) = isInlineable e1 && isInlineable e2
-isInlineable (Type _) = True
-isInlineable _ = False
-
-doesNeedParens :: Expr -> Bool
-doesNeedParens (Var _) = False
-doesNeedParens (Lit _) = False
-doesNeedParens (Type _) = False
-doesNeedParens _ = True
 
 toListTree :: Tree (Text, Text) -> Either Text [Tree (Text, Text)]
 toListTree (Node (typ, val) xs)
