@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.Hie
+module GHCSpecter.Data.GHC.Hie
   ( -- * Row data for Hie
     RefRow' (..),
     HasRefRow' (..),

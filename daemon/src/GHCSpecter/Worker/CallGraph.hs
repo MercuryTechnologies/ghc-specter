@@ -47,7 +47,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Data.Hie
+import GHCSpecter.Data.GHC.Hie
   ( HasDeclRow' (..),
     HasModuleHieInfo (..),
     HasRefRow' (..),

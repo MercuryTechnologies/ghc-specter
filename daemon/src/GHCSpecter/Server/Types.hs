@@ -42,7 +42,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     emptyModuleGraphInfo,
   )
-import GHCSpecter.Data.Hie (ModuleHieInfo)
+import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
 import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)

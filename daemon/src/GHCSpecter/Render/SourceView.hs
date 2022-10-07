@@ -23,7 +23,7 @@ import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
     SessionInfo (..),
   )
-import GHCSpecter.Data.Hie (HasModuleHieInfo (..), ModuleHieInfo)
+import GHCSpecter.Data.GHC.Hie (HasModuleHieInfo (..), ModuleHieInfo)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types

@@ -24,7 +24,7 @@ import GHC.Iface.Ext.Binary
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
 import GHC.Iface.Ext.Utils (generateReferencesMap)
 import GHC.Types.Name.Cache (initNameCache)
-import GHCSpecter.Data.Hie
+import GHCSpecter.Data.GHC.Hie
   ( DeclRow' (..),
     DefRow' (..),
     HasModuleHieInfo (..),
