@@ -40,49 +40,64 @@ import GHCSpecter.Util.Map
   )
 import Prelude hiding (div)
 
-type Var = Text
-
 -- TODO: eventually these will be isomorphic to CoreExpr
 
-data Bind = Bind Var Expr
+newtype Id = Id {unId :: Text}
+  deriving (Show)
+
+data Bind = Bind Id Expr
   deriving (Show)
 
 data Expr
-  = -- BindExpr Bind
-    Lam Var Expr
+  = Var Id
+  | Lam Id Expr
   | Let Bind Expr
-  | -- | App Expr Expr
-    Other (Text, Text) [Expr]
+  | App Expr Expr
+  | Other (Text, Text) [Expr]
   deriving (Show)
+
+-- Var is Id
+toVar :: Tree (Text, Text) -> Either Text Id
+toVar (Node (typ, val) xs)
+  | typ == "Var" && null xs = pure (Id val)
+  | otherwise = Left "Not Id"
 
 toBind :: Tree (Text, Text) -> Either Text Bind
 toBind (Node (typ, val) xs)
   | typ == "Bind" =
-      -- TODO: should handle recursive case
       case xs of
-        Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] ->
-          if (vtyp == "Var" && etyp == "Expr")
-            then Bind vval <$> toExpr e
-            else Left "Bind, not (Var, Expr)"
+        v : e : [] -> Bind <$> toVar v <*> toExpr e
+        -- TODO: should handle recursive case
         _ -> Left "Bind, not 2 children"
   | otherwise = Left "not Bind"
 
 toExpr :: Tree (Text, Text) -> Either Text Expr
 toExpr x@(Node (typ, val) xs)
-  | typ == "Expr" && val == "Lam" = do
-      case xs of
-        Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] ->
-          if (vtyp == "Var" && etyp == "Expr")
-            then Lam vval <$> toExpr e
-            else Left "Lam, not (Var, Expr)"
-        _ -> Left "Lam, not 2 children"
-  | typ == "Expr" && val == "Let" = do
-      case xs of
-        b : e : [] ->
-          Let <$> toBind b <*> toExpr e
-        _ -> Left "Lam, not 2 children"
-  | otherwise =
-      Other (typ, val) <$> traverse toExpr xs
+  | typ == "Expr" =
+      if
+          | val == "Var" -> do
+              case xs of
+                v : [] -> Var <$> toVar v
+                _ -> Left "Var, not 1 child"
+          | val == "Lam" -> do
+              case xs of
+                v : e : [] -> Lam <$> toVar v <*> toExpr e
+                _ -> Left "Lam, not 2 children"
+          | val == "Let" -> do
+              case xs of
+                b : e : [] ->
+                  Let <$> toBind b <*> toExpr e
+                _ -> Left "Lam, not 2 children"
+          | val == "App" -> do
+              case xs of
+                e1 : e2 : [] ->
+                  App <$> toExpr e1 <*> toExpr e2
+                _ -> Left "App, not 2 children"
+          | otherwise ->
+              Other (typ, val) <$> traverse toExpr xs
+  -- TODO: implement toType, toCoercion ..
+  --  | typ == "Type" = Other (typ, val) <$> traverse toExpr xs
+  | otherwise = Other (typ, val) <$> traverse toExpr xs -- Left "Not Expr"
 
 renderTopBind :: Bind -> Widget IHTML a
 renderTopBind bind = goB 0 bind
@@ -90,33 +105,45 @@ renderTopBind bind = goB 0 bind
     cls l = if l == 0 then "core-expr top" else "core-expr"
 
     goB lvl (Bind var exp) =
-      let varEl = pre [classList [("core-expr-inline", True)]] [text var]
+      let varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
           eqEl = divClass "core-expr-inline eq" [] [text "="]
           expEl = goE (lvl + 1) exp
        in divClass (cls lvl) [] [varEl, eqEl, expEl]
 
     goE lvl expr =
-      let -- for now, show first 3 items
-
-          -- This is a hack. Property update should be supported by concur-replica.
-          -- TODO: implement prop update in internalized concur-replica.
-
-       in case expr of
-            Lam var exp ->
-              let lambdaEl = divClass "core-expr-inline lambda" [] [text "\\"]
-                  varEl = pre [classList [("core-expr-inline", True)]] [text var]
-                  arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
-                  expEl = goE (lvl + 1) exp
-               in divClass (cls lvl) [] [lambdaEl, varEl, arrowEl, expEl]
-            Let bind exp ->
-              let letEl = divClass "core-expr-inline" [] [text "let"]
-                  bindEl = goB (lvl + 1) bind
-                  inEl = divClass "core-expr-inline" [] [text "in"]
-                  expEl = goE (lvl + 1) exp
-               in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
-            Other (typ, val) ys ->
-              let content = pre [] [text (T.pack (show (typ, val)))]
-               in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)
+      case expr of
+        Var var -> divClass (cls lvl) [] [pre [] [text (unId var)]]
+        Lam var exp ->
+          let lambdaEl = divClass "core-expr-inline lambda" [] [text "\\"]
+              varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
+              arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
+              expEl = goE (lvl + 1) exp
+           in divClass (cls lvl) [] [lambdaEl, varEl, arrowEl, expEl]
+        Let bind exp ->
+          let letEl = divClass "core-expr-inline" [] [text "let"]
+              bindEl = goB (lvl + 1) bind
+              inEl = divClass "core-expr-inline" [] [text "in"]
+              expEl = goE (lvl + 1) exp
+           in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
+        -- special treatment for readability
+        App (Var v1) (Var v2) ->
+          let v1El = divClass "core-expr-inline" [] [text (unId v1)]
+              v2El = divClass "core-expr-inline" [] [text (unId v2)]
+           in divClass (cls lvl) [] [v1El, v2El]
+        App (Var v1) e2 ->
+          let v1El = divClass "core-expr-inline" [] [text (unId v1)]
+              parenLEl = divClass "core-expr-inline" [] [text "("]
+              parenREl = divClass "core-expr-inline" [] [text ")"]
+              e2El = goE (lvl + 1) e2
+           in divClass (cls lvl) [] [v1El, parenLEl, e2El, parenREl]
+        App e1 e2 ->
+          let appEl = divClass "core-expr-inline" [] [text "App"]
+              e1El = goE (lvl + 1) e1
+              e2El = goE (lvl + 1) e2
+           in divClass (cls lvl) [] [appEl, e1El, e2El]
+        Other (typ, val) ys ->
+          let content = pre [] [text (T.pack (show (typ, val)))]
+           in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)
 
 renderConsoleItem :: ConsoleItem -> Widget IHTML a
 renderConsoleItem (ConsoleText txt) =
@@ -177,6 +204,8 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
     consoleContent =
       let mtxts = mfocus >>= (`lookupKey` contents)
 
+          -- This is a hack. Property update should be supported by concur-replica.
+          -- TODO: implement prop update in internalized concur-replica.
           scriptContent =
             script
               []
