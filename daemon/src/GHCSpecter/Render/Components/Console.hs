@@ -16,6 +16,8 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Tree (drawTree)
 import GHCSpecter.Data.GHC.Core (toBind)
 import GHCSpecter.Render.Components.GHCCore (renderTopBind)
 import GHCSpecter.Render.Util (divClass)
@@ -62,12 +64,11 @@ renderConsoleItem (ConsoleCore forest) =
             case ebind of
               Left err -> renderErr err
               Right bind -> renderTopBind bind
-       in divClass
-            "nomargin"
-            []
+       in div
+            [style [("display", "inline-block"), ("margin", "0"), ("padding", "0")]]
             [ -- for debug
-              -- divClass "noinline" [] [pre [] [text txt]],
-              divClass "noinline" [] [rendered]
+              -- divClass "noinline" [] [pre [] [text txt]]
+              div [style [("display", "block")]] [rendered]
             ]
     renderedForest = fmap render1 forest'
 

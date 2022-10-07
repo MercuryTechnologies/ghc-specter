@@ -15,11 +15,12 @@ import Data.Typeable (Typeable)
 import GHC.Core.Class (Class)
 import GHC.Core.ConLike (ConLike)
 import GHC.Core.DataCon (DataCon)
-import GHC.Core.Opt.Monad (CoreM)
+import GHC.Core.Opt.Monad (CoreM, getDynFlags)
 import GHC.Core.PatSyn (PatSyn)
 import GHC.Core.TyCon (TyCon)
 import GHC.Data.FastString (FastString (..))
-import GHC.Types.Name (Name, NamedThing (getOccName), OccName)
+import GHC.Driver.Session (DynFlags)
+import GHC.Types.Name (Name, NamedThing (..), OccName)
 import GHC.Types.Name.Occurrence (occNameString)
 import GHC.Types.SrcLoc (RealSrcSpan, SrcSpan)
 import GHC.Types.Var (Var)
@@ -27,6 +28,7 @@ import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
+import GHCSpecter.Util.GHC (showPpr)
 
 getOccNameDynamically ::
   forall t a.
@@ -39,6 +41,18 @@ getOccNameDynamically _ x =
       my = cast x
    in fmap (T.pack . occNameString . getOccName) my
 
+getNameDynamically ::
+  forall t a.
+  (Typeable t, NamedThing t, Data a) =>
+  Proxy t ->
+  DynFlags ->
+  a ->
+  Maybe Text
+getNameDynamically _ dflags x =
+  let my :: Maybe t
+      my = cast x
+   in fmap (T.pack . showPpr dflags . getName) my
+
 -- NOTE: a few data types used in Core has partial toConstr (Data.ByteString.ByteString)
 -- or abstractConstr, which causes an exception or not inspectable expression
 -- after conversion.
@@ -46,8 +60,8 @@ getOccNameDynamically _ x =
 -- in such cases and do not proceed the conversion to the children of the node.
 
 -- | Left: ordinary node, Right: extract and do not proceed to the children
-getContent :: forall a. Data a => a -> (Text, Either Text (Maybe Text))
-getContent x = (T.pack dtypName, evalue)
+getContent :: forall a. Data a => DynFlags -> a -> (Text, Either Text (Maybe Text))
+getContent dflags x = (T.pack dtypName, evalue)
   where
     dtyp = dataTypeOf x
     dtypName = dataTypeName dtyp
@@ -91,21 +105,24 @@ getContent x = (T.pack dtypName, evalue)
       | dtypName == "Unit" =
           let my :: Maybe Unit = cast x
            in Right $ fmap (T.pack . unitString . toUnitId) my
-      | dtypName == "Var" = Right $ getOccNameDynamically (Proxy @Var) x
+      -- NOTE: OccName is not enough for distinguishing Var's.
+      -- Using ppr, "_(uniq symbol)" suffix is added.
+      | dtypName == "Var" = Right $ getNameDynamically (Proxy @Var) dflags x
       | otherwise = Left (T.pack (show (toConstr x)))
 
-core2tree :: forall a. Data a => a -> Tree (Text, Text)
-core2tree a =
-  case getContent a of
+core2tree :: forall a. Data a => DynFlags -> a -> Tree (Text, Text)
+core2tree dflags a =
+  case getContent dflags a of
     (typ, Left val) -> Node (typ, val) (getConst (gfoldl k z a))
     (typ, Right (Just val)) -> Node (typ, val) []
     (typ, Right Nothing) -> Node (typ, "#######") []
   where
     z _ = Const []
-    k (Const acc) x = Const (acc ++ [core2tree x])
+    k (Const acc) x = Const (acc ++ [core2tree dflags x])
 
 printCore :: ModGuts -> CoreM ConsoleReply
 printCore guts = do
+  dflags <- getDynFlags
   let binds = mg_binds guts
-      forest = fmap core2tree binds
+      forest = fmap (core2tree dflags) binds
   pure (ConsoleReplyCore forest)

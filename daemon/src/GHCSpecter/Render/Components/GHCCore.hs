@@ -13,8 +13,6 @@ import GHCSpecter.Data.GHC.Core
     Expr (..),
     Id (..),
     Literal (..),
-    doesNeedParens,
-    isInlineable,
   )
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -24,6 +22,19 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
+
+isInlineable :: Expr -> Bool
+isInlineable (Var _) = True
+isInlineable (Lit _) = True
+isInlineable (App e1 e2) = isInlineable e1 && isInlineable e2
+isInlineable (Type _) = True
+isInlineable _ = False
+
+doesNeedParens :: Expr -> Bool
+doesNeedParens (Var _) = False
+doesNeedParens (Lit _) = False
+doesNeedParens (Type _) = False
+doesNeedParens _ = True
 
 renderTopBind :: Bind -> Widget IHTML a
 renderTopBind bind = goB 0 bind
@@ -39,36 +50,50 @@ renderTopBind bind = goB 0 bind
       | otherwise = [rendered]
 
     goB :: Int -> Bind -> Widget IHTML a
-    goB lvl (Bind var expr) =
-      let varEl = span [] [text (unId var)]
-          expEl = goE (lvl + 1) expr
-       in divClass (cls lvl) [] [varEl, eqEl, expEl]
+    goB lvl b =
+      case b of
+        NonRec var expr -> goB1 lvl (var, expr)
+        Rec bs -> divClass (cls lvl) [] (fmap (goB1 (lvl + 1)) bs)
+      where
+        goB1 lvl' (var', expr') =
+          let varEl = span [] [text (unId var')]
+              expEl = goE (lvl' + 1) expr'
+           in divClass (cls lvl') [] [varEl, space, eqEl, space, expEl]
 
     goApp lvl e1 e2
-      | isInlineable e1 && isInlineable e2 =
-          let e1El = span [] [goE lvl e1]
-              e2El = span [] [goE lvl e2]
-           in span [] (wrapParen (e1, e1El) ++ [space] ++ wrapParen (e2, e2El))
       | isInlineable e1 =
-          let e1El = span [] [goE lvl e1]
-              e2El = goE (lvl + 1) e2
-           in divClass
-                (cls lvl)
-                []
-                (wrapParen (e1, e1El) ++ [space, parenLEl, e2El, parenREl])
+          let e1El = span [] $
+                case e1 of
+                  -- simplify as curry
+                  App e1' e2' -> [goApp lvl e1' e2']
+                  _ -> [goE lvl e1]
+           in if isInlineable e2
+                then
+                  let e2El = span [] [goE lvl e2]
+                   in span [] ([e1El, space] ++ wrapParen (e2, e2El))
+                else
+                  let e2El = goE (lvl + 2) e2
+                   in divClass
+                        (cls lvl)
+                        []
+                        (wrapParen (e1, e1El) ++ [divClass (cls (lvl + 1)) [] (wrapParen (e2, e2El))])
       | otherwise =
+          -- NOTE: Indent applied argument one level further than applying function.
           let e1El = goE (lvl + 1) e1
-              e2El = goE (lvl + 1) e2
+              e2El = goE (lvl + 2) e2
            in divClass
                 (cls lvl)
                 []
                 [ parenLEl
                 , e1El
                 , parenREl
-                , space
-                , parenLEl
-                , e2El
-                , parenREl
+                , divClass
+                    (cls (lvl + 1))
+                    []
+                    [ parenLEl
+                    , e2El
+                    , parenREl
+                    ]
                 ]
 
     goAlt lvl (Alt con ids expr) =
