@@ -197,18 +197,34 @@ ul.tree span::before {
     padding: 0;
 }
 
-.bind {
+.core-expr-inline {
     margin: 0;
     padding: 0;
     display: inline-block;
     vertical-align: top;
 }
 
-.lam {
+/* .lam {
     margin: 0;
     padding: 0;
     display: inline-block;
     vertical-align: top;
+} */
+
+/* common */
+
+.error {
+    background: orange;
+    border: solid 1px black;
+}
+
+.nomargin {
+    margin: 0;
+    padding: 0;
+}
+
+.noinline {
+    display: block;
 }
 
 /* symbols */
