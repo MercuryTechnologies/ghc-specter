@@ -23,15 +23,14 @@ import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
     SessionInfo (..),
   )
+import GHCSpecter.Data.GHC.Hie (HasModuleHieInfo (..), ModuleHieInfo)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
-    HasModuleHieInfo (..),
     HasServerState (..),
     Inbox,
-    ModuleHieInfo,
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM

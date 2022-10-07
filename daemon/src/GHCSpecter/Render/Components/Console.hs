@@ -16,7 +16,10 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
+import GHCSpecter.Data.GHC.Core (toBind)
+import GHCSpecter.Render.Components.GHCCore (renderTopBind)
 import GHCSpecter.Render.Util (divClass)
+import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     el,
@@ -35,10 +38,43 @@ import GHCSpecter.Util.Map
   )
 import Prelude hiding (div)
 
+renderConsoleItem :: ConsoleItem -> Widget IHTML a
+renderConsoleItem (ConsoleText txt) =
+  divClass
+    "console-item"
+    []
+    [ div [style [("width", "10px")]] [text "<"]
+    , pre [] [text txt]
+    ]
+renderConsoleItem (ConsoleCore forest) =
+  divClass
+    "console-item"
+    []
+    (divClass "langle" [] [text "<"] : renderedForest)
+  where
+    forest' = take 3 forest
+    renderErr err = divClass "error" [] [pre [] [text err]]
+    render1 tr =
+      let -- for debug
+          -- txt = T.pack $ drawTree $ fmap show tr
+          ebind = toBind tr
+          rendered =
+            case ebind of
+              Left err -> renderErr err
+              Right bind -> renderTopBind bind
+       in divClass
+            "nomargin"
+            []
+            [ -- for debug
+              -- divClass "noinline" [] [pre [] [text txt]],
+              divClass "noinline" [] [rendered]
+            ]
+    renderedForest = fmap render1 forest'
+
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
-  KeyMap k [Text] ->
+  KeyMap k [ConsoleItem] ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
@@ -62,13 +98,6 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
         [navbarMenu [navbarStart (fmap navItem tabs)]]
     consoleContent =
       let mtxts = mfocus >>= (`lookupKey` contents)
-          makeConsoleItem txt =
-            divClass
-              "console-item"
-              []
-              [ div [style [("width", "10px")]] [text "<"]
-              , pre [] [text txt]
-              ]
 
           -- This is a hack. Property update should be supported by concur-replica.
           -- TODO: implement prop update in internalized concur-replica.
@@ -93,7 +122,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
                 , ("overflow", "scroll")
                 ]
             ]
-            (scriptContent : fmap makeConsoleItem (join (maybeToList mtxts)))
+            (scriptContent : fmap renderConsoleItem (join (maybeToList mtxts)))
     consoleInput =
       divClass
         "console-input"

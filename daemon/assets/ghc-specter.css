@@ -180,3 +180,59 @@ ul.tree span::before {
     width: 10px;
     background: black;
 }
+
+
+.core-expr {
+    margin-left: 10px;
+    border-left: dotted 0.3px black;
+}
+
+.core-expr.top {
+    margin-left: 0;
+    border-left: none;
+}
+
+.core-expr > pre {
+    margin: 0;
+    padding: 0;
+}
+
+.error {
+    background: orange;
+    border: solid 1px black;
+}
+
+.nomargin {
+    margin: 0;
+    padding: 0;
+}
+
+.noinline {
+    display: block;
+}
+
+/* symbols */
+
+.langle {
+    width: 10px;
+}
+
+.eq {
+    width: 3px;
+}
+
+.lambda {
+    width: 3px;
+}
+
+.arrow {
+    width: 6px;
+}
+
+.paren {
+    width: 3px;
+}
+
+.space {
+    width: 3px;
+}
