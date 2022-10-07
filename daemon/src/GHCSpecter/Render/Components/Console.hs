@@ -21,7 +21,7 @@ import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..), drawTree, foldTree)
-import GHCSpecter.Render.Util (divClass)
+import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
@@ -30,6 +30,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     nav,
     pre,
     script,
+    span,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
@@ -39,7 +40,7 @@ import GHCSpecter.Util.Map
     KeyMap,
     lookupKey,
   )
-import Prelude hiding (div)
+import Prelude hiding (div, span)
 
 -- TODO: eventually these will be isomorphic to CoreExpr
 
@@ -79,11 +80,13 @@ isInlineable :: Expr -> Bool
 isInlineable (Var _) = True
 isInlineable (Lit _) = True
 isInlineable (App e1 e2) = isInlineable e1 && isInlineable e2
+isInlineable (Type _) = True
 isInlineable _ = False
 
 doesNeedParen :: Expr -> Bool
 doesNeedParen (Var _) = False
 doesNeedParen (Lit _) = False
+doesNeedParen (Type _) = False
 doesNeedParen _ = True
 
 toListTree :: Tree (Text, Text) -> Either Text [Tree (Text, Text)]
@@ -207,37 +210,34 @@ renderTopBind :: Bind -> Widget IHTML a
 renderTopBind bind = goB 0 bind
   where
     cls l = if l == 0 then "core-expr top" else "core-expr"
-    space = divClass "core-expr-inline space" [] []
-    parenLEl = divClass "core-expr-inline paren" [] [text "("]
-    parenREl = divClass "core-expr-inline paren" [] [text ")"]
+    space = spanClass "space" [] [text " "]
+    eqEl = spanClass "eq" [] [text "="]
+    parenLEl = spanClass "paren" [] [text "("]
+    parenREl = spanClass "paren" [] [text ")"]
+
     wrapParen (e, rendered)
       | doesNeedParen e = [parenLEl, rendered, parenREl]
       | otherwise = [rendered]
 
     goB lvl (Bind var exp) =
-      let varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
-          eqEl = divClass "core-expr-inline eq" [] [text "="]
+      let varEl = span [] [text (unId var)]
           expEl = goE (lvl + 1) exp
        in divClass (cls lvl) [] [varEl, eqEl, expEl]
 
     goApp lvl e1 e2
       | isInlineable e1 && isInlineable e2 =
-          let e1El = divClass "core-expr-inline" [] [goE lvl e1]
-              space = divClass "core-expr-inline space" [] []
-              e2El = divClass "core-expr-inline" [] [goE lvl e2]
-           in divClass
-                (cls lvl)
-                []
-                (wrapParen (e1, e1El) ++ [space] ++ wrapParen (e2, e2El))
+          let e1El = span [] [goE lvl e1]
+              e2El = span [] [goE lvl e2]
+           in span [] (wrapParen (e1, e1El) ++ [space] ++ wrapParen (e2, e2El))
       | isInlineable e1 =
-          let e1El = divClass "core-expr-inline" [] [goE lvl e1]
+          let e1El = span [] [goE lvl e1]
               e2El = goE (lvl + 1) e2
            in divClass
                 (cls lvl)
                 []
-                (wrapParen (e1, e1El) ++ [parenLEl, e2El, parenREl])
+                (wrapParen (e1, e1El) ++ [space, parenLEl, e2El, parenREl])
       | otherwise =
-          let appEl = divClass "core-expr-inline" [] [text "App"]
+          let appEl = span [] [text "App"]
               e1El = goE (lvl + 1) e1
               e2El = goE (lvl + 1) e2
            in divClass
@@ -246,6 +246,7 @@ renderTopBind bind = goB 0 bind
                 [ parenLEl
                 , e1El
                 , parenREl
+                , space
                 , parenLEl
                 , e2El
                 , parenREl
@@ -258,9 +259,9 @@ renderTopBind bind = goB 0 bind
               LitAlt (LitString txt) -> txt
               LitAlt _ -> "LitOther"
               DEFAULT -> "DEFAULT"
-          conEl = divClass "core-expr-inline" [] [text conTxt]
-          idsEl = fmap (\i -> divClass "core-expr-inline" [] [text (unId i)]) ids
-          arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
+          conEl = span [] [text conTxt]
+          idsEl = fmap (\i -> span [] [text (unId i)]) ids
+          arrowEl = spanClass "arrow" [] [text "->"]
           expEl = goE (lvl + 1) expr
        in divClass
             (cls lvl)
@@ -268,33 +269,32 @@ renderTopBind bind = goB 0 bind
             (L.intersperse space ((conEl : idsEl) ++ [arrowEl, expEl]))
 
     goCase lvl scrut _i _t alts =
-      let caseEl = divClass "core-expr-inline" [] [text "case"]
-          ofEl = divClass "core-expr-inline" [] [text "of"]
+      let caseEl = span [] [text "case"]
+          ofEl = span [] [text "of"]
           scrutEl = goE (lvl + 1) scrut
           altEls = fmap (goAlt (lvl + 1)) alts
-       in divClass (cls lvl) [] ([caseEl, scrutEl, ofEl] ++ altEls)
+       in divClass (cls lvl) [] ([caseEl, space, scrutEl, space, ofEl] ++ altEls)
 
     goE lvl expr =
       case expr of
-        Var var ->
-          pre [style [("margin", "0"), ("padding", "0")]] [text (unId var)]
+        Var var -> span [] [text (unId var)]
         -- special treatment for readability
         Lit (LitString txt) ->
           let txt' = "\"" <> txt <> "\""
-           in pre [style [("margin", "0"), ("padding", "0")]] [text txt']
+           in span [] [text txt']
         Lit (LitOther e) ->
           goE lvl e
         App e1 e2 -> goApp lvl e1 e2
         Lam var exp ->
-          let lambdaEl = divClass "core-expr-inline lambda" [] [text "\\"]
-              varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
-              arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
+          let lambdaEl = spanClass "lambda" [] [text "\\"]
+              varEl = span [] [text (unId var)]
+              arrowEl = spanClass "arrow" [] [text "->"]
               expEl = goE (lvl + 1) exp
            in divClass (cls lvl) [] [lambdaEl, varEl, arrowEl, expEl]
         Let bind exp ->
-          let letEl = divClass "core-expr-inline" [] [text "let"]
+          let letEl = span [] [text "let"]
               bindEl = goB (lvl + 1) bind
-              inEl = divClass "core-expr-inline" [] [text "in"]
+              inEl = span [] [text "in"]
               expEl = goE (lvl + 1) exp
            in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
         Case scrut id_ typ alts -> goCase lvl scrut id_ typ alts
@@ -303,7 +303,7 @@ renderTopBind bind = goB 0 bind
         Cast e _ -> goE lvl e
         -- ignore Type for now
         -- TODO: will be available as user asks.
-        Type _ -> divClass (cls lvl) [] [text "Type"]
+        Type _ -> span [] [text "Type"]
         Other (typ, val) ys ->
           let content = pre [] [text (T.pack (show (typ, val)))]
            in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)

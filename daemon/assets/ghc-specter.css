@@ -184,7 +184,7 @@ ul.tree span::before {
 
 .core-expr {
     margin-left: 10px;
-    border-left: dashed 1px black;
+    border-left: dotted 0.3px black;
 }
 
 .core-expr.top {
@@ -196,22 +196,6 @@ ul.tree span::before {
     margin: 0;
     padding: 0;
 }
-
-.core-expr-inline {
-    margin: 0;
-    padding: 0;
-    display: inline-block;
-    vertical-align: top;
-}
-
-/* .lam {
-    margin: 0;
-    padding: 0;
-    display: inline-block;
-    vertical-align: top;
-} */
-
-/* common */
 
 .error {
     background: orange;
@@ -234,21 +218,21 @@ ul.tree span::before {
 }
 
 .eq {
-    width: 5px;
+    width: 3px;
 }
 
 .lambda {
-    width: 5px;
+    width: 3px;
 }
 
 .arrow {
-    width: 10px;
+    width: 6px;
 }
 
 .paren {
-    width: 10px;
+    width: 3px;
 }
 
 .space {
-    width: 10px;
+    width: 3px;
 }
