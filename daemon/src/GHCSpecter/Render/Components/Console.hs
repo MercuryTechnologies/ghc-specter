@@ -16,6 +16,7 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
+import Data.List qualified as L
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -59,7 +60,7 @@ data AltCon
   | DEFAULT
   deriving (Show)
 
-data Alt = Alt AltCon [Expr] Expr
+data Alt = Alt AltCon [Id] Expr
   deriving (Show)
 
 data Expr
@@ -147,7 +148,7 @@ toAlt (Node (typ, _val) xs)
         a : is : e : [] ->
           Alt
             <$> toAltCon a
-            <*> (traverse toExpr =<< toListTree is)
+            <*> (traverse toVar =<< toListTree is)
             <*> toExpr e
         _ -> Left "Alt: not 3 children"
   | otherwise = Left "not Alt"
@@ -250,18 +251,21 @@ renderTopBind bind = goB 0 bind
                 , parenREl
                 ]
 
-    goAlt lvl (Alt con is expr) =
+    goAlt lvl (Alt con ids expr) =
       let conTxt =
             case con of
               DataAlt txt -> txt
               LitAlt (LitString txt) -> txt
               LitAlt _ -> "LitOther"
               DEFAULT -> "DEFAULT"
-
           conEl = divClass "core-expr-inline" [] [text conTxt]
+          idsEl = fmap (\i -> divClass "core-expr-inline" [] [text (unId i)]) ids
           arrowEl = divClass "core-expr-inline arrow" [] [text "->"]
           expEl = goE (lvl + 1) expr
-       in divClass (cls lvl) [] [conEl, space, arrowEl, space, expEl]
+       in divClass
+            (cls lvl)
+            []
+            (L.intersperse space ((conEl : idsEl) ++ [arrowEl, expEl]))
 
     goCase lvl scrut _i _t alts =
       let caseEl = divClass "core-expr-inline" [] [text "case"]
