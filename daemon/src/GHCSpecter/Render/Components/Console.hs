@@ -48,13 +48,24 @@ newtype Id = Id {unId :: Text}
 data Bind = Bind Id Expr
   deriving (Show)
 
+data Literal
+  = LitString Text
+  | LitOther Expr
+  deriving (Show)
+
 data Expr
   = Var Id
+  | Lit Literal
+  | App Expr Expr
   | Lam Id Expr
   | Let Bind Expr
-  | App Expr Expr
   | Other (Text, Text) [Expr]
   deriving (Show)
+
+isInlineable :: Expr -> Bool
+isInlineable (Var _) = True
+isInlineable (Lit _) = True
+isInlineable _ = False
 
 -- Var is Id
 toVar :: Tree (Text, Text) -> Either Text Id
@@ -71,6 +82,14 @@ toBind (Node (typ, val) xs)
         _ -> Left "Bind, not 2 children"
   | otherwise = Left "not Bind"
 
+toLiteral :: Tree (Text, Text) -> Either Text Literal
+toLiteral x@(Node (typ, val) xs)
+  | typ == "Literal" && val == "LitString" =
+      case xs of
+        (Node (styp, sval) []) : [] -> pure (LitString sval)
+        _ -> Left "LitStrign, not 1 child"
+  | otherwise = LitOther <$> toExpr x
+
 toExpr :: Tree (Text, Text) -> Either Text Expr
 toExpr x@(Node (typ, val) xs)
   | typ == "Expr" =
@@ -79,6 +98,15 @@ toExpr x@(Node (typ, val) xs)
               case xs of
                 v : [] -> Var <$> toVar v
                 _ -> Left "Var, not 1 child"
+          | val == "Lit" -> do
+              case xs of
+                l : [] -> Lit <$> toLiteral l
+                _ -> Left "Lit, not 1 child"
+          | val == "App" -> do
+              case xs of
+                e1 : e2 : [] ->
+                  App <$> toExpr e1 <*> toExpr e2
+                _ -> Left "App, not 2 children"
           | val == "Lam" -> do
               case xs of
                 v : e : [] -> Lam <$> toVar v <*> toExpr e
@@ -88,11 +116,6 @@ toExpr x@(Node (typ, val) xs)
                 b : e : [] ->
                   Let <$> toBind b <*> toExpr e
                 _ -> Left "Lam, not 2 children"
-          | val == "App" -> do
-              case xs of
-                e1 : e2 : [] ->
-                  App <$> toExpr e1 <*> toExpr e2
-                _ -> Left "App, not 2 children"
           | otherwise ->
               Other (typ, val) <$> traverse toExpr xs
   -- TODO: implement toType, toCoercion ..
@@ -110,9 +133,40 @@ renderTopBind bind = goB 0 bind
           expEl = goE (lvl + 1) exp
        in divClass (cls lvl) [] [varEl, eqEl, expEl]
 
+    space = divClass "core-expr-inline space" [] []
+
+    renderApp lvl e1 e2
+      | isInlineable e1 && isInlineable e2 =
+          let e1El = divClass "core-expr-inline" [] [goE lvl e1]
+              space = divClass "core-expr-inline space" [] []
+              e2El = divClass "core-expr-inline" [] [goE lvl e2]
+           in divClass (cls lvl) [] [e1El, space, e2El]
+      | isInlineable e1 =
+          let e1El = divClass "core-expr-inline" [] [goE lvl e1]
+              parenLEl = divClass "core-expr-inline paren" [] [text "("]
+              parenREl = divClass "core-expr-inline paren" [] [text ")"]
+              e2El = goE (lvl + 1) e2
+           in divClass
+                (cls lvl)
+                []
+                [e1El, space, parenLEl, space, e2El, space, parenREl]
+      | otherwise =
+          let appEl = divClass "core-expr-inline" [] [text "App"]
+              e1El = goE (lvl + 1) e1
+              e2El = goE (lvl + 1) e2
+           in divClass (cls lvl) [] [appEl, e1El, e2El]
+
     goE lvl expr =
       case expr of
-        Var var -> divClass (cls lvl) [] [pre [] [text (unId var)]]
+        Var var ->
+          pre [style [("margin", "0"), ("padding", "0")]] [text (unId var)]
+        -- special treatment for readability
+        Lit (LitString txt) ->
+          let txt' = "\"" <> txt <> "\""
+           in pre [style [("margin", "0"), ("padding", "0")]] [text txt']
+        Lit (LitOther e) ->
+          goE lvl e
+        App e1 e2 -> renderApp lvl e1 e2
         Lam var exp ->
           let lambdaEl = divClass "core-expr-inline lambda" [] [text "\\"]
               varEl = pre [classList [("core-expr-inline", True)]] [text (unId var)]
@@ -125,22 +179,6 @@ renderTopBind bind = goB 0 bind
               inEl = divClass "core-expr-inline" [] [text "in"]
               expEl = goE (lvl + 1) exp
            in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
-        -- special treatment for readability
-        App (Var v1) (Var v2) ->
-          let v1El = divClass "core-expr-inline" [] [text (unId v1)]
-              v2El = divClass "core-expr-inline" [] [text (unId v2)]
-           in divClass (cls lvl) [] [v1El, v2El]
-        App (Var v1) e2 ->
-          let v1El = divClass "core-expr-inline" [] [text (unId v1)]
-              parenLEl = divClass "core-expr-inline" [] [text "("]
-              parenREl = divClass "core-expr-inline" [] [text ")"]
-              e2El = goE (lvl + 1) e2
-           in divClass (cls lvl) [] [v1El, parenLEl, e2El, parenREl]
-        App e1 e2 ->
-          let appEl = divClass "core-expr-inline" [] [text "App"]
-              e1El = goE (lvl + 1) e1
-              e2El = goE (lvl + 1) e2
-           in divClass (cls lvl) [] [appEl, e1El, e2El]
         Other (typ, val) ys ->
           let content = pre [] [text (T.pack (show (typ, val)))]
            in divClass (cls lvl) [] (content : fmap (goE (lvl + 1)) ys)

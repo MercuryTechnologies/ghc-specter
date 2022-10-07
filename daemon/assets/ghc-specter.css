@@ -244,3 +244,11 @@ ul.tree span::before {
 .arrow {
     width: 10px;
 }
+
+.paren {
+    width: 10px;
+}
+
+.space {
+    width: 10px;
+}
