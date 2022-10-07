@@ -20,7 +20,7 @@ import Data.List qualified as L
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Tree (Tree (..), drawTree, foldTree)
+import Data.Tree (Tree (..), drawTree)
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -113,7 +113,7 @@ toVar (Node (typ, val) xs)
   | otherwise = Left "Not Id"
 
 toBind :: Tree (Text, Text) -> Either Text Bind
-toBind (Node (typ, val) xs)
+toBind (Node (typ, _) xs)
   | typ == "Bind" =
       case xs of
         v : e : [] -> Bind <$> toVar v <*> toExpr e
@@ -125,7 +125,7 @@ toLiteral :: Tree (Text, Text) -> Either Text Literal
 toLiteral x@(Node (typ, val) xs)
   | typ == "Literal" && val == "LitString" =
       case xs of
-        (Node (styp, sval) []) : [] -> pure (LitString sval)
+        (Node (_, sval) []) : [] -> pure (LitString sval)
         _ -> Left "LitStrign, not 1 child"
   | otherwise = LitOther <$> toExpr x
 
@@ -142,6 +142,7 @@ toAltCon (Node (typ, val) xs)
                 l : [] -> LitAlt <$> toLiteral l
                 _ -> Left "LitAlt, not a leaf node"
           | val == "DEFAULT" -> pure DEFAULT
+          | otherwise -> Left "AltCon, unknown constructor"
   | otherwise = Left "not AltCon"
 
 toAlt :: Tree (Text, Text) -> Either Text Alt
@@ -157,7 +158,7 @@ toAlt (Node (typ, _val) xs)
   | otherwise = Left "not Alt"
 
 toExpr :: Tree (Text, Text) -> Either Text Expr
-toExpr x@(Node (typ, val) xs)
+toExpr (Node (typ, val) xs)
   | typ == "Expr" =
       if
           | val == "Var" ->
@@ -184,11 +185,11 @@ toExpr x@(Node (typ, val) xs)
                 _ -> Left "Lam, not 2 children"
           | val == "Case" ->
               case xs of
-                scrut : id_ : typ : altsExp : [] ->
+                scrut : id_ : typ1 : altsExp : [] ->
                   Case
                     <$> toExpr scrut
                     <*> toVar id_
-                    <*> toExpr typ
+                    <*> toExpr typ1
                     <*> (traverse toAlt =<< toListTree altsExp)
                 _ -> Left "Case, not 4 children"
           | val == "Cast" ->
@@ -219,9 +220,10 @@ renderTopBind bind = goB 0 bind
       | doesNeedParen e = [parenLEl, rendered, parenREl]
       | otherwise = [rendered]
 
-    goB lvl (Bind var exp) =
+    goB :: Int -> Bind -> Widget IHTML a
+    goB lvl (Bind var expr) =
       let varEl = span [] [text (unId var)]
-          expEl = goE (lvl + 1) exp
+          expEl = goE (lvl + 1) expr
        in divClass (cls lvl) [] [varEl, eqEl, expEl]
 
     goApp lvl e1 e2
@@ -237,8 +239,7 @@ renderTopBind bind = goB 0 bind
                 []
                 (wrapParen (e1, e1El) ++ [space, parenLEl, e2El, parenREl])
       | otherwise =
-          let appEl = span [] [text "App"]
-              e1El = goE (lvl + 1) e1
+          let e1El = goE (lvl + 1) e1
               e2El = goE (lvl + 1) e2
            in divClass
                 (cls lvl)
@@ -285,17 +286,17 @@ renderTopBind bind = goB 0 bind
         Lit (LitOther e) ->
           goE lvl e
         App e1 e2 -> goApp lvl e1 e2
-        Lam var exp ->
+        Lam var expr' ->
           let lambdaEl = spanClass "lambda" [] [text "\\"]
               varEl = span [] [text (unId var)]
               arrowEl = spanClass "arrow" [] [text "->"]
-              expEl = goE (lvl + 1) exp
+              expEl = goE (lvl + 1) expr'
            in divClass (cls lvl) [] [lambdaEl, varEl, arrowEl, expEl]
-        Let bind exp ->
+        Let bind' expr' ->
           let letEl = span [] [text "let"]
-              bindEl = goB (lvl + 1) bind
+              bindEl = goB (lvl + 1) bind'
               inEl = span [] [text "in"]
-              expEl = goE (lvl + 1) exp
+              expEl = goE (lvl + 1) expr'
            in divClass (cls lvl) [] [letEl, bindEl, inEl, expEl]
         Case scrut id_ typ alts -> goCase lvl scrut id_ typ alts
         -- ignore Coercion for now
