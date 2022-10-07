@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module GHCSpecter.Render.Components.Console
   ( render,
@@ -42,37 +43,52 @@ import Prelude hiding (div)
 
 data Expr
   = Bind Text Expr
-  | --   | Let
-    Other (Text, Text) [Expr]
+  | Lam Text Expr
+  | Other (Text, Text) [Expr]
   deriving (Show)
 
 toExpr :: Tree (Text, Text) -> Either Text Expr
 toExpr (Node x []) = Right (Other x [])
 toExpr (Node x xs) = do
   let (typ, val) = x
-  if typ == "Bind"
-    then do
-      case xs of
-        Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] -> do
-          if (vtyp == "Var" && etyp == "Expr")
-            then Bind vval <$> toExpr e
-            else Left "Bind, not (Var, Expr)"
-        _ -> Left "Bind, not 2 children"
-    else Other x <$> traverse toExpr xs
+  if
+      | typ == "Bind" -> do
+          case xs of
+            Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] -> do
+              if (vtyp == "Var" && etyp == "Expr")
+                then Bind vval <$> toExpr e
+                else Left "Bind, not (Var, Expr)"
+            _ -> Left "Bind, not 2 children"
+      | typ == "Expr" && val == "Lam" -> do
+          case xs of
+            Node (vtyp, vval) [] : e@(Node (etyp, _) _) : [] -> do
+              if (vtyp == "Var" && etyp == "Expr")
+                then Lam vval <$> toExpr e
+                else Left "Lam, not (Var, Expr)"
+            _ -> Left "Lam, not 2 children"
+      | otherwise ->
+          Other x <$> traverse toExpr xs
 
 renderExpr :: Expr -> Widget IHTML a
 renderExpr tr = go 0 tr
   where
-    go lvl (Bind var exp) =
-      let varEl = pre [classList [("bind", True)]] [text var]
-          eqEl = divClass "bind eq" [] [text "="]
-          expEl = divClass "bind" [] [go (lvl + 1) exp]
-          cls = if lvl == 0 then "core-expr top" else "core-expr"
-       in divClass cls [] [varEl, eqEl, expEl]
-    go lvl (Other (typ, val) ys) =
-      let content = pre [] [text (T.pack (show (typ, val)))]
-          cls = if lvl == 0 then "core-expr top" else "core-expr"
-       in divClass cls [] (content : fmap (go (lvl + 1)) ys)
+    go lvl expr =
+      let cls = if lvl == 0 then "core-expr top" else "core-expr"
+       in case expr of
+            Bind var exp ->
+              let varEl = pre [classList [("bind", True)]] [text var]
+                  eqEl = divClass "bind eq" [] [text "="]
+                  expEl = divClass "bind" [] [go (lvl + 1) exp]
+               in divClass cls [] [varEl, eqEl, expEl]
+            Lam var exp ->
+              let lambdaEl = divClass "lam lambda" [] [text "\\"]
+                  varEl = pre [classList [("lam", True)]] [text var]
+                  arrowEl = divClass "lam arrow" [] [text "->"]
+                  expEl = divClass "lam" [] [go (lvl + 1) exp]
+               in divClass cls [] [lambdaEl, varEl, arrowEl, expEl]
+            Other (typ, val) ys ->
+              let content = pre [] [text (T.pack (show (typ, val)))]
+               in divClass cls [] (content : fmap (go (lvl + 1)) ys)
 
 renderConsoleItem :: ConsoleItem -> Widget IHTML a
 renderConsoleItem (ConsoleText txt) =

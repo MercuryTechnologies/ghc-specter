@@ -181,9 +181,6 @@ ul.tree span::before {
     background: black;
 }
 
-.langle {
-    width: 10px;
-}
 
 .core-expr {
     margin-left: 10px;
@@ -207,6 +204,27 @@ ul.tree span::before {
     vertical-align: top;
 }
 
+.lam {
+    margin: 0;
+    padding: 0;
+    display: inline-block;
+    vertical-align: top;
+}
+
+/* symbols */
+
+.langle {
+    width: 10px;
+}
+
 .eq {
     width: 5px;
+}
+
+.lambda {
+    width: 5px;
+}
+
+.arrow {
+    width: 10px;
 }
