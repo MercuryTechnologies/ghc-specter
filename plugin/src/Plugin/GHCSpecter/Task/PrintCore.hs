@@ -105,6 +105,8 @@ getContent dflags x = (T.pack dtypName, evalue)
       | dtypName == "Unit" =
           let my :: Maybe Unit = cast x
            in Right $ fmap (T.pack . unitString . toUnitId) my
+      -- NOTE: OccName is not enough for distinguishing Var's.
+      -- Using ppr, "_(uniq symbol)" suffix is added.
       | dtypName == "Var" = Right $ getNameDynamically (Proxy @Var) dflags x
       | otherwise = Left (T.pack (show (toConstr x)))
 

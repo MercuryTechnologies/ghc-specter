@@ -58,7 +58,7 @@ renderTopBind bind = goB 0 bind
         goB1 lvl' (var', expr') =
           let varEl = span [] [text (unId var')]
               expEl = goE (lvl' + 1) expr'
-           in divClass (cls lvl') [] [varEl, eqEl, expEl]
+           in divClass (cls lvl') [] [varEl, space, eqEl, space, expEl]
 
     goApp lvl e1 e2
       | isInlineable e1 =
@@ -78,6 +78,7 @@ renderTopBind bind = goB 0 bind
                         []
                         (wrapParen (e1, e1El) ++ [divClass (cls (lvl + 1)) [] (wrapParen (e2, e2El))])
       | otherwise =
+          -- NOTE: Indent applied argument one level further than applying function.
           let e1El = goE (lvl + 1) e1
               e2El = goE (lvl + 2) e2
            in divClass
