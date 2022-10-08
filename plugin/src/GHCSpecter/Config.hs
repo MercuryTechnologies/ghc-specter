@@ -1,5 +1,6 @@
 module GHCSpecter.Config
   ( Config (..),
+    emptyConfig,
     defaultGhcSpecterConfigFile,
     loadConfig,
   )
@@ -26,6 +27,9 @@ data Config = Config
   , configStartWithBreakpoint :: Bool
   }
   deriving (Show, Generic)
+
+emptyConfig :: Config
+emptyConfig = Config "" "" 0 False
 
 modifier :: String -> String
 modifier = camelTo2 '_' . drop 6

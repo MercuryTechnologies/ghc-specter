@@ -29,6 +29,7 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
     emptyModuleGraphInfo,
   )
+import GHCSpecter.Config (Config, emptyConfig)
 import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
@@ -51,7 +52,8 @@ emptyConsoleState :: ConsoleState
 emptyConsoleState = ConsoleState Nothing
 
 data PluginSession = PluginSession
-  { psSessionInfo :: SessionInfo
+  { psSessionConfig :: Config
+  , psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
   , psNextDriverId :: DriverId
   , psConsoleState :: ConsoleState
@@ -60,7 +62,8 @@ data PluginSession = PluginSession
 emptyPluginSession :: PluginSession
 emptyPluginSession =
   PluginSession
-    { psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo True
+    { psSessionConfig = emptyConfig
+    , psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo True
     , psMessageQueue = Nothing
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState

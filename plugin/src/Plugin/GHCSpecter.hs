@@ -60,6 +60,7 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
+import GHCSpecter.Config (Config (..), defaultGhcSpecterConfigFile, loadConfig)
 import GHCSpecter.Util.GHC (showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
@@ -97,14 +98,30 @@ startSession opts env = do
         modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo True
   -- NOTE: return Nothing if session info is already initiated
   queue' <- initMsgQueue
-  (mNewStartedSession, drvId, queue, willStartMsgQueue) <-
+  (mNewStartedSession, drvId, queue, willStartMsgQueue, cfg) <- do
+    ecfg <- loadConfig defaultGhcSpecterConfigFile
+    let updateCfg =
+          let upd1 = case ecfg of
+                Left _ -> id
+                Right cfg -> \ps -> ps {psSessionConfig = cfg}
+              -- overwrite ipcfile if specified by CLI arguments
+              upd2 = case opts of
+                ipcfile : _ -> \ps ->
+                  let cfg = psSessionConfig ps
+                      cfg' = cfg {configSocket = ipcfile}
+                   in ps {psSessionConfig = cfg'}
+                _ -> id
+           in upd2 . upd1
     startedSession `seq` atomically $ do
       psession <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo psession
           msessionStart = sessionStartTime ghcSessionInfo
           mqueue = psMessageQueue psession
           drvId = psNextDriverId psession
-      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId + 1})
+      modifyTVar'
+        sessionRef
+        ((\s -> s {psNextDriverId = drvId + 1}) . updateCfg)
+      cfg <- psSessionConfig <$> readTVar sessionRef
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
@@ -114,12 +131,12 @@ startSession opts env = do
       case msessionStart of
         Nothing -> do
           modifyTVar' sessionRef (\s -> s {psSessionInfo = startedSession})
-          pure (Just startedSession, drvId, queue, willStartMsgQueue)
-        Just _ -> pure (Nothing, drvId, queue, willStartMsgQueue)
+          pure (Just startedSession, drvId, queue, willStartMsgQueue, cfg)
+        Just _ -> pure (Nothing, drvId, queue, willStartMsgQueue, cfg)
   -- If session connection was never initiated, then make connection
   -- and start receiving message from the queue.
   when willStartMsgQueue $
-    void $ forkOS $ runMessageQueue opts queue'
+    void $ forkOS $ runMessageQueue cfg queue'
   for_ mNewStartedSession $ \newStartedSession ->
     queueMessage queue (CMSession newStartedSession)
   pure (drvId, queue)
