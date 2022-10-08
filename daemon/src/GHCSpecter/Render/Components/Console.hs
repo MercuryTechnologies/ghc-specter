@@ -54,7 +54,6 @@ renderConsoleItem (ConsoleCore forest) =
     []
     (divClass "langle" [] [text "<"] : renderedForest)
   where
-    forest' = take 3 forest
     renderErr err = divClass "error" [] [pre [] [text err]]
     render1 tr =
       let -- for debug
@@ -65,12 +64,12 @@ renderConsoleItem (ConsoleCore forest) =
               Left err -> renderErr err
               Right bind -> renderTopBind bind
        in div
-            [style [("display", "inline-block"), ("margin", "0"), ("padding", "0")]]
+            [style [("display", "block"), ("margin", "0"), ("padding", "0")]]
             [ -- for debug
               -- divClass "noinline" [] [pre [] [text txt]]
               div [style [("display", "block")]] [rendered]
             ]
-    renderedForest = fmap render1 forest'
+    renderedForest = fmap render1 forest
 
 render ::
   (IsKey k, Eq k) =>

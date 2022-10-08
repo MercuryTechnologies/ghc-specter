@@ -94,7 +94,7 @@ startSession opts env = do
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
       startedSession =
-        modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo False
+        modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo True
   -- NOTE: return Nothing if session info is already initiated
   queue' <- initMsgQueue
   (mNewStartedSession, drvId, queue, willStartMsgQueue) <-

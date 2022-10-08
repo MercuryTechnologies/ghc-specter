@@ -60,7 +60,7 @@ data PluginSession = PluginSession
 emptyPluginSession :: PluginSession
 emptyPluginSession =
   PluginSession
-    { psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
+    { psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo True
     , psMessageQueue = Nothing
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState

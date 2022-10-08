@@ -23,6 +23,7 @@ data Config = Config
   { configSocket :: FilePath
   , configSessionFile :: FilePath
   , configWebPort :: Int
+  , configStartWithBreakpoint :: Bool
   }
   deriving (Show, Generic)
 
