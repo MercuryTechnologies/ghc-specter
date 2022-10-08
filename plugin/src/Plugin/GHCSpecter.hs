@@ -94,34 +94,46 @@ startSession opts env = do
   pid <- fromInteger . toInteger <$> getCurrentPid
   let modGraph = hsc_mod_graph env
       modGraphInfo = extractModuleGraphInfo modGraph
-      startedSession =
-        modGraphInfo `seq` SessionInfo pid (Just startTime) modGraphInfo True
+  sinfo <-
+    atomically $
+      psSessionInfo <$> readTVar sessionRef
+  -- session start
+  case sessionStartTime sinfo of
+    Nothing -> do
+      ecfg <- loadConfig defaultGhcSpecterConfigFile
+      let updateStart =
+            let upd1 =
+                  case ecfg of
+                    Left _ -> id
+                    Right cfg -> \ps ->
+                      let startedSession =
+                            modGraphInfo
+                              `seq` SessionInfo
+                                pid
+                                (Just startTime)
+                                modGraphInfo
+                                (configStartWithBreakpoint cfg)
+                       in ps {psSessionConfig = cfg, psSessionInfo = startedSession}
+                -- overwrite ipcfile if specified by CLI arguments
+                upd2 = case opts of
+                  ipcfile : _ -> \ps ->
+                    let cfg = psSessionConfig ps
+                        cfg' = cfg {configSocket = ipcfile}
+                     in ps {psSessionConfig = cfg'}
+                  _ -> id
+             in upd2 . upd1
+      atomically $ modifyTVar' sessionRef updateStart
+    Just _ -> pure ()
   -- NOTE: return Nothing if session info is already initiated
   queue' <- initMsgQueue
   (mNewStartedSession, drvId, queue, willStartMsgQueue, cfg) <- do
-    ecfg <- loadConfig defaultGhcSpecterConfigFile
-    let updateCfg =
-          let upd1 = case ecfg of
-                Left _ -> id
-                Right cfg -> \ps -> ps {psSessionConfig = cfg}
-              -- overwrite ipcfile if specified by CLI arguments
-              upd2 = case opts of
-                ipcfile : _ -> \ps ->
-                  let cfg = psSessionConfig ps
-                      cfg' = cfg {configSocket = ipcfile}
-                   in ps {psSessionConfig = cfg'}
-                _ -> id
-           in upd2 . upd1
-    startedSession `seq` atomically $ do
+    atomically $ do
       psession <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo psession
           msessionStart = sessionStartTime ghcSessionInfo
           mqueue = psMessageQueue psession
           drvId = psNextDriverId psession
-      modifyTVar'
-        sessionRef
-        ((\s -> s {psNextDriverId = drvId + 1}) . updateCfg)
-      cfg <- psSessionConfig <$> readTVar sessionRef
+      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId + 1})
       (queue, willStartMsgQueue) <-
         case mqueue of
           Nothing -> do
@@ -130,9 +142,17 @@ startSession opts env = do
           Just queue_ -> pure (queue_, False)
       case msessionStart of
         Nothing -> do
-          modifyTVar' sessionRef (\s -> s {psSessionInfo = startedSession})
-          pure (Just startedSession, drvId, queue, willStartMsgQueue, cfg)
-        Just _ -> pure (Nothing, drvId, queue, willStartMsgQueue, cfg)
+          ps <- readTVar sessionRef
+          pure
+            ( Just (psSessionInfo ps)
+            , drvId
+            , queue
+            , willStartMsgQueue
+            , psSessionConfig ps
+            )
+        Just _ -> do
+          cfg <- psSessionConfig <$> readTVar sessionRef
+          pure (Nothing, drvId, queue, willStartMsgQueue, cfg)
   -- If session connection was never initiated, then make connection
   -- and start receiving message from the queue.
   when willStartMsgQueue $
