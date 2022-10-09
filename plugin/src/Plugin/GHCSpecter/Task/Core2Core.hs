@@ -1,17 +1,22 @@
-module Plugin.GHCSpecter.Task.PrintCore
-  ( printCore,
+module Plugin.GHCSpecter.Task.Core2Core
+  ( listCore,
+    printCore,
   )
 where
 
+import Control.Error.Util (note)
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
+import Data.List qualified as L
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Tree (Tree (..))
 import Data.Typeable (Typeable)
+import GHC.Core (Bind (NonRec, Rec))
 import GHC.Core.Class (Class)
 import GHC.Core.ConLike (ConLike)
 import GHC.Core.DataCon (DataCon)
@@ -120,9 +125,36 @@ core2tree dflags a =
     z _ = Const []
     k (Const acc) x = Const (acc ++ [core2tree dflags x])
 
-printCore :: ModGuts -> CoreM ConsoleReply
-printCore guts = do
+listCore :: ModGuts -> CoreM ConsoleReply
+listCore guts = do
   dflags <- getDynFlags
   let binds = mg_binds guts
-      forest = fmap (core2tree dflags) binds
+      extractName =
+        note "Error in getNameDynamically"
+          . getNameDynamically (Proxy @Var) dflags
+      formatBind (NonRec t _) = extractName t
+      formatBind (Rec bs) =
+        let enames = traverse (extractName . fst) bs
+         in T.intercalate " " <$> enames
+      reply =
+        case traverse formatBind binds of
+          Left err ->
+            ConsoleReplyText ("Error: " <> err)
+          Right bindTxts ->
+            ConsoleReplyText $ T.intercalate "\n" bindTxts
+  pure reply
+
+printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
+printCore guts args = do
+  dflags <- getDynFlags
+  let -- check whether a bind is requested by user
+      isReq (NonRec t _) =
+        let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+         in name `L.elem` args
+      isReq (Rec bs) =
+        let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
+         in not (null (names `L.intersect` args))
+      binds = mg_binds guts
+      binds' = filter isReq binds
+      forest = fmap (core2tree dflags) binds'
   pure (ConsoleReplyCore forest)

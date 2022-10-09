@@ -46,8 +46,14 @@ import Plugin.GHCSpecter.Types
     sessionRef,
   )
 
--- | a list of (command name, command action)
-newtype CommandSet m = CommandSet {unCommandSet :: [(Text, m ConsoleReply)]}
+type CommandArg = Text
+
+-- | a list of available commands at a given breakpoint
+newtype CommandSet m = CommandSet
+  { unCommandSet :: [(Text, [CommandArg] -> m ConsoleReply)]
+  -- ^ each item: command name, command action
+  -- command action takes additional arguments.
+  }
 
 emptyCommandSet :: CommandSet m
 emptyCommandSet = CommandSet []
@@ -85,12 +91,13 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           let console = psConsoleState psess
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
+    -- TODO: refactor out the repeated part in the following code.
     ShowUnqualifiedImports ->
       if loc == Typecheck
         then do
           case L.lookup ":unqualified" (unCommandSet cmds) of
             Just cmd -> do
-              let action = liftIO . reply =<< cmd
+              let action = liftIO . reply =<< cmd []
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->
@@ -101,12 +108,28 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           reply $
             ConsoleReplyText $
               "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
-    PrintCore ->
+    ListCore ->
+      case loc of
+        Core2Core _ -> do
+          case L.lookup ":list-core" (unCommandSet cmds) of
+            Just cmd -> do
+              let action = liftIO . reply =<< cmd []
+              atomically $
+                writeTVar actionRef (Just action)
+            Nothing ->
+              reply $
+                ConsoleReplyText $
+                  "cannot list core at the breakpoint: " <> T.pack (show loc)
+        _ ->
+          reply $
+            ConsoleReplyText $
+              "cannot list core at the breakpoint: " <> T.pack (show loc)
+    PrintCore args ->
       case loc of
         Core2Core _ -> do
           case L.lookup ":print-core" (unCommandSet cmds) of
             Just cmd -> do
-              let action = liftIO . reply =<< cmd
+              let action = liftIO . reply =<< cmd args
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->

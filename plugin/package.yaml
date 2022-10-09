@@ -84,6 +84,7 @@ library:
     - containers
     - directory
     - discrimination
+    - errors
     - extra
     - ghc == 9.2.*
     - hiedb

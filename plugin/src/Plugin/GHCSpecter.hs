@@ -17,9 +17,7 @@ import Control.Concurrent.STM
   )
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, writeIORef)
-import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -74,7 +72,10 @@ import Plugin.GHCSpecter.Console
     breakPoint,
     emptyCommandSet,
   )
-import Plugin.GHCSpecter.Task.PrintCore (printCore)
+import Plugin.GHCSpecter.Task.Core2Core
+  ( listCore,
+    printCore,
+  )
 import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -124,8 +125,8 @@ initGhcSession opts env = do
       atomically $
         modifyTVar'
           sessionRef
-          ( \ps ->
-              ps
+          ( \s ->
+              s
                 { psSessionConfig = cfg2
                 , psSessionInfo = newGhcSessionInfo
                 , psMessageQueue = Just queue
@@ -227,7 +228,7 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin queue drvId _modsummary tc = do
-  let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
+  let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
   breakPoint queue drvId Typecheck cmdSet
   pure tc
 
@@ -248,10 +249,13 @@ corePlugin queue drvId todos = do
       todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
   pure todos'
   where
-    cmdSet guts = CommandSet [(":print-core", printCore guts)]
+    cmdSet guts =
+      CommandSet
+        [ (":list-core", \_ -> listCore guts)
+        , (":print-core", printCore guts)
+        ]
 
     eachPlugin pass guts = do
-      _ <- printCore guts
       breakPoint queue drvId (Core2Core pass) (cmdSet guts)
       pure guts
 
