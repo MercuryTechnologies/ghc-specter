@@ -1,17 +1,20 @@
-module Plugin.GHCSpecter.Task.PrintCore
-  ( printCore,
+module Plugin.GHCSpecter.Task.Core2Core
+  ( listCore,
+    printCore,
   )
 where
 
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Tree (Tree (..))
 import Data.Typeable (Typeable)
+import GHC.Core (Bind (NonRec, Rec))
 import GHC.Core.Class (Class)
 import GHC.Core.ConLike (ConLike)
 import GHC.Core.DataCon (DataCon)
@@ -119,6 +122,18 @@ core2tree dflags a =
   where
     z _ = Const []
     k (Const acc) x = Const (acc ++ [core2tree dflags x])
+
+listCore :: ModGuts -> CoreM ConsoleReply
+listCore guts = do
+  dflags <- getDynFlags
+  let binds = mg_binds guts
+      formatBind (NonRec t _) =
+        fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+      formatBind (Rec bs) =
+        T.intercalate "," $
+          mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
+      txt = T.intercalate "\n" $ fmap formatBind binds
+  pure (ConsoleReplyText txt) -- "list core: not implemented"
 
 printCore :: ModGuts -> CoreM ConsoleReply
 printCore guts = do
