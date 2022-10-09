@@ -29,6 +29,7 @@ data ConsoleRequest
   = Ping Text
   | NextBreakpoint
   | ShowUnqualifiedImports
+  | ListCore
   | PrintCore
   deriving (Eq, Ord, Show, Generic)
 

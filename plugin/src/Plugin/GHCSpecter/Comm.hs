@@ -17,7 +17,6 @@ import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
-import GHC.Driver.Plugins (type CommandLineOption)
 import GHCSpecter.Channel.Inbound.Types
   ( Request (..),
     SessionRequest (..),
@@ -32,11 +31,7 @@ import GHCSpecter.Comm
     runClient,
     sendObject,
   )
-import GHCSpecter.Config
-  ( Config (..),
-    defaultGhcSpecterConfigFile,
-    loadConfig,
-  )
+import GHCSpecter.Config (Config (..))
 import Network.Socket (Socket)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),

@@ -17,9 +17,7 @@ import Control.Concurrent.STM
   )
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, writeIORef)
-import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -124,8 +122,8 @@ initGhcSession opts env = do
       atomically $
         modifyTVar'
           sessionRef
-          ( \ps ->
-              ps
+          ( \s ->
+              s
                 { psSessionConfig = cfg2
                 , psSessionInfo = newGhcSessionInfo
                 , psMessageQueue = Just queue

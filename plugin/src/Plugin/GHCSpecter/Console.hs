@@ -85,6 +85,7 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           let console = psConsoleState psess
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
+    -- TODO: refactor out the repeated part in the following code.
     ShowUnqualifiedImports ->
       if loc == Typecheck
         then do
@@ -101,6 +102,22 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           reply $
             ConsoleReplyText $
               "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+    ListCore ->
+      case loc of
+        Core2Core _ -> do
+          case L.lookup ":list-core" (unCommandSet cmds) of
+            Just cmd -> do
+              let action = liftIO . reply =<< cmd
+              atomically $
+                writeTVar actionRef (Just action)
+            Nothing ->
+              reply $
+                ConsoleReplyText $
+                  "cannot list core at the breakpoint: " <> T.pack (show loc)
+        _ ->
+          reply $
+            ConsoleReplyText $
+              "cannot list core at the breakpoint: " <> T.pack (show loc)
     PrintCore ->
       case loc of
         Core2Core _ -> do
