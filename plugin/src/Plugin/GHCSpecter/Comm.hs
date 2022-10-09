@@ -45,16 +45,11 @@ import Plugin.GHCSpecter.Types
   )
 import System.Directory (doesFileExist)
 
-runMessageQueue :: [CommandLineOption] -> MsgQueue -> IO ()
-runMessageQueue opts queue = do
-  mipcfile <-
-    case opts of
-      ipcfile : _ -> pure (Just ipcfile)
-      [] -> do
-        ecfg <- loadConfig defaultGhcSpecterConfigFile
-        case ecfg of
-          Left _ -> pure Nothing
-          Right cfg -> pure (Just (configSocket cfg))
+runMessageQueue :: Config -> MsgQueue -> IO ()
+runMessageQueue cfg queue = do
+  let mipcfile
+        | null (configSocket cfg) = Nothing
+        | otherwise = Just (configSocket cfg)
   for_ mipcfile $ \ipcfile -> do
     socketExists <- doesFileExist ipcfile
     when socketExists $
