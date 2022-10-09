@@ -30,7 +30,7 @@ data ConsoleRequest
   | NextBreakpoint
   | ShowUnqualifiedImports
   | ListCore
-  | PrintCore
+  | PrintCore [Text]
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest

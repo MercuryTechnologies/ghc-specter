@@ -47,7 +47,7 @@ import Plugin.GHCSpecter.Types
   )
 
 -- | a list of (command name, command action)
-newtype CommandSet m = CommandSet {unCommandSet :: [(Text, m ConsoleReply)]}
+newtype CommandSet m = CommandSet {unCommandSet :: [(Text, [Text] -> m ConsoleReply)]}
 
 emptyCommandSet :: CommandSet m
 emptyCommandSet = CommandSet []
@@ -91,7 +91,7 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
         then do
           case L.lookup ":unqualified" (unCommandSet cmds) of
             Just cmd -> do
-              let action = liftIO . reply =<< cmd
+              let action = liftIO . reply =<< cmd []
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->
@@ -107,7 +107,7 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
         Core2Core _ -> do
           case L.lookup ":list-core" (unCommandSet cmds) of
             Just cmd -> do
-              let action = liftIO . reply =<< cmd
+              let action = liftIO . reply =<< cmd []
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->
@@ -118,12 +118,12 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           reply $
             ConsoleReplyText $
               "cannot list core at the breakpoint: " <> T.pack (show loc)
-    PrintCore ->
+    PrintCore args ->
       case loc of
         Core2Core _ -> do
           case L.lookup ":print-core" (unCommandSet cmds) of
             Just cmd -> do
-              let action = liftIO . reply =<< cmd
+              let action = liftIO . reply =<< cmd args
               atomically $
                 writeTVar actionRef (Just action)
             Nothing ->

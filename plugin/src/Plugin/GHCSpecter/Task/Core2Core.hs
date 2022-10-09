@@ -7,6 +7,7 @@ where
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
+import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
@@ -130,14 +131,22 @@ listCore guts = do
       formatBind (NonRec t _) =
         fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
       formatBind (Rec bs) =
-        T.intercalate "," $
+        T.intercalate " " $
           mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
       txt = T.intercalate "\n" $ fmap formatBind binds
   pure (ConsoleReplyText txt) -- "list core: not implemented"
 
-printCore :: ModGuts -> CoreM ConsoleReply
-printCore guts = do
+printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
+printCore guts args = do
   dflags <- getDynFlags
-  let binds = mg_binds guts
-      forest = fmap (core2tree dflags) binds
+  let -- check whether a bind is requested by user
+      isReq (NonRec t _) =
+        let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+         in name `L.elem` args
+      isReq (Rec bs) =
+        let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
+         in not (null (names `L.intersect` args))
+      binds = mg_binds guts
+      binds' = filter isReq binds
+      forest = fmap (core2tree dflags) binds'
   pure (ConsoleReplyCore forest)

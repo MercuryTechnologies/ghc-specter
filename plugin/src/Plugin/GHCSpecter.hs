@@ -228,7 +228,7 @@ typecheckPlugin ::
   TcGblEnv ->
   TcM TcGblEnv
 typecheckPlugin queue drvId _modsummary tc = do
-  let cmdSet = CommandSet [(":unqualified", fetchUnqualifiedImports tc)]
+  let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
   breakPoint queue drvId Typecheck cmdSet
   pure tc
 
@@ -251,12 +251,11 @@ corePlugin queue drvId todos = do
   where
     cmdSet guts =
       CommandSet
-        [ (":list-core", listCore guts)
+        [ (":list-core", \_ -> listCore guts)
         , (":print-core", printCore guts)
         ]
 
     eachPlugin pass guts = do
-      _ <- printCore guts
       breakPoint queue drvId (Core2Core pass) (cmdSet guts)
       pure guts
 

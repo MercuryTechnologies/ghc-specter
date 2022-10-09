@@ -6,6 +6,7 @@ module GHCSpecter.Control
 where
 
 import Control.Lens ((&), (.~), (^.), _1, _2)
+import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types
@@ -219,8 +220,9 @@ goCommon ev (view, model0) = do
                       sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
                   | msg == ":list-core" ->
                       sendRequest $ ConsoleReq drvId ListCore
-                  | msg == ":print-core" ->
-                      sendRequest $ ConsoleReq drvId PrintCore
+                  | ":print-core" `T.isPrefixOf` msg -> do
+                      let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
+                      sendRequest $ ConsoleReq drvId (PrintCore args)
                   | otherwise ->
                       sendRequest $ ConsoleReq drvId (Ping msg)
               pure model
