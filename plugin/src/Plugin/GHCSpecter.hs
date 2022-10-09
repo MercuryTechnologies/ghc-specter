@@ -15,10 +15,11 @@ import Control.Concurrent.STM
     modifyTVar',
     readTVar,
   )
-import Control.Monad (void, when)
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -60,7 +61,12 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Config (Config (..), defaultGhcSpecterConfigFile, loadConfig)
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    emptyConfig,
+    loadConfig,
+  )
 import GHCSpecter.Util.GHC (showPpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
@@ -83,83 +89,64 @@ import Plugin.GHCSpecter.Util
 import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
 
--- | Called only once for sending session information
-startSession ::
-  [CommandLineOption] ->
-  HscEnv ->
-  -- | (driver id, message queue)
-  IO (DriverId, MsgQueue)
-startSession opts env = do
-  startTime <- getCurrentTime
-  pid <- fromInteger . toInteger <$> getCurrentPid
-  let modGraph = hsc_mod_graph env
-      modGraphInfo = extractModuleGraphInfo modGraph
-  sinfo <-
-    atomically $
-      psSessionInfo <$> readTVar sessionRef
-  -- session start
-  case sessionStartTime sinfo of
+-- | GHC session-wide initialization
+initGhcSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
+initGhcSession opts env = do
+  ps <- atomically $ readTVar sessionRef
+  let ghcSessionInfo = psSessionInfo ps
+      mtimeQueue =
+        (,) <$> sessionStartTime ghcSessionInfo <*> psMessageQueue ps
+  case mtimeQueue of
+    -- session start
     Nothing -> do
+      startTime <- getCurrentTime
+      pid <- fromInteger . toInteger <$> getCurrentPid
+      queue <- initMsgQueue
+      let modGraph = hsc_mod_graph env
+          modGraphInfo = extractModuleGraphInfo modGraph
       ecfg <- loadConfig defaultGhcSpecterConfigFile
-      let updateStart =
-            let upd1 =
-                  case ecfg of
-                    Left _ -> id
-                    Right cfg -> \ps ->
-                      let startedSession =
-                            modGraphInfo
-                              `seq` SessionInfo
-                                pid
-                                (Just startTime)
-                                modGraphInfo
-                                (configStartWithBreakpoint cfg)
-                       in ps {psSessionConfig = cfg, psSessionInfo = startedSession}
-                -- overwrite ipcfile if specified by CLI arguments
-                upd2 = case opts of
-                  ipcfile : _ -> \ps ->
-                    let cfg = psSessionConfig ps
-                        cfg' = cfg {configSocket = ipcfile}
-                     in ps {psSessionConfig = cfg'}
-                  _ -> id
-             in upd2 . upd1
-      atomically $ modifyTVar' sessionRef updateStart
-    Just _ -> pure ()
-  -- NOTE: return Nothing if session info is already initiated
-  queue' <- initMsgQueue
-  (mNewStartedSession, drvId, queue, willStartMsgQueue, cfg) <- do
+      let cfg1 =
+            case ecfg of
+              Left _ -> emptyConfig
+              Right cfg -> cfg
+          -- overwrite ipcfile if specified by CLI arguments
+          cfg2 =
+            case opts of
+              ipcfile : _ -> cfg1 {configSocket = ipcfile}
+              _ -> cfg1
+          newGhcSessionInfo =
+            modGraphInfo
+              `seq` SessionInfo
+                pid
+                (Just startTime)
+                modGraphInfo
+                (configStartWithBreakpoint cfg2)
+      atomically $
+        modifyTVar'
+          sessionRef
+          ( \ps ->
+              ps
+                { psSessionConfig = cfg2
+                , psSessionInfo = newGhcSessionInfo
+                , psMessageQueue = Just queue
+                }
+          )
+      void $ forkOS $ runMessageQueue cfg2 queue
+      queueMessage queue (CMSession newGhcSessionInfo)
+      pure queue
+    -- session has started already.
+    Just (_, queue) ->
+      pure queue
+
+-- | Driver session-wide initialization
+initDriverSession :: IO DriverId
+initDriverSession = do
+  newDrvId <-
     atomically $ do
-      psession <- readTVar sessionRef
-      let ghcSessionInfo = psSessionInfo psession
-          msessionStart = sessionStartTime ghcSessionInfo
-          mqueue = psMessageQueue psession
-          drvId = psNextDriverId psession
-      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId + 1})
-      (queue, willStartMsgQueue) <-
-        case mqueue of
-          Nothing -> do
-            modifyTVar' sessionRef (\s -> s {psMessageQueue = Just queue'})
-            pure (queue', True)
-          Just queue_ -> pure (queue_, False)
-      case msessionStart of
-        Nothing -> do
-          ps <- readTVar sessionRef
-          pure
-            ( Just (psSessionInfo ps)
-            , drvId
-            , queue
-            , willStartMsgQueue
-            , psSessionConfig ps
-            )
-        Just _ -> do
-          cfg <- psSessionConfig <$> readTVar sessionRef
-          pure (Nothing, drvId, queue, willStartMsgQueue, cfg)
-  -- If session connection was never initiated, then make connection
-  -- and start receiving message from the queue.
-  when willStartMsgQueue $
-    void $ forkOS $ runMessageQueue cfg queue'
-  for_ mNewStartedSession $ \newStartedSession ->
-    queueMessage queue (CMSession newStartedSession)
-  pure (drvId, queue)
+      drvId' <- psNextDriverId <$> readTVar sessionRef
+      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId' + 1})
+      pure drvId'
+  pure newDrvId
 
 sendModuleStart ::
   MsgQueue ->
@@ -276,11 +263,12 @@ corePlugin queue drvId todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
+  queue <- initGhcSession opts env0
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
   modNameRef <- newIORef Nothing
-  (drvId, queue) <- startSession opts env0
+  drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
       newPlugin =
