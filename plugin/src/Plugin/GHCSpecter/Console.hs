@@ -46,8 +46,14 @@ import Plugin.GHCSpecter.Types
     sessionRef,
   )
 
--- | a list of (command name, command action)
-newtype CommandSet m = CommandSet {unCommandSet :: [(Text, [Text] -> m ConsoleReply)]}
+type CommandArg = Text
+
+-- | a list of available commands at a given breakpoint
+newtype CommandSet m = CommandSet
+  { unCommandSet :: [(Text, [CommandArg] -> m ConsoleReply)]
+  -- ^ each item: command name, command action
+  -- command action takes additional arguments.
+  }
 
 emptyCommandSet :: CommandSet m
 emptyCommandSet = CommandSet []

@@ -132,12 +132,10 @@ listCore guts = do
       extractName =
         note "Error in getNameDynamically"
           . getNameDynamically (Proxy @Var) dflags
-
       formatBind (NonRec t _) = extractName t
       formatBind (Rec bs) =
         let enames = traverse (extractName . fst) bs
          in T.intercalate " " <$> enames
-
       reply =
         case traverse formatBind binds of
           Left err ->
