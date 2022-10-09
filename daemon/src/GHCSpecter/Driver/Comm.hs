@@ -85,6 +85,10 @@ updateInbox chanMsg = incrementSN . updater
           ConsoleReplyText txt ->
             let msg = ConsoleText txt
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+          ConsoleReplyCoreBindList bindList ->
+            let mkButton n = (n, ":print-core " <> n)
+                msg = ConsoleButton (fmap (fmap mkButton) bindList)
+             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
           ConsoleReplyCore forest ->
             let msg = ConsoleCore forest
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)

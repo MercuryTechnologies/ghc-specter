@@ -230,6 +230,10 @@ goCommon ev (view, model0) = do
       ConsoleEv (ConsoleInput content) -> do
         let model = (modelConsole . consoleInputEntry .~ content) model0
         pure model
+      ConsoleEv (ConsoleButtonPressed content) -> do
+        printMsg content
+        let model = (modelConsole . consoleInputEntry .~ content) model0
+        pure model
       _ -> pure model0
   ui <- getUI
   ss <- getSS

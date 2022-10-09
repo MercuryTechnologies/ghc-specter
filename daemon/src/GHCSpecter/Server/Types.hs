@@ -84,8 +84,15 @@ emptyHieState :: HieState
 emptyHieState = HieState mempty mempty
 
 data ConsoleItem
-  = ConsoleText Text
-  | ConsoleCore [Tree (Text, Text)]
+  = -- | Simple text message
+    ConsoleText Text
+  | -- | Collection of buttons. Note that the information from ConsoleReply is
+    -- enriched with the corresponding console command for convenience.
+    -- Each item in the outer list is a row of buttons and ones in the inner list
+    -- are (button label, console command)
+    ConsoleButton [[(Text, Text)]]
+  | -- | GHC Core expression trees (as untyped)
+    ConsoleCore [Tree (Text, Text)]
   deriving (Show, Generic)
 
 instance FromJSON ConsoleItem

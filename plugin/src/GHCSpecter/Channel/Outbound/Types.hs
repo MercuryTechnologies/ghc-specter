@@ -148,19 +148,16 @@ instance FromJSON HsSourceInfo
 instance ToJSON HsSourceInfo
 
 data ConsoleReply
-  = ConsoleReplyText Text
-  | ConsoleReplyCore (Forest (Text, Text))
+  = -- | simple textual reply
+    ConsoleReplyText Text
+  | -- | list of Core bind items. The items in the same inner list are mutually
+    -- recursive binding, i.e. should be presented together.
+    ConsoleReplyCoreBindList [[Text]]
+  | -- | core tree
+    ConsoleReplyCore (Forest (Text, Text))
   deriving (Show, Generic)
 
-instance Binary ConsoleReply where
-  put (ConsoleReplyText t) = put (1 :: Int) >> put t
-  put (ConsoleReplyCore f) = put (2 :: Int) >> put f
-  get = do
-    tag :: Int <- get
-    case tag of
-      1 -> ConsoleReplyText <$> get
-      2 -> ConsoleReplyCore <$> get
-      _ -> error "Binary: ConsoleReply"
+instance Binary ConsoleReply
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
