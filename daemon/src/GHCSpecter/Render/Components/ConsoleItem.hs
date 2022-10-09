@@ -4,7 +4,7 @@ module GHCSpecter.Render.Components.ConsoleItem
 where
 
 import Concur.Core (Widget)
-import Concur.Replica (style)
+import Concur.Replica (onClick, style)
 import Data.Text qualified as T
 import GHCSpecter.Data.GHC.Core (toBind)
 import GHCSpecter.Render.Components.GHCCore (renderTopBind)
@@ -17,9 +17,10 @@ import GHCSpecter.UI.ConcurReplica.DOM
     text,
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
-render :: ConsoleItem -> Widget IHTML a
+render :: ConsoleItem -> Widget IHTML (ConsoleEvent k)
 render (ConsoleText txt) =
   divClass
     "console-item"
@@ -29,7 +30,11 @@ render (ConsoleText txt) =
     ]
 render (ConsoleButton buttonss) =
   let mkButton (label, cmd) =
-        button [style [("display", "inline-block")]] [text label]
+        button
+          [ ConsoleButtonPressed cmd <$ onClick
+          , style [("display", "inline-block")]
+          ]
+          [text label]
       mkRow buttons =
         div [style [("display", "block")]] (fmap mkButton buttons)
       rows = fmap mkRow buttonss

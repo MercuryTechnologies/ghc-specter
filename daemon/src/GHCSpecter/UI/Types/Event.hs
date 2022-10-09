@@ -68,6 +68,7 @@ data ConsoleEvent k
   = ConsoleTab k
   | ConsoleKey Text
   | ConsoleInput Text
+  | ConsoleButtonPressed Text
   deriving (Show, Eq)
 
 data BackgroundEvent
