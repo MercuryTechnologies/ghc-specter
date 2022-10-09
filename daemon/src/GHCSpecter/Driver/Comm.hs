@@ -81,13 +81,13 @@ updateInbox chanMsg = incrementSN . updater
          in (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
       CMBox (CMConsole drvId creply) ->
-        -- TODO: unify ConsoleReply and ConsoleItem if no obstacles.
         case creply of
           ConsoleReplyText txt ->
             let msg = ConsoleText txt
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
-          ConsoleReplyButton buttonss ->
-            let msg = ConsoleButton buttonss
+          ConsoleReplyCoreBindList bindList ->
+            let mkButton n = (n, ":print-core " <> n)
+                msg = ConsoleButton (fmap (fmap mkButton) bindList)
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
           ConsoleReplyCore forest ->
             let msg = ConsoleCore forest

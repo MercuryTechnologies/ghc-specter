@@ -148,9 +148,13 @@ instance FromJSON HsSourceInfo
 instance ToJSON HsSourceInfo
 
 data ConsoleReply
-  = ConsoleReplyText Text
-  | ConsoleReplyButton [[(Text, Text)]]
-  | ConsoleReplyCore (Forest (Text, Text))
+  = -- | simple textual reply
+    ConsoleReplyText Text
+  | -- | list of Core bind items. The items in the same inner list are mutually
+    -- recursive binding, i.e. should be presented together.
+    ConsoleReplyCoreBindList [[Text]]
+  | -- | core tree
+    ConsoleReplyCore (Forest (Text, Text))
   deriving (Show, Generic)
 
 instance Binary ConsoleReply
