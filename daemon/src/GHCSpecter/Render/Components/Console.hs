@@ -32,8 +32,8 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
-    ConsoleEvent (..),
+  ( ConsoleEvent (..),
+    Event (..),
   )
 import GHCSpecter.Util.Map
   ( IsKey (..),
