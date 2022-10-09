@@ -18,8 +18,7 @@ import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (drawTree)
-import GHCSpecter.Data.GHC.Core (toBind)
-import GHCSpecter.Render.Components.GHCCore (renderTopBind)
+import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -39,37 +38,6 @@ import GHCSpecter.Util.Map
     lookupKey,
   )
 import Prelude hiding (div)
-
-renderConsoleItem :: ConsoleItem -> Widget IHTML a
-renderConsoleItem (ConsoleText txt) =
-  divClass
-    "console-item"
-    []
-    [ div [style [("width", "10px")]] [text "<"]
-    , pre [] [text txt]
-    ]
-renderConsoleItem (ConsoleCore forest) =
-  divClass
-    "console-item"
-    []
-    (divClass "langle" [] [text "<"] : renderedForest)
-  where
-    renderErr err = divClass "error" [] [pre [] [text err]]
-    render1 tr =
-      let -- for debug
-          -- txt = T.pack $ drawTree $ fmap show tr
-          ebind = toBind tr
-          rendered =
-            case ebind of
-              Left err -> renderErr err
-              Right bind -> renderTopBind bind
-       in div
-            [style [("display", "block"), ("margin", "0"), ("padding", "0")]]
-            [ -- for debug
-              -- divClass "noinline" [] [pre [] [text txt]]
-              div [style [("display", "block")]] [rendered]
-            ]
-    renderedForest = fmap render1 forest
 
 render ::
   (IsKey k, Eq k) =>
@@ -122,7 +90,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
                 , ("overflow", "scroll")
                 ]
             ]
-            (scriptContent : fmap renderConsoleItem (join (maybeToList mtxts)))
+            (scriptContent : fmap CI.render (join (maybeToList mtxts)))
     consoleInput =
       divClass
         "console-input"

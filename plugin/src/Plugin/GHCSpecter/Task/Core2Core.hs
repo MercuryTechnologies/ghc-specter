@@ -132,16 +132,15 @@ listCore guts = do
       extractName =
         note "Error in getNameDynamically"
           . getNameDynamically (Proxy @Var) dflags
-      formatBind (NonRec t _) = extractName t
-      formatBind (Rec bs) =
-        let enames = traverse (extractName . fst) bs
-         in T.intercalate " " <$> enames
+      mkButton n = (n, "dummy")
+      formatBind (NonRec t _) = (\n -> [mkButton n]) <$> extractName t
+      formatBind (Rec bs) = traverse (fmap mkButton . extractName . fst) bs
       reply =
         case traverse formatBind binds of
           Left err ->
             ConsoleReplyText ("Error: " <> err)
-          Right bindTxts ->
-            ConsoleReplyText $ T.intercalate "\n" bindTxts
+          Right bindButtons ->
+            ConsoleReplyButton bindButtons
   pure reply
 
 printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
