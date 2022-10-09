@@ -11,7 +11,8 @@ import GHCSpecter.Render.Components.GHCCore (renderTopBind)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
+  ( button,
+    div,
     pre,
     text,
   )
@@ -27,13 +28,15 @@ render (ConsoleText txt) =
     , pre [] [text txt]
     ]
 render (ConsoleButton buttonss) =
-  let txt = T.intercalate "\n" $ fmap (T.intercalate " " . fmap fst) buttonss
+  let mkButton (label, cmd) =
+        button [style [("display", "inline-block")]] [text label]
+      mkRow buttons =
+        div [style [("display", "block")]] (fmap mkButton buttons)
+      rows = fmap mkRow buttonss
    in divClass
         "console-item"
         []
-        [ div [style [("width", "10px")]] [text "<"]
-        , pre [] [text txt]
-        ]
+        (div [style [("width", "10px")]] [text "<"] : rows)
 render (ConsoleCore forest) =
   divClass
     "console-item"
