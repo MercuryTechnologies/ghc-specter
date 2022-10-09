@@ -4,6 +4,7 @@ module Plugin.GHCSpecter.Task.Core2Core
   )
 where
 
+import Control.Error.Util (note)
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
@@ -128,13 +129,22 @@ listCore :: ModGuts -> CoreM ConsoleReply
 listCore guts = do
   dflags <- getDynFlags
   let binds = mg_binds guts
-      formatBind (NonRec t _) =
-        fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+      extractName =
+        note "Error in getNameDynamically"
+          . getNameDynamically (Proxy @Var) dflags
+
+      formatBind (NonRec t _) = extractName t
       formatBind (Rec bs) =
-        T.intercalate " " $
-          mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
-      txt = T.intercalate "\n" $ fmap formatBind binds
-  pure (ConsoleReplyText txt) -- "list core: not implemented"
+        let enames = traverse (extractName . fst) bs
+         in T.intercalate " " <$> enames
+
+      reply =
+        case traverse formatBind binds of
+          Left err ->
+            ConsoleReplyText ("Error: " <> err)
+          Right bindTxts ->
+            ConsoleReplyText $ T.intercalate "\n" bindTxts
+  pure reply
 
 printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
 printCore guts args = do
