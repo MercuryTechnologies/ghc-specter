@@ -22,7 +22,9 @@ where
 
 import Control.Monad ((<=<))
 import Data.Text (Text)
-import Data.Tree (Tree (..), drawTree)
+import Data.Text qualified as T
+import Data.Tree (Tree (..))
+import Text.Read (readMaybe)
 
 -- TODO: eventually these will be isomorphic to CoreExpr
 
@@ -35,7 +37,8 @@ data Bind
   deriving (Show)
 
 data Literal
-  = LitString Text
+  = LitNumber Text Integer
+  | LitString Text
   | LitOther Expr
   deriving (Show)
 
@@ -111,11 +114,23 @@ toBind (Node (typ, val) xs)
 
 toLiteral :: Tree (Text, Text) -> Either Text Literal
 toLiteral x@(Node (typ, val) xs)
-  | typ == "Literal" && val == "LitString" =
-      case xs of
-        (Node (_, sval) []) : [] -> pure (LitString sval)
-        _ -> Left "LitStrign, not 1 child"
-  | otherwise = LitOther <$> toExpr x
+  | typ == "Literal" =
+      if
+          | val == "LitString" ->
+              case xs of
+                (Node (_, sval) []) : [] -> pure (LitString sval)
+                _ -> Left "LitString, not 1 child"
+          | val == "LitNumber" ->
+              case xs of
+                Node (_, ntyp) [] : Node (_, nnum) [] : [] ->
+                  let mnum = readMaybe (T.unpack nnum)
+                   in case mnum of
+                        Nothing -> Left "LitNumber, not integer"
+                        Just num -> pure $ LitNumber ntyp num
+                _ -> Left "LitNumber, not 2 children"
+          | otherwise ->
+              LitOther <$> toExpr x
+  | otherwise = Left "Literal: not Literal"
 
 toAltCon :: Tree (Text, Text) -> Either Text AltCon
 toAltCon (Node (typ, val) xs)

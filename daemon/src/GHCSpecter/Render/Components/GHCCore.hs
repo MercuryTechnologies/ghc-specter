@@ -131,8 +131,11 @@ renderTopBind bind = goB 0 bind
         Var var -> span [] [text (unId var)]
         -- special treatment for readability
         Lit (LitString txt) ->
-          let txt' = "\"" <> txt <> "\""
+          let txt' = "\"" <> txt <> "\"#"
            in span [] [text txt']
+        Lit (LitNumber _ num) ->
+          let txt = T.pack (show num) <> "#"
+           in span [] [text txt]
         Lit (LitOther e) ->
           goE lvl e
         App e1 e2 -> goApp lvl e1 e2
