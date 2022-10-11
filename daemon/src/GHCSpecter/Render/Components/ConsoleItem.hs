@@ -6,6 +6,7 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (onClick, style)
 import Data.Text qualified as T
+import Data.Tree (drawTree)
 import GHCSpecter.Data.GHC.Core (toBind)
 import GHCSpecter.Render.Components.GHCCore (renderTopBind)
 import GHCSpecter.Render.Util (divClass)

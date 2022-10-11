@@ -23,6 +23,10 @@ import GHCSpecter.UI.ConcurReplica.DOM
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
 
+isType :: Expr -> Bool
+isType (Type _) = True
+isType _ = False
+
 isInlineable :: Expr -> Bool
 isInlineable (Var _) = True
 isInlineable (Lit _) = True
@@ -61,6 +65,9 @@ renderTopBind bind = goB 0 bind
            in divClass (cls lvl') [] [varEl, space, eqEl, space, expEl]
 
     goApp lvl e1 e2
+      -- suppress type, i.e. drop
+      -- TODO: handle this correctly and customizable.
+      | isType e2 = goE lvl e1
       | isInlineable e1 =
           let e1El = span [] $
                 case e1 of

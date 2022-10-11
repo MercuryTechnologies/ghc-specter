@@ -16,8 +16,6 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (maybeToList)
 import Data.Text (Text)
-import Data.Text qualified as T
-import Data.Tree (drawTree)
 import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
@@ -26,7 +24,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
     el,
     input,
     nav,
-    pre,
     script,
     text,
   )
