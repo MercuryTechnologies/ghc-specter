@@ -5,6 +5,7 @@ module Plugin.GHCSpecter.Task.Core2Core
 where
 
 import Control.Error.Util (note)
+import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
 import Data.Functor.Const (Const (..))
@@ -33,7 +34,7 @@ import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (showPpr)
+import GHCSpecter.Util.GHC (printPpr, showPpr)
 
 getOccNameDynamically ::
   forall t a.
@@ -155,4 +156,6 @@ printCore guts args = do
       binds = mg_binds guts
       binds' = filter isReq binds
       forest = fmap (core2tree dflags) binds'
+  -- for debug
+  mapM_ (liftIO . printPpr dflags) binds'
   pure (ConsoleReplyCore forest)

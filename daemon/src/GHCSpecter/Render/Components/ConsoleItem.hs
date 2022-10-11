@@ -6,6 +6,7 @@ where
 import Concur.Core (Widget)
 import Concur.Replica (onClick, style)
 import Data.Text qualified as T
+import Data.Tree (drawTree)
 import GHCSpecter.Data.GHC.Core (toBind)
 import GHCSpecter.Render.Components.GHCCore (renderTopBind)
 import GHCSpecter.Render.Util (divClass)
@@ -60,7 +61,7 @@ render (ConsoleCore forest) =
        in div
             [style [("display", "block"), ("margin", "0"), ("padding", "0")]]
             [ -- for debug
-              -- divClass "noinline" [] [pre [] [text txt]]
+              -- divClass "noinline" [] [pre [] [text txt]],
               div [style [("display", "block")]] [rendered]
             ]
     renderedForest = fmap render1 forest
