@@ -45,7 +45,7 @@ import GHC.Driver.Session
   )
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
+import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
@@ -162,9 +162,10 @@ sendModuleName ::
   MsgQueue ->
   DriverId ->
   ModuleName ->
+  Maybe FilePath ->
   IO ()
-sendModuleName queue drvId modName =
-  queueMessage queue (CMModuleInfo drvId modName)
+sendModuleName queue drvId modName msrcfile =
+  queueMessage queue (CMModuleInfo drvId modName msrcfile)
 
 sendCompStateOnPhase ::
   MsgQueue ->
@@ -212,9 +213,10 @@ parsedResultActionPlugin ::
   Hsc HsParsedModule
 parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
   let modName = getModuleName modSummary
+      msrcFile = ml_hs_file $ ms_location modSummary
   liftIO $ do
     writeIORef modNameRef (Just modName)
-    sendModuleName queue drvId modName
+    sendModuleName queue drvId modName msrcFile
   pure parsedMod
 
 --

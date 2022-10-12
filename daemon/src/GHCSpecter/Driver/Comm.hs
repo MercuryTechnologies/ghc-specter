@@ -62,8 +62,8 @@ updateInbox chanMsg = incrementSN . updater
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
-      CMBox (CMModuleInfo drvId modu) ->
-        let msg = ConsoleText ("module name: " <> modu)
+      CMBox (CMModuleInfo drvId modu mfile) ->
+        let msg = ConsoleText ("module name: " <> modu <> ", file: " <> T.pack (show mfile))
          in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMTiming drvId timer') ->

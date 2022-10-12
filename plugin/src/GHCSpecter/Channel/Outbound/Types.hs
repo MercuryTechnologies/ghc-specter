@@ -161,7 +161,7 @@ instance Binary ConsoleReply
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
-  CMModuleInfo :: DriverId -> ModuleName -> ChanMessage 'ModuleInfo
+  CMModuleInfo :: DriverId -> ModuleName -> Maybe FilePath -> ChanMessage 'ModuleInfo
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
@@ -183,9 +183,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMCheckImports m t)) = do
     put (fromEnum CheckImports)
     put (m, t)
-  put (CMBox (CMModuleInfo i m)) = do
+  put (CMBox (CMModuleInfo i m mf)) = do
     put (fromEnum ModuleInfo)
-    put (i, m)
+    put (i, m, mf)
   put (CMBox (CMTiming i t)) = do
     put (fromEnum Timing)
     put (i, t)
@@ -206,7 +206,7 @@ instance Binary ChanMessageBox where
     tag <- get
     case toEnum tag of
       CheckImports -> CMBox . uncurry CMCheckImports <$> get
-      ModuleInfo -> CMBox . uncurry CMModuleInfo <$> get
+      ModuleInfo -> CMBox . (\(i, m, mf) -> CMModuleInfo i m mf) <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
       HsSource -> CMBox . uncurry CMHsSource <$> get
