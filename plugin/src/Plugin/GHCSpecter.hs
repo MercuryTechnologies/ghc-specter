@@ -168,11 +168,10 @@ sendModuleName queue drvId modName msrcfile =
 
 sendCompStateOnPhase ::
   MsgQueue ->
-  DynFlags ->
   DriverId ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase queue dflags drvId phase = do
+sendCompStateOnPhase queue drvId phase = do
   pstate <- getPipeState
   case phase of
     RealPhase StopLn -> liftIO do
@@ -302,13 +301,13 @@ driver opts env0 = do
         -- pre phase timing
         let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
         breakPoint queue drvId modNameRef locPrePhase emptyCommandSet
-        sendCompStateOnPhase queue dflags drvId phase
+        sendCompStateOnPhase queue drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
         breakPoint queue drvId modNameRef locPostPhase emptyCommandSet
-        sendCompStateOnPhase queue dflags drvId phase'
+        sendCompStateOnPhase queue drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}
