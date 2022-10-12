@@ -133,7 +133,7 @@ renderModuleTree srcUI ss =
               [ SetBreakpoint modu (not hasBreakpoint) <$ onChange
               , DP.type_ "checkbox"
               , DP.name "breakpoint"
-              , DP.checked (hasBreakpoint)
+              , DP.checked hasBreakpoint
               , style [("width", "8px"), ("height", "8px")]
               ]
           modItem =

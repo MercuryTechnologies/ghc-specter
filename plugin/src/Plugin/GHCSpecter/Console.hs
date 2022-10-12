@@ -158,7 +158,7 @@ sessionInPause ::
 sessionInPause queue drvId loc cmds actionRef = do
   atomically $ do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
-    -- prodceed when the session is paused.
+    -- proceed when the session is paused.
     STM.check isPaused
   queueMessage queue (CMPaused drvId (Just loc))
   (forever $ consoleAction queue drvId loc cmds actionRef)
