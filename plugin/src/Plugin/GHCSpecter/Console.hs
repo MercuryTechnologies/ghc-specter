@@ -186,11 +186,18 @@ breakPoint queue drvId mmodNameRef loc cmds = do
         mmodName <- liftIO $ readIORef mmodNameRef
         atomically $ do
           psess <- readTVar sessionRef
-          let sinfo = psSessionInfo psess
-              modBreakpoints = psModuleBreakpoints psess
-              isSessionPaused =
+          let modBreakpoints = psModuleBreakpoints psess
+              doesHitBreakpoints =
                 maybe False (\modName -> modName `elem` modBreakpoints) mmodName
-                  || sessionIsPaused sinfo
+          when doesHitBreakpoints $
+            modifyTVar' sessionRef $ \s ->
+              let sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = True}
+               in s {psSessionInfo = sinfo'}
+        atomically $ do
+          psess <- readTVar sessionRef
+          let sinfo = psSessionInfo psess
+              isSessionPaused = sessionIsPaused sinfo
               isDriverInStep =
                 maybe False (== drvId)
                   . consoleDriverInStep
