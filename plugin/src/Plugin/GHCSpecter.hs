@@ -45,7 +45,7 @@ import GHC.Driver.Session
   )
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
-import GHC.Unit.Module.Location (ModLocation (ml_hie_file))
+import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
@@ -54,7 +54,6 @@ import GHCSpecter.Channel.Common.Types
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
-    HsSourceInfo (..),
     SessionInfo (..),
     Timer (..),
     TimerTag (..),
@@ -162,9 +161,10 @@ sendModuleName ::
   MsgQueue ->
   DriverId ->
   ModuleName ->
+  Maybe FilePath ->
   IO ()
-sendModuleName queue drvId modName =
-  queueMessage queue (CMModuleInfo drvId modName)
+sendModuleName queue drvId modName msrcfile =
+  queueMessage queue (CMModuleInfo drvId modName msrcfile)
 
 sendCompStateOnPhase ::
   MsgQueue ->
@@ -181,11 +181,12 @@ sendCompStateOnPhase queue dflags drvId phase = do
       let timer = Timer [(TimerEnd, endTime)]
       queueMessage queue (CMTiming drvId timer)
       -- send HIE file information to the daemon after compilation
+      -- TODO: send this after type check.
       case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
         (Just modLoc, True) -> do
           let hiefile = ml_hie_file modLoc
           hiefile' <- canonicalizePath hiefile
-          queueMessage queue (CMHsSource drvId (HsSourceInfo hiefile'))
+          queueMessage queue (CMHsHie drvId hiefile')
         _ -> pure ()
     RealPhase (As _) -> liftIO $ do
       -- send timing information
@@ -212,9 +213,11 @@ parsedResultActionPlugin ::
   Hsc HsParsedModule
 parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
   let modName = getModuleName modSummary
+      msrcFile = ml_hs_file $ ms_location modSummary
   liftIO $ do
+    msrcFile' <- traverse canonicalizePath msrcFile
     writeIORef modNameRef (Just modName)
-    sendModuleName queue drvId modName
+    sendModuleName queue drvId modName msrcFile'
   pure parsedMod
 
 --

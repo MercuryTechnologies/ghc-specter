@@ -25,7 +25,6 @@ import GHCSpecter.Channel.Outbound.Types
     ChanMessageBox (..),
     Channel (..),
     ConsoleReply (..),
-    HsSourceInfo (..),
     SessionInfo (..),
     Timer (..),
   )
@@ -34,12 +33,17 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
+import GHCSpecter.Data.GHC.Hie
+  ( HasModuleHieInfo (..),
+    emptyModuleHieInfo,
+  )
 import GHCSpecter.Driver.Session.Types
   ( HasServerSession (..),
     ServerSession (..),
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
+    HasHieState (..),
     HasServerState (..),
     ServerState (..),
     incrementSN,
@@ -62,8 +66,8 @@ updateInbox chanMsg = incrementSN . updater
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
         (serverInbox %~ M.insert (CheckImports, modu) msg)
-      CMBox (CMModuleInfo drvId modu) ->
-        let msg = ConsoleText ("module name: " <> modu)
+      CMBox (CMModuleInfo drvId modu mfile) ->
+        let msg = ConsoleText ("module name: " <> modu <> ", file: " <> T.pack (show mfile))
          in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMTiming drvId timer') ->
@@ -73,7 +77,7 @@ updateInbox chanMsg = incrementSN . updater
          in (serverTiming %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
-      CMBox (CMHsSource _modu _info) ->
+      CMBox (CMHsHie _ _) ->
         id
       CMBox (CMPaused drvId mloc) ->
         let formatMsg (Just loc) = ConsoleText ("paused at " <> T.pack (show loc))
@@ -120,7 +124,15 @@ listener socketFile ssess workQ = do
           CMSession s' -> do
             let mgi = sessionModuleGraph s'
             void $ forkIO (moduleGraphWorker ssRef mgi)
-          CMHsSource _drvId (HsSourceInfo hiefile) ->
+          CMModuleInfo _ modu mfile -> do
+            src <-
+              case mfile of
+                Nothing -> pure ""
+                Just file -> TIO.readFile file
+            let modHie = (modHieSource .~ src) emptyModuleHieInfo
+            atomically $
+              modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
+          CMHsHie _drvId hiefile ->
             void $ forkIO (hieWorker ssRef workQ hiefile)
           CMPaused drvId loc -> do
             mmodu <-
