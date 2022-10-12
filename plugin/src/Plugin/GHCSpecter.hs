@@ -224,20 +224,26 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
 typecheckPlugin ::
   MsgQueue ->
   DriverId ->
+  IORef (Maybe ModuleName) ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId _modsummary tc = do
+typecheckPlugin queue drvId mmodNameRef _modsummary tc = do
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
-  breakPoint queue drvId Typecheck cmdSet
+  breakPoint queue drvId mmodNameRef Typecheck cmdSet
   pure tc
 
 --
 -- core plugin
 --
 
-corePlugin :: MsgQueue -> DriverId -> [CoreToDo] -> CoreM [CoreToDo]
-corePlugin queue drvId todos = do
+corePlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  [CoreToDo] ->
+  CoreM [CoreToDo]
+corePlugin queue drvId mmodNameRef todos = do
   dflags <- getDynFlags
   let startPlugin =
         CoreDoPluginPass
@@ -256,7 +262,7 @@ corePlugin queue drvId todos = do
         ]
 
     eachPlugin pass guts = do
-      breakPoint queue drvId (Core2Core pass) (cmdSet guts)
+      breakPoint queue drvId mmodNameRef (Core2Core pass) (cmdSet guts)
       pure guts
 
 --
@@ -271,32 +277,33 @@ driver opts env0 = do
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
+  -- TODO: Make (DriverId -> ModuleName) map and store it in SessionRef
   modNameRef <- newIORef Nothing
   drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
       newPlugin =
         plugin
-          { installCoreToDos = \_opts -> corePlugin queue drvId
+          { installCoreToDos = \_opts -> corePlugin queue drvId modNameRef
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId
+          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
-  breakPoint queue drvId StartDriver emptyCommandSet
+  breakPoint queue drvId modNameRef StartDriver emptyCommandSet
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
         let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
-        breakPoint queue drvId locPrePhase emptyCommandSet
+        breakPoint queue drvId modNameRef locPrePhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
-        breakPoint queue drvId locPostPhase emptyCommandSet
+        breakPoint queue drvId modNameRef locPostPhase emptyCommandSet
         sendCompStateOnPhase queue dflags drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}

@@ -8,9 +8,11 @@ import Concur.Replica
   ( MouseEvent,
     classList,
     height,
+    onChange,
     onClick,
     style,
   )
+import Concur.Replica.DOM.Props qualified as DP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
 import Data.Map qualified as M
@@ -36,6 +38,7 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     hr,
+    input,
     li,
     pre,
     span,
@@ -48,7 +51,10 @@ import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
     SourceViewUI (..),
   )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    SourceViewEvent (..),
+  )
 import GHCSpecter.Util.SourceTree
   ( accumPrefix,
     expandFocusOnly,
@@ -68,10 +74,7 @@ expandableText isBordered isExpandable cls txt =
         if isBordered
           then [style [("border", "solid")]]
           else []
-   in span
-        spanProps
-        [ span [onClick] [text txt']
-        ]
+   in span (onClick : spanProps) [text txt']
 
 -- | show information on unqualified imports
 renderUnqualifiedImports :: ModuleName -> Inbox -> Widget IHTML a
@@ -89,7 +92,7 @@ renderSourceCode modHieInfo =
     topLevelDecls = getReducedTopLevelDecls modHieInfo
     rendered = modHieInfo ^. modHieSource
 
-renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML SourceViewEvent
 renderModuleTree srcUI ss =
   div
     [ style
@@ -108,28 +111,48 @@ renderModuleTree srcUI ss =
     displayedForest' :: [Tree (ModuleName, Bool)]
     displayedForest' =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
+    breakpoints = ss ^. serverModuleBreakpoints
 
-    convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
+    convert :: Widget IHTML e -> [Widget IHTML e] -> Widget IHTML e
     convert x ys
       | null ys = li [] [x]
       | otherwise = li [] [x, ul [] ys]
 
-    contents :: [Widget IHTML Event]
+    contents :: [Widget IHTML SourceViewEvent]
     contents = fmap renderTree displayedForest'
       where
-        renderTree = foldTree convert . fmap renderNode --  . foldTree markLeaf
-    renderNode :: (ModuleName, Bool) -> Widget IHTML Event
+        renderTree = foldTree convert . fmap renderNode
+    renderNode :: (ModuleName, Bool) -> Widget IHTML SourceViewEvent
     renderNode (modu, b) =
       let colorTxt
             | isModuleCompilationDone drvModMap timing modu = "has-text-green"
             | otherwise = "has-text-black"
+          hasBreakpoint = modu `elem` breakpoints
+          breakpointCheck =
+            input
+              [ SetBreakpoint modu (not hasBreakpoint) <$ onChange
+              , DP.type_ "checkbox"
+              , DP.name "breakpoint"
+              , DP.checked hasBreakpoint
+              , style [("width", "8px"), ("height", "8px")]
+              ]
           modItem =
             case mexpandedModu of
               Just modu'
                 | modu == modu' ->
-                    ExpandModuleEv Nothing <$ expandableText True (not b) colorTxt modu
+                    span
+                      []
+                      [ UnselectModule
+                          <$ expandableText True (not b) colorTxt modu
+                      , breakpointCheck
+                      ]
               _ ->
-                ExpandModuleEv (Just modu) <$ expandableText False (not b) colorTxt modu
+                span
+                  []
+                  [ SelectModule modu
+                      <$ expandableText False (not b) colorTxt modu
+                  , breakpointCheck
+                  ]
        in modItem
 
 renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
@@ -181,7 +204,7 @@ render srcUI ss =
         [ classList [("column box is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
-        [renderModuleTree srcUI ss]
+        [SourceViewEv <$> renderModuleTree srcUI ss]
     , div
         [ classList [("column box is-four-fifths", True)]
         , style [("overflow", "scroll")]

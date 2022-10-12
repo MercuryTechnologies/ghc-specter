@@ -78,7 +78,10 @@ updateInbox chanMsg = incrementSN . updater
       CMBox (CMPaused drvId mloc) ->
         let formatMsg (Just loc) = ConsoleText ("paused at " <> T.pack (show loc))
             formatMsg Nothing = ConsoleText "resume"
-         in (serverPaused %~ alterToKeyMap (const mloc) drvId)
+            updateSessionInfo (Just _) = \sinfo -> sinfo {sessionIsPaused = True}
+            updateSessionInfo Nothing = id
+         in (serverSessionInfo %~ updateSessionInfo mloc)
+              . (serverPaused %~ alterToKeyMap (const mloc) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of

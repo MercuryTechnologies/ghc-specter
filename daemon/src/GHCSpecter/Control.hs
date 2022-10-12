@@ -5,7 +5,8 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((&), (.~), (^.), _1, _2)
+import Control.Lens ((%~), (&), (.~), (^.), _1, _2)
+import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -63,6 +64,7 @@ import GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     MouseEvent (..),
     SessionEvent (..),
+    SourceViewEvent (..),
     SubModuleEvent (..),
     Tab (..),
     TimingEvent (..),
@@ -78,10 +80,24 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
       pure (oldModel, newSS)
-    ExpandModuleEv mexpandedModu' -> do
-      let newModel = (modelSourceView . srcViewExpandedModule .~ mexpandedModu') oldModel
+    SourceViewEv (SelectModule expandedModu') -> do
+      let newModel =
+            (modelSourceView . srcViewExpandedModule .~ Just expandedModu') oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
+    SourceViewEv UnselectModule -> do
+      let newModel =
+            (modelSourceView . srcViewExpandedModule .~ Nothing) oldModel
+          newSS = (serverShouldUpdate .~ False) oldSS
+      pure (newModel, newSS)
+    SourceViewEv (SetBreakpoint modu isSet) -> do
+      let updater
+            | isSet = (modu :)
+            | otherwise = L.delete modu
+          newSS = (serverModuleBreakpoints %~ updater) oldSS
+          bps = newSS ^. serverModuleBreakpoints
+      sendRequest $ SessionReq (SetModuleBreakpoints bps)
+      pure (oldModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
           mgui' = handleModuleGraphEv ev mgui
