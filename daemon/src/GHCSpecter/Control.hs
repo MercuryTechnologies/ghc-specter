@@ -5,7 +5,7 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((%~), (&), (.~), (^.), _1, _2)
+import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
@@ -69,6 +69,7 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
+import GHCSpecter.Util.Map (forwardLookup)
 import GHCSpecter.Util.Timing (makeTimingTable)
 
 defaultUpdateModel ::
@@ -239,6 +240,12 @@ goCommon ev (view, model0) = do
                   | ":print-core" `T.isPrefixOf` msg -> do
                       let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
                       sendRequest $ ConsoleReq drvId (PrintCore args)
+                  | msg == ":goto-source" -> do
+                      ss <- getSS
+                      let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
+                          model' =
+                            (modelSourceView . srcViewExpandedModule .~ mmod) model
+                      branchTab TabSourceView (view, model')
                   | otherwise ->
                       sendRequest $ ConsoleReq drvId (Ping msg)
               pure model
