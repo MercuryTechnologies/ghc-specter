@@ -11,6 +11,7 @@ import Concur.Replica
     onClick,
     style,
   )
+import Concur.Replica.DOM.Props qualified as DP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
 import Data.Map qualified as M
@@ -36,6 +37,7 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
     hr,
+    input,
     li,
     pre,
     span,
@@ -68,10 +70,7 @@ expandableText isBordered isExpandable cls txt =
         if isBordered
           then [style [("border", "solid")]]
           else []
-   in span
-        spanProps
-        [ span [onClick] [text txt']
-        ]
+   in span (onClick : spanProps) [text txt']
 
 -- | show information on unqualified imports
 renderUnqualifiedImports :: ModuleName -> Inbox -> Widget IHTML a
@@ -117,19 +116,36 @@ renderModuleTree srcUI ss =
     contents :: [Widget IHTML Event]
     contents = fmap renderTree displayedForest'
       where
-        renderTree = foldTree convert . fmap renderNode --  . foldTree markLeaf
+        renderTree = foldTree convert . fmap renderNode
     renderNode :: (ModuleName, Bool) -> Widget IHTML Event
     renderNode (modu, b) =
       let colorTxt
             | isModuleCompilationDone drvModMap timing modu = "has-text-green"
             | otherwise = "has-text-black"
+          breakpointCheck =
+            input
+              [ DP.type_ "checkbox"
+              , DP.name "breakpoint"
+              , DP.checked True
+              , style [("width", "8px"), ("height", "8px")]
+              ]
           modItem =
             case mexpandedModu of
               Just modu'
                 | modu == modu' ->
-                    ExpandModuleEv Nothing <$ expandableText True (not b) colorTxt modu
+                    span
+                      []
+                      [ ExpandModuleEv Nothing
+                          <$ expandableText True (not b) colorTxt modu
+                      , breakpointCheck
+                      ]
               _ ->
-                ExpandModuleEv (Just modu) <$ expandableText False (not b) colorTxt modu
+                span
+                  []
+                  [ ExpandModuleEv (Just modu)
+                      <$ expandableText False (not b) colorTxt modu
+                  , breakpointCheck
+                  ]
        in modItem
 
 renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
