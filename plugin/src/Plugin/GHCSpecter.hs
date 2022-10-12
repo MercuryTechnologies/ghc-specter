@@ -15,7 +15,7 @@ import Control.Concurrent.STM
     modifyTVar',
     readTVar,
   )
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
 import Data.Text qualified as T
@@ -180,14 +180,6 @@ sendCompStateOnPhase queue dflags drvId phase = do
       endTime <- getCurrentTime
       let timer = Timer [(TimerEnd, endTime)]
       queueMessage queue (CMTiming drvId timer)
-      -- send HIE file information to the daemon after compilation
-      -- TODO: send this after type check.
-      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
-        (Just modLoc, True) -> do
-          let hiefile = ml_hie_file modLoc
-          hiefile' <- canonicalizePath hiefile
-          queueMessage queue (CMHsHie drvId hiefile')
-        _ -> pure ()
     RealPhase (As _) -> liftIO $ do
       -- send timing information
       endTime <- getCurrentTime
@@ -231,7 +223,16 @@ typecheckPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId mmodNameRef _modsummary tc = do
+typecheckPlugin queue drvId mmodNameRef modSummary tc = do
+  -- send HIE file information to the daemon after compilation
+  dflags <- getDynFlags
+  let modLoc = ms_location modSummary
+  when (gopt Opt_WriteHie dflags) $
+    liftIO $ do
+      let hiefile = ml_hie_file modLoc
+      hiefile' <- canonicalizePath hiefile
+      queueMessage queue (CMHsHie drvId hiefile')
+
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
   breakPoint queue drvId mmodNameRef Typecheck cmdSet
   pure tc
