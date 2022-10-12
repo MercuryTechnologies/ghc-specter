@@ -5,7 +5,8 @@ module GHCSpecter.Control
   )
 where
 
-import Control.Lens ((&), (.~), (^.), _1, _2)
+import Control.Lens ((%~), (&), (.~), (^.), _1, _2)
+import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -89,6 +90,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
             (modelSourceView . srcViewExpandedModule .~ Nothing) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
+    SourceViewEv (SetBreakpoint modu isSet) -> do
+      printMsg ("SetBreakpoint: " <> T.pack (show (modu, isSet)))
+      let updater
+            | isSet = (modu :)
+            | otherwise = L.delete modu
+          newSS = (serverModuleBreakpoints %~ updater) oldSS
+      pure (oldModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
           mgui' = handleModuleGraphEv ev mgui

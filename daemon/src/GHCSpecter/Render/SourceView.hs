@@ -8,6 +8,7 @@ import Concur.Replica
   ( MouseEvent,
     classList,
     height,
+    onChange,
     onClick,
     style,
   )
@@ -91,7 +92,7 @@ renderSourceCode modHieInfo =
     topLevelDecls = getReducedTopLevelDecls modHieInfo
     rendered = modHieInfo ^. modHieSource
 
-renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML Event
+renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML SourceViewEvent
 renderModuleTree srcUI ss =
   div
     [ style
@@ -112,16 +113,16 @@ renderModuleTree srcUI ss =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
     breakpoints = ss ^. serverModuleBreakpoints
 
-    convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
+    convert :: Widget IHTML e -> [Widget IHTML e] -> Widget IHTML e
     convert x ys
       | null ys = li [] [x]
       | otherwise = li [] [x, ul [] ys]
 
-    contents :: [Widget IHTML Event]
+    contents :: [Widget IHTML SourceViewEvent]
     contents = fmap renderTree displayedForest'
       where
         renderTree = foldTree convert . fmap renderNode
-    renderNode :: (ModuleName, Bool) -> Widget IHTML Event
+    renderNode :: (ModuleName, Bool) -> Widget IHTML SourceViewEvent
     renderNode (modu, b) =
       let colorTxt
             | isModuleCompilationDone drvModMap timing modu = "has-text-green"
@@ -129,8 +130,8 @@ renderModuleTree srcUI ss =
           hasBreakpoint = modu `elem` breakpoints
           breakpointCheck =
             input
-              [ -- onChange
-                DP.type_ "checkbox"
+              [ SetBreakpoint modu (not hasBreakpoint) <$ onChange
+              , DP.type_ "checkbox"
               , DP.name "breakpoint"
               , DP.checked (hasBreakpoint)
               , style [("width", "8px"), ("height", "8px")]
@@ -141,14 +142,14 @@ renderModuleTree srcUI ss =
                 | modu == modu' ->
                     span
                       []
-                      [ SourceViewEv UnselectModule
+                      [ UnselectModule
                           <$ expandableText True (not b) colorTxt modu
                       , breakpointCheck
                       ]
               _ ->
                 span
                   []
-                  [ SourceViewEv (SelectModule modu)
+                  [ SelectModule modu
                       <$ expandableText False (not b) colorTxt modu
                   , breakpointCheck
                   ]
@@ -203,7 +204,7 @@ render srcUI ss =
         [ classList [("column box is-one-fifths", True)]
         , style [("overflow", "scroll")]
         ]
-        [renderModuleTree srcUI ss]
+        [SourceViewEv <$> renderModuleTree srcUI ss]
     , div
         [ classList [("column box is-four-fifths", True)]
         , style [("overflow", "scroll")]

@@ -20,7 +20,7 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (DriverId)
+import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 
 data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
   deriving (Eq, Show)
@@ -38,13 +38,14 @@ data ComponentTag
   deriving (Show, Eq)
 
 data SourceViewEvent
-  = SelectModule Text
+  = SelectModule ModuleName
   | UnselectModule
+  | SetBreakpoint ModuleName Bool
   deriving (Show, Eq)
 
 data ModuleGraphEvent
-  = HoverOnModuleEv (Maybe Text)
-  | ClickOnModuleEv (Maybe Text)
+  = HoverOnModuleEv (Maybe ModuleName)
+  | ClickOnModuleEv (Maybe ModuleName)
   deriving (Show, Eq)
 
 data SubModuleEvent
