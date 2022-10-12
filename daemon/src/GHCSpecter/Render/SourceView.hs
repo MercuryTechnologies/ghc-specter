@@ -50,7 +50,10 @@ import GHCSpecter.UI.Types
   ( HasSourceViewUI (..),
     SourceViewUI (..),
   )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    SourceViewEvent (..),
+  )
 import GHCSpecter.Util.SourceTree
   ( accumPrefix,
     expandFocusOnly,
@@ -107,6 +110,7 @@ renderModuleTree srcUI ss =
     displayedForest' :: [Tree (ModuleName, Bool)]
     displayedForest' =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
+    breakpoints = ss ^. serverModuleBreakpoints
 
     convert :: Widget IHTML Event -> [Widget IHTML Event] -> Widget IHTML Event
     convert x ys
@@ -122,11 +126,13 @@ renderModuleTree srcUI ss =
       let colorTxt
             | isModuleCompilationDone drvModMap timing modu = "has-text-green"
             | otherwise = "has-text-black"
+          hasBreakpoint = modu `elem` breakpoints
           breakpointCheck =
             input
-              [ DP.type_ "checkbox"
+              [ -- onChange
+                DP.type_ "checkbox"
               , DP.name "breakpoint"
-              , DP.checked True
+              , DP.checked (hasBreakpoint)
               , style [("width", "8px"), ("height", "8px")]
               ]
           modItem =
@@ -135,14 +141,14 @@ renderModuleTree srcUI ss =
                 | modu == modu' ->
                     span
                       []
-                      [ ExpandModuleEv Nothing
+                      [ SourceViewEv UnselectModule
                           <$ expandableText True (not b) colorTxt modu
                       , breakpointCheck
                       ]
               _ ->
                 span
                   []
-                  [ ExpandModuleEv (Just modu)
+                  [ SourceViewEv (SelectModule modu)
                       <$ expandableText False (not b) colorTxt modu
                   , breakpointCheck
                   ]

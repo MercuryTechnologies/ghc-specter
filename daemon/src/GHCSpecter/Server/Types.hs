@@ -110,6 +110,7 @@ data ServerState = ServerState
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
+  , _serverModuleBreakpoints :: [ModuleName]
   }
   deriving (Show, Generic)
 
@@ -132,6 +133,7 @@ emptyServerState =
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
+    , _serverModuleBreakpoints = []
     }
 
 incrementSN :: ServerState -> ServerState

@@ -63,6 +63,7 @@ import GHCSpecter.UI.Types.Event
     ModuleGraphEvent (..),
     MouseEvent (..),
     SessionEvent (..),
+    SourceViewEvent (..),
     SubModuleEvent (..),
     Tab (..),
     TimingEvent (..),
@@ -78,8 +79,14 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
       pure (oldModel, newSS)
-    ExpandModuleEv mexpandedModu' -> do
-      let newModel = (modelSourceView . srcViewExpandedModule .~ mexpandedModu') oldModel
+    SourceViewEv (SelectModule expandedModu') -> do
+      let newModel =
+            (modelSourceView . srcViewExpandedModule .~ Just expandedModu') oldModel
+          newSS = (serverShouldUpdate .~ False) oldSS
+      pure (newModel, newSS)
+    SourceViewEv UnselectModule -> do
+      let newModel =
+            (modelSourceView . srcViewExpandedModule .~ Nothing) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
     MainModuleEv ev -> do

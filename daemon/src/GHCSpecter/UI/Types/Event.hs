@@ -5,6 +5,7 @@ module GHCSpecter.UI.Types.Event
     ComponentTag (..),
 
     -- * Event types
+    SourceViewEvent (..),
     SubModuleEvent (..),
     ModuleGraphEvent (..),
     SessionEvent (..),
@@ -34,6 +35,11 @@ instance ToJSON DetailLevel
 data ComponentTag
   = TimingView
   | TimingBar
+  deriving (Show, Eq)
+
+data SourceViewEvent
+  = SelectModule Text
+  | UnselectModule
   deriving (Show, Eq)
 
 data ModuleGraphEvent
@@ -78,7 +84,7 @@ data BackgroundEvent
 
 data Event
   = TabEv Tab
-  | ExpandModuleEv (Maybe Text)
+  | SourceViewEv SourceViewEvent
   | MainModuleEv ModuleGraphEvent
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
