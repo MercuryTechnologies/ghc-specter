@@ -11,7 +11,6 @@ module GHCSpecter.Channel.Outbound.Types
     getHscOutTime,
     getAsTime,
     getEndTime,
-    HsSourceInfo (..),
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
     ConsoleReply (..),
@@ -42,7 +41,7 @@ data Channel
   | ModuleInfo
   | Timing
   | Session
-  | HsSource
+  | HsHie
   | Paused
   | Console
   deriving (Enum, Eq, Ord, Show, Generic)
@@ -134,19 +133,6 @@ getAsTime (Timer ts) = L.lookup TimerAs ts
 getEndTime :: Timer -> Maybe UTCTime
 getEndTime (Timer ts) = L.lookup TimerEnd ts
 
-newtype HsSourceInfo = HsSourceInfo
-  { hsHieFile :: FilePath
-  }
-  deriving (Show, Generic)
-
-instance Binary HsSourceInfo where
-  put (HsSourceInfo hie) = put hie
-  get = HsSourceInfo <$> get
-
-instance FromJSON HsSourceInfo
-
-instance ToJSON HsSourceInfo
-
 data ConsoleReply
   = -- | simple textual reply
     ConsoleReplyText Text
@@ -164,7 +150,7 @@ data ChanMessage (a :: Channel) where
   CMModuleInfo :: DriverId -> ModuleName -> Maybe FilePath -> ChanMessage 'ModuleInfo
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
-  CMHsSource :: DriverId -> HsSourceInfo -> ChanMessage 'HsSource
+  CMHsHie :: DriverId -> FilePath -> ChanMessage 'HsHie
   CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
   CMConsole :: DriverId -> ConsoleReply -> ChanMessage 'Console
 
@@ -175,7 +161,7 @@ instance Show ChanMessageBox where
   show (CMBox (CMModuleInfo {})) = "CMModuleInfo"
   show (CMBox (CMTiming {})) = "CMTiming"
   show (CMBox (CMSession {})) = "CMSession"
-  show (CMBox (CMHsSource {})) = "CMHsSource"
+  show (CMBox (CMHsHie {})) = "CMHsHie"
   show (CMBox (CMPaused {})) = "CMPaused"
   show (CMBox (CMConsole {})) = "CMConsole"
 
@@ -192,8 +178,8 @@ instance Binary ChanMessageBox where
   put (CMBox (CMSession s)) = do
     put (fromEnum Session)
     put s
-  put (CMBox (CMHsSource i h)) = do
-    put (fromEnum HsSource)
+  put (CMBox (CMHsHie i h)) = do
+    put (fromEnum HsHie)
     put (i, h)
   put (CMBox (CMPaused i ml)) = do
     put (fromEnum Paused)
@@ -209,6 +195,6 @@ instance Binary ChanMessageBox where
       ModuleInfo -> CMBox . (\(i, m, mf) -> CMModuleInfo i m mf) <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
-      HsSource -> CMBox . uncurry CMHsSource <$> get
+      HsHie -> CMBox . uncurry CMHsHie <$> get
       Paused -> CMBox . uncurry CMPaused <$> get
       Console -> CMBox . uncurry CMConsole <$> get
