@@ -28,8 +28,6 @@ import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
     PhasePlus (HscOut, RealPhase),
-    getPipeState,
-    maybe_loc,
     runPhase,
   )
 import GHC.Driver.Plugins
@@ -39,10 +37,7 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Driver.Session
-  ( DynFlags,
-    gopt,
-  )
+import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.Location (ModLocation (..))
@@ -172,7 +167,6 @@ sendCompStateOnPhase ::
   PhasePlus ->
   CompPipeline ()
 sendCompStateOnPhase queue drvId phase = do
-  pstate <- getPipeState
   case phase of
     RealPhase StopLn -> liftIO do
       -- send timing information
@@ -299,13 +293,15 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
+        let phaseTxt = T.pack (showPpr dflags phase)
+            locPrePhase = PreRunPhase phaseTxt
         breakPoint queue drvId modNameRef locPrePhase emptyCommandSet
         sendCompStateOnPhase queue drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
+        let phase'Txt = T.pack (showPpr dflags phase')
+            locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
         breakPoint queue drvId modNameRef locPostPhase emptyCommandSet
         sendCompStateOnPhase queue drvId phase'
         pure (phase', fp')
