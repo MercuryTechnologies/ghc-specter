@@ -51,14 +51,6 @@ type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
 
-data HsSourceInfo = HsSourceInfo
-  { _hsSrcFile :: FilePath
-  , _hsHieFile :: Maybe FilePath
-  }
-  deriving (Show, Generic)
-
-makeClassy ''HsSourceInfo
-
 data ModuleGraphState = ModuleGraphState
   { _mgsModuleForest :: Forest ModuleName
   , _mgsClusterGraph :: Maybe GraphVisInfo
