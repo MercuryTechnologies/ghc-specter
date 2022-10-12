@@ -277,6 +277,7 @@ driver opts env0 = do
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
+  -- TODO: Make (DriverId -> ModuleName) map and store it in SessionRef
   modNameRef <- newIORef Nothing
   drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts

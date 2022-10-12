@@ -91,7 +91,6 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
     SourceViewEv (SetBreakpoint modu isSet) -> do
-      printMsg ("SetBreakpoint: " <> T.pack (show (modu, isSet)))
       let updater
             | isSet = (modu :)
             | otherwise = L.delete modu
