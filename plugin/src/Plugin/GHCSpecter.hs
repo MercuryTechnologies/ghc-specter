@@ -15,7 +15,7 @@ import Control.Concurrent.STM
     modifyTVar',
     readTVar,
   )
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
 import Data.Text qualified as T
@@ -28,8 +28,6 @@ import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
     PhasePlus (HscOut, RealPhase),
-    getPipeState,
-    maybe_loc,
     runPhase,
   )
 import GHC.Driver.Plugins
@@ -39,10 +37,7 @@ import GHC.Driver.Plugins
     defaultPlugin,
     type CommandLineOption,
   )
-import GHC.Driver.Session
-  ( DynFlags,
-    gopt,
-  )
+import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.Location (ModLocation (..))
@@ -168,26 +163,16 @@ sendModuleName queue drvId modName msrcfile =
 
 sendCompStateOnPhase ::
   MsgQueue ->
-  DynFlags ->
   DriverId ->
   PhasePlus ->
   CompPipeline ()
-sendCompStateOnPhase queue dflags drvId phase = do
-  pstate <- getPipeState
+sendCompStateOnPhase queue drvId phase = do
   case phase of
     RealPhase StopLn -> liftIO do
       -- send timing information
       endTime <- getCurrentTime
       let timer = Timer [(TimerEnd, endTime)]
       queueMessage queue (CMTiming drvId timer)
-      -- send HIE file information to the daemon after compilation
-      -- TODO: send this after type check.
-      case (maybe_loc pstate, gopt Opt_WriteHie dflags) of
-        (Just modLoc, True) -> do
-          let hiefile = ml_hie_file modLoc
-          hiefile' <- canonicalizePath hiefile
-          queueMessage queue (CMHsHie drvId hiefile')
-        _ -> pure ()
     RealPhase (As _) -> liftIO $ do
       -- send timing information
       endTime <- getCurrentTime
@@ -231,7 +216,16 @@ typecheckPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId mmodNameRef _modsummary tc = do
+typecheckPlugin queue drvId mmodNameRef modSummary tc = do
+  -- send HIE file information to the daemon after compilation
+  dflags <- getDynFlags
+  let modLoc = ms_location modSummary
+  when (gopt Opt_WriteHie dflags) $
+    liftIO $ do
+      let hiefile = ml_hie_file modLoc
+      hiefile' <- canonicalizePath hiefile
+      queueMessage queue (CMHsHie drvId hiefile')
+
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
   breakPoint queue drvId mmodNameRef Typecheck cmdSet
   pure tc
@@ -299,15 +293,17 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
-        let locPrePhase = PreRunPhase (T.pack (showPpr dflags phase))
+        let phaseTxt = T.pack (showPpr dflags phase)
+            locPrePhase = PreRunPhase phaseTxt
         breakPoint queue drvId modNameRef locPrePhase emptyCommandSet
-        sendCompStateOnPhase queue dflags drvId phase
+        sendCompStateOnPhase queue drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
-        let locPostPhase = PostRunPhase (T.pack (showPpr dflags phase'))
+        let phase'Txt = T.pack (showPpr dflags phase')
+            locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
         breakPoint queue drvId modNameRef locPostPhase emptyCommandSet
-        sendCompStateOnPhase queue dflags drvId phase'
+        sendCompStateOnPhase queue drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
       env' = env {hsc_hooks = hooks'}

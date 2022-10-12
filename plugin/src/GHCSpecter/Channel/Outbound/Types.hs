@@ -56,7 +56,8 @@ data BreakpointLoc
   | Typecheck
   | Core2Core Text
   | PreRunPhase Text
-  | PostRunPhase Text
+  | -- | (before_phase, after_phase)
+    PostRunPhase (Text, Text)
   deriving (Show, Eq, Generic)
 
 instance Binary BreakpointLoc
