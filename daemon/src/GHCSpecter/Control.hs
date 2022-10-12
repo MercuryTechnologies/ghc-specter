@@ -96,6 +96,8 @@ defaultUpdateModel topEv (oldModel, oldSS) =
             | isSet = (modu :)
             | otherwise = L.delete modu
           newSS = (serverModuleBreakpoints %~ updater) oldSS
+          bps = newSS ^. serverModuleBreakpoints
+      sendRequest $ SessionReq (SetModuleBreakpoints bps)
       pure (oldModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph

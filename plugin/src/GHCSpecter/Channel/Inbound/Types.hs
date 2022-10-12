@@ -12,11 +12,12 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (DriverId)
+import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 
 data SessionRequest
   = Pause
   | Resume
+  | SetModuleBreakpoints [ModuleName]
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary SessionRequest

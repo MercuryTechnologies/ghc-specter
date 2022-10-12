@@ -74,14 +74,17 @@ runMessageQueue cfg queue = do
       putStrLn "################"
       atomically $
         case msg of
-          SessionReq sreq ->
+          SessionReq Pause ->
             modifyTVar' sessionRef $ \s ->
-              let isPaused
-                    | sreq == Pause = True
-                    | otherwise = False
-                  sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = isPaused}
+              let sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = True}
                in s {psSessionInfo = sinfo'}
+          SessionReq Resume ->
+            modifyTVar' sessionRef $ \s ->
+              let sinfo = psSessionInfo s
+                  sinfo' = sinfo {sessionIsPaused = False}
+               in s {psSessionInfo = sinfo'}
+          SessionReq (SetModuleBreakpoints mods) -> pure ()
           ConsoleReq drvId' creq ->
             writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
