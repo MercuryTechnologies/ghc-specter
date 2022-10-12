@@ -84,7 +84,9 @@ runMessageQueue cfg queue = do
               let sinfo = psSessionInfo s
                   sinfo' = sinfo {sessionIsPaused = False}
                in s {psSessionInfo = sinfo'}
-          SessionReq (SetModuleBreakpoints mods) -> pure ()
+          SessionReq (SetModuleBreakpoints mods) ->
+            modifyTVar' sessionRef $ \s ->
+              s {psModuleBreakpoints = mods}
           ConsoleReq drvId' creq ->
             writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 

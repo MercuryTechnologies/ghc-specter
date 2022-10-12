@@ -23,12 +23,16 @@ import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (MonadIO (..))
+import Data.IORef (IORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import GHCSpecter.Channel.Common.Types (DriverId (..))
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Inbound.Types
   ( ConsoleRequest (..),
   )
@@ -165,10 +169,11 @@ breakPoint ::
   MonadIO m =>
   MsgQueue ->
   DriverId ->
+  IORef (Maybe ModuleName) ->
   BreakpointLoc ->
   CommandSet m ->
   m ()
-breakPoint queue drvId loc cmds = do
+breakPoint queue drvId mmodNameRef loc cmds = do
   actionRef <- liftIO $ newTVarIO Nothing
   tid <- liftIO $ forkIO $ sessionInPause queue drvId loc cmds actionRef
   loopM (go actionRef) (pure (), True)
@@ -177,11 +182,15 @@ breakPoint queue drvId loc cmds = do
     go :: TVar (Maybe (m ())) -> (m (), Bool) -> m (Either (m (), Bool) ())
     go actionRef (action, isBlocked) = do
       action
-      liftIO $
+      liftIO $ do
+        mmodName <- liftIO $ readIORef mmodNameRef
         atomically $ do
           psess <- readTVar sessionRef
           let sinfo = psSessionInfo psess
-              isSessionPaused = sessionIsPaused sinfo
+              modBreakpoints = psModuleBreakpoints psess
+              isSessionPaused =
+                maybe False (\modName -> modName `elem` modBreakpoints) mmodName
+                  || sessionIsPaused sinfo
               isDriverInStep =
                 maybe False (== drvId)
                   . consoleDriverInStep

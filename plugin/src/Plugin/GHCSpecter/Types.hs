@@ -22,7 +22,10 @@ import Control.Concurrent.STM
   )
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
-import GHCSpecter.Channel.Common.Types (DriverId (..))
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessageBox (..),
@@ -57,6 +60,7 @@ data PluginSession = PluginSession
   , psMessageQueue :: Maybe MsgQueue
   , psNextDriverId :: DriverId
   , psConsoleState :: ConsoleState
+  , psModuleBreakpoints :: [ModuleName]
   }
 
 emptyPluginSession :: PluginSession
@@ -67,6 +71,7 @@ emptyPluginSession =
     , psMessageQueue = Nothing
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState
+    , psModuleBreakpoints = []
     }
 
 -- | Global variable shared across the session
