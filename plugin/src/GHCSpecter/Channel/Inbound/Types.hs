@@ -30,6 +30,7 @@ data ConsoleRequest
   = Ping Text
   | NextBreakpoint
   | ShowUnqualifiedImports
+  | Test
   | ListCore
   | PrintCore [Text]
   deriving (Eq, Ord, Show, Generic)

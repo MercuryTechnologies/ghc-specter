@@ -1,5 +1,6 @@
-module Plugin.GHCSpecter.Task.UnqualifiedImports
+module Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
+    testSourceLocation,
   )
 where
 
@@ -39,3 +40,21 @@ fetchUnqualifiedImports tc = do
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
   pure (ConsoleReplyText (T.pack rendered))
+
+testSourceLocation :: TcGblEnv -> TcM ConsoleReply
+testSourceLocation tc = do
+  dflags <- getDynFlags
+  pure (ConsoleReplyText "test")
+
+{-  usedGREs :: [GlobalRdrElt] <- liftIO $ readIORef (tcg_used_gres tc)
+  let moduleImportMap :: Map ModuleName (Set Name)
+      moduleImportMap =
+        L.foldl' (\(!m) (modu, name) -> M.insertWith S.union modu (S.singleton name) m) M.empty $
+          concatMap mkModuleNameMap usedGREs
+      rendered =
+        unlines $ do
+          (modu, names) <- M.toList moduleImportMap
+          let imported = fmap (formatName dflags) $ S.toList names
+          [T.unpack modu, formatImportedNames imported]
+  pure (ConsoleReplyText (T.pack rendered))
+-}

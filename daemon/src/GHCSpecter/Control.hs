@@ -235,6 +235,8 @@ goCommon ev (view, model0) = do
                       sendRequest $ ConsoleReq drvId NextBreakpoint
                   | msg == ":unqualified" ->
                       sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+                  | msg == ":test" ->
+                      sendRequest $ ConsoleReq drvId Test
                   | msg == ":list-core" ->
                       sendRequest $ ConsoleReq drvId ListCore
                   | ":print-core" `T.isPrefixOf` msg -> do
