@@ -28,6 +28,7 @@ import GHCSpecter.Channel.Outbound.Types
 import GHCSpecter.Data.GHC.Hie (HasModuleHieInfo (..), ModuleHieInfo)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
@@ -37,7 +38,6 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
-    hr,
     input,
     li,
     pre,
@@ -166,15 +166,15 @@ renderCallGraph modu ss =
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
-  div
+  divClass
+    "columns"
     [ style
         [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-        , ("overflow", "scroll")
+        , ("overflow", "hidden")
         ]
     ]
     contents
   where
-    inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
     mexpandedModu = srcUI ^. srcViewExpandedModule
     contents =
@@ -185,29 +185,24 @@ renderSourceView srcUI ss =
                 case mmodHieInfo of
                   Nothing -> div [] [pre [] [text "No Hie info"]]
                   Just modHieInfo -> renderSourceCode modHieInfo
-           in [ sourcePanel
-              , hr []
-              , renderCallGraph modu ss
-              , hr []
-              , renderUnqualifiedImports modu inbox
+           in [ divClass "column box is-three-quarters" [style [("overflow", "scroll")]] [sourcePanel]
+              , divClass "column box is-one-quarter" [style [("overflow", "scroll")]] [renderCallGraph modu ss]
               ]
         _ -> []
 
 render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
-  div
-    [ classList [("columns", True)]
-    , style [("overflow", "hidden")]
+  divClass
+    "columns"
+    [ style [("overflow", "hidden")]
     , height "100%"
     ]
-    [ div
-        [ classList [("column box is-one-fifths", True)]
-        , style [("overflow", "scroll")]
-        ]
+    [ divClass
+        "column box is-one-fifths"
+        [style [("overflow", "scroll")]]
         [SourceViewEv <$> renderModuleTree srcUI ss]
-    , div
-        [ classList [("column box is-four-fifths", True)]
-        , style [("overflow", "scroll")]
-        ]
+    , divClass
+        "column box is-four-fifths"
+        [style [("overflow", "scroll")]]
         [renderSourceView srcUI ss]
     ]
