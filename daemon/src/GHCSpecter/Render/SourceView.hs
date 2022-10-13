@@ -41,6 +41,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     input,
     li,
     pre,
+    script,
     span,
     text,
     ul,
@@ -177,6 +178,24 @@ renderSourceView srcUI ss =
   where
     hie = ss ^. serverHieState
     mexpandedModu = srcUI ^. srcViewExpandedModule
+
+    -- This is a hack. Property update should be supported by concur-replica.
+    -- TODO: implement prop update in internalized concur-replica.
+    scriptContent =
+      script
+        []
+        [ text
+            "var me1 = document.currentScript;\n\
+            \var myParent1 = me1.parentElement;\n\
+            \console.log(myParent1);\n\
+            \var config1 = {attributes: true, childList: false, subtree: false, characterData: false};\n\
+            \var callback1 = (mutationList, observer) => {\n\
+            \      console.log (\"callback called\" + myParent1.getAttribute(\"myval\"));\n\
+            \      //myParent1.scrollTop = myParent1.scrollHeight;\n\
+            \    };\n\
+            \var observer1 = new MutationObserver(callback1);\n\
+            \observer1.observe(myParent1, config);\n"
+        ]
     contents =
       case mexpandedModu of
         Just modu ->
@@ -185,8 +204,16 @@ renderSourceView srcUI ss =
                 case mmodHieInfo of
                   Nothing -> div [] [pre [] [text "No Hie info"]]
                   Just modHieInfo -> renderSourceCode modHieInfo
-           in [ divClass "column box is-three-quarters" [style [("overflow", "scroll")]] [sourcePanel]
-              , divClass "column box is-one-quarter" [style [("overflow", "scroll")]] [renderCallGraph modu ss]
+           in [ divClass
+                  "column box is-three-quarters"
+                  [ style [("overflow", "scroll")]
+                  , DP.textProp "myval" modu
+                  ]
+                  [scriptContent, sourcePanel]
+              , divClass
+                  "column box is-one-quarter"
+                  [style [("overflow", "scroll")]]
+                  [renderCallGraph modu ss]
               ]
         _ -> []
 
