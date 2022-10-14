@@ -21,7 +21,10 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
-import Data.Maybe (fromMaybe, isNothing)
+import Control.Monad (join)
+import Data.List qualified as L
+import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe, isNothing, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -190,6 +193,7 @@ renderTimingChart tui ttable =
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
          in y0 <= y && y <= y1
+
       box (i, item@(mmodu, _)) =
         let highlighter
               | mmodu == mhoveredMod = [SP.stroke "orange", SP.strokeWidth "0.5"]
@@ -264,6 +268,27 @@ renderTimingChart tui ttable =
       filteredItems =
         filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
+      mlineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
+        where
+          mkLineToUpstream hoveredMod = do
+            upMod <-
+              M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
+            (myIdx, myItem@(_, myTiming)) <-
+              L.find (\(_, (mname, _)) -> mname == Just hoveredMod) allItems
+            (upIdx, upItem@(_, upTiming)) <-
+              L.find (\(_, (mname, _)) -> mname == Just upMod) allItems
+            let line =
+                  S.line
+                    [ SP.x1 (T.pack $ show (leftOfBox myItem))
+                    , SP.y1 (T.pack $ show (topOfBox myIdx))
+                    , SP.x2 (T.pack $ show (rightOfBox upItem))
+                    , SP.y2 (T.pack $ show (topOfBox upIdx))
+                    , SP.stroke "red"
+                    , SP.strokeWidth "1"
+                    ]
+                    []
+            pure line
+
       svgElement =
         S.svg
           svgProps
@@ -272,6 +297,7 @@ renderTimingChart tui ttable =
               []
               ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
                   ++ (fmap makeItems filteredItems)
+                  ++ mlineToUpstream
               )
           ]
    in div
