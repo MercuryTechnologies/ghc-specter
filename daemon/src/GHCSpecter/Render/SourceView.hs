@@ -31,6 +31,7 @@ import GHCSpecter.Data.GHC.Hie
     HasModuleHieInfo (..),
     ModuleHieInfo,
   )
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
@@ -66,7 +67,6 @@ import GHCSpecter.Util.SourceTree
     expandFocusOnly,
     markLeaf,
   )
-import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 

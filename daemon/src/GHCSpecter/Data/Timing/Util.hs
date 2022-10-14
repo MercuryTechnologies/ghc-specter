@@ -1,12 +1,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Util.Timing
-  ( -- * extracted timing information
-    TimingInfo (..),
-    HasTimingInfo (..),
-
-    -- * timing info utilities
+module GHCSpecter.Data.Timing.Util
+  ( -- * timing info utilities
     isTimeInTimerRange,
     isModuleCompilationDone,
 
@@ -35,6 +31,11 @@ import GHCSpecter.Channel.Outbound.Types
     getHscOutTime,
     getStartTime,
   )
+import GHCSpecter.Data.Timing.Types
+  ( HasTimingInfo (..),
+    TimingInfo (..),
+    TimingTable,
+  )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
@@ -48,16 +49,6 @@ import GHCSpecter.Util.Map
     lookupKey,
   )
 
-data TimingInfo a = TimingInfo
-  { _timingStart :: a
-  , _timingHscOut :: a
-  , _timingAs :: a
-  , _timingEnd :: a
-  }
-  deriving (Show)
-
-makeClassy ''TimingInfo
-
 isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool
 isTimeInTimerRange x tinfo =
   x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
@@ -68,7 +59,7 @@ isModuleCompilationDone drvModMap timing modu =
     i <- backwardLookup modu drvModMap
     timing ^? to (lookupKey i) . _Just . to getEndTime . _Just
 
-makeTimingTable :: ServerState -> [(Maybe ModuleName, TimingInfo NominalDiffTime)]
+makeTimingTable :: ServerState -> TimingTable
 makeTimingTable ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
     Nothing -> []

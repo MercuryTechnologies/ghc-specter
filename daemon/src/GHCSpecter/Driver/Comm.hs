@@ -8,6 +8,7 @@ where
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
   ( TQueue,
+    TVar,
     atomically,
     modifyTVar',
     readTChan,
@@ -55,6 +56,7 @@ import GHCSpecter.Util.Map
   )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
+import GHCSpecter.Worker.Timing (timingWorker)
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -100,6 +102,45 @@ updateInbox chanMsg = incrementSN . updater
             let msg = ConsoleCore forest
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
 
+invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
+invokeWorker ssRef workQ (CMBox o) =
+  case o of
+    CMCheckImports {} -> pure ()
+    CMModuleInfo _ modu mfile -> do
+      src <-
+        case mfile of
+          Nothing -> pure ""
+          Just file -> TIO.readFile file
+      let modHie = (modHieSource .~ src) emptyModuleHieInfo
+      atomically $
+        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
+    CMTiming {} -> void $ forkIO $ timingWorker ssRef
+    CMSession s' -> do
+      let mgi = sessionModuleGraph s'
+      void $ forkIO (moduleGraphWorker ssRef mgi)
+    CMHsHie _drvId hiefile ->
+      void $ forkIO (hieWorker ssRef workQ hiefile)
+    CMPaused drvId loc -> do
+      mmodu <-
+        atomically $ do
+          ss <- readTVar ssRef
+          let drvModMap = ss ^. serverDriverModuleMap
+          pure $ forwardLookup drvId drvModMap
+      case mmodu of
+        Nothing -> do
+          TIO.putStrLn $
+            "paused GHC at driverId = "
+              <> T.pack (show (unDriverId drvId))
+              <> ": "
+              <> T.pack (show loc)
+        Just modu ->
+          TIO.putStrLn $
+            "paused GHC at moduleName = "
+              <> modu
+              <> ": "
+              <> T.pack (show loc)
+    CMConsole {} -> pure ()
+
 listener ::
   FilePath ->
   ServerSession ->
@@ -119,39 +160,8 @@ listener socketFile ssess workQ = do
       newPauseState `seq` sendObject sock newPauseState
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
-      F.for_ msgs $ \(CMBox o) -> do
-        case o of
-          CMSession s' -> do
-            let mgi = sessionModuleGraph s'
-            void $ forkIO (moduleGraphWorker ssRef mgi)
-          CMModuleInfo _ modu mfile -> do
-            src <-
-              case mfile of
-                Nothing -> pure ""
-                Just file -> TIO.readFile file
-            let modHie = (modHieSource .~ src) emptyModuleHieInfo
-            atomically $
-              modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
-          CMHsHie _drvId hiefile ->
-            void $ forkIO (hieWorker ssRef workQ hiefile)
-          CMPaused drvId loc -> do
-            mmodu <-
-              atomically $ do
-                ss <- readTVar ssRef
-                let drvModMap = ss ^. serverDriverModuleMap
-                pure $ forwardLookup drvId drvModMap
-            case mmodu of
-              Nothing -> do
-                TIO.putStrLn $
-                  "paused GHC at driverId = "
-                    <> T.pack (show (unDriverId drvId))
-                    <> ": "
-                    <> T.pack (show loc)
-              Just modu ->
-                TIO.putStrLn $
-                  "paused GHC at moduleName = "
-                    <> modu
-                    <> ": "
-                    <> T.pack (show loc)
-          _ -> pure ()
-        atomically . modifyTVar' ssRef . updateInbox $ CMBox o
+      F.for_ msgs $ \msg -> do
+        -- pure state update
+        atomically . modifyTVar' ssRef . updateInbox $ msg
+        -- async IO update
+        invokeWorker ssRef workQ msg

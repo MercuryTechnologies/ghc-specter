@@ -26,8 +26,15 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
+import GHCSpecter.Data.Timing.Types
+  ( HasTimingInfo (..),
+    TimingTable,
+  )
+import GHCSpecter.Data.Timing.Util
+  ( isTimeInTimerRange,
+    makeTimingTable,
+  )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -66,12 +73,6 @@ import GHCSpecter.UI.Types.Event
     MouseEvent (..),
     TimingEvent (..),
   )
-import GHCSpecter.Util.Timing
-  ( HasTimingInfo (..),
-    TimingInfo,
-    isTimeInTimerRange,
-    makeTimingTable,
-  )
 import Prelude hiding (div)
 
 colorCodes :: [Text]
@@ -86,7 +87,7 @@ colorCodes =
 
 renderRules ::
   Bool ->
-  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
+  TimingTable ->
   Int ->
   NominalDiffTime ->
   [Widget IHTML a]
@@ -150,7 +151,7 @@ module2Y i = 5.0 * i + 1.0
 
 renderTimingChart ::
   TimingUI ->
-  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
+  TimingTable ->
   Widget IHTML Event
 renderTimingChart tui timingInfos =
   let nMods = length timingInfos
@@ -310,7 +311,7 @@ renderCheckbox tui = div [] [buttonToCurrent, checkPartition, checkHowParallel]
 
 renderTimingBar ::
   TimingUI ->
-  [(Maybe ModuleName, TimingInfo NominalDiffTime)] ->
+  TimingTable ->
   Widget IHTML Event
 renderTimingBar tui timingInfos =
   div [] [svgElement]
@@ -379,8 +380,7 @@ renderTimingBar tui timingInfos =
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  -- TODO: this is inefficient. Make a cache for timing table
-  let timingInfos = makeTimingTable ss
+  let timingInfos = ss ^. serverTimingTable
    in div
         [ style
             [ ("width", "100%")

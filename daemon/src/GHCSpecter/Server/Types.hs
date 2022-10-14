@@ -43,6 +43,7 @@ import GHCSpecter.Channel.Outbound.Types
     emptyModuleGraphInfo,
   )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
+import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
 import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
@@ -106,6 +107,9 @@ data ServerState = ServerState
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
   , _serverTiming :: KeyMap DriverId Timer
+  , -- TODO: This cached state (TimingTable) should be separated out
+    -- as we do not want to serialize this.
+    _serverTimingTable :: TimingTable
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
@@ -129,6 +133,7 @@ emptyServerState =
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
+    , _serverTimingTable = []
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState
