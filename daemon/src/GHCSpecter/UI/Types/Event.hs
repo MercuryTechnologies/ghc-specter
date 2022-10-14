@@ -61,6 +61,8 @@ data SessionEvent
 
 data TimingEvent
   = ToCurrentTime
+  | -- | is thawed (i.e. flowing) = True, is frozen = False
+    TimingFlow Bool
   | UpdatePartition Bool
   | UpdateParallel Bool
   deriving (Show, Eq)

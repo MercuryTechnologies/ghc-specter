@@ -19,6 +19,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -31,11 +32,8 @@ import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
     TimingTable,
   )
-import GHCSpecter.Data.Timing.Util
-  ( isTimeInTimerRange,
-    makeTimingTable,
-  )
-import GHCSpecter.Render.Util (xmlns)
+import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
+import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState (..),
@@ -271,15 +269,30 @@ renderTimingChart tui timingInfos =
         [svgElement]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
-renderCheckbox tui = div [] [buttonToCurrent, checkPartition, checkHowParallel]
+renderCheckbox tui =
+  div
+    []
+    [ buttonToCurrent
+    , buttonFlow
+    , checkPartition
+    , checkHowParallel
+    ]
   where
     isPartitioned = tui ^. timingUIPartition
     howParallel = tui ^. timingUIHowParallel
     mkEvent f b = TimingEv (f (not b)) <$ onChange
     buttonToCurrent =
-      div
-        [classList [("control", True)]]
+      divClass
+        "control"
+        []
         [button [TimingEv ToCurrentTime <$ onClick] [text "To Current Time"]]
+    buttonFlow = divClass "control" [] [button']
+      where
+        button'
+          | isNothing (tui ^. timingFrozenTable) =
+              button [TimingEv (TimingFlow False) <$ onClick] [text "Freeze"]
+          | otherwise =
+              button [TimingEv (TimingFlow True) <$ onClick] [text "Thaw"]
     checkPartition =
       div
         [classList [("control", True)]]
@@ -380,7 +393,10 @@ renderTimingBar tui timingInfos =
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  let timingInfos = ss ^. serverTimingTable
+  let timingInfos =
+        case model ^. modelTiming . timingFrozenTable of
+          Nothing -> ss ^. serverTimingTable
+          Just ttable -> ttable
    in div
         [ style
             [ ("width", "100%")

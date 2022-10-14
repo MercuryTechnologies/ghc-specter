@@ -32,6 +32,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
+import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ModuleGraphUI = ModuleGraphUI
@@ -59,7 +60,9 @@ emptySourceViewUI :: SourceViewUI
 emptySourceViewUI = SourceViewUI Nothing Nothing
 
 data TimingUI = TimingUI
-  { _timingUIPartition :: Bool
+  { _timingFrozenTable :: Maybe TimingTable
+  -- ^ When freezing timing flow, this holds the timing table info.
+  , _timingUIPartition :: Bool
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
@@ -71,7 +74,7 @@ data TimingUI = TimingUI
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI False False (0, 0) False
+emptyTimingUI = TimingUI Nothing False False (0, 0) False
 
 data ConsoleUI = ConsoleUI
   { _consoleFocus :: Maybe DriverId
