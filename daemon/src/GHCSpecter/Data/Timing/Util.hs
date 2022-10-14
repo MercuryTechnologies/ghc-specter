@@ -76,34 +76,12 @@ makeTimingTable ::
   UTCTime ->
   IO TimingTable
 makeTimingTable timing drvModMap mgi sessStart = do
-  for_ (findLastDep testCase) $ \(lst, mlastDep) -> do
-    putStrLn "=================="
-    traverse_ print lst
-    putStrLn "##################"
-    print mlastDep
-
+  putStrLn "##################"
+  print lastDepMap
+  print lastDepRevMap
   pure $
     emptyTimingTable & (ttableTimingInfos .~ timingInfos)
   where
-    testCase = "Model.Import"
-    findLastDep mod = do
-      modId <- M.lookup mod nameModMap
-      upIds <- IM.lookup modId modDep
-      upNames <- traverse (`IM.lookup` modNameMap) upIds
-      let timingInfos' = mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
-          isMyUpstream = (`elem` upNames) . fst
-          upTiming = filter isMyUpstream timingInfos'
-          lastDep
-            | null upTiming = Nothing
-            | otherwise =
-                Just $
-                  L.maximumBy (compare `on` (^. _2 . timingEnd)) upTiming
-      pure (upTiming, lastDep)
-
-    modNameMap = mginfoModuleNameMap mgi
-    nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
-    modDep = mginfoModuleDep mgi
-
     findModName drvId = forwardLookup drvId drvModMap
     subtractTime (modName, timer) = do
       modStartTime <- getStartTime timer
@@ -127,3 +105,29 @@ makeTimingTable timing drvModMap mgi sessStart = do
         . L.sortOn (^. _2 . timingStart)
         . mapMaybe subtractTime
         $ keyMapToList timing
+
+    -- Nothing case is stripped out in this var.
+    timingInfos' =
+      mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
+
+    modNameMap = mginfoModuleNameMap mgi
+    nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
+    modDep = mginfoModuleDep mgi
+    findLastDep modu = do
+      modId <- M.lookup modu nameModMap
+      upIds <- IM.lookup modId modDep
+      upNames <- traverse (`IM.lookup` modNameMap) upIds
+      let isMyUpstream = (`elem` upNames) . fst
+          upTiming = filter isMyUpstream timingInfos'
+      if (null upTiming)
+        then Nothing
+        else pure $ L.maximumBy (compare `on` (^. _2 . timingEnd)) upTiming
+
+    lastDepMap =
+      M.fromList $
+        mapMaybe (\(modu, _) -> (modu,) . fst <$> findLastDep modu) timingInfos'
+
+    lastDepRevMap = M.foldlWithKey (\(!acc) d u -> M.alter (upd d) u acc) M.empty lastDepMap
+      where
+        upd d' Nothing = Just [d']
+        upd d' (Just ds) = Just (d' : ds)
