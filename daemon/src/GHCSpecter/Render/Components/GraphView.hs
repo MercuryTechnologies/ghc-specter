@@ -30,6 +30,7 @@ import GHCSpecter.Channel.Common.Types
     type ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types (Timer)
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
@@ -45,7 +46,6 @@ import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import GHCSpecter.Util.Map (BiKeyMap, KeyMap)
-import GHCSpecter.Util.Timing (isModuleCompilationDone)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

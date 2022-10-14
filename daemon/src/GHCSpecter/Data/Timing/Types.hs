@@ -1,7 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Common.Types
+module GHCSpecter.Data.Timing.Types
   ( -- * extracted timing information
     TimingInfo (..),
     HasTimingInfo (..),

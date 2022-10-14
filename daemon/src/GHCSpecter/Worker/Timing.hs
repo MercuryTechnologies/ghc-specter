@@ -10,11 +10,11 @@ import Control.Concurrent.STM
     readTVar,
   )
 import Control.Lens ((.~))
+import GHCSpecter.Data.Timing.Util (makeTimingTable)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
   )
-import GHCSpecter.Util.Timing (makeTimingTable)
 
 timingWorker :: TVar ServerState -> IO ()
 timingWorker ssRef = do

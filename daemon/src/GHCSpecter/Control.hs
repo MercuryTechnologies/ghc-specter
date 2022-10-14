@@ -32,6 +32,7 @@ import GHCSpecter.Control.Types
     shouldUpdate,
     type Control,
   )
+import GHCSpecter.Data.Timing.Util (makeTimingTable)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
@@ -71,7 +72,6 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
   )
 import GHCSpecter.Util.Map (forwardLookup)
-import GHCSpecter.Util.Timing (makeTimingTable)
 
 defaultUpdateModel ::
   Event ->

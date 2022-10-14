@@ -1,7 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Util.Timing
+module GHCSpecter.Data.Timing.Util
   ( -- * timing info utilities
     isTimeInTimerRange,
     isModuleCompilationDone,
@@ -31,7 +31,7 @@ import GHCSpecter.Channel.Outbound.Types
     getHscOutTime,
     getStartTime,
   )
-import GHCSpecter.Common.Types
+import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
     TimingInfo (..),
     TimingTable,

@@ -27,9 +27,13 @@ import Data.Time.Clock
     secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Common.Types
+import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
     TimingTable,
+  )
+import GHCSpecter.Data.Timing.Util
+  ( isTimeInTimerRange,
+    makeTimingTable,
   )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types
@@ -68,10 +72,6 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     MouseEvent (..),
     TimingEvent (..),
-  )
-import GHCSpecter.Util.Timing
-  ( isTimeInTimerRange,
-    makeTimingTable,
   )
 import Prelude hiding (div)
 
