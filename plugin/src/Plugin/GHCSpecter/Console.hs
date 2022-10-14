@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Plugin.GHCSpecter.Console
   ( -- * A list of available commands
     CommandSet (..),
@@ -83,6 +85,16 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
               writeTVar rQ Nothing
               pure req
             else retry
+  let doCommand cmdStr chkLoc cmdDesc args
+        | chkLoc loc
+        , Just cmd <- L.lookup cmdStr (unCommandSet cmds) = do
+            let action = liftIO . reply =<< cmd args
+            atomically $
+              writeTVar actionRef (Just action)
+        | otherwise =
+            reply $
+              ConsoleReplyText $
+                "cannot " <> cmdDesc <> " at the breakpoint: " <> T.pack (show loc)
   case req of
     Ping msg -> do
       TIO.putStrLn $ "ping: " <> msg
@@ -95,55 +107,12 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           let console = psConsoleState psess
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
-    -- TODO: refactor out the repeated part in the following code.
     ShowUnqualifiedImports ->
-      if loc == Typecheck
-        then do
-          case L.lookup ":unqualified" (unCommandSet cmds) of
-            Just cmd -> do
-              let action = liftIO . reply =<< cmd []
-              atomically $
-                writeTVar actionRef (Just action)
-            Nothing ->
-              reply $
-                ConsoleReplyText $
-                  "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
-        else do
-          reply $
-            ConsoleReplyText $
-              "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
+      doCommand ":unqualified" (== Typecheck) "show unqualified imports" []
     ListCore ->
-      case loc of
-        Core2Core _ -> do
-          case L.lookup ":list-core" (unCommandSet cmds) of
-            Just cmd -> do
-              let action = liftIO . reply =<< cmd []
-              atomically $
-                writeTVar actionRef (Just action)
-            Nothing ->
-              reply $
-                ConsoleReplyText $
-                  "cannot list core at the breakpoint: " <> T.pack (show loc)
-        _ ->
-          reply $
-            ConsoleReplyText $
-              "cannot list core at the breakpoint: " <> T.pack (show loc)
+      doCommand ":list-core" (\case Core2Core _ -> True; _ -> False) "list core" []
     PrintCore args ->
-      case loc of
-        Core2Core _ -> do
-          case L.lookup ":print-core" (unCommandSet cmds) of
-            Just cmd -> do
-              let action = liftIO . reply =<< cmd args
-              atomically $
-                writeTVar actionRef (Just action)
-            Nothing ->
-              reply $
-                ConsoleReplyText $
-                  "cannot print core at the breakpoint: " <> T.pack (show loc)
-        _ ->
-          reply $
-            ConsoleReplyText $
-              "cannot print core at the breakpoint: " <> T.pack (show loc)
+      doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
   where
     reply = queueMessage queue . CMConsole drvId
 
