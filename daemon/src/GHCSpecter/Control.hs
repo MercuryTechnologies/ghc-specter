@@ -251,7 +251,7 @@ goCommon ev (view, model0) = do
                         case NE.nonEmpty args of
                           Nothing -> pure model
                           Just (NE.head -> sym) ->
-                            let model1 = (modelConsole . consoleLastBinding .~ Just sym) model
+                            let model1 = (modelSourceView . srcViewFocusedBinding .~ Just sym) model
                              in pure model1
                     | msg == ":goto-source" -> do
                         ss <- getSS

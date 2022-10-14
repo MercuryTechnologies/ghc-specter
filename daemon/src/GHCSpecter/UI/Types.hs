@@ -46,15 +46,17 @@ makeClassy ''ModuleGraphUI
 emptyModuleGraphUI :: ModuleGraphUI
 emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
 
-newtype SourceViewUI = SourceViewUI
+data SourceViewUI = SourceViewUI
   { _srcViewExpandedModule :: Maybe Text
   -- ^ expanded module in SourceView
+  , _srcViewFocusedBinding :: Maybe Text
+  -- ^ focused binding if exist
   }
 
 makeClassy ''SourceViewUI
 
 emptySourceViewUI :: SourceViewUI
-emptySourceViewUI = SourceViewUI Nothing
+emptySourceViewUI = SourceViewUI Nothing Nothing
 
 data TimingUI = TimingUI
   { _timingUIPartition :: Bool
@@ -76,13 +78,12 @@ data ConsoleUI = ConsoleUI
   -- ^ focused console tab
   , _consoleInputEntry :: Text
   -- ^ console input entry
-  , _consoleLastBinding :: Maybe Text
   }
 
 makeClassy ''ConsoleUI
 
 emptyConsoleUI :: ConsoleUI
-emptyConsoleUI = ConsoleUI Nothing "" Nothing
+emptyConsoleUI = ConsoleUI Nothing ""
 
 data MainView = MainView
   { _mainTab :: Tab
