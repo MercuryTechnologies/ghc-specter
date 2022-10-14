@@ -15,6 +15,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
+import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text (Text)
@@ -25,7 +26,11 @@ import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
     SessionInfo (..),
   )
-import GHCSpecter.Data.GHC.Hie (HasModuleHieInfo (..), ModuleHieInfo)
+import GHCSpecter.Data.GHC.Hie
+  ( HasDeclRow' (..),
+    HasModuleHieInfo (..),
+    ModuleHieInfo,
+  )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
@@ -190,8 +195,9 @@ renderSourceView srcUI ss =
             \console.log(myParent1);\n\
             \var config1 = {attributes: true, childList: false, subtree: false, characterData: false};\n\
             \var callback1 = (mutationList, observer) => {\n\
-            \      console.log (\"callback called\" + myParent1.getAttribute(\"myval\"));\n\
-            \      //myParent1.scrollTop = myParent1.scrollHeight;\n\
+            \      var top = myParent1.getAttribute(\"myval\");\n\
+            \      console.log (\"callback called\" + top);\n\
+            \      myParent1.scrollTop = top;\n\
             \    };\n\
             \var observer1 = new MutationObserver(callback1);\n\
             \observer1.observe(myParent1, config);\n"
@@ -200,14 +206,25 @@ renderSourceView srcUI ss =
       case mexpandedModu of
         Just modu ->
           let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
-              sourcePanel =
+              (sourcePanel, myval) =
                 case mmodHieInfo of
-                  Nothing -> div [] [pre [] [text "No Hie info"]]
-                  Just modHieInfo -> renderSourceCode modHieInfo
+                  Nothing -> (div [] [pre [] [text "No Hie info"]], "")
+                  Just modHieInfo ->
+                    let srcPanel = renderSourceCode modHieInfo
+                        val =
+                          case srcUI ^. srcViewFocusedBinding of
+                            Nothing -> ""
+                            Just sym ->
+                              let mline =
+                                    fmap (^. decl'SLine) $
+                                      L.find (\d -> d ^. decl'NameOcc == sym) $
+                                        modHieInfo ^. modHieDecls
+                               in maybe "" (T.pack . show . TextView.topOfBox) mline
+                     in (srcPanel, val)
            in [ divClass
                   "column box is-three-quarters"
                   [ style [("overflow", "scroll")]
-                  , DP.textProp "myval" modu
+                  , DP.textProp "myval" myval
                   ]
                   [scriptContent, sourcePanel]
               , divClass
