@@ -1,4 +1,4 @@
-module Plugin.GHCSpecter.Task.UnqualifiedImports
+module Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
   )
 where

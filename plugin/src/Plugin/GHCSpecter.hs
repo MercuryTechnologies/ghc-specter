@@ -70,7 +70,9 @@ import Plugin.GHCSpecter.Task.Core2Core
   ( listCore,
     printCore,
   )
-import Plugin.GHCSpecter.Task.UnqualifiedImports (fetchUnqualifiedImports)
+import Plugin.GHCSpecter.Task.Typecheck
+  ( fetchUnqualifiedImports,
+  )
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
     PluginSession (..),

@@ -72,8 +72,7 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
               [ text
                   "var me = document.currentScript;\n\
                   \var myParent = me.parentElement;\n\
-                  \console.log(myParent);\n\
-                  \var config = {attirbutes: true, childList: true, subtree: true, characterData: true };\n\
+                  \var config = {attributes: true, childList: true, subtree: true, characterData: true };\n\
                   \var callback = (mutationList, observer) => {\n\
                   \      myParent.scrollTop = myParent.scrollHeight;\n\
                   \    };\n\

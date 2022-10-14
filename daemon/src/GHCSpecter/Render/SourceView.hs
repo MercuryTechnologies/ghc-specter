@@ -15,6 +15,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
+import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Maybe (isJust)
 import Data.Text (Text)
@@ -25,9 +26,14 @@ import GHCSpecter.Channel.Outbound.Types
   ( Channel (..),
     SessionInfo (..),
   )
-import GHCSpecter.Data.GHC.Hie (HasModuleHieInfo (..), ModuleHieInfo)
+import GHCSpecter.Data.GHC.Hie
+  ( HasDeclRow' (..),
+    HasModuleHieInfo (..),
+    ModuleHieInfo,
+  )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
@@ -37,10 +43,10 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
-    hr,
     input,
     li,
     pre,
+    script,
     span,
     text,
     ul,
@@ -166,48 +172,83 @@ renderCallGraph modu ss =
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
-  div
+  divClass
+    "columns"
     [ style
         [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-        , ("overflow", "scroll")
+        , ("overflow", "hidden")
         ]
     ]
     contents
   where
-    inbox = ss ^. serverInbox
     hie = ss ^. serverHieState
     mexpandedModu = srcUI ^. srcViewExpandedModule
+
+    -- This is a hack. Property update should be supported by concur-replica.
+    -- TODO: implement prop update in internalized concur-replica.
+    scriptContent =
+      script
+        []
+        [ text
+            "var me1 = document.currentScript;\n\
+            \var myParent1 = me1.parentElement;\n\
+            \console.log(myParent1);\n\
+            \var top0 = myParent1.getAttribute(\"myval\");\n\
+            \myParent1.scrollTop = top0;\n\
+            \var config1 = {attributes: true, childList: false, subtree: false, characterData: false};\n\
+            \var callback1 = (mutationList, observer) => {\n\
+            \      var top = myParent1.getAttribute(\"myval\");\n\
+            \      console.log (\"callback called\" + top);\n\
+            \      myParent1.scrollTop = top;\n\
+            \    };\n\
+            \var observer1 = new MutationObserver(callback1);\n\
+            \observer1.observe(myParent1, config);\n"
+        ]
     contents =
       case mexpandedModu of
         Just modu ->
           let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
-              sourcePanel =
+              (sourcePanel, myval) =
                 case mmodHieInfo of
-                  Nothing -> div [] [pre [] [text "No Hie info"]]
-                  Just modHieInfo -> renderSourceCode modHieInfo
-           in [ sourcePanel
-              , hr []
-              , renderCallGraph modu ss
-              , hr []
-              , renderUnqualifiedImports modu inbox
+                  Nothing -> (div [] [pre [] [text "No Hie info"]], "")
+                  Just modHieInfo ->
+                    let srcPanel = renderSourceCode modHieInfo
+                        val =
+                          case srcUI ^. srcViewFocusedBinding of
+                            Nothing -> ""
+                            Just sym ->
+                              let mline =
+                                    fmap (^. decl'SLine) $
+                                      L.find (\d -> d ^. decl'NameOcc == sym) $
+                                        modHieInfo ^. modHieDecls
+                               in maybe "" (T.pack . show . TextView.topOfBox) mline
+                     in (srcPanel, val)
+           in [ divClass
+                  "column box is-three-quarters"
+                  [ style [("overflow", "scroll")]
+                  , DP.textProp "myval" myval
+                  ]
+                  [scriptContent, sourcePanel]
+              , divClass
+                  "column box is-one-quarter"
+                  [style [("overflow", "scroll")]]
+                  [renderCallGraph modu ss]
               ]
         _ -> []
 
 render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
-  div
-    [ classList [("columns", True)]
-    , style [("overflow", "hidden")]
+  divClass
+    "columns"
+    [ style [("overflow", "hidden")]
     , height "100%"
     ]
-    [ div
-        [ classList [("column box is-one-fifths", True)]
-        , style [("overflow", "scroll")]
-        ]
+    [ divClass
+        "column box is-one-fifths"
+        [style [("overflow", "scroll")]]
         [SourceViewEv <$> renderModuleTree srcUI ss]
-    , div
-        [ classList [("column box is-four-fifths", True)]
-        , style [("overflow", "scroll")]
-        ]
+    , divClass
+        "column box is-four-fifths"
+        [style [("overflow", "scroll")]]
         [renderSourceView srcUI ss]
     ]

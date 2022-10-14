@@ -1,5 +1,15 @@
 module GHCSpecter.Render.Components.TextView
-  ( render,
+  ( -- * predefined layout
+    rowSize,
+    ratio,
+    charSize,
+    topOfBox,
+    bottomOfBox,
+    leftOfBox,
+    rightOfBox,
+
+    -- * top-level render function
+    render,
   )
 where
 
@@ -15,6 +25,27 @@ import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+
+rowSize :: Double
+rowSize = 8
+
+ratio :: Double
+ratio = 0.6
+
+charSize :: Double
+charSize = rowSize * ratio
+
+topOfBox :: Int -> Double
+topOfBox i = rowSize * fromIntegral (i - 1)
+
+bottomOfBox :: Int -> Double
+bottomOfBox i = rowSize * fromIntegral i
+
+leftOfBox :: Int -> Double
+leftOfBox j = charSize * fromIntegral (j - 1)
+
+rightOfBox :: Int -> Double
+rightOfBox j = charSize * fromIntegral j
 
 render :: Bool -> Text -> [((Int, Int), (Int, Int))] -> Widget IHTML a
 render showCharBox txt highlighted =
@@ -35,17 +66,6 @@ render showCharBox txt highlighted =
         [] -> 200
         _ -> charSize * fromIntegral (maximum $ fmap (T.length . snd) ls)
     packShow = T.pack . show
-    rowSize = 8
-    ratio = 0.6
-    charSize = rowSize * ratio
-    topOfBox :: Int -> Double
-    topOfBox i = rowSize * fromIntegral (i - 1)
-    bottomOfBox :: Int -> Double
-    bottomOfBox i = rowSize * fromIntegral i
-    leftOfBox :: Int -> Double
-    leftOfBox j = charSize * fromIntegral (j - 1)
-    rightOfBox :: Int -> Double
-    rightOfBox j = charSize * fromIntegral j
     charBox ((i, j), _) =
       S.rect
         [ SP.x (packShow $ leftOfBox j)

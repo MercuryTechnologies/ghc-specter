@@ -59,6 +59,14 @@ nav {
     width: 80%;
 }
 
+.column.is-one-quarter {
+    width: 25%;
+}
+
+.column.is-three-quarters {
+    width: 75%;
+}
+
 nav {
     width: 100%;
 }

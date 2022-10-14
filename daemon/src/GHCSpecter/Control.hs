@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module GHCSpecter.Control
   ( main,
@@ -230,25 +231,37 @@ goCommon ev (view, model0) = do
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") model0
-              if
-                  | msg == ":next" ->
-                      sendRequest $ ConsoleReq drvId NextBreakpoint
-                  | msg == ":unqualified" ->
-                      sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
-                  | msg == ":list-core" ->
-                      sendRequest $ ConsoleReq drvId ListCore
-                  | ":print-core" `T.isPrefixOf` msg -> do
-                      let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
-                      sendRequest $ ConsoleReq drvId (PrintCore args)
-                  | msg == ":goto-source" -> do
-                      ss <- getSS
-                      let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
-                          model' =
-                            (modelSourceView . srcViewExpandedModule .~ mmod) model
-                      branchTab TabSourceView (view, model')
-                  | otherwise ->
-                      sendRequest $ ConsoleReq drvId (Ping msg)
-              pure model
+              model' <-
+                if
+                    | msg == ":next" -> do
+                        sendRequest $ ConsoleReq drvId NextBreakpoint
+                        pure model
+                    | msg == ":unqualified" -> do
+                        sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+                        pure model
+                    | msg == ":list-core" -> do
+                        sendRequest $ ConsoleReq drvId ListCore
+                        pure model
+                    | ":print-core" `T.isPrefixOf` msg -> do
+                        let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
+                        sendRequest $ ConsoleReq drvId (PrintCore args)
+                        case NE.nonEmpty args of
+                          Nothing -> pure model
+                          Just (NE.head -> sym) ->
+                            let model1 = (modelSourceView . srcViewFocusedBinding .~ Just sym) model
+                             in pure model1
+                    | msg == ":goto-source" -> do
+                        ss <- getSS
+                        let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
+                            model' =
+                              (modelSourceView . srcViewExpandedModule .~ mmod) model
+                        branchTab TabSourceView (view, model')
+                        -- should not be reached.
+                        pure model'
+                    | otherwise -> do
+                        sendRequest $ ConsoleReq drvId (Ping msg)
+                        pure model
+              pure model'
           else pure model0
       ConsoleEv (ConsoleInput content) -> do
         let model = (modelConsole . consoleInputEntry .~ content) model0
