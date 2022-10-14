@@ -56,6 +56,7 @@ import GHCSpecter.Util.Map
   )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
+import GHCSpecter.Worker.Timing (timingWorker)
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -104,9 +105,7 @@ updateInbox chanMsg = incrementSN . updater
 invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
-    CMSession s' -> do
-      let mgi = sessionModuleGraph s'
-      void $ forkIO (moduleGraphWorker ssRef mgi)
+    CMCheckImports {} -> pure ()
     CMModuleInfo _ modu mfile -> do
       src <-
         case mfile of
@@ -115,6 +114,10 @@ invokeWorker ssRef workQ (CMBox o) =
       let modHie = (modHieSource .~ src) emptyModuleHieInfo
       atomically $
         modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
+    CMTiming {} -> void $ forkIO $ timingWorker ssRef
+    CMSession s' -> do
+      let mgi = sessionModuleGraph s'
+      void $ forkIO (moduleGraphWorker ssRef mgi)
     CMHsHie _drvId hiefile ->
       void $ forkIO (hieWorker ssRef workQ hiefile)
     CMPaused drvId loc -> do
@@ -136,7 +139,7 @@ invokeWorker ssRef workQ (CMBox o) =
               <> modu
               <> ": "
               <> T.pack (show loc)
-    _ -> pure ()
+    CMConsole {} -> pure ()
 
 listener ::
   FilePath ->
@@ -158,5 +161,7 @@ listener socketFile ssess workQ = do
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \msg -> do
-        invokeWorker ssRef workQ msg
+        -- pure state update
         atomically . modifyTVar' ssRef . updateInbox $ msg
+        -- async IO update
+        invokeWorker ssRef workQ msg

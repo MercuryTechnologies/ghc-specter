@@ -380,8 +380,7 @@ renderTimingBar tui timingInfos =
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  -- TODO: this is inefficient. Make a cache for timing table
-  let timingInfos = makeTimingTable ss
+  let timingInfos = ss ^. serverTimingTable
    in div
         [ style
             [ ("width", "100%")
