@@ -24,7 +24,7 @@ import Control.Lens (to, (^.), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, isNothing, maybeToList)
+import Data.Maybe (fromMaybe, isNothing, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -32,6 +32,7 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
@@ -268,26 +269,38 @@ renderTimingChart tui ttable =
       filteredItems =
         filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
-      mlineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
+      mkLine src tgt = do
+        (srcIdx, srcItem) <-
+          L.find (\(_, (mname, _)) -> mname == Just src) allItems
+        (tgtIdx, tgtItem) <-
+          L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
+        let line =
+              S.line
+                [ SP.x1 (T.pack $ show (leftOfBox srcItem))
+                , SP.y1 (T.pack $ show (topOfBox srcIdx))
+                , SP.x2 (T.pack $ show (rightOfBox tgtItem))
+                , SP.y2 (T.pack $ show (topOfBox tgtIdx))
+                , SP.stroke "red"
+                , SP.strokeWidth "1"
+                ]
+                []
+        pure line
+
+      lineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
         where
           mkLineToUpstream hoveredMod = do
             upMod <-
               M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
-            (myIdx, myItem@(_, myTiming)) <-
-              L.find (\(_, (mname, _)) -> mname == Just hoveredMod) allItems
-            (upIdx, upItem@(_, upTiming)) <-
-              L.find (\(_, (mname, _)) -> mname == Just upMod) allItems
-            let line =
-                  S.line
-                    [ SP.x1 (T.pack $ show (leftOfBox myItem))
-                    , SP.y1 (T.pack $ show (topOfBox myIdx))
-                    , SP.x2 (T.pack $ show (rightOfBox upItem))
-                    , SP.y2 (T.pack $ show (topOfBox upIdx))
-                    , SP.stroke "red"
-                    , SP.strokeWidth "1"
-                    ]
-                    []
-            pure line
+            mkLine hoveredMod upMod
+
+      linesToDownstream :: [Widget IHTML Event]
+      linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
+        where
+          mkLinesToDownstream :: ModuleName -> Maybe [Widget IHTML Event]
+          mkLinesToDownstream hoveredMod = do
+            downMods <-
+              M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
+            pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
       svgElement =
         S.svg
@@ -297,7 +310,8 @@ renderTimingChart tui ttable =
               []
               ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
                   ++ (fmap makeItems filteredItems)
-                  ++ mlineToUpstream
+                  ++ lineToUpstream
+                  ++ linesToDownstream
               )
           ]
    in div
