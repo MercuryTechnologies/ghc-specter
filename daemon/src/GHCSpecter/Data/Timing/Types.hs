@@ -2,10 +2,14 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Data.Timing.Types
-  ( -- * extracted timing information
+  ( -- * extracted timing information per module
     TimingInfo (..),
     HasTimingInfo (..),
-    type TimingTable,
+
+    -- * collective timing information for the session
+    TimingTable (..),
+    HasTimingTable (..),
+    emptyTimingTable,
   )
 where
 
@@ -29,4 +33,16 @@ instance FromJSON a => FromJSON (TimingInfo a)
 
 instance ToJSON a => ToJSON (TimingInfo a)
 
-type TimingTable = [(Maybe ModuleName, TimingInfo NominalDiffTime)]
+data TimingTable = TimingTable
+  { _ttableTimingInfos :: [(Maybe ModuleName, TimingInfo NominalDiffTime)]
+  }
+  deriving (Show, Generic)
+
+makeClassy ''TimingTable
+
+emptyTimingTable :: TimingTable
+emptyTimingTable = TimingTable []
+
+instance FromJSON TimingTable
+
+instance ToJSON TimingTable

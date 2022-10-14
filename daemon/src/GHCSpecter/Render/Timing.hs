@@ -19,7 +19,7 @@ import Concur.Replica
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
-import Data.Maybe (isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -30,6 +30,7 @@ import Data.Time.Clock
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
+    HasTimingTable (..),
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
@@ -101,7 +102,10 @@ renderRules showParallel table totalHeight totalTime =
     ranges = zip ruleTimes (tail ruleTimes)
     getParallelCompilation (sec1, sec2) =
       let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
-          filtered = filter (\x -> x ^. _2 . to (isTimeInTimerRange avg)) table
+          filtered =
+            filter
+              (\x -> x ^. _2 . to (isTimeInTimerRange avg))
+              (table ^. ttableTimingInfos)
        in length filtered
     rangesWithCPUUsage =
       fmap (\range -> (range, getParallelCompilation range)) ranges
@@ -151,8 +155,9 @@ renderTimingChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart tui timingInfos =
-  let nMods = length timingInfos
+renderTimingChart tui ttable =
+  let timingInfos = ttable ^. ttableTimingInfos
+      nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
         case modEndTimes of
@@ -240,7 +245,8 @@ renderTimingChart tui timingInfos =
               , xmlns
               ]
             mouseMove
-              | tui ^. timingUIHandleMouseMove = [MouseEv TimingView . MouseMove <$> onMouseMove]
+              | tui ^. timingUIHandleMouseMove =
+                  [MouseEv TimingView . MouseMove <$> onMouseMove]
               | otherwise = []
          in mouseMove ++ prop1
 
@@ -254,7 +260,7 @@ renderTimingChart tui timingInfos =
           [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
           , S.g
               []
-              ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
+              ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
                   ++ (concatMap makeItems filteredItems)
               )
           ]
@@ -326,9 +332,10 @@ renderTimingBar ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingBar tui timingInfos =
+renderTimingBar tui ttable =
   div [] [svgElement]
   where
+    timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
 
     topOfBox :: Int -> Int
@@ -393,10 +400,8 @@ renderTimingBar tui timingInfos =
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  let timingInfos =
-        case model ^. modelTiming . timingFrozenTable of
-          Nothing -> ss ^. serverTimingTable
-          Just ttable -> ttable
+  let ttable =
+        fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
    in div
         [ style
             [ ("width", "100%")
@@ -404,9 +409,9 @@ render model ss =
             , ("position", "relative")
             ]
         ]
-        [ renderTimingChart (model ^. modelTiming) timingInfos
+        [ renderTimingChart (model ^. modelTiming) ttable
         , div
             [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
             [renderCheckbox (model ^. modelTiming)]
-        , renderTimingBar (model ^. modelTiming) timingInfos
+        , renderTimingBar (model ^. modelTiming) ttable
         ]

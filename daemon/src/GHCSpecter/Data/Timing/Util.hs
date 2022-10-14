@@ -11,7 +11,7 @@ module GHCSpecter.Data.Timing.Util
   )
 where
 
-import Control.Lens (makeClassy, to, (^.), (^?), _2, _Just)
+import Control.Lens (makeClassy, to, (&), (.~), (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
 import Data.List qualified as L
 import Data.Maybe (isJust, mapMaybe)
@@ -33,8 +33,10 @@ import GHCSpecter.Channel.Outbound.Types
   )
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
+    HasTimingTable (..),
     TimingInfo (..),
     TimingTable,
+    emptyTimingTable,
   )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -62,7 +64,7 @@ isModuleCompilationDone drvModMap timing modu =
 makeTimingTable :: ServerState -> TimingTable
 makeTimingTable ss =
   case ss ^. serverSessionInfo . to sessionStartTime of
-    Nothing -> []
+    Nothing -> emptyTimingTable
     Just sessionStartTime ->
       let timing = ss ^. serverTiming
           drvModMap = ss ^. serverDriverModuleMap
@@ -85,7 +87,9 @@ makeTimingTable ss =
                     , _timingEnd = modEndTimeDiff
                     }
             pure (modName, tinfo)
-       in fmap (first findModName)
-            . L.sortOn (^. _2 . timingStart)
-            . mapMaybe subtractTime
-            $ keyMapToList timing
+          timingInfos =
+            fmap (first findModName)
+              . L.sortOn (^. _2 . timingStart)
+              . mapMaybe subtractTime
+              $ keyMapToList timing
+       in emptyTimingTable & (ttableTimingInfos .~ timingInfos)
