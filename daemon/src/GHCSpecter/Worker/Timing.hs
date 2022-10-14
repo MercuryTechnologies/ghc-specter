@@ -9,7 +9,8 @@ import Control.Concurrent.STM
     modifyTVar',
     readTVar,
   )
-import Control.Lens ((.~))
+import Control.Lens (to, (.~), (^.))
+import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Timing.Util (makeTimingTable)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -19,5 +20,10 @@ import GHCSpecter.Server.Types
 timingWorker :: TVar ServerState -> IO ()
 timingWorker ssRef = do
   ss <- atomically $ readTVar ssRef
-  let ttable = makeTimingTable ss
-  atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)
+  case ss ^. serverSessionInfo . to sessionStartTime of
+    Nothing -> pure ()
+    Just sessStart -> do
+      let timing = ss ^. serverTiming
+          drvModMap = ss ^. serverDriverModuleMap
+          ttable = makeTimingTable timing drvModMap sessStart
+      atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)

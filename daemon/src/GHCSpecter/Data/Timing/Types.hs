@@ -15,6 +15,8 @@ where
 
 import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as M
 import Data.Time.Clock (NominalDiffTime)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (ModuleName)
@@ -35,13 +37,14 @@ instance ToJSON a => ToJSON (TimingInfo a)
 
 data TimingTable = TimingTable
   { _ttableTimingInfos :: [(Maybe ModuleName, TimingInfo NominalDiffTime)]
+  , _ttableLastDepends :: Map ModuleName (ModuleName, TimingInfo NominalDiffTime)
   }
   deriving (Show, Generic)
 
 makeClassy ''TimingTable
 
 emptyTimingTable :: TimingTable
-emptyTimingTable = TimingTable []
+emptyTimingTable = TimingTable [] M.empty
 
 instance FromJSON TimingTable
 

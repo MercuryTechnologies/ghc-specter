@@ -17,6 +17,7 @@ import Data.List qualified as L
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
   ( NominalDiffTime,
+    UTCTime,
     diffUTCTime,
   )
 import GHCSpecter.Channel.Common.Types
@@ -61,35 +62,35 @@ isModuleCompilationDone drvModMap timing modu =
     i <- backwardLookup modu drvModMap
     timing ^? to (lookupKey i) . _Just . to getEndTime . _Just
 
-makeTimingTable :: ServerState -> TimingTable
-makeTimingTable ss =
-  case ss ^. serverSessionInfo . to sessionStartTime of
-    Nothing -> emptyTimingTable
-    Just sessionStartTime ->
-      let timing = ss ^. serverTiming
-          drvModMap = ss ^. serverDriverModuleMap
-          findModName drvId = forwardLookup drvId drvModMap
+makeTimingTable ::
+  -- ServerState -> TimingTable
+  KeyMap DriverId Timer ->
+  BiKeyMap DriverId ModuleName ->
+  UTCTime ->
+  TimingTable
+makeTimingTable timing drvModMap sessStart =
+  let findModName drvId = forwardLookup drvId drvModMap
 
-          subtractTime (modName, timer) = do
-            modStartTime <- getStartTime timer
-            modHscOutTime <- getHscOutTime timer
-            modAsTime <- getAsTime timer
-            modEndTime <- getEndTime timer
-            let modStartTimeDiff = modStartTime `diffUTCTime` sessionStartTime
-                modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessionStartTime
-                modAsTimeDiff = modAsTime `diffUTCTime` sessionStartTime
-                modEndTimeDiff = modEndTime `diffUTCTime` sessionStartTime
-                tinfo =
-                  TimingInfo
-                    { _timingStart = modStartTimeDiff
-                    , _timingHscOut = modHscOutTimeDiff
-                    , _timingAs = modAsTimeDiff
-                    , _timingEnd = modEndTimeDiff
-                    }
-            pure (modName, tinfo)
-          timingInfos =
-            fmap (first findModName)
-              . L.sortOn (^. _2 . timingStart)
-              . mapMaybe subtractTime
-              $ keyMapToList timing
-       in emptyTimingTable & (ttableTimingInfos .~ timingInfos)
+      subtractTime (modName, timer) = do
+        modStartTime <- getStartTime timer
+        modHscOutTime <- getHscOutTime timer
+        modAsTime <- getAsTime timer
+        modEndTime <- getEndTime timer
+        let modStartTimeDiff = modStartTime `diffUTCTime` sessStart
+            modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessStart
+            modAsTimeDiff = modAsTime `diffUTCTime` sessStart
+            modEndTimeDiff = modEndTime `diffUTCTime` sessStart
+            tinfo =
+              TimingInfo
+                { _timingStart = modStartTimeDiff
+                , _timingHscOut = modHscOutTimeDiff
+                , _timingAs = modAsTimeDiff
+                , _timingEnd = modEndTimeDiff
+                }
+        pure (modName, tinfo)
+      timingInfos =
+        fmap (first findModName)
+          . L.sortOn (^. _2 . timingStart)
+          . mapMaybe subtractTime
+          $ keyMapToList timing
+   in emptyTimingTable & (ttableTimingInfos .~ timingInfos)
