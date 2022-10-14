@@ -193,6 +193,8 @@ renderSourceView srcUI ss =
             "var me1 = document.currentScript;\n\
             \var myParent1 = me1.parentElement;\n\
             \console.log(myParent1);\n\
+            \var top0 = myParent1.getAttribute(\"myval\");\n\
+            \myParent1.scrollTop = top0;\n\
             \var config1 = {attributes: true, childList: false, subtree: false, characterData: false};\n\
             \var callback1 = (mutationList, observer) => {\n\
             \      var top = myParent1.getAttribute(\"myval\");\n\
