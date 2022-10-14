@@ -112,22 +112,6 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           reply $
             ConsoleReplyText $
               "cannot show unqualified imports at the breakpoint: " <> T.pack (show loc)
-    Test ->
-      if loc == Typecheck
-        then do
-          case L.lookup ":test" (unCommandSet cmds) of
-            Just cmd -> do
-              let action = liftIO . reply =<< cmd []
-              atomically $
-                writeTVar actionRef (Just action)
-            Nothing ->
-              reply $
-                ConsoleReplyText $
-                  "no such command :test at the breakpoint: " <> T.pack (show loc)
-        else do
-          reply $
-            ConsoleReplyText $
-              "cannot show test at the breakpoint: " <> T.pack (show loc)
     ListCore ->
       case loc of
         Core2Core _ -> do

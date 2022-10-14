@@ -239,9 +239,6 @@ goCommon ev (view, model0) = do
                     | msg == ":unqualified" -> do
                         sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
                         pure model
-                    | msg == ":test" -> do
-                        sendRequest $ ConsoleReq drvId Test
-                        pure model
                     | msg == ":list-core" -> do
                         sendRequest $ ConsoleReq drvId ListCore
                         pure model
