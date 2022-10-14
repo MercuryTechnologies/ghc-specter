@@ -77,9 +77,7 @@ instance FromJSON ModuleGraphInfo
 
 instance ToJSON ModuleGraphInfo
 
-instance Binary ModuleGraphInfo where
-  put (ModuleGraphInfo m d s) = put (m, d, s)
-  get = (\(m, d, s) -> ModuleGraphInfo m d s) <$> get
+instance Binary ModuleGraphInfo
 
 emptyModuleGraphInfo :: ModuleGraphInfo
 emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
@@ -92,9 +90,7 @@ data SessionInfo = SessionInfo
   }
   deriving (Show, Generic)
 
-instance Binary SessionInfo where
-  put (SessionInfo pid mtime modGraph isPaused) = put (pid, mtime, modGraph, isPaused)
-  get = (\(pid, mtime, modGraph, isPaused) -> SessionInfo pid mtime modGraph isPaused) <$> get
+instance Binary SessionInfo
 
 instance FromJSON SessionInfo
 
