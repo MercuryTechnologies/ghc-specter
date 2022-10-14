@@ -76,8 +76,8 @@ makeTimingTable ::
   UTCTime ->
   TimingTable
 makeTimingTable timing drvModMap mgi sessStart =
-  emptyTimingTable &
-    (ttableTimingInfos .~ timingInfos)
+  emptyTimingTable
+    & (ttableTimingInfos .~ timingInfos)
       . (ttableBlockingUpstreamDependency .~ lastDepMap)
       . (ttableBlockedDownstreamDependency .~ lastDepRevMap)
   where

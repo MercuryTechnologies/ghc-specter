@@ -169,6 +169,14 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
+    TimingEv (HoverOnModule modu) -> do
+      printMsg ("hover on " <> modu)
+      let newModel = (modelTiming . timingUIHoveredModule .~ Just modu) oldModel
+      pure (newModel, oldSS)
+    TimingEv (HoverOffModule modu) -> do
+      printMsg ("hover off " <> modu)
+      let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
+      pure (newModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       pure (oldModel, newSS)

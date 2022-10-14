@@ -65,6 +65,8 @@ data TimingEvent
     TimingFlow Bool
   | UpdatePartition Bool
   | UpdateParallel Bool
+  | HoverOnModule ModuleName
+  | HoverOffModule ModuleName
   deriving (Show, Eq)
 
 data MouseEvent

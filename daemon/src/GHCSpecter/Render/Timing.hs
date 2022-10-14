@@ -13,6 +13,8 @@ import Concur.Replica
     height,
     onChange,
     onClick,
+    onMouseEnter,
+    onMouseLeave,
     style,
     width,
   )
@@ -157,6 +159,7 @@ renderTimingChart ::
   Widget IHTML Event
 renderTimingChart tui ttable =
   let timingInfos = ttable ^. ttableTimingInfos
+      mhoveredMod = tui ^. timingUIHoveredModule
       nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
@@ -187,15 +190,20 @@ renderTimingChart tui ttable =
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
          in y0 <= y && y <= y1
-      box (i, item) =
-        S.rect
-          [ SP.x (T.pack $ show (leftOfBox item))
-          , SP.y (T.pack $ show (topOfBox i))
-          , width (T.pack $ show (widthOfBox item))
-          , height "3"
-          , SP.fill "lightslategray"
-          ]
-          []
+      box (i, item@(mmodu, _)) =
+        let highlighter
+              | mmodu == mhoveredMod = [SP.stroke "orange", SP.strokeWidth "0.5"]
+              | otherwise = []
+         in S.rect
+              ( [ SP.x (T.pack $ show (leftOfBox item))
+                , SP.y (T.pack $ show (topOfBox i))
+                , width (T.pack $ show (widthOfBox item))
+                , height "3"
+                , SP.fill "lightslategray"
+                ]
+                  ++ highlighter
+              )
+              []
       boxHscOut (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
@@ -215,22 +223,24 @@ renderTimingChart tui ttable =
           ]
           []
       moduleText (i, item@(mmodu, _)) =
-        flip (maybe []) mmodu $ \modu ->
-          [ S.text
+        let moduTxt = fromMaybe "" mmodu
+         in S.text
               [ SP.x (T.pack $ show (rightOfBox item))
               , SP.y (T.pack $ show (topOfBox i + 3))
               , classList [("small", True)]
               ]
-              [text modu]
-          ]
-      makeItems x
-        | tui ^. timingUIPartition =
-            [ box x
-            , boxAs x
-            , boxHscOut x
-            ]
-              ++ moduleText x
-        | otherwise = [box x] ++ moduleText x
+              [text moduTxt]
+      makeItems x =
+        let props =
+              case x of
+                (_, (Nothing, _)) -> []
+                (_, (Just modu, _)) ->
+                  [ TimingEv (HoverOnModule modu) <$ onMouseEnter
+                  , TimingEv (HoverOffModule modu) <$ onMouseLeave
+                  ]
+         in if (tui ^. timingUIPartition)
+              then S.g props [box x, boxAs x, boxHscOut x, moduleText x]
+              else S.g props [box x, moduleText x]
       svgProps =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
@@ -261,7 +271,7 @@ renderTimingChart tui ttable =
           , S.g
               []
               ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-                  ++ (concatMap makeItems filteredItems)
+                  ++ (fmap makeItems filteredItems)
               )
           ]
    in div
