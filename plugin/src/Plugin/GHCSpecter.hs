@@ -72,7 +72,6 @@ import Plugin.GHCSpecter.Task.Core2Core
   )
 import Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
-    testSourceLocation,
   )
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -229,11 +228,7 @@ typecheckPlugin queue drvId mmodNameRef modSummary tc = do
       hiefile' <- canonicalizePath hiefile
       queueMessage queue (CMHsHie drvId hiefile')
 
-  let cmdSet =
-        CommandSet
-          [ (":unqualified", \_ -> fetchUnqualifiedImports tc)
-          , (":test", \_ -> testSourceLocation tc)
-          ]
+  let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
   breakPoint queue drvId mmodNameRef Typecheck cmdSet
   pure tc
 
