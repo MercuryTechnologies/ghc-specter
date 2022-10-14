@@ -61,6 +61,8 @@ data SessionEvent
 
 data TimingEvent
   = ToCurrentTime
+  | -- | flowing = True, stopped = False
+    TimingFlow Bool
   | UpdatePartition Bool
   | UpdateParallel Bool
   deriving (Show, Eq)

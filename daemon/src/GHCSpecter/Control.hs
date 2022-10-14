@@ -152,6 +152,13 @@ defaultUpdateModel topEv (oldModel, oldSS) =
                 )
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
+    TimingEv (TimingFlow isFlowing) -> do
+      printMsg $ "TimingFlow " <> T.pack (show isFlowing)
+      let ttable = oldSS ^. serverTimingTable
+          newModel
+            | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) oldModel
+            | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) oldModel
+      pure (newModel, oldSS)
     TimingEv (UpdatePartition b) -> do
       let newModel = (modelTiming . timingUIPartition .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
