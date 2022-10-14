@@ -1,6 +1,3 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
   )
