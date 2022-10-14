@@ -27,5 +27,5 @@ timingWorker ssRef = do
       let timing = ss ^. serverTiming
           drvModMap = ss ^. serverDriverModuleMap
           mgi = sessionModuleGraph sessInfo
-      ttable <- makeTimingTable timing drvModMap mgi sessStart
+          ttable = makeTimingTable timing drvModMap mgi sessStart
       atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)

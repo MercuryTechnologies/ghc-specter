@@ -37,14 +37,15 @@ instance ToJSON a => ToJSON (TimingInfo a)
 
 data TimingTable = TimingTable
   { _ttableTimingInfos :: [(Maybe ModuleName, TimingInfo NominalDiffTime)]
-  , _ttableLastDepends :: Map ModuleName (ModuleName, TimingInfo NominalDiffTime)
+  , _ttableBlockingUpstreamDependency :: Map ModuleName ModuleName
+  , _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }
   deriving (Show, Generic)
 
 makeClassy ''TimingTable
 
 emptyTimingTable :: TimingTable
-emptyTimingTable = TimingTable [] M.empty
+emptyTimingTable = TimingTable [] M.empty M.empty
 
 instance FromJSON TimingTable
 

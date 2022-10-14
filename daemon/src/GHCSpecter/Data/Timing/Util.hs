@@ -74,13 +74,12 @@ makeTimingTable ::
   BiKeyMap DriverId ModuleName ->
   ModuleGraphInfo ->
   UTCTime ->
-  IO TimingTable
-makeTimingTable timing drvModMap mgi sessStart = do
-  putStrLn "##################"
-  print lastDepMap
-  print lastDepRevMap
-  pure $
-    emptyTimingTable & (ttableTimingInfos .~ timingInfos)
+  TimingTable
+makeTimingTable timing drvModMap mgi sessStart =
+  emptyTimingTable &
+    (ttableTimingInfos .~ timingInfos)
+      . (ttableBlockingUpstreamDependency .~ lastDepMap)
+      . (ttableBlockedDownstreamDependency .~ lastDepRevMap)
   where
     findModName drvId = forwardLookup drvId drvModMap
     subtractTime (modName, timer) = do
