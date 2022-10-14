@@ -76,12 +76,13 @@ data ConsoleUI = ConsoleUI
   -- ^ focused console tab
   , _consoleInputEntry :: Text
   -- ^ console input entry
+  , _consoleLastBinding :: Maybe Text
   }
 
 makeClassy ''ConsoleUI
 
 emptyConsoleUI :: ConsoleUI
-emptyConsoleUI = ConsoleUI Nothing ""
+emptyConsoleUI = ConsoleUI Nothing "" Nothing
 
 data MainView = MainView
   { _mainTab :: Tab
