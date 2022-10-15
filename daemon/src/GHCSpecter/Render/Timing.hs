@@ -332,6 +332,7 @@ renderCheckbox tui =
     []
     [ buttonToCurrent
     , buttonFlow
+    , buttonShowBlocker
     , checkPartition
     , checkHowParallel
     ]
@@ -351,6 +352,9 @@ renderCheckbox tui =
               button [TimingEv (TimingFlow False) <$ onClick] [text "Freeze"]
           | otherwise =
               button [TimingEv (TimingFlow True) <$ onClick] [text "Thaw"]
+    buttonShowBlocker = divClass "control" [] [button']
+      where
+        button' = button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
     checkPartition =
       div
         [classList [("control", True)]]

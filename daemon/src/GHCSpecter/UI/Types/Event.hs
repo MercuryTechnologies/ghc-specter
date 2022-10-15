@@ -67,6 +67,7 @@ data TimingEvent
   | UpdateParallel Bool
   | HoverOnModule ModuleName
   | HoverOffModule ModuleName
+  | ShowBlockerGraph
   deriving (Show, Eq)
 
 data MouseEvent

@@ -176,6 +176,9 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     TimingEv (HoverOffModule _modu) -> do
       let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
       pure (newModel, oldSS)
+    TimingEv ShowBlockerGraph -> do
+      printMsg "show blocker graph is pressed"
+      pure (oldModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       updateTimingCache
