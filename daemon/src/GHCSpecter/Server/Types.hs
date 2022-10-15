@@ -43,7 +43,7 @@ import GHCSpecter.Channel.Outbound.Types
     emptyModuleGraphInfo,
   )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
-import GHCSpecter.Data.Timing.Types (TimingTable)
+import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
 import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
@@ -133,7 +133,7 @@ emptyServerState =
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
-    , _serverTimingTable = []
+    , _serverTimingTable = emptyTimingTable
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState

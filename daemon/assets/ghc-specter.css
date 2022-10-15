@@ -91,6 +91,20 @@ nav {
     padding: 0;
 }
 
+.blocker p {
+    font-family: "Courier", monospace;
+    font-size: 6px;
+    margin: 0 0 0 10px;
+    padding: 0;
+}
+
+.blocker.title {
+    font-family: "Arial", San-Serif;
+    font-size: 6px;
+    margin: 0;
+    padding: 0;
+}
+
 .console {
     margin: 0;
     padding: 2px 0 0 0;

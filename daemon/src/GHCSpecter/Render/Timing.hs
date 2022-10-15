@@ -13,13 +13,18 @@ import Concur.Replica
     height,
     onChange,
     onClick,
+    onMouseEnter,
+    onMouseLeave,
     style,
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
-import Data.Maybe (isNothing)
+import Control.Monad (join)
+import Data.List qualified as L
+import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe, isNothing, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock
@@ -27,9 +32,11 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
+    HasTimingTable (..),
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
@@ -41,8 +48,10 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
+    hr,
     input,
     label,
+    p,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -101,7 +110,10 @@ renderRules showParallel table totalHeight totalTime =
     ranges = zip ruleTimes (tail ruleTimes)
     getParallelCompilation (sec1, sec2) =
       let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
-          filtered = filter (\x -> x ^. _2 . to (isTimeInTimerRange avg)) table
+          filtered =
+            filter
+              (\x -> x ^. _2 . to (isTimeInTimerRange avg))
+              (table ^. ttableTimingInfos)
        in length filtered
     rangesWithCPUUsage =
       fmap (\range -> (range, getParallelCompilation range)) ranges
@@ -151,8 +163,10 @@ renderTimingChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart tui timingInfos =
-  let nMods = length timingInfos
+renderTimingChart tui ttable =
+  let timingInfos = ttable ^. ttableTimingInfos
+      mhoveredMod = tui ^. timingUIHoveredModule
+      nMods = length timingInfos
       modEndTimes = fmap (^. _2 . timingEnd) timingInfos
       totalTime =
         case modEndTimes of
@@ -182,15 +196,21 @@ renderTimingChart tui timingInfos =
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
          in y0 <= y && y <= y1
-      box (i, item) =
-        S.rect
-          [ SP.x (T.pack $ show (leftOfBox item))
-          , SP.y (T.pack $ show (topOfBox i))
-          , width (T.pack $ show (widthOfBox item))
-          , height "3"
-          , SP.fill "lightslategray"
-          ]
-          []
+
+      box (i, item@(mmodu, _)) =
+        let highlighter
+              | mmodu == mhoveredMod = [SP.stroke "orange", SP.strokeWidth "0.5"]
+              | otherwise = []
+         in S.rect
+              ( [ SP.x (T.pack $ show (leftOfBox item))
+                , SP.y (T.pack $ show (topOfBox i))
+                , width (T.pack $ show (widthOfBox item))
+                , height "3"
+                , SP.fill "lightslategray"
+                ]
+                  ++ highlighter
+              )
+              []
       boxHscOut (i, item) =
         S.rect
           [ SP.x (T.pack $ show (leftOfBox item))
@@ -210,22 +230,24 @@ renderTimingChart tui timingInfos =
           ]
           []
       moduleText (i, item@(mmodu, _)) =
-        flip (maybe []) mmodu $ \modu ->
-          [ S.text
+        let moduTxt = fromMaybe "" mmodu
+         in S.text
               [ SP.x (T.pack $ show (rightOfBox item))
               , SP.y (T.pack $ show (topOfBox i + 3))
               , classList [("small", True)]
               ]
-              [text modu]
-          ]
-      makeItems x
-        | tui ^. timingUIPartition =
-            [ box x
-            , boxAs x
-            , boxHscOut x
-            ]
-              ++ moduleText x
-        | otherwise = [box x] ++ moduleText x
+              [text moduTxt]
+      makeItems x =
+        let props =
+              case x of
+                (_, (Nothing, _)) -> []
+                (_, (Just modu, _)) ->
+                  [ TimingEv (HoverOnModule modu) <$ onMouseEnter
+                  , TimingEv (HoverOffModule modu) <$ onMouseLeave
+                  ]
+         in if (tui ^. timingUIPartition)
+              then S.g props [box x, boxAs x, boxHscOut x, moduleText x]
+              else S.g props [box x, moduleText x]
       svgProps =
         let viewboxProp =
               SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
@@ -240,7 +262,8 @@ renderTimingChart tui timingInfos =
               , xmlns
               ]
             mouseMove
-              | tui ^. timingUIHandleMouseMove = [MouseEv TimingView . MouseMove <$> onMouseMove]
+              | tui ^. timingUIHandleMouseMove =
+                  [MouseEv TimingView . MouseMove <$> onMouseMove]
               | otherwise = []
          in mouseMove ++ prop1
 
@@ -248,14 +271,49 @@ renderTimingChart tui timingInfos =
       filteredItems =
         filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
+      mkLine src tgt = do
+        (srcIdx, srcItem) <-
+          L.find (\(_, (mname, _)) -> mname == Just src) allItems
+        (tgtIdx, tgtItem) <-
+          L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
+        let line =
+              S.line
+                [ SP.x1 (T.pack $ show (leftOfBox srcItem))
+                , SP.y1 (T.pack $ show (topOfBox srcIdx))
+                , SP.x2 (T.pack $ show (rightOfBox tgtItem))
+                , SP.y2 (T.pack $ show (topOfBox tgtIdx))
+                , SP.stroke "red"
+                , SP.strokeWidth "1"
+                ]
+                []
+        pure line
+
+      lineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
+        where
+          mkLineToUpstream hoveredMod = do
+            upMod <-
+              M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
+            mkLine hoveredMod upMod
+
+      linesToDownstream :: [Widget IHTML Event]
+      linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
+        where
+          mkLinesToDownstream :: ModuleName -> Maybe [Widget IHTML Event]
+          mkLinesToDownstream hoveredMod = do
+            downMods <-
+              M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
+            pure $ mapMaybe (`mkLine` hoveredMod) downMods
+
       svgElement =
         S.svg
           svgProps
           [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
           , S.g
               []
-              ( renderRules (tui ^. timingUIHowParallel) timingInfos totalHeight totalTime
-                  ++ (concatMap makeItems filteredItems)
+              ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+                  ++ (fmap makeItems filteredItems)
+                  ++ lineToUpstream
+                  ++ linesToDownstream
               )
           ]
    in div
@@ -326,9 +384,10 @@ renderTimingBar ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingBar tui timingInfos =
+renderTimingBar tui ttable =
   div [] [svgElement]
   where
+    timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
 
     topOfBox :: Int -> Int
@@ -390,13 +449,54 @@ renderTimingBar tui timingInfos =
         , handle
         ]
 
+renderBlocker :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlocker hoveredMod ttable =
+  divClass "blocker" [] [selected, upstream, hr [], downstreams]
+  where
+    upMods =
+      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+    downMods =
+      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
+
+    selected =
+      divClass "box" [] [p [] [text hoveredMod]]
+    upstream =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocked by"] :
+          fmap (\modu -> p [] [text modu]) upMods
+        )
+    downstreams =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocking"] :
+          fmap (\modu -> p [] [text modu]) downMods
+        )
+
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
-  let timingInfos =
-        case model ^. modelTiming . timingFrozenTable of
-          Nothing -> ss ^. serverTimingTable
-          Just ttable -> ttable
+  let ttable =
+        fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
+      mhoveredMod = model ^. modelTiming . timingUIHoveredModule
+      hoverInfo =
+        case mhoveredMod of
+          Nothing -> []
+          Just hoveredMod ->
+            [ divClass
+                "box"
+                [ style
+                    [ ("width", "150px")
+                    , ("height", "120px")
+                    , ("position", "absolute")
+                    , ("bottom", "0")
+                    , ("left", "0")
+                    , ("background", "ivory")
+                    , ("overflow", "hidden")
+                    ]
+                ]
+                [renderBlocker hoveredMod ttable]
+            ]
    in div
         [ style
             [ ("width", "100%")
@@ -404,9 +504,11 @@ render model ss =
             , ("position", "relative")
             ]
         ]
-        [ renderTimingChart (model ^. modelTiming) timingInfos
-        , div
-            [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-            [renderCheckbox (model ^. modelTiming)]
-        , renderTimingBar (model ^. modelTiming) timingInfos
-        ]
+        ( [ renderTimingChart (model ^. modelTiming) ttable
+          , div
+              [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+              [renderCheckbox (model ^. modelTiming)]
+          , renderTimingBar (model ^. modelTiming) ttable
+          ]
+            ++ hoverInfo
+        )

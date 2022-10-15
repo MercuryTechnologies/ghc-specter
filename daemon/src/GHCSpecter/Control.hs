@@ -9,6 +9,7 @@ where
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types
@@ -30,9 +31,10 @@ import GHCSpecter.Control.Types
     saveSession,
     sendRequest,
     shouldUpdate,
+    updateTimingCache,
     type Control,
   )
-import GHCSpecter.Data.Timing.Util (makeTimingTable)
+import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
@@ -139,8 +141,9 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       sendRequest (SessionReq Pause)
       pure (oldModel, newSS)
     TimingEv ToCurrentTime -> do
-      let -- TODO: This is inefficient. Make a cache for timing table.
-          timingInfos = makeTimingTable oldSS
+      let ttable =
+            fromMaybe (oldSS ^. serverTimingTable) (oldModel ^. modelTiming . timingFrozenTable)
+          timingInfos = ttable ^. ttableTimingInfos
           nMods = length timingInfos
           totalHeight = 5 * nMods
           newModel =
@@ -167,8 +170,15 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
+    TimingEv (HoverOnModule modu) -> do
+      let newModel = (modelTiming . timingUIHoveredModule .~ Just modu) oldModel
+      pure (newModel, oldSS)
+    TimingEv (HoverOffModule _modu) -> do
+      let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
+      pure (newModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
+      updateTimingCache
       pure (oldModel, newSS)
     BkgEv RefreshUI -> do
       pure (oldModel, oldSS)

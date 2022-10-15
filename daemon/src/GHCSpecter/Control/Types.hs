@@ -16,6 +16,7 @@ module GHCSpecter.Control.Types
     refreshUIAfter,
     shouldUpdate,
     saveSession,
+    updateTimingCache,
   )
 where
 
@@ -41,6 +42,7 @@ data ControlF r
   | ShouldUpdate Bool r
   | SaveSession r
   | RefreshUIAfter Double r
+  | UpdateTimingCache r
   deriving (Functor)
 
 type Control = Free ControlF
@@ -80,3 +82,6 @@ saveSession = liftF (SaveSession ())
 
 refreshUIAfter :: Double -> Control ()
 refreshUIAfter nSec = liftF (RefreshUIAfter nSec ())
+
+updateTimingCache :: Control ()
+updateTimingCache = liftF (UpdateTimingCache ())

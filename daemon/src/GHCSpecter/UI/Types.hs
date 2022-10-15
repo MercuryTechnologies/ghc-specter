@@ -69,12 +69,13 @@ data TimingUI = TimingUI
   , _timingUIViewPortTopLeft :: (Double, Double)
   -- ^ Top-Left corner of timing UI viewport
   , _timingUIHandleMouseMove :: Bool
+  , _timingUIHoveredModule :: Maybe Text
   }
 
 makeClassy ''TimingUI
 
 emptyTimingUI :: TimingUI
-emptyTimingUI = TimingUI Nothing False False (0, 0) False
+emptyTimingUI = TimingUI Nothing False False (0, 0) False Nothing
 
 data ConsoleUI = ConsoleUI
   { _consoleFocus :: Maybe DriverId

@@ -5,7 +5,7 @@ module GHCSpecter.Control.Runner
   )
 where
 
-import Control.Concurrent (threadDelay)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM
   ( TChan,
     TVar,
@@ -39,6 +39,7 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     Event (..),
   )
+import GHCSpecter.Worker.Timing (timingWorker)
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -165,6 +166,10 @@ stepControl (Free (RefreshUIAfter nSec next)) = do
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
     atomically $ writeTChan chanBkg RefreshUI
+  pure (Left next)
+stepControl (Free (UpdateTimingCache next)) = do
+  (_, ssRef, _, _) <- ask
+  _ <- liftIO $ forkIO $ timingWorker ssRef
   pure (Left next)
 
 -- | The inner loop described in the Note [Control Loops].
