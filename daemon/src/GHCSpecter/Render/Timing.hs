@@ -48,8 +48,10 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
+    hr,
     input,
     label,
+    p,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -447,11 +449,54 @@ renderTimingBar tui ttable =
         , handle
         ]
 
+renderBlocker :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlocker hoveredMod ttable =
+  divClass "blocker" [] [selected, upstream, hr [], downstreams]
+  where
+    upMods =
+      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+    downMods =
+      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
+
+    selected =
+      divClass "box" [] [p [] [text hoveredMod]]
+    upstream =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocked by"] :
+          fmap (\modu -> p [] [text modu]) upMods
+        )
+    downstreams =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocking"] :
+          fmap (\modu -> p [] [text modu]) downMods
+        )
+
 -- | Top-level render function for the Timing tab
 render :: UIModel -> ServerState -> Widget IHTML Event
 render model ss =
   let ttable =
         fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
+      mhoveredMod = model ^. modelTiming . timingUIHoveredModule
+      hoverInfo =
+        case mhoveredMod of
+          Nothing -> []
+          Just hoveredMod ->
+            [ divClass
+                "box"
+                [ style
+                    [ ("width", "150px")
+                    , ("height", "120px")
+                    , ("position", "absolute")
+                    , ("bottom", "0")
+                    , ("left", "0")
+                    , ("background", "ivory")
+                    , ("overflow", "hidden")
+                    ]
+                ]
+                [renderBlocker hoveredMod ttable]
+            ]
    in div
         [ style
             [ ("width", "100%")
@@ -459,9 +504,11 @@ render model ss =
             , ("position", "relative")
             ]
         ]
-        [ renderTimingChart (model ^. modelTiming) ttable
-        , div
-            [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-            [renderCheckbox (model ^. modelTiming)]
-        , renderTimingBar (model ^. modelTiming) ttable
-        ]
+        ( [ renderTimingChart (model ^. modelTiming) ttable
+          , div
+              [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+              [renderCheckbox (model ^. modelTiming)]
+          , renderTimingBar (model ^. modelTiming) ttable
+          ]
+            ++ hoverInfo
+        )
