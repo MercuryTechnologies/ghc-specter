@@ -56,7 +56,6 @@ import GHCSpecter.Util.Map
   )
 import GHCSpecter.Worker.Hie (hieWorker)
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
-import GHCSpecter.Worker.Timing (timingWorker)
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
@@ -102,6 +101,7 @@ updateInbox chanMsg = incrementSN . updater
             let msg = ConsoleCore forest
              in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
 
+-- TODO: These all should be part of Control, not here.
 invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
@@ -114,7 +114,7 @@ invokeWorker ssRef workQ (CMBox o) =
       let modHie = (modHieSource .~ src) emptyModuleHieInfo
       atomically $
         modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
-    CMTiming {} -> void $ forkIO $ timingWorker ssRef
+    CMTiming {} -> pure ()
     CMSession s' -> do
       let mgi = sessionModuleGraph s'
       void $ forkIO (moduleGraphWorker ssRef mgi)

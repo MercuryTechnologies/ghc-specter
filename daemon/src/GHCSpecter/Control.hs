@@ -31,6 +31,7 @@ import GHCSpecter.Control.Types
     saveSession,
     sendRequest,
     shouldUpdate,
+    updateTimingCache,
     type Control,
   )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
@@ -170,15 +171,14 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
     TimingEv (HoverOnModule modu) -> do
-      printMsg ("hover on " <> modu)
       let newModel = (modelTiming . timingUIHoveredModule .~ Just modu) oldModel
       pure (newModel, oldSS)
-    TimingEv (HoverOffModule modu) -> do
-      printMsg ("hover off " <> modu)
+    TimingEv (HoverOffModule _modu) -> do
       let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
       pure (newModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
+      updateTimingCache
       pure (oldModel, newSS)
     BkgEv RefreshUI -> do
       pure (oldModel, oldSS)
