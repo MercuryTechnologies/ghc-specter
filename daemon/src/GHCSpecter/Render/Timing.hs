@@ -316,9 +316,9 @@ renderTimingChart tui ttable =
                   ++ linesToDownstream
               )
           ]
-   in div
-        [ classList [("box", True)]
-        , style
+   in divClass
+        "box"
+        [ style
             [ ("width", T.pack (show timingWidth))
             , ("height", T.pack (show timingHeight))
             , ("overflow", "hidden")
@@ -354,7 +354,11 @@ renderCheckbox tui =
               button [TimingEv (TimingFlow True) <$ onClick] [text "Thaw"]
     buttonShowBlocker = divClass "control" [] [button']
       where
-        button' = button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
+        button'
+          | tui ^. timingUIBlockerGraph =
+              button [TimingEv CloseBlockerGraph <$ onClick] [text "Back to Timing Graph"]
+          | otherwise =
+              button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
     checkPartition =
       div
         [classList [("control", True)]]
@@ -453,8 +457,8 @@ renderTimingBar tui ttable =
         , handle
         ]
 
-renderBlocker :: ModuleName -> TimingTable -> Widget IHTML Event
-renderBlocker hoveredMod ttable =
+renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlockerLine hoveredMod ttable =
   divClass "blocker" [] [selected, upstream, hr [], downstreams]
   where
     upMods =
@@ -477,9 +481,9 @@ renderBlocker hoveredMod ttable =
           fmap (\modu -> p [] [text modu]) downMods
         )
 
--- | Top-level render function for the Timing tab
-render :: UIModel -> ServerState -> Widget IHTML Event
-render model ss =
+-- | regular timing view mode
+renderTimingMode :: UIModel -> ServerState -> Widget IHTML Event
+renderTimingMode model ss =
   let ttable =
         fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
       mhoveredMod = model ^. modelTiming . timingUIHoveredModule
@@ -499,7 +503,7 @@ render model ss =
                     , ("overflow", "hidden")
                     ]
                 ]
-                [renderBlocker hoveredMod ttable]
+                [renderBlockerLine hoveredMod ttable]
             ]
    in div
         [ style
@@ -516,3 +520,40 @@ render model ss =
           ]
             ++ hoverInfo
         )
+
+renderBlockerGraph :: Widget IHTML Event
+renderBlockerGraph =
+  divClass
+    "box"
+    [ style
+        [ ("width", T.pack (show timingWidth))
+        , ("height", T.pack (show timingHeight))
+        , ("overflow", "scroll")
+        ]
+    ]
+    []
+
+-- | blocker graph mode
+renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
+renderBlockerGraphMode model ss =
+  div
+    [ style
+        [ ("width", "100%")
+        , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+        , ("position", "relative")
+        ]
+    ]
+    ( [ renderBlockerGraph
+      , div
+          [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+          [ renderCheckbox (model ^. modelTiming)
+          ]
+      ]
+    )
+
+render :: UIModel -> ServerState -> Widget IHTML Event
+render model ss
+  | model ^. modelTiming . timingUIBlockerGraph =
+      renderBlockerGraphMode model ss
+  | otherwise =
+      renderTimingMode model ss

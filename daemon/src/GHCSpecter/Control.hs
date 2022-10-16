@@ -178,7 +178,12 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       pure (newModel, oldSS)
     TimingEv ShowBlockerGraph -> do
       printMsg "show blocker graph is pressed"
-      pure (oldModel, oldSS)
+      let newModel = (modelTiming . timingUIBlockerGraph .~ True) oldModel
+      pure (newModel, oldSS)
+    TimingEv CloseBlockerGraph -> do
+      printMsg "close blocker graph is pressed"
+      let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
+      pure (newModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       updateTimingCache
@@ -396,7 +401,7 @@ main = do
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
 
   -- show banner
-  showBanner
+  -- showBanner
 
   -- initialize main view
   (view, model) <- initializeMainView
