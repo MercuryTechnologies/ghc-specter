@@ -84,7 +84,7 @@ renderMainModuleGraph
       , style [("overflow", "scroll")]
       ]
       [ MainModuleEv
-          <$> GraphView.renderModuleGraphSVG
+          <$> GraphView.renderModuleGraph
             nameMap
             drvModMap
             timing
@@ -135,7 +135,7 @@ renderSubModuleGraph
                   , style [("overflow", "scroll")]
                   ]
                   [ SubModuleEv . SubModuleGraphEv
-                      <$> GraphView.renderModuleGraphSVG
+                      <$> GraphView.renderModuleGraph
                         nameMap
                         drvModMap
                         timing

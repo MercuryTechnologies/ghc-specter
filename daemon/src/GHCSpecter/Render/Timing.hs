@@ -557,7 +557,7 @@ renderBlockerGraph ss =
                   (\n -> let name = n ^. nodePayload . _2 in (name, [name]))
                   (blockerGraphViz ^. gviNodes)
            in [ TimingEv . BlockerModuleGraphEv
-                  <$> GraphView.renderModuleGraphSVG
+                  <$> GraphView.renderModuleGraph
                     nameMap
                     drvModMap
                     timing

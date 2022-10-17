@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiWayIf #-}
 
 module GHCSpecter.Render.Components.GraphView
-  ( renderModuleGraphSVG,
+  ( renderModuleGraph,
     renderGraph,
   )
 where
@@ -55,7 +55,7 @@ makePolylineText (p0, p1) xys =
   where
     each (Point x y) = T.pack $ printf "%.2f,%.2f" x y
 
-renderModuleGraphSVG ::
+renderModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
   BiKeyMap DriverId ModuleName ->
@@ -65,7 +65,7 @@ renderModuleGraphSVG ::
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
   Widget IHTML ModuleGraphEvent
-renderModuleGraphSVG
+renderModuleGraph
   nameMap
   drvModMap
   timing
