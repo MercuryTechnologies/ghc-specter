@@ -244,17 +244,17 @@ spliceRunActionPlugin queue drvId modNameRef expr = do
   pure expr
 
 --
--- typecheck plugin
+-- typeCheckResultAction plugin
 --
 
-typecheckPlugin ::
+typeCheckResultActionPlugin ::
   MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId modNameRef modSummary tc = do
+typeCheckResultActionPlugin queue drvId modNameRef modSummary tc = do
   -- send HIE file information to the daemon after compilation
   dflags <- getDynFlags
   let modLoc = ms_location modSummary
@@ -265,7 +265,7 @@ typecheckPlugin queue drvId modNameRef modSummary tc = do
       queueMessage queue (CMHsHie drvId hiefile')
 
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
-  breakPoint queue drvId modNameRef Typecheck cmdSet
+  breakPoint queue drvId modNameRef TypecheckResultAction cmdSet
   pure tc
 
 --
@@ -323,7 +323,7 @@ driver opts env0 = do
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
           , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId modNameRef
+          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime

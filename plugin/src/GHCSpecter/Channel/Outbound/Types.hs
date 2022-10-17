@@ -56,6 +56,7 @@ data BreakpointLoc
   | RenamedResultAction
   | SpliceRunAction
   | Typecheck
+  | TypecheckResultAction
   | Core2Core Text
   | PreRunPhase Text
   | -- | (before_phase, after_phase)
