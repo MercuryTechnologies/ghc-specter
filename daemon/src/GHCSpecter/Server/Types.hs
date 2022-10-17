@@ -6,6 +6,11 @@ module GHCSpecter.Server.Types
   ( type ChanModule,
     type Inbox,
 
+    -- * Timing state
+    TimingState (..),
+    HasTimingState (..),
+    emptyTimingState,
+
     -- * ModuleGraph state
     ModuleGraphState (..),
     HasModuleGraphState (..),
@@ -27,6 +32,8 @@ where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
+import Data.IntMap (IntMap)
+import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest, Tree)
@@ -51,6 +58,32 @@ import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
+
+data TimingState = TimingState
+  { _tsTimingMap :: KeyMap DriverId Timer
+  , -- TODO1: This cached state (TimingTable) should be separated out
+    -- as we do not want to serialize this.
+    -- TODO2: The name TimingTable is rather confusing. choose different one.
+    _tsTimingTable :: TimingTable
+  , _tsBlockerGraph :: IntMap [Int]
+  , _tsBlockerGraphViz :: Maybe GraphVisInfo
+  }
+  deriving (Show, Generic)
+
+makeClassy ''TimingState
+
+instance FromJSON TimingState
+
+instance ToJSON TimingState
+
+emptyTimingState :: TimingState
+emptyTimingState =
+  TimingState
+    { _tsTimingMap = emptyKeyMap
+    , _tsTimingTable = emptyTimingTable
+    , _tsBlockerGraph = IM.empty
+    , _tsBlockerGraphViz = Nothing
+    }
 
 data ModuleGraphState = ModuleGraphState
   { _mgsModuleForest :: Forest ModuleName
@@ -106,10 +139,7 @@ data ServerState = ServerState
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
-  , _serverTiming :: KeyMap DriverId Timer
-  , -- TODO: This cached state (TimingTable) should be separated out
-    -- as we do not want to serialize this.
-    _serverTimingTable :: TimingTable
+  , _serverTiming :: TimingState
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
@@ -132,8 +162,7 @@ emptyServerState =
     , _serverInbox = mempty
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
-    , _serverTiming = emptyKeyMap
-    , _serverTimingTable = emptyTimingTable
+    , _serverTiming = emptyTimingState
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState

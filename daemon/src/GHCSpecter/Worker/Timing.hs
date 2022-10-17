@@ -1,5 +1,6 @@
 module GHCSpecter.Worker.Timing
   ( timingWorker,
+    timingBlockerGraphWorker,
   )
 where
 
@@ -8,12 +9,22 @@ import Control.Concurrent.STM
     atomically,
     modifyTVar',
     readTVar,
+    writeTVar,
   )
-import Control.Lens ((.~), (^.))
-import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Data.Timing.Util (makeTimingTable)
+import Control.Lens (to, (.~), (^.))
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+  )
+import GHCSpecter.Data.Timing.Util
+  ( makeBlockerGraph,
+    makeTimingTable,
+  )
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
+import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState,
   )
 
@@ -24,8 +35,26 @@ timingWorker ssRef = do
   case sessionStartTime sessInfo of
     Nothing -> pure ()
     Just sessStart -> do
-      let timing = ss ^. serverTiming
+      let timing = ss ^. serverTiming . tsTimingMap
           drvModMap = ss ^. serverDriverModuleMap
           mgi = sessionModuleGraph sessInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
-      atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)
+      atomically $ modifyTVar' ssRef (serverTiming . tsTimingTable .~ ttable)
+
+timingBlockerGraphWorker :: TVar ServerState -> IO ()
+timingBlockerGraphWorker ssRef = do
+  ss' <-
+    atomically $ do
+      ss <- readTVar ssRef
+      let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
+          ttable = ss ^. serverTiming . tsTimingTable
+          blockerGraph = makeBlockerGraph mgi ttable
+          ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
+      writeTVar ssRef ss'
+      pure ss'
+  let mgi = ss' ^. serverSessionInfo . to sessionModuleGraph
+      modNameMap = mginfoModuleNameMap mgi
+      blockerReversed = makeRevDep (ss' ^. serverTiming . tsBlockerGraph)
+  grVisInfo <- Sugiyama.layOutGraph modNameMap blockerReversed
+  atomically $
+    modifyTVar' ssRef (serverTiming . tsBlockerGraphViz .~ Just grVisInfo)

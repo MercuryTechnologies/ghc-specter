@@ -39,6 +39,7 @@ import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
     HasServerState (..),
+    HasTimingState (..),
     Inbox,
     ServerState (..),
   )
@@ -108,7 +109,7 @@ renderModuleTree srcUI ss =
     ]
     [ul [classList [("tree", True)]] contents]
   where
-    timing = ss ^. serverTiming
+    timing = ss ^. serverTiming . tsTimingMap
     drvModMap = ss ^. serverDriverModuleMap
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
@@ -224,13 +225,13 @@ renderSourceView srcUI ss =
                                in maybe "" (T.pack . show . TextView.topOfBox) mline
                      in (srcPanel, val)
            in [ divClass
-                  "column box is-three-quarters"
+                  "column box is-half"
                   [ style [("overflow", "scroll")]
                   , DP.textProp "myval" myval
                   ]
                   [scriptContent, sourcePanel]
               , divClass
-                  "column box is-one-quarter"
+                  "column box is-half"
                   [style [("overflow", "scroll")]]
                   [renderCallGraph modu ss]
               ]

@@ -6,22 +6,22 @@ module GHCSpecter.Data.Timing.Util
     isTimeInTimerRange,
     isModuleCompilationDone,
 
-    -- * construct timing info table
+    -- * calculate timing info and blocker graph
     makeTimingTable,
+    makeBlockerGraph,
   )
 where
 
-import Control.Lens (makeClassy, to, (&), (.~), (^.), (^?), _2, _Just)
+import Control.Lens (to, (&), (.~), (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
-import Data.Foldable (for_, traverse_)
 import Data.Function (on)
+import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
-  ( NominalDiffTime,
-    UTCTime,
+  ( UTCTime,
     diffUTCTime,
   )
 import Data.Tuple (swap)
@@ -31,7 +31,6 @@ import GHCSpecter.Channel.Common.Types
   )
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
-    SessionInfo (..),
     Timer (..),
     getAsTime,
     getEndTime,
@@ -44,11 +43,6 @@ import GHCSpecter.Data.Timing.Types
     TimingInfo (..),
     TimingTable,
     emptyTimingTable,
-  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState,
   )
 import GHCSpecter.Util.Map
   ( BiKeyMap,
@@ -110,6 +104,7 @@ makeTimingTable timing drvModMap mgi sessStart =
       mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
 
     modNameMap = mginfoModuleNameMap mgi
+    -- TODO: This should be cached.
     nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
     modDep = mginfoModuleDep mgi
     findLastDep modu = do
@@ -130,3 +125,25 @@ makeTimingTable timing drvModMap mgi sessStart =
       where
         upd d' Nothing = Just [d']
         upd d' (Just ds) = Just (d' : ds)
+
+-- | minimum number of dependents to be considered as blocker.
+blockerLimit :: Int
+blockerLimit = 5
+
+makeBlockerGraph ::
+  ModuleGraphInfo ->
+  TimingTable ->
+  IntMap [Int]
+makeBlockerGraph mgi ttable = blockerGraph
+  where
+    modNameMap = mginfoModuleNameMap mgi
+    -- TODO: This should be cached
+    nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
+    modDep = mginfoModuleDep mgi
+
+    blocked = ttable ^. ttableBlockedDownstreamDependency
+    blockers =
+      mapMaybe (\k -> M.lookup k nameModMap) $
+        M.keys $
+          M.filter (\ds -> length ds >= blockerLimit) blocked
+    blockerGraph = fmap (filter (`elem` blockers)) $ IM.filterWithKey (\k _ -> k `elem` blockers) modDep

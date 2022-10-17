@@ -3,7 +3,6 @@
 
 module GHCSpecter.Render.Timing
   ( render,
-    renderTimingChart,
   )
 where
 
@@ -33,16 +32,21 @@ import Data.Time.Clock
     secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+  )
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
     HasTimingTable (..),
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
+import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -316,9 +320,9 @@ renderTimingChart tui ttable =
                   ++ linesToDownstream
               )
           ]
-   in div
-        [ classList [("box", True)]
-        , style
+   in divClass
+        "box"
+        [ style
             [ ("width", T.pack (show timingWidth))
             , ("height", T.pack (show timingHeight))
             , ("overflow", "hidden")
@@ -326,12 +330,22 @@ renderTimingChart tui ttable =
         ]
         [svgElement]
 
+buttonShowBlocker :: TimingUI -> Widget IHTML Event
+buttonShowBlocker tui = divClass "control" [] [button']
+  where
+    button'
+      | tui ^. timingUIBlockerGraph =
+          button [TimingEv CloseBlockerGraph <$ onClick] [text "Back to Timing Graph"]
+      | otherwise =
+          button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
+
 renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui =
   div
     []
     [ buttonToCurrent
     , buttonFlow
+    , buttonShowBlocker tui
     , checkPartition
     , checkHowParallel
     ]
@@ -449,8 +463,8 @@ renderTimingBar tui ttable =
         , handle
         ]
 
-renderBlocker :: ModuleName -> TimingTable -> Widget IHTML Event
-renderBlocker hoveredMod ttable =
+renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlockerLine hoveredMod ttable =
   divClass "blocker" [] [selected, upstream, hr [], downstreams]
   where
     upMods =
@@ -473,11 +487,13 @@ renderBlocker hoveredMod ttable =
           fmap (\modu -> p [] [text modu]) downMods
         )
 
--- | Top-level render function for the Timing tab
-render :: UIModel -> ServerState -> Widget IHTML Event
-render model ss =
+-- | regular timing view mode
+renderTimingMode :: UIModel -> ServerState -> Widget IHTML Event
+renderTimingMode model ss =
   let ttable =
-        fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
+        fromMaybe
+          (ss ^. serverTiming . tsTimingTable)
+          (model ^. modelTiming . timingFrozenTable)
       mhoveredMod = model ^. modelTiming . timingUIHoveredModule
       hoverInfo =
         case mhoveredMod of
@@ -495,7 +511,7 @@ render model ss =
                     , ("overflow", "hidden")
                     ]
                 ]
-                [renderBlocker hoveredMod ttable]
+                [renderBlockerLine hoveredMod ttable]
             ]
    in div
         [ style
@@ -512,3 +528,67 @@ render model ss =
           ]
             ++ hoverInfo
         )
+
+renderBlockerGraph :: ServerState -> Widget IHTML Event
+renderBlockerGraph ss =
+  divClass
+    "box"
+    [ width (T.pack (show timingWidth))
+    , height (T.pack (show timingHeight))
+    , style [("overflow", "scroll")]
+    ]
+    contents
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+    ttable = ss ^. serverTiming . tsTimingTable
+    maxTime =
+      case ttable ^. ttableTimingInfos of
+        [] -> secondsToNominalDiffTime 1.0
+        ts -> maximum (fmap (\(_, t) -> t ^. timingEnd - t ^. timingStart) ts)
+    mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
+    contents =
+      case mblockerGraphViz of
+        Nothing -> []
+        Just blockerGraphViz ->
+          let valueFor name =
+                fromMaybe 0 $ do
+                  t <- L.lookup (Just name) (ttable ^. ttableTimingInfos)
+                  pure $ realToFrac ((t ^. timingEnd - t ^. timingStart) / maxTime)
+           in [ TimingEv . BlockerModuleGraphEv
+                  <$> GraphView.renderModuleGraph
+                    nameMap
+                    valueFor
+                    blockerGraphViz
+                    (Nothing, Nothing)
+              ]
+
+-- | blocker graph mode
+renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
+renderBlockerGraphMode model ss =
+  div
+    [ style
+        [ ("width", "100%")
+        , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+        , ("position", "relative")
+        , ("overflow", "auto")
+        ]
+    ]
+    ( [ renderBlockerGraph ss
+      , div
+          [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+          [ div
+              []
+              [ button [TimingEv ShowBlockerGraph <$ onClick] [text "Update"]
+              , buttonShowBlocker (model ^. modelTiming)
+              ]
+          ]
+      ]
+    )
+
+render :: UIModel -> ServerState -> Widget IHTML Event
+render model ss
+  | model ^. modelTiming . timingUIBlockerGraph =
+      renderBlockerGraphMode model ss
+  | otherwise =
+      renderTimingMode model ss

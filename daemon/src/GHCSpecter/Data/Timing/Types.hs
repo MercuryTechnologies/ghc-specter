@@ -36,7 +36,8 @@ instance FromJSON a => FromJSON (TimingInfo a)
 instance ToJSON a => ToJSON (TimingInfo a)
 
 data TimingTable = TimingTable
-  { _ttableTimingInfos :: [(Maybe ModuleName, TimingInfo NominalDiffTime)]
+  { -- TODO: use DriverId.
+    _ttableTimingInfos :: [(Maybe ModuleName, TimingInfo NominalDiffTime)]
   , _ttableBlockingUpstreamDependency :: Map ModuleName ModuleName
   , _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }

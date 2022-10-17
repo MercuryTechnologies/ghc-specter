@@ -19,7 +19,8 @@ import GHCSpecter.Channel.Inbound.Types
   )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types
-  ( getCurrentTime,
+  ( asyncWork,
+    getCurrentTime,
     getLastUpdatedUI,
     getSS,
     getUI,
@@ -31,12 +32,12 @@ import GHCSpecter.Control.Types
     saveSession,
     sendRequest,
     shouldUpdate,
-    updateTimingCache,
     type Control,
   )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState,
   )
 import GHCSpecter.UI.Constants
@@ -74,6 +75,10 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
   )
 import GHCSpecter.Util.Map (forwardLookup)
+import GHCSpecter.Worker.Timing
+  ( timingBlockerGraphWorker,
+    timingWorker,
+  )
 
 defaultUpdateModel ::
   Event ->
@@ -142,7 +147,9 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       pure (oldModel, newSS)
     TimingEv ToCurrentTime -> do
       let ttable =
-            fromMaybe (oldSS ^. serverTimingTable) (oldModel ^. modelTiming . timingFrozenTable)
+            fromMaybe
+              (oldSS ^. serverTiming . tsTimingTable)
+              (oldModel ^. modelTiming . timingFrozenTable)
           timingInfos = ttable ^. ttableTimingInfos
           nMods = length timingInfos
           totalHeight = 5 * nMods
@@ -157,7 +164,7 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       pure (newModel, newSS)
     TimingEv (TimingFlow isFlowing) -> do
       printMsg $ "TimingFlow " <> T.pack (show isFlowing)
-      let ttable = oldSS ^. serverTimingTable
+      let ttable = oldSS ^. serverTiming . tsTimingTable
           newModel
             | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) oldModel
             | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) oldModel
@@ -176,9 +183,21 @@ defaultUpdateModel topEv (oldModel, oldSS) =
     TimingEv (HoverOffModule _modu) -> do
       let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
       pure (newModel, oldSS)
+    TimingEv ShowBlockerGraph -> do
+      printMsg "show blocker graph is pressed"
+      asyncWork timingBlockerGraphWorker
+      let newModel = (modelTiming . timingUIBlockerGraph .~ True) oldModel
+      pure (newModel, oldSS)
+    TimingEv CloseBlockerGraph -> do
+      printMsg "close blocker graph is pressed"
+      let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
+      pure (newModel, oldSS)
+    TimingEv (BlockerModuleGraphEv e) -> do
+      printMsg ("blocker module graph event: " <> T.pack (show e))
+      pure (oldModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
-      updateTimingCache
+      asyncWork timingWorker
       pure (oldModel, newSS)
     BkgEv RefreshUI -> do
       pure (oldModel, oldSS)
