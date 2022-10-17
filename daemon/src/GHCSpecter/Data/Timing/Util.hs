@@ -135,6 +135,10 @@ makeTimingTable timing drvModMap mgi sessStart =
         upd d' Nothing = Just [d']
         upd d' (Just ds) = Just (d' : ds)
 
+-- | minimum number of dependents to be considered as blocker.
+blockerLimit :: Int
+blockerLimit = 5
+
 makeBlockerGraph ::
   ModuleGraphInfo ->
   TimingTable ->
@@ -151,5 +155,5 @@ makeBlockerGraph mgi ttable = blockerGraph
     blockers =
       mapMaybe (\k -> M.lookup k nameModMap) $
         M.keys $
-          M.filter (not . null) blocked
+          M.filter (\ds -> length ds >= blockerLimit) blocked
     blockerGraph = fmap (filter (`elem` blockers)) $ IM.filterWithKey (\k _ -> k `elem` blockers) modDep
