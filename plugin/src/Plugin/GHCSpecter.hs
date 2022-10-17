@@ -39,7 +39,7 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
-import GHC.Hs.Extension (GhcRn)
+import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
@@ -62,6 +62,7 @@ import GHCSpecter.Config
   )
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
+import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
   ( CommandSet (..),
@@ -228,6 +229,21 @@ renamedResultActionPlugin queue drvId modNameRef env grp = do
   pure (env, grp)
 
 --
+-- spliceRunAction plugin
+--
+
+spliceRunActionPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  LHsExpr GhcTc ->
+  TcM (LHsExpr GhcTc)
+spliceRunActionPlugin queue drvId modNameRef expr = do
+  let cmdSet = CommandSet []
+  breakPoint queue drvId modNameRef SpliceRunAction cmdSet
+  pure expr
+
+--
 -- typecheck plugin
 --
 
@@ -306,6 +322,7 @@ driver opts env0 = do
           { installCoreToDos = \_opts -> corePlugin queue drvId modNameRef
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
+          , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
