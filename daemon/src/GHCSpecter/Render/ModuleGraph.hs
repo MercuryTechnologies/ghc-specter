@@ -15,9 +15,10 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Control.Error.Util (note)
-import Control.Lens (to, (^.), _1, _2)
+import Control.Lens (to, (^.), _1)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId, type ModuleName)
@@ -26,11 +27,8 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
     Timer,
   )
-import GHCSpecter.GraphLayout.Types
-  ( GraphVisInfo (..),
-    HasGraphVisInfo (..),
-    HasNodeLayout (..),
-  )
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
+import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Server.Types
   ( HasModuleGraphState (..),
@@ -86,15 +84,24 @@ renderMainModuleGraph
       [ MainModuleEv
           <$> GraphView.renderModuleGraph
             nameMap
-            drvModMap
-            timing
-            clustering
+            valueFor
             grVisInfo
             (mclicked, mhovered)
       ]
     where
       mclicked = mgUI ^. modGraphUIClick
       mhovered = mgUI ^. modGraphUIHover
+      valueFor name =
+        fromMaybe 0 $ do
+          cluster <- L.lookup name clustering
+          let nTot = length cluster
+          if nTot == 0
+            then Nothing
+            else do
+              let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
+                  nCompiled = length compiled
+              pure (fromIntegral nCompiled / fromIntegral nTot)
+
 
 renderSubModuleGraph ::
   -- | key = graph id
@@ -126,10 +133,9 @@ renderSubModuleGraph
      in case esubgraph of
           Left err -> text (T.pack err)
           Right subgraph ->
-            let trivialClustering =
-                  fmap
-                    (\n -> let name = n ^. nodePayload . _2 in (name, [name]))
-                    (subgraph ^. gviNodes)
+            let valueFor name
+                  | isModuleCompilationDone drvModMap timing name = 1
+                  | otherwise = 0
              in div
                   [ classList [("box", True)]
                   , style [("overflow", "scroll")]
@@ -137,9 +143,7 @@ renderSubModuleGraph
                   [ SubModuleEv . SubModuleGraphEv
                       <$> GraphView.renderModuleGraph
                         nameMap
-                        drvModMap
-                        timing
-                        trivialClustering
+                        valueFor
                         subgraph
                         (mainModuleClicked, subModuleHovered)
                   ]

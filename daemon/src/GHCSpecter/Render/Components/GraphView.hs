@@ -19,18 +19,12 @@ import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
-import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
-import GHCSpecter.Channel.Outbound.Types (Timer)
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
+import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.GraphLayout.Types
   ( Dimension (..),
     EdgeLayout (..),
@@ -45,7 +39,6 @@ import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
-import GHCSpecter.Util.Map (BiKeyMap, KeyMap)
 import Text.Printf (printf)
 import Prelude hiding (div)
 
@@ -58,18 +51,14 @@ makePolylineText (p0, p1) xys =
 renderModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
-  BiKeyMap DriverId ModuleName ->
-  KeyMap DriverId Timer ->
-  [(Text, [Text])] ->
+  (ModuleName -> Double) ->
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
   Widget IHTML ModuleGraphEvent
 renderModuleGraph
   nameMap
-  drvModMap
-  timing
-  clustering
+  valueFor
   grVisInfo
   (mfocused, mhinted) =
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
@@ -141,15 +130,7 @@ renderModuleGraph
             ]
             []
         box2 (NodeLayout (_, name) (Point x y) (Dim w h)) =
-          let ratio = fromMaybe 0 $ do
-                cluster <- L.lookup name clustering
-                let nTot = length cluster
-                if nTot == 0
-                  then Nothing
-                  else do
-                    let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
-                        nCompiled = length compiled
-                    pure (fromIntegral nCompiled / fromIntegral nTot)
+          let ratio = valueFor name
               w' = ratio * w
            in S.rect
                 [ SP.x (T.pack $ show (x + offX))

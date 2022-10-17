@@ -42,10 +42,6 @@ import GHCSpecter.Data.Timing.Types
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
-import GHCSpecter.GraphLayout.Types
-  ( HasGraphVisInfo (..),
-    HasNodeLayout (..),
-  )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
@@ -545,23 +541,24 @@ renderBlockerGraph ss =
   where
     sessionInfo = ss ^. serverSessionInfo
     nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
-    drvModMap = ss ^. serverDriverModuleMap
-    timing = ss ^. serverTiming . tsTimingMap
+    ttable = ss ^. serverTiming . tsTimingTable
+    maxTime =
+      case ttable ^. ttableTimingInfos of
+        [] -> secondsToNominalDiffTime 1.0
+        ts -> maximum (fmap (\(_, t) -> t ^. timingEnd - t ^. timingStart) ts)
     mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
       case mblockerGraphViz of
         Nothing -> []
         Just blockerGraphViz ->
-          let trivialClustering =
-                fmap
-                  (\n -> let name = n ^. nodePayload . _2 in (name, [name]))
-                  (blockerGraphViz ^. gviNodes)
+          let valueFor name =
+                fromMaybe 0 $ do
+                  t <- L.lookup (Just name) (ttable ^. ttableTimingInfos)
+                  pure $ realToFrac ((t ^. timingEnd - t ^. timingStart) / maxTime)
            in [ TimingEv . BlockerModuleGraphEv
                   <$> GraphView.renderModuleGraph
                     nameMap
-                    drvModMap
-                    timing
-                    trivialClustering
+                    valueFor
                     blockerGraphViz
                     (Nothing, Nothing)
               ]
