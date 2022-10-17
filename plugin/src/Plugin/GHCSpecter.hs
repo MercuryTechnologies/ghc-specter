@@ -39,6 +39,7 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
+import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
@@ -60,6 +61,8 @@ import GHCSpecter.Config
     loadConfig,
   )
 import GHCSpecter.Util.GHC (showPpr)
+import Language.Haskell.Syntax.Decls (HsGroup)
+import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console
   ( CommandSet (..),
@@ -205,20 +208,53 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
     msrcFile' <- traverse canonicalizePath msrcFile
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName msrcFile'
+  let cmdSet = CommandSet []
+  breakPoint queue drvId modNameRef ParsedResultAction cmdSet
   pure parsedMod
 
 --
--- typecheck plugin
+-- renamedResultAction plugin
 --
 
-typecheckPlugin ::
+renamedResultActionPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  TcGblEnv ->
+  HsGroup GhcRn ->
+  TcM (TcGblEnv, HsGroup GhcRn)
+renamedResultActionPlugin queue drvId modNameRef env grp = do
+  let cmdSet = CommandSet []
+  breakPoint queue drvId modNameRef RenamedResultAction cmdSet
+  pure (env, grp)
+
+--
+-- spliceRunAction plugin
+--
+
+spliceRunActionPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  LHsExpr GhcTc ->
+  TcM (LHsExpr GhcTc)
+spliceRunActionPlugin queue drvId modNameRef expr = do
+  let cmdSet = CommandSet []
+  breakPoint queue drvId modNameRef SpliceRunAction cmdSet
+  pure expr
+
+--
+-- typeCheckResultAction plugin
+--
+
+typeCheckResultActionPlugin ::
   MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId mmodNameRef modSummary tc = do
+typeCheckResultActionPlugin queue drvId modNameRef modSummary tc = do
   -- send HIE file information to the daemon after compilation
   dflags <- getDynFlags
   let modLoc = ms_location modSummary
@@ -229,7 +265,7 @@ typecheckPlugin queue drvId mmodNameRef modSummary tc = do
       queueMessage queue (CMHsHie drvId hiefile')
 
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
-  breakPoint queue drvId mmodNameRef Typecheck cmdSet
+  breakPoint queue drvId modNameRef TypecheckResultAction cmdSet
   pure tc
 
 --
@@ -281,11 +317,15 @@ driver opts env0 = do
   drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
+      -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
+      -- TODO: tcPlugin. need different mechanism
       newPlugin =
         plugin
           { installCoreToDos = \_opts -> corePlugin queue drvId modNameRef
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typecheckPlugin queue drvId modNameRef
+          , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
+          , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
+          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime

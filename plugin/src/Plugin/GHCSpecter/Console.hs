@@ -108,7 +108,7 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
     ShowUnqualifiedImports ->
-      doCommand ":unqualified" (== Typecheck) "show unqualified imports" []
+      doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
     ListCore ->
       doCommand ":list-core" (\case Core2Core _ -> True; _ -> False) "list core" []
     PrintCore args ->
