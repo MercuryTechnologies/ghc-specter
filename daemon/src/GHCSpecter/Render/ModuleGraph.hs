@@ -102,7 +102,6 @@ renderMainModuleGraph
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
 
-
 renderSubModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->

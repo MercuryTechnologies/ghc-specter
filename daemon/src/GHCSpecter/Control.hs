@@ -9,7 +9,6 @@ where
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
-import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -36,7 +35,6 @@ import GHCSpecter.Control.Types
     type Control,
   )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
-import GHCSpecter.Data.Timing.Util (makeBlockerGraph)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     HasTimingState (..),

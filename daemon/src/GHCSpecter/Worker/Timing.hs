@@ -12,7 +12,6 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Lens (to, (.~), (^.))
-import Data.IntMap qualified as IM
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),

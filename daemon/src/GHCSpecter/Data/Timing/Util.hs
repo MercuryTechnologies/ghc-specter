@@ -12,19 +12,16 @@ module GHCSpecter.Data.Timing.Util
   )
 where
 
-import Control.Lens (makeClassy, to, (&), (.~), (^.), (^?), _2, _Just)
+import Control.Lens (to, (&), (.~), (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
-import Data.Foldable (for_, traverse_)
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
-  ( NominalDiffTime,
-    UTCTime,
+  ( UTCTime,
     diffUTCTime,
   )
 import Data.Tuple (swap)
@@ -34,7 +31,6 @@ import GHCSpecter.Channel.Common.Types
   )
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
-    SessionInfo (..),
     Timer (..),
     getAsTime,
     getEndTime,
@@ -47,11 +43,6 @@ import GHCSpecter.Data.Timing.Types
     TimingInfo (..),
     TimingTable,
     emptyTimingTable,
-  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState,
   )
 import GHCSpecter.Util.Map
   ( BiKeyMap,
@@ -150,7 +141,6 @@ makeBlockerGraph mgi ttable = blockerGraph
     nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
     modDep = mginfoModuleDep mgi
 
-    -- upblocker = ttable ^. ttableBlockingUpstreamDependency
     blocked = ttable ^. ttableBlockedDownstreamDependency
     blockers =
       mapMaybe (\k -> M.lookup k nameModMap) $

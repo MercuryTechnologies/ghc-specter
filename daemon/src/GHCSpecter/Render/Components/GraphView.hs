@@ -51,7 +51,10 @@ makePolylineText (p0, p1) xys =
 renderModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
+  -- | For each module, assign a double type value in [0, 1],
+  -- which will be shown as bar below the module node.
   (ModuleName -> Double) ->
+  -- | Graph layout information
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
