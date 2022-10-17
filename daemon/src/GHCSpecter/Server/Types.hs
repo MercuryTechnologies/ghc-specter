@@ -110,6 +110,8 @@ data ServerState = ServerState
   , -- TODO: This cached state (TimingTable) should be separated out
     -- as we do not want to serialize this.
     _serverTimingTable :: TimingTable
+  , -- TODO: group timing-related fields into a separate one.
+    _serverTimingBlockerGraph :: [(Int, Int)]
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
@@ -134,6 +136,7 @@ emptyServerState =
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyKeyMap
     , _serverTimingTable = emptyTimingTable
+    , _serverTimingBlockerGraph = []
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState

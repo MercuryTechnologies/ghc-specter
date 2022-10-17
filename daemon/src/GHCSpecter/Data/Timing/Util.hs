@@ -6,8 +6,9 @@ module GHCSpecter.Data.Timing.Util
     isTimeInTimerRange,
     isModuleCompilationDone,
 
-    -- * construct timing info table
+    -- * calculate timing info and blocker graph
     makeTimingTable,
+    makeBlockerGraph,
   )
 where
 
@@ -17,6 +18,7 @@ import Data.Foldable (for_, traverse_)
 import Data.Function (on)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
+import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
 import Data.Maybe (isJust, mapMaybe)
 import Data.Time.Clock
@@ -110,6 +112,7 @@ makeTimingTable timing drvModMap mgi sessStart =
       mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
 
     modNameMap = mginfoModuleNameMap mgi
+    -- TODO: This should be cached.
     nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
     modDep = mginfoModuleDep mgi
     findLastDep modu = do
@@ -130,3 +133,20 @@ makeTimingTable timing drvModMap mgi sessStart =
       where
         upd d' Nothing = Just [d']
         upd d' (Just ds) = Just (d' : ds)
+
+makeBlockerGraph ::
+  ModuleGraphInfo ->
+  TimingTable ->
+  -- Map ModuleName ModuleName
+  [(Int, Int)]
+makeBlockerGraph mgi ttable = blockerGraph
+  where
+    upblocker = ttable ^. ttableBlockingUpstreamDependency
+    downblocked = ttable ^. ttableBlockedDownstreamDependency
+    blockers = M.keys $ M.filter (not . null) downblocked
+    blockerGraph_ = M.toList $ M.filterWithKey (\k _ -> k `elem` blockers) upblocker
+    modNameMap = mginfoModuleNameMap mgi
+    -- TODO: This should be cached
+    nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
+    blockerGraph =
+      mapMaybe (\(curr, upper) -> (,) <$> M.lookup curr nameModMap <*> M.lookup upper nameModMap) blockerGraph_

@@ -16,10 +16,11 @@ module GHCSpecter.Control.Types
     refreshUIAfter,
     shouldUpdate,
     saveSession,
-    updateTimingCache,
+    asyncWork,
   )
 where
 
+import Control.Concurrent.STM (TVar)
 import Control.Monad.Free (Free (..), liftF)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
@@ -42,7 +43,7 @@ data ControlF r
   | ShouldUpdate Bool r
   | SaveSession r
   | RefreshUIAfter Double r
-  | UpdateTimingCache r
+  | AsyncWork (TVar ServerState -> IO ()) r
   deriving (Functor)
 
 type Control = Free ControlF
@@ -83,5 +84,5 @@ saveSession = liftF (SaveSession ())
 refreshUIAfter :: Double -> Control ()
 refreshUIAfter nSec = liftF (RefreshUIAfter nSec ())
 
-updateTimingCache :: Control ()
-updateTimingCache = liftF (UpdateTimingCache ())
+asyncWork :: (TVar ServerState -> IO ()) -> Control ()
+asyncWork w = liftF (AsyncWork w ())

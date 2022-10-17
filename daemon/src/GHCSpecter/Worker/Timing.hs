@@ -1,5 +1,6 @@
 module GHCSpecter.Worker.Timing
   ( timingWorker,
+    timingBlockerGraphWorker,
   )
 where
 
@@ -9,9 +10,12 @@ import Control.Concurrent.STM
     modifyTVar',
     readTVar,
   )
-import Control.Lens ((.~), (^.))
+import Control.Lens (to, (.~), (^.))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Data.Timing.Util (makeTimingTable)
+import GHCSpecter.Data.Timing.Util
+  ( makeBlockerGraph,
+    makeTimingTable,
+  )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     ServerState,
@@ -29,3 +33,12 @@ timingWorker ssRef = do
           mgi = sessionModuleGraph sessInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
       atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)
+
+timingBlockerGraphWorker :: TVar ServerState -> IO ()
+timingBlockerGraphWorker ssRef = do
+  atomically $ do
+    ss <- readTVar ssRef
+    let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
+        ttable = ss ^. serverTimingTable
+        blockerGraph = makeBlockerGraph mgi ttable
+    modifyTVar' ssRef (serverTimingBlockerGraph .~ blockerGraph)

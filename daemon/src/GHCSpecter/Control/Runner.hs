@@ -167,9 +167,9 @@ stepControl (Free (RefreshUIAfter nSec next)) = do
     threadDelay (floor (nSec * 1_000_000))
     atomically $ writeTChan chanBkg RefreshUI
   pure (Left next)
-stepControl (Free (UpdateTimingCache next)) = do
+stepControl (Free (AsyncWork worker next)) = do
   (_, ssRef, _, _) <- ask
-  _ <- liftIO $ forkIO $ timingWorker ssRef
+  _ <- liftIO $ forkIO $ worker ssRef
   pure (Left next)
 
 -- | The inner loop described in the Note [Control Loops].
