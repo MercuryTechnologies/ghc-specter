@@ -27,7 +27,6 @@ import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, isNothing, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.Lazy qualified as TL
 import Data.Time.Clock
   ( NominalDiffTime,
     nominalDiffTimeToSeconds,
@@ -41,6 +40,7 @@ import GHCSpecter.Data.Timing.Types
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
+import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -54,7 +54,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
     input,
     label,
     p,
-    pre,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -83,7 +82,6 @@ import GHCSpecter.UI.Types.Event
     MouseEvent (..),
     TimingEvent (..),
   )
-import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 colorCodes :: [Text]
@@ -535,13 +533,14 @@ renderBlockerGraph ss =
     , height (T.pack (show timingHeight))
     , style [("overflow", "scroll")]
     ]
-    [pre [] [text contents]]
+    contents
   where
-    blockerGraph = ss ^. serverTiming . tsBlockerGraph
-    blockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
+    mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
-      TL.toStrict $
-        pShowNoColor blockerGraph <> "\n\n" <> pShowNoColor blockerGraphViz
+      case mblockerGraphViz of
+        Nothing -> []
+        Just blockerGraphViz ->
+          [GraphView.renderGraph (const False) blockerGraphViz]
 
 -- | blocker graph mode
 renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
