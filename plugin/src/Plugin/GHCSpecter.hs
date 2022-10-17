@@ -317,6 +317,8 @@ driver opts env0 = do
   drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
+      -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
+      -- TODO: tcPlugin. need different mechanism
       newPlugin =
         plugin
           { installCoreToDos = \_opts -> corePlugin queue drvId modNameRef
