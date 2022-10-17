@@ -32,6 +32,8 @@ where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
+import Data.IntMap (IntMap)
+import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest, Tree)
@@ -63,7 +65,7 @@ data TimingState = TimingState
     -- as we do not want to serialize this.
     -- TODO2: The name TimingTable is rather confusing. choose different one.
     _tsTimingTable :: TimingTable
-  , _tsBlockerGraph :: [(Int, Int)]
+  , _tsBlockerGraph :: IntMap [Int]
   , _tsBlockerGraphViz :: Maybe GraphVisInfo
   }
   deriving (Show, Generic)
@@ -79,7 +81,7 @@ emptyTimingState =
   TimingState
     { _tsTimingMap = emptyKeyMap
     , _tsTimingTable = emptyTimingTable
-    , _tsBlockerGraph = []
+    , _tsBlockerGraph = IM.empty
     , _tsBlockerGraphViz = Nothing
     }
 

@@ -16,6 +16,7 @@ import Control.Lens (makeClassy, to, (&), (.~), (^.), (^?), _2, _Just)
 import Data.Bifunctor (first)
 import Data.Foldable (for_, traverse_)
 import Data.Function (on)
+import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map.Strict (Map)
@@ -137,16 +138,18 @@ makeTimingTable timing drvModMap mgi sessStart =
 makeBlockerGraph ::
   ModuleGraphInfo ->
   TimingTable ->
-  -- Map ModuleName ModuleName
-  [(Int, Int)]
+  IntMap [Int]
 makeBlockerGraph mgi ttable = blockerGraph
   where
-    upblocker = ttable ^. ttableBlockingUpstreamDependency
-    downblocked = ttable ^. ttableBlockedDownstreamDependency
-    blockers = M.keys $ M.filter (not . null) downblocked
-    blockerGraph_ = M.toList $ M.filterWithKey (\k _ -> k `elem` blockers) upblocker
     modNameMap = mginfoModuleNameMap mgi
     -- TODO: This should be cached
     nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
-    blockerGraph =
-      mapMaybe (\(curr, upper) -> (,) <$> M.lookup curr nameModMap <*> M.lookup upper nameModMap) blockerGraph_
+    modDep = mginfoModuleDep mgi
+
+    -- upblocker = ttable ^. ttableBlockingUpstreamDependency
+    blocked = ttable ^. ttableBlockedDownstreamDependency
+    blockers =
+      mapMaybe (\k -> M.lookup k nameModMap) $
+        M.keys $
+          M.filter (not . null) blocked
+    blockerGraph = fmap (filter (`elem` blockers)) $ IM.filterWithKey (\k _ -> k `elem` blockers) modDep

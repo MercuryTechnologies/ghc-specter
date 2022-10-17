@@ -21,6 +21,7 @@ import GHCSpecter.Data.Timing.Util
   ( makeBlockerGraph,
     makeTimingTable,
   )
+import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -54,10 +55,7 @@ timingBlockerGraphWorker ssRef = do
       pure ss'
   let mgi = ss' ^. serverSessionInfo . to sessionModuleGraph
       modNameMap = mginfoModuleNameMap mgi
-      blockerReversed =
-        IM.fromList $
-          fmap (\(c, u) -> (u, [c])) $
-            (ss' ^. serverTiming . tsBlockerGraph)
+      blockerReversed = makeRevDep (ss' ^. serverTiming . tsBlockerGraph)
   grVisInfo <- Sugiyama.layOutGraph modNameMap blockerReversed
   atomically $
     modifyTVar' ssRef (serverTiming . tsBlockerGraphViz .~ Just grVisInfo)
