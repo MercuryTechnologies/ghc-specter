@@ -52,7 +52,7 @@ instance ToJSON Channel
 
 data BreakpointLoc
   = StartDriver
-  | AfterParser
+  | ParsedResultAction
   | Typecheck
   | Core2Core Text
   | PreRunPhase Text

@@ -205,6 +205,8 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
     msrcFile' <- traverse canonicalizePath msrcFile
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName msrcFile'
+  let cmdSet = CommandSet []
+  breakPoint queue drvId modNameRef ParsedResultAction cmdSet
   pure parsedMod
 
 --
@@ -218,7 +220,7 @@ typecheckPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typecheckPlugin queue drvId mmodNameRef modSummary tc = do
+typecheckPlugin queue drvId modNameRef modSummary tc = do
   -- send HIE file information to the daemon after compilation
   dflags <- getDynFlags
   let modLoc = ms_location modSummary
@@ -229,7 +231,7 @@ typecheckPlugin queue drvId mmodNameRef modSummary tc = do
       queueMessage queue (CMHsHie drvId hiefile')
 
   let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
-  breakPoint queue drvId mmodNameRef Typecheck cmdSet
+  breakPoint queue drvId modNameRef Typecheck cmdSet
   pure tc
 
 --
