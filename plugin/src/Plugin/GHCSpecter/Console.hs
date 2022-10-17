@@ -1,11 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Plugin.GHCSpecter.Console
-  ( -- * A list of available commands
-    CommandSet (..),
-    emptyCommandSet,
-
-    -- * entry point to console when paused
+  ( -- * entry point to console when paused
     breakPoint,
   )
 where
@@ -28,7 +24,6 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Data.IORef (IORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (isNothing)
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types
@@ -45,24 +40,13 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
   )
 import Plugin.GHCSpecter.Comm (queueMessage)
+import Plugin.GHCSpecter.Task (CommandSet (..))
 import Plugin.GHCSpecter.Types
   ( ConsoleState (..),
     MsgQueue (..),
     PluginSession (..),
     sessionRef,
   )
-
-type CommandArg = Text
-
--- | a list of available commands at a given breakpoint
-newtype CommandSet m = CommandSet
-  { unCommandSet :: [(Text, [CommandArg] -> m ConsoleReply)]
-  -- ^ each item: command name, command action
-  -- command action takes additional arguments.
-  }
-
-emptyCommandSet :: CommandSet m
-emptyCommandSet = CommandSet []
 
 consoleAction ::
   MonadIO m =>
