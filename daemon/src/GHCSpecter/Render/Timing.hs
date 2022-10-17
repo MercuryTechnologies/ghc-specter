@@ -27,6 +27,7 @@ import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, isNothing, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
 import Data.Time.Clock
   ( NominalDiffTime,
     nominalDiffTimeToSeconds,
@@ -53,6 +54,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     input,
     label,
     p,
+    pre,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -81,6 +83,7 @@ import GHCSpecter.UI.Types.Event
     MouseEvent (..),
     TimingEvent (..),
   )
+import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 colorCodes :: [Text]
@@ -524,17 +527,21 @@ renderTimingMode model ss =
             ++ hoverInfo
         )
 
-renderBlockerGraph :: Widget IHTML Event
-renderBlockerGraph =
+renderBlockerGraph :: ServerState -> Widget IHTML Event
+renderBlockerGraph ss =
   divClass
     "box"
-    [ style
-        [ ("width", T.pack (show timingWidth))
-        , ("height", T.pack (show timingHeight))
-        , ("overflow", "scroll")
-        ]
+    [ width (T.pack (show timingWidth))
+    , height (T.pack (show timingHeight))
+    , style [("overflow", "scroll")]
     ]
-    []
+    [pre [] [text contents]]
+  where
+    blockerGraph = ss ^. serverTiming . tsBlockerGraph
+    blockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
+    contents =
+      TL.toStrict $
+        pShowNoColor blockerGraph <> "\n\n" <> pShowNoColor blockerGraphViz
 
 -- | blocker graph mode
 renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
@@ -544,9 +551,10 @@ renderBlockerGraphMode model ss =
         [ ("width", "100%")
         , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
         , ("position", "relative")
+        , ("overflow", "auto")
         ]
     ]
-    ( [ renderBlockerGraph
+    ( [ renderBlockerGraph ss
       , div
           [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
           [ renderCheckbox (model ^. modelTiming)

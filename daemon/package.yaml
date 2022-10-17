@@ -99,6 +99,7 @@ library:
     - http-types
     - lens
     - optparse-applicative
+    - pretty-simple
     - replica
     - resourcet
     - scientific

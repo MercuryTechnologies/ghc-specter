@@ -9,13 +9,19 @@ import Control.Concurrent.STM
     atomically,
     modifyTVar',
     readTVar,
+    writeTVar,
   )
 import Control.Lens (to, (.~), (^.))
-import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
+import Data.IntMap qualified as IM
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+  )
 import GHCSpecter.Data.Timing.Util
   ( makeBlockerGraph,
     makeTimingTable,
   )
+import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     HasTimingState (..),
@@ -37,9 +43,21 @@ timingWorker ssRef = do
 
 timingBlockerGraphWorker :: TVar ServerState -> IO ()
 timingBlockerGraphWorker ssRef = do
-  atomically $ do
-    ss <- readTVar ssRef
-    let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
-        ttable = ss ^. serverTiming . tsTimingTable
-        blockerGraph = makeBlockerGraph mgi ttable
-    modifyTVar' ssRef (serverTiming . tsBlockerGraph .~ blockerGraph)
+  ss' <-
+    atomically $ do
+      ss <- readTVar ssRef
+      let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
+          ttable = ss ^. serverTiming . tsTimingTable
+          blockerGraph = makeBlockerGraph mgi ttable
+          ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
+      writeTVar ssRef ss'
+      pure ss'
+  let mgi = ss' ^. serverSessionInfo . to sessionModuleGraph
+      modNameMap = mginfoModuleNameMap mgi
+      blockerReversed =
+        IM.fromList $
+          fmap (\(c, u) -> (u, [c])) $
+            (ss' ^. serverTiming . tsBlockerGraph)
+  grVisInfo <- Sugiyama.layOutGraph modNameMap blockerReversed
+  atomically $
+    modifyTVar' ssRef (serverTiming . tsBlockerGraphViz .~ Just grVisInfo)

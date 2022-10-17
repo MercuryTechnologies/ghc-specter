@@ -64,6 +64,7 @@ data TimingState = TimingState
     -- TODO2: The name TimingTable is rather confusing. choose different one.
     _tsTimingTable :: TimingTable
   , _tsBlockerGraph :: [(Int, Int)]
+  , _tsBlockerGraphViz :: Maybe GraphVisInfo
   }
   deriving (Show, Generic)
 
@@ -79,6 +80,7 @@ emptyTimingState =
     { _tsTimingMap = emptyKeyMap
     , _tsTimingTable = emptyTimingTable
     , _tsBlockerGraph = []
+    , _tsBlockerGraphViz = Nothing
     }
 
 data ModuleGraphState = ModuleGraphState
