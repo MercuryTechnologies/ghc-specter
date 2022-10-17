@@ -69,6 +69,7 @@ data TimingEvent
   | HoverOffModule ModuleName
   | ShowBlockerGraph
   | CloseBlockerGraph
+  | BlockerModuleGraphEv ModuleGraphEvent
   deriving (Show, Eq)
 
 data MouseEvent

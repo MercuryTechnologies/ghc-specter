@@ -225,13 +225,13 @@ renderSourceView srcUI ss =
                                in maybe "" (T.pack . show . TextView.topOfBox) mline
                      in (srcPanel, val)
            in [ divClass
-                  "column box is-three-quarters"
+                  "column box is-half"
                   [ style [("overflow", "scroll")]
                   , DP.textProp "myval" myval
                   ]
                   [scriptContent, sourcePanel]
               , divClass
-                  "column box is-one-quarter"
+                  "column box is-half"
                   [style [("overflow", "scroll")]]
                   [renderCallGraph modu ss]
               ]

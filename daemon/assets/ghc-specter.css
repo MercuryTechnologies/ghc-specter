@@ -51,6 +51,10 @@ nav {
     display: flex;
 }
 
+.column.is-half {
+    width: 50%;
+}
+
 .column.is-one-fifths {
     width: 20%;
 }

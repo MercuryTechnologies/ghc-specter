@@ -194,6 +194,9 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       printMsg "close blocker graph is pressed"
       let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
       pure (newModel, oldSS)
+    TimingEv (BlockerModuleGraphEv e) -> do
+      printMsg ("blocker module graph event: " <> T.pack (show e))
+      pure (oldModel, oldSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker
@@ -411,7 +414,7 @@ main = do
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
 
   -- show banner
-  -- showBanner
+  showBanner
 
   -- initialize main view
   (view, model) <- initializeMainView

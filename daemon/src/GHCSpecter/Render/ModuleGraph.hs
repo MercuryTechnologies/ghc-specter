@@ -15,7 +15,7 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Control.Error.Util (note)
-import Control.Lens (to, (^.), _1)
+import Control.Lens (to, (^.), _1, _2)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Text (Text)
@@ -29,7 +29,7 @@ import GHCSpecter.Channel.Outbound.Types
 import GHCSpecter.GraphLayout.Types
   ( GraphVisInfo (..),
     HasGraphVisInfo (..),
-    NodeLayout (..),
+    HasNodeLayout (..),
   )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Server.Types
@@ -126,9 +126,9 @@ renderSubModuleGraph
      in case esubgraph of
           Left err -> text (T.pack err)
           Right subgraph ->
-            let tempclustering =
+            let trivialClustering =
                   fmap
-                    (\(NodeLayout (_, name) _ _) -> (name, [name]))
+                    (\n -> let name = n ^. nodePayload . _2 in (name, [name]))
                     (subgraph ^. gviNodes)
              in div
                   [ classList [("box", True)]
@@ -139,7 +139,7 @@ renderSubModuleGraph
                         nameMap
                         drvModMap
                         timing
-                        tempclustering
+                        trivialClustering
                         subgraph
                         (mainModuleClicked, subModuleHovered)
                   ]

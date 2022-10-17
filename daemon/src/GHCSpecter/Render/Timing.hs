@@ -3,7 +3,6 @@
 
 module GHCSpecter.Render.Timing
   ( render,
-    renderTimingChart,
   )
 where
 
@@ -33,13 +32,20 @@ import Data.Time.Clock
     secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+  )
 import GHCSpecter.Data.Timing.Types
   ( HasTimingInfo (..),
     HasTimingTable (..),
     TimingTable,
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
+import GHCSpecter.GraphLayout.Types
+  ( HasGraphVisInfo (..),
+    HasNodeLayout (..),
+  )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
@@ -328,13 +334,22 @@ renderTimingChart tui ttable =
         ]
         [svgElement]
 
+buttonShowBlocker :: TimingUI -> Widget IHTML Event
+buttonShowBlocker tui = divClass "control" [] [button']
+  where
+    button'
+      | tui ^. timingUIBlockerGraph =
+          button [TimingEv CloseBlockerGraph <$ onClick] [text "Back to Timing Graph"]
+      | otherwise =
+          button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
+
 renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui =
   div
     []
     [ buttonToCurrent
     , buttonFlow
-    , buttonShowBlocker
+    , buttonShowBlocker tui
     , checkPartition
     , checkHowParallel
     ]
@@ -354,13 +369,6 @@ renderCheckbox tui =
               button [TimingEv (TimingFlow False) <$ onClick] [text "Freeze"]
           | otherwise =
               button [TimingEv (TimingFlow True) <$ onClick] [text "Thaw"]
-    buttonShowBlocker = divClass "control" [] [button']
-      where
-        button'
-          | tui ^. timingUIBlockerGraph =
-              button [TimingEv CloseBlockerGraph <$ onClick] [text "Back to Timing Graph"]
-          | otherwise =
-              button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
     checkPartition =
       div
         [classList [("control", True)]]
@@ -535,12 +543,28 @@ renderBlockerGraph ss =
     ]
     contents
   where
+    sessionInfo = ss ^. serverSessionInfo
+    nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+    drvModMap = ss ^. serverDriverModuleMap
+    timing = ss ^. serverTiming . tsTimingMap
     mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
       case mblockerGraphViz of
         Nothing -> []
         Just blockerGraphViz ->
-          [GraphView.renderGraph (const False) blockerGraphViz]
+          let trivialClustering =
+                fmap
+                  (\n -> let name = n ^. nodePayload . _2 in (name, [name]))
+                  (blockerGraphViz ^. gviNodes)
+           in [ TimingEv . BlockerModuleGraphEv
+                  <$> GraphView.renderModuleGraphSVG
+                    nameMap
+                    drvModMap
+                    timing
+                    trivialClustering
+                    blockerGraphViz
+                    (Nothing, Nothing)
+              ]
 
 -- | blocker graph mode
 renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
@@ -556,7 +580,11 @@ renderBlockerGraphMode model ss =
     ( [ renderBlockerGraph ss
       , div
           [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
-          [ renderCheckbox (model ^. modelTiming)
+          [ div
+              []
+              [ button [TimingEv ShowBlockerGraph <$ onClick] [text "Update"]
+              , buttonShowBlocker (model ^. modelTiming)
+              ]
           ]
       ]
     )
