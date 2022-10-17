@@ -39,6 +39,7 @@ import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Data.Timing.Util (makeBlockerGraph)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState,
   )
 import GHCSpecter.UI.Constants
@@ -148,7 +149,9 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       pure (oldModel, newSS)
     TimingEv ToCurrentTime -> do
       let ttable =
-            fromMaybe (oldSS ^. serverTimingTable) (oldModel ^. modelTiming . timingFrozenTable)
+            fromMaybe
+              (oldSS ^. serverTiming . tsTimingTable)
+              (oldModel ^. modelTiming . timingFrozenTable)
           timingInfos = ttable ^. ttableTimingInfos
           nMods = length timingInfos
           totalHeight = 5 * nMods
@@ -163,7 +166,7 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       pure (newModel, newSS)
     TimingEv (TimingFlow isFlowing) -> do
       printMsg $ "TimingFlow " <> T.pack (show isFlowing)
-      let ttable = oldSS ^. serverTimingTable
+      let ttable = oldSS ^. serverTiming . tsTimingTable
           newModel
             | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) oldModel
             | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) oldModel

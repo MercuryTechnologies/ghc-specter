@@ -6,6 +6,11 @@ module GHCSpecter.Server.Types
   ( type ChanModule,
     type Inbox,
 
+    -- * Timing state
+    TimingState (..),
+    HasTimingState (..),
+    emptyTimingState,
+
     -- * ModuleGraph state
     ModuleGraphState (..),
     HasModuleGraphState (..),
@@ -51,6 +56,30 @@ import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 type ChanModule = (Channel, Text)
 
 type Inbox = Map ChanModule Text
+
+data TimingState = TimingState
+  { _tsTimingMap :: KeyMap DriverId Timer
+  , -- TODO1: This cached state (TimingTable) should be separated out
+    -- as we do not want to serialize this.
+    -- TODO2: The name TimingTable is rather confusing. choose different one.
+    _tsTimingTable :: TimingTable
+  , _tsBlockerGraph :: [(Int, Int)]
+  }
+  deriving (Show, Generic)
+
+makeClassy ''TimingState
+
+instance FromJSON TimingState
+
+instance ToJSON TimingState
+
+emptyTimingState :: TimingState
+emptyTimingState =
+  TimingState
+    { _tsTimingMap = emptyKeyMap
+    , _tsTimingTable = emptyTimingTable
+    , _tsBlockerGraph = []
+    }
 
 data ModuleGraphState = ModuleGraphState
   { _mgsModuleForest :: Forest ModuleName
@@ -106,12 +135,7 @@ data ServerState = ServerState
   , _serverInbox :: Inbox
   , _serverSessionInfo :: SessionInfo
   , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
-  , _serverTiming :: KeyMap DriverId Timer
-  , -- TODO: This cached state (TimingTable) should be separated out
-    -- as we do not want to serialize this.
-    _serverTimingTable :: TimingTable
-  , -- TODO: group timing-related fields into a separate one.
-    _serverTimingBlockerGraph :: [(Int, Int)]
+  , _serverTiming :: TimingState
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
   , _serverModuleGraphState :: ModuleGraphState
@@ -134,9 +158,7 @@ emptyServerState =
     , _serverInbox = mempty
     , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
     , _serverDriverModuleMap = emptyBiKeyMap
-    , _serverTiming = emptyKeyMap
-    , _serverTimingTable = emptyTimingTable
-    , _serverTimingBlockerGraph = []
+    , _serverTiming = emptyTimingState
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
     , _serverModuleGraphState = emptyModuleGraphState

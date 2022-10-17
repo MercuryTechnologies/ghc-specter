@@ -35,6 +35,7 @@ import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Server.Types
   ( HasModuleGraphState (..),
     HasServerState (..),
+    HasTimingState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -207,6 +208,6 @@ render model ss =
     sessionInfo = ss ^. serverSessionInfo
     nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
     drvModMap = ss ^. serverDriverModuleMap
-    timing = ss ^. serverTiming
+    timing = ss ^. serverTiming . tsTimingMap
     mgs = ss ^. serverModuleGraphState
     clustering = mgs ^. mgsClustering

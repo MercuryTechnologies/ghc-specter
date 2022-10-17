@@ -43,6 +43,7 @@ import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -485,7 +486,9 @@ renderBlockerLine hoveredMod ttable =
 renderTimingMode :: UIModel -> ServerState -> Widget IHTML Event
 renderTimingMode model ss =
   let ttable =
-        fromMaybe (ss ^. serverTimingTable) (model ^. modelTiming . timingFrozenTable)
+        fromMaybe
+          (ss ^. serverTiming . tsTimingTable)
+          (model ^. modelTiming . timingFrozenTable)
       mhoveredMod = model ^. modelTiming . timingUIHoveredModule
       hoverInfo =
         case mhoveredMod of

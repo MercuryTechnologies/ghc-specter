@@ -28,6 +28,7 @@ import GHCSpecter.Channel.Outbound.Types
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
@@ -100,7 +101,7 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
 render :: ServerState -> Widget IHTML Event
 render ss =
   let sessionInfo = ss ^. serverSessionInfo
-      timing = ss ^. serverTiming
+      timing = ss ^. serverTiming . tsTimingMap
       drvModMap = ss ^. serverDriverModuleMap
       pausedMap = ss ^. serverPaused
    in case sessionStartTime sessionInfo of

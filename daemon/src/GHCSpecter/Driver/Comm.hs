@@ -46,6 +46,7 @@ import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     HasHieState (..),
     HasServerState (..),
+    HasTimingState (..),
     ServerState (..),
     incrementSN,
   )
@@ -75,7 +76,7 @@ updateInbox chanMsg = incrementSN . updater
         let f Nothing = Just timer'
             f (Just timer0) =
               Just $ Timer (unTimer timer0 ++ unTimer timer')
-         in (serverTiming %~ alterToKeyMap f drvId)
+         in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
       CMBox (CMHsHie _ _) ->

@@ -39,6 +39,7 @@ import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasModuleGraphState (..),
     HasServerState (..),
+    HasTimingState (..),
     Inbox,
     ServerState (..),
   )
@@ -108,7 +109,7 @@ renderModuleTree srcUI ss =
     ]
     [ul [classList [("tree", True)]] contents]
   where
-    timing = ss ^. serverTiming
+    timing = ss ^. serverTiming . tsTimingMap
     drvModMap = ss ^. serverDriverModuleMap
     mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu

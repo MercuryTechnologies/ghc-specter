@@ -18,6 +18,7 @@ import GHCSpecter.Data.Timing.Util
   )
 import GHCSpecter.Server.Types
   ( HasServerState (..),
+    HasTimingState (..),
     ServerState,
   )
 
@@ -28,17 +29,17 @@ timingWorker ssRef = do
   case sessionStartTime sessInfo of
     Nothing -> pure ()
     Just sessStart -> do
-      let timing = ss ^. serverTiming
+      let timing = ss ^. serverTiming . tsTimingMap
           drvModMap = ss ^. serverDriverModuleMap
           mgi = sessionModuleGraph sessInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
-      atomically $ modifyTVar' ssRef (serverTimingTable .~ ttable)
+      atomically $ modifyTVar' ssRef (serverTiming . tsTimingTable .~ ttable)
 
 timingBlockerGraphWorker :: TVar ServerState -> IO ()
 timingBlockerGraphWorker ssRef = do
   atomically $ do
     ss <- readTVar ssRef
     let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
-        ttable = ss ^. serverTimingTable
+        ttable = ss ^. serverTiming . tsTimingTable
         blockerGraph = makeBlockerGraph mgi ttable
-    modifyTVar' ssRef (serverTimingBlockerGraph .~ blockerGraph)
+    modifyTVar' ssRef (serverTiming . tsBlockerGraph .~ blockerGraph)
