@@ -46,6 +46,10 @@ nav {
     background: lightgrey;
 }
 
+.is-tab.is-active.supp-tab {
+    background: lightgrey;
+}
+
 .columns {
     width: 100%;
     display: flex;

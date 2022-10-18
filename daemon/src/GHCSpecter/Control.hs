@@ -111,6 +111,11 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           bps = newSS ^. serverModuleBreakpoints
       sendRequest $ SessionReq (SetModuleBreakpoints bps)
       pure (oldModel, newSS)
+    SourceViewEv (SourceViewTab tab) -> do
+      let newModel =
+            (modelSourceView . srcViewSuppViewTab .~ Just tab) oldModel
+          newSS = (serverShouldUpdate .~ False) oldSS
+      pure (newModel, newSS)
     MainModuleEv ev -> do
       let mgui = oldModel ^. modelMainModuleGraph
           mgui' = handleModuleGraphEv ev mgui

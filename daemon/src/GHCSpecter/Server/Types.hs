@@ -107,9 +107,8 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState = ModuleGraphState [] Nothing [] []
 
-data HieState = HieState
+newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
-  -- , _hieCallGraphMap :: Map ModuleName GraphVisInfo
   }
   deriving (Show, Generic)
 
@@ -120,7 +119,7 @@ instance FromJSON HieState
 instance ToJSON HieState
 
 emptyHieState :: HieState
-emptyHieState = HieState mempty -- mempty
+emptyHieState = HieState mempty
 
 data ConsoleItem
   = -- | Command input

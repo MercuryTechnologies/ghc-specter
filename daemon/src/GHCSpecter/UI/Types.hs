@@ -56,12 +56,13 @@ data SourceViewUI = SourceViewUI
   -- ^ expanded module in SourceView
   , _srcViewFocusedBinding :: Maybe Text
   -- ^ focused binding if exist
+  , _srcViewSuppViewTab :: Maybe Text
   }
 
 makeClassy ''SourceViewUI
 
 emptySourceViewUI :: SourceViewUI
-emptySourceViewUI = SourceViewUI Nothing Nothing
+emptySourceViewUI = SourceViewUI Nothing Nothing Nothing
 
 data TimingUI = TimingUI
   { _timingFrozenTable :: Maybe TimingTable
