@@ -39,7 +39,6 @@ import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     Event (..),
   )
-import GHCSpecter.Worker.Timing (timingWorker)
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 

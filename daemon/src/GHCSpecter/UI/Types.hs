@@ -24,6 +24,9 @@ module GHCSpecter.UI.Types
     UIState (..),
     HasUIState (..),
     emptyUIState,
+
+    -- * list of allowed console commands
+    consoleCommandList,
   )
 where
 
@@ -167,3 +170,17 @@ emptyUIState assets now =
     , _uiView = BannerMode 0
     , _uiAssets = assets
     }
+
+-- | list of allowed console commands
+consoleCommandList :: BreakpointLoc -> [Text]
+consoleCommandList bp =
+  case bp of
+    StartDriver -> [":next"]
+    ParsedResultAction -> [":next"]
+    RenamedResultAction -> [":next", ":show-renamed"]
+    SpliceRunAction -> [":next", ":show-expr"]
+    Typecheck -> [":next"]
+    TypecheckResultAction -> [":next", ":unqualified"]
+    Core2Core {} -> [":next", ":list-core", ":print-core"]
+    PreRunPhase {} -> [":next"]
+    PostRunPhase {} -> [":next"]

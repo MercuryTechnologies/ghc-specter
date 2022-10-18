@@ -114,6 +114,25 @@ nav {
     padding: 2px 0 0 0;
     background-color: white;
     color: black;
+    position: relative;
+}
+
+.console-help {
+    margin: 0;
+    padding: 3px;
+    background-color: honeydew;
+    color: black;
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    border: solid 0.5px black;
+    font-family: "Courier", monospace;
+    font-size: 6px;
+}
+
+.console-help p {
+    margin: 0;
+    padding: 0;
 }
 
 .console-item {
