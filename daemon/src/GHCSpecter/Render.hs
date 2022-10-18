@@ -16,6 +16,7 @@ import Concur.Replica
     width,
   )
 import Control.Lens (to, (^.))
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -51,12 +52,13 @@ import GHCSpecter.UI.Types
     UIModel (..),
     UIState (..),
     UIView (..),
+    consoleCommandList,
   )
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     Tab (..),
   )
-import GHCSpecter.Util.Map (forwardLookup, keyMapToList)
+import GHCSpecter.Util.Map (forwardLookup, keyMapToList, lookupKey)
 import Prelude hiding (div, span)
 
 renderBanner :: Text -> Double -> Widget IHTML a
@@ -122,13 +124,17 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
       let ktxt = T.pack $ show (unDriverId k)
           mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
        in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
-
+    getHelp k =
+      fromMaybe
+        ["No Help!"]
+        (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
     consolePanel
       | sessionIsPaused sessionInfo =
           [ ConsoleEv
               <$> Console.render
                 (fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap)
                 consoleMap
+                getHelp
                 mconsoleFocus
                 inputEntry
           ]

@@ -14,7 +14,7 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Text (Text)
 import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
@@ -24,6 +24,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     el,
     input,
     nav,
+    p,
     script,
     text,
   )
@@ -40,10 +41,11 @@ render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   KeyMap k [ConsoleItem] ->
+  (k -> [Text]) ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
-render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
+render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
   where
     navbarMenu = divClass "navbar-menu" []
     navbarStart = divClass "navbar-start" []
@@ -100,4 +102,8 @@ render tabs contents mfocus inputEntry = div [] [consoleTabs, console]
             , textProp "value" inputEntry
             ]
         ]
-    console = divClass "console" [] [consoleContent, consoleInput]
+    consoleHelp =
+      let txts = fromMaybe [] (getHelp <$> mfocus)
+          elems = fmap (\t -> p [] [text t]) txts
+       in divClass "console-help" [] elems
+    console = divClass "console" [] [consoleContent, consoleInput, consoleHelp]
