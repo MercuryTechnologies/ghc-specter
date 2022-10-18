@@ -36,7 +36,8 @@ import GHCSpecter.Control.Types
   )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
+  ( ConsoleItem (..),
+    HasServerState (..),
     HasTimingState (..),
     ServerState,
   )
@@ -74,7 +75,10 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
-import GHCSpecter.Util.Map (forwardLookup)
+import GHCSpecter.Util.Map
+  ( alterToKeyMap,
+    forwardLookup,
+  )
 import GHCSpecter.Worker.Timing
   ( timingBlockerGraphWorker,
     timingWorker,
@@ -266,7 +270,18 @@ goCommon ev (view, model0) = do
             Nothing -> pure model0
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
-                  model = (modelConsole . consoleInputEntry .~ "") model0
+                  model = (modelConsole . consoleInputEntry .~ "") $ model0
+              ss <- getSS
+              let appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
+                  appendConsoleMsg newMsg Nothing = Just [newMsg]
+                  appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
+
+                  ss' =
+                    ss
+                      & ( serverConsole
+                            %~ alterToKeyMap (appendConsoleMsg (ConsoleCommand msg)) drvId
+                        )
+              putSS ss'
               model' <-
                 if
                     | msg == ":next" -> do

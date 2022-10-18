@@ -118,7 +118,9 @@ emptyHieState :: HieState
 emptyHieState = HieState mempty mempty
 
 data ConsoleItem
-  = -- | Simple text message
+  = -- | Command input
+    ConsoleCommand Text
+  | -- | Simple text message
     ConsoleText Text
   | -- | Collection of buttons. Note that the information from ConsoleReply is
     -- enriched with the corresponding console command for convenience.
