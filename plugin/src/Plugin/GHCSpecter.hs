@@ -222,7 +222,12 @@ renamedResultActionPlugin ::
   HsGroup GhcRn ->
   TcM (TcGblEnv, HsGroup GhcRn)
 renamedResultActionPlugin queue drvId modNameRef env grp = do
-  breakPoint queue drvId modNameRef RenamedResultAction renamedResultActionCommands
+  breakPoint
+    queue
+    drvId
+    modNameRef
+    RenamedResultAction
+    (renamedResultActionCommands grp)
   pure (env, grp)
 
 --

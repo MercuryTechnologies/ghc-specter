@@ -20,14 +20,16 @@ import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
 import GHC.Driver.Pipeline (CompPipeline)
-import GHC.Hs.Extension (GhcTc)
+import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply)
+import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Task.Core2Core (listCore, printCore)
 import Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
+    showRenamed,
     showSpliceExpr,
   )
 
@@ -49,8 +51,9 @@ driverCommands = emptyCommandSet
 parsedResultActionCommands :: CommandSet Hsc
 parsedResultActionCommands = emptyCommandSet
 
-renamedResultActionCommands :: CommandSet TcM
-renamedResultActionCommands = emptyCommandSet
+renamedResultActionCommands :: HsGroup GhcRn -> CommandSet TcM
+renamedResultActionCommands grp =
+  CommandSet [(":show-renamed", \_ -> showRenamed grp)]
 
 spliceRunActionCommands :: LHsExpr GhcTc -> CommandSet TcM
 spliceRunActionCommands expr =

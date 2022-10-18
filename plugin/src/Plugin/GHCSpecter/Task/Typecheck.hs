@@ -1,5 +1,6 @@
 module Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
+    showRenamed,
     showSpliceExpr,
   )
 where
@@ -13,7 +14,7 @@ import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
 import GHC.Driver.Session (getDynFlags)
-import GHC.Hs.Extension (GhcTc)
+import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
@@ -22,6 +23,7 @@ import GHCSpecter.Channel.Common.Types
   )
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import GHCSpecter.Util.GHC (showPpr)
+import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Util
   ( formatImportedNames,
@@ -43,6 +45,12 @@ fetchUnqualifiedImports tc = do
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
   pure (ConsoleReplyText (T.pack rendered))
+
+showRenamed :: HsGroup GhcRn -> TcM ConsoleReply
+showRenamed grp = do
+  dflags <- getDynFlags
+  let txt = T.pack (showPpr dflags grp)
+  pure (ConsoleReplyText txt)
 
 showSpliceExpr :: LHsExpr GhcTc -> TcM ConsoleReply
 showSpliceExpr expr = do

@@ -91,6 +91,8 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           let console = psConsoleState psess
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
+    ShowRenamed ->
+      doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
     ShowExpr ->
       doCommand ":show-expr" (== SpliceRunAction) "show expr" []
     ShowUnqualifiedImports ->
