@@ -17,7 +17,7 @@ import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
 import Data.List qualified as L
 import Data.Map qualified as M
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..), foldTree)
@@ -42,11 +42,14 @@ import GHCSpecter.Server.Types
     HasTimingState (..),
     Inbox,
     ServerState (..),
+    SupplementaryView (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
+    el,
     input,
     li,
+    nav,
     pre,
     script,
     span,
@@ -162,14 +165,57 @@ renderModuleTree srcUI ss =
                   ]
        in modItem
 
-renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
-renderCallGraph modu ss =
-  case mgrVis of
-    Nothing -> div [] []
-    Just grVis -> GraphView.renderGraph (isJust . T.find (== '.')) grVis
+renderSuppView :: SupplementaryView -> Widget IHTML a
+renderSuppView (SuppViewCallgraph grVis) =
+  div
+    [ style
+        [ ("overflow", "scroll")
+        , ("height", "100%")
+        ]
+    ]
+    [GraphView.renderGraph (isJust . T.find (== '.')) grVis]
+renderSuppView (SuppViewText txt) =
+  divClass
+    "suppview"
+    [ style
+        [ ("overflow", "scroll")
+        , ("height", "100%")
+        ]
+    ]
+    [pre [] [text txt]]
+
+renderSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> Widget IHTML Event
+renderSuppViewPanel modu srcUI ss =
+  div [style [("overflow", "hidden"), ("height", "100%")]] [suppViewTabs, suppViewContents]
   where
-    callGraphMap = ss ^. serverHieState . hieCallGraphMap
-    mgrVis = M.lookup modu callGraphMap
+    suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))
+    msuppView = do
+      tab <- srcUI ^. srcViewSuppViewTab
+      suppView <- L.lookup tab suppViews
+      pure suppView
+
+    navbarMenu = divClass "navbar-menu" []
+    navbarStart = divClass "navbar-start" []
+    navItem (k, tab) =
+      let isActive = Just k == srcUI ^. srcViewSuppViewTab
+          clss
+            | isActive = ["navbar-item", "is-tab", "supp-tab", "is-active"]
+            | otherwise = ["navbar-item", "is-tab", "supp-tab"]
+          cls = classList $ map (\tag -> (tag, True)) clss
+       in el
+            "a"
+            [cls, SourceViewEv (SourceViewTab k) <$ onClick]
+            [text tab]
+
+    suppViewTabs =
+      let formatTab (t, i) = t <> ":" <> T.pack (show i)
+       in nav
+            [classList [("navbar", True)]]
+            [navbarMenu [navbarStart (fmap (\(k, _) -> navItem (k, formatTab k)) suppViews)]]
+    suppViewContents =
+      case msuppView of
+        Nothing -> div [] []
+        Just suppView -> renderSuppView suppView
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
@@ -233,7 +279,7 @@ renderSourceView srcUI ss =
               , divClass
                   "column box is-half"
                   [style [("overflow", "scroll")]]
-                  [renderCallGraph modu ss]
+                  [renderSuppViewPanel modu srcUI ss]
               ]
         _ -> []
 

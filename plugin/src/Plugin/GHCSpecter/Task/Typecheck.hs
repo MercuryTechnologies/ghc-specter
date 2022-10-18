@@ -44,16 +44,16 @@ fetchUnqualifiedImports tc = do
           (modu, names) <- M.toList moduleImportMap
           let imported = fmap (formatName dflags) $ S.toList names
           [T.unpack modu, formatImportedNames imported]
-  pure (ConsoleReplyText (T.pack rendered))
+  pure (ConsoleReplyText Nothing (T.pack rendered))
 
 showRenamed :: HsGroup GhcRn -> TcM ConsoleReply
 showRenamed grp = do
   dflags <- getDynFlags
   let txt = T.pack (showPpr dflags grp)
-  pure (ConsoleReplyText txt)
+  pure (ConsoleReplyText (Just "renamed") txt)
 
 showSpliceExpr :: LHsExpr GhcTc -> TcM ConsoleReply
 showSpliceExpr expr = do
   dflags <- getDynFlags
   let txt = T.pack (showPpr dflags expr)
-  pure (ConsoleReplyText txt)
+  pure (ConsoleReplyText (Just "splice") txt)

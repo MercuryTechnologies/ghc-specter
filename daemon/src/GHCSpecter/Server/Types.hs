@@ -20,6 +20,11 @@ module GHCSpecter.Server.Types
     HieState (..),
     HasHieState (..),
     emptyHieState,
+
+    -- * Supplementary view
+    SupplementaryView (..),
+
+    -- * console
     ConsoleItem (..),
 
     -- * Server state
@@ -102,9 +107,8 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState = ModuleGraphState [] Nothing [] []
 
-data HieState = HieState
+newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
-  , _hieCallGraphMap :: Map ModuleName GraphVisInfo
   }
   deriving (Show, Generic)
 
@@ -115,10 +119,12 @@ instance FromJSON HieState
 instance ToJSON HieState
 
 emptyHieState :: HieState
-emptyHieState = HieState mempty mempty
+emptyHieState = HieState mempty
 
 data ConsoleItem
-  = -- | Simple text message
+  = -- | Command input
+    ConsoleCommand Text
+  | -- | Simple text message
     ConsoleText Text
   | -- | Collection of buttons. Note that the information from ConsoleReply is
     -- enriched with the corresponding console command for convenience.
@@ -133,6 +139,15 @@ instance FromJSON ConsoleItem
 
 instance ToJSON ConsoleItem
 
+data SupplementaryView
+  = SuppViewCallgraph GraphVisInfo
+  | SuppViewText Text
+  deriving (Show, Generic)
+
+instance FromJSON SupplementaryView
+
+instance ToJSON SupplementaryView
+
 data ServerState = ServerState
   { _serverMessageSN :: Int
   , _serverShouldUpdate :: Bool
@@ -142,6 +157,7 @@ data ServerState = ServerState
   , _serverTiming :: TimingState
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
+  , _serverSuppView :: Map ModuleName [((Text, Int), SupplementaryView)]
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
@@ -165,6 +181,7 @@ emptyServerState =
     , _serverTiming = emptyTimingState
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
+    , _serverSuppView = mempty
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     , _serverModuleBreakpoints = []

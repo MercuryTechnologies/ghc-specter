@@ -134,8 +134,8 @@ getEndTime :: Timer -> Maybe UTCTime
 getEndTime (Timer ts) = L.lookup TimerEnd ts
 
 data ConsoleReply
-  = -- | simple textual reply
-    ConsoleReplyText Text
+  = -- | simple textual reply (with name optionally)
+    ConsoleReplyText (Maybe Text) Text
   | -- | list of Core bind items. The items in the same inner list are mutually
     -- recursive binding, i.e. should be presented together.
     ConsoleReplyCoreBindList [[Text]]

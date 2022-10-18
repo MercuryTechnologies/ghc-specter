@@ -22,6 +22,13 @@ import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
 render :: ConsoleItem -> Widget IHTML (ConsoleEvent k)
+render (ConsoleCommand txt) =
+  divClass
+    "console-item"
+    []
+    [ div [style [("width", "10px")]] [text ">"]
+    , pre [] [text txt]
+    ]
 render (ConsoleText txt) =
   divClass
     "console-item"

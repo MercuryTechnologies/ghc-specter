@@ -18,6 +18,7 @@ import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -48,6 +49,7 @@ import GHCSpecter.Server.Types
     HasServerState (..),
     HasTimingState (..),
     ServerState (..),
+    SupplementaryView (..),
     incrementSN,
   )
 import GHCSpecter.Util.Map
@@ -91,9 +93,21 @@ updateInbox chanMsg = incrementSN . updater
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of
-          ConsoleReplyText txt ->
+          ConsoleReplyText mtab txt ->
             let msg = ConsoleText txt
-             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+                upd1 = (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+                upd2 ss = fromMaybe ss $ do
+                  tab <- mtab
+                  modu <- forwardLookup drvId (ss ^. serverDriverModuleMap)
+                  let item = SuppViewText txt
+                  let append Nothing = Just [((tab, 0), item)]
+                      append (Just xs) =
+                        let n = length $ filter (\((tab', _), _) -> tab' == tab) xs
+                         in Just (xs ++ [((tab, n), item)])
+                      ss' =
+                        (serverSuppView %~ M.alter append modu) ss
+                  pure ss'
+             in upd2 . upd1
           ConsoleReplyCoreBindList bindList ->
             let mkButton n = (n, ":print-core " <> n)
                 msg = ConsoleButton (fmap (fmap mkButton) bindList)

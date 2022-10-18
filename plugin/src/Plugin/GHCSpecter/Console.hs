@@ -77,13 +77,13 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
               writeTVar actionRef (Just action)
         | otherwise =
             reply $
-              ConsoleReplyText $
+              ConsoleReplyText Nothing $
                 "cannot " <> cmdDesc <> " at the breakpoint: " <> T.pack (show loc)
   case req of
     Ping msg -> do
       TIO.putStrLn $ "ping: " <> msg
       let pongMsg = "pong: " <> msg
-      reply (ConsoleReplyText pongMsg)
+      reply (ConsoleReplyText Nothing pongMsg)
     NextBreakpoint -> do
       putStrLn "NextBreakpoint"
       atomically $

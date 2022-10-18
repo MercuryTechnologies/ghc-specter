@@ -138,7 +138,7 @@ listCore guts = do
       reply =
         case traverse formatBind binds of
           Left err ->
-            ConsoleReplyText ("Error: " <> err)
+            ConsoleReplyText Nothing ("Error: " <> err)
           Right bindList ->
             ConsoleReplyCoreBindList bindList
   pure reply

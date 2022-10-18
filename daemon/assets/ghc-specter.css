@@ -46,6 +46,10 @@ nav {
     background: lightgrey;
 }
 
+.is-tab.is-active.supp-tab {
+    background: lightgrey;
+}
+
 .columns {
     width: 100%;
     display: flex;
@@ -254,6 +258,13 @@ ul.tree span::before {
 
 .noinline {
     display: block;
+}
+
+.suppview pre {
+    margin: 5px;
+    padding: 5px;
+    font-family: "Courier", monospace;
+    font-size: 8px;
 }
 
 /* symbols */
