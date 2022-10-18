@@ -60,6 +60,7 @@ import GHCSpecter.Server.Types
   ( HasHieState (..),
     HasServerState (..),
     ServerState (..),
+    SupplementaryView (..),
   )
 import GHCSpecter.Util.SourceText
   ( filterTopLevel,
@@ -220,12 +221,10 @@ worker var modName modHieInfo = do
   mcallGraphViz <- layOutCallGraph modName modHieInfo
   case mcallGraphViz of
     Nothing -> pure ()
-    -- this message is too noisy.
-    -- TODO: introduce log-level in the long run.
-    -- TIO.putStrLn $ "The call graph of " <> modName <> " cannot be calculated."
     Just callGraphViz -> do
-      -- TIO.putStrLn $ "The call graph of " <> modName <> " has been calculated."
+      let append x Nothing = Just [x]
+          append x (Just xs) = Just (xs ++ [x])
       atomically $
         modifyTVar' var $
-          serverHieState . hieCallGraphMap
-            %~ M.insert modName callGraphViz
+          serverSuppView
+            %~ M.alter (append ("Call Graph", SuppViewCallgraph callGraphViz)) modName

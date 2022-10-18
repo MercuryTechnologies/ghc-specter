@@ -20,6 +20,11 @@ module GHCSpecter.Server.Types
     HieState (..),
     HasHieState (..),
     emptyHieState,
+
+    -- * Supplementary view
+    SupplementaryView (..),
+
+    -- * console
     ConsoleItem (..),
 
     -- * Server state
@@ -104,7 +109,7 @@ emptyModuleGraphState = ModuleGraphState [] Nothing [] []
 
 data HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
-  , _hieCallGraphMap :: Map ModuleName GraphVisInfo
+  -- , _hieCallGraphMap :: Map ModuleName GraphVisInfo
   }
   deriving (Show, Generic)
 
@@ -115,7 +120,7 @@ instance FromJSON HieState
 instance ToJSON HieState
 
 emptyHieState :: HieState
-emptyHieState = HieState mempty mempty
+emptyHieState = HieState mempty -- mempty
 
 data ConsoleItem
   = -- | Command input
@@ -135,6 +140,15 @@ instance FromJSON ConsoleItem
 
 instance ToJSON ConsoleItem
 
+data SupplementaryView
+  = SuppViewCallgraph GraphVisInfo
+  | SuppViewText Text
+  deriving (Show, Generic)
+
+instance FromJSON SupplementaryView
+
+instance ToJSON SupplementaryView
+
 data ServerState = ServerState
   { _serverMessageSN :: Int
   , _serverShouldUpdate :: Bool
@@ -144,6 +158,7 @@ data ServerState = ServerState
   , _serverTiming :: TimingState
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
+  , _serverSuppView :: Map ModuleName [(Text, SupplementaryView)]
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
@@ -167,6 +182,7 @@ emptyServerState =
     , _serverTiming = emptyTimingState
     , _serverPaused = emptyKeyMap
     , _serverConsole = emptyKeyMap
+    , _serverSuppView = mempty
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     , _serverModuleBreakpoints = []

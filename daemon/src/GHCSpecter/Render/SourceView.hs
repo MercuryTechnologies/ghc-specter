@@ -42,6 +42,7 @@ import GHCSpecter.Server.Types
     HasTimingState (..),
     Inbox,
     ServerState (..),
+    SupplementaryView (..),
   )
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
@@ -162,14 +163,17 @@ renderModuleTree srcUI ss =
                   ]
        in modItem
 
-renderCallGraph :: ModuleName -> ServerState -> Widget IHTML a
-renderCallGraph modu ss =
+renderSupplementaryView :: ModuleName -> ServerState -> Widget IHTML a
+renderSupplementaryView modu ss =
   case mgrVis of
     Nothing -> div [] []
     Just grVis -> GraphView.renderGraph (isJust . T.find (== '.')) grVis
   where
-    callGraphMap = ss ^. serverHieState . hieCallGraphMap
-    mgrVis = M.lookup modu callGraphMap
+    -- callGraphMap = ss ^. serverHieState . hieCallGraphMap
+    mgrVis = do
+      suppViews <- M.lookup modu (ss ^. serverSuppView)
+      SuppViewCallgraph grVis <- L.lookup "Call Graph" suppViews
+      pure grVis
 
 renderSourceView :: SourceViewUI -> ServerState -> Widget IHTML Event
 renderSourceView srcUI ss =
@@ -233,7 +237,7 @@ renderSourceView srcUI ss =
               , divClass
                   "column box is-half"
                   [style [("overflow", "scroll")]]
-                  [renderCallGraph modu ss]
+                  [renderSupplementaryView modu ss]
               ]
         _ -> []
 
