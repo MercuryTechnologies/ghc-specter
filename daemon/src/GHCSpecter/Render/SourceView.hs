@@ -175,7 +175,8 @@ renderSuppView (SuppViewCallgraph grVis) =
     ]
     [GraphView.renderGraph (isJust . T.find (== '.')) grVis]
 renderSuppView (SuppViewText txt) =
-  div
+  divClass
+    "suppview"
     [ style
         [ ("overflow", "scroll")
         , ("height", "100%")

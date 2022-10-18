@@ -260,6 +260,13 @@ ul.tree span::before {
     display: block;
 }
 
+.suppview pre {
+    margin: 5px;
+    padding: 5px;
+    font-family: "Courier", monospace;
+    font-size: 8px;
+}
+
 /* symbols */
 
 .langle {
