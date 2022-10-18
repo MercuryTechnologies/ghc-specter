@@ -174,7 +174,14 @@ renderSuppView (SuppViewCallgraph grVis) =
         ]
     ]
     [GraphView.renderGraph (isJust . T.find (== '.')) grVis]
-renderSuppView _ = div [] []
+renderSuppView (SuppViewText txt) =
+  div
+    [ style
+        [ ("overflow", "scroll")
+        , ("height", "100%")
+        ]
+    ]
+    [pre [] [text txt]]
 
 renderSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> Widget IHTML Event
 renderSuppViewPanel modu srcUI ss =
@@ -200,9 +207,10 @@ renderSuppViewPanel modu srcUI ss =
             [text tab]
 
     suppViewTabs =
-      nav
-        [classList [("navbar", True)]]
-        [navbarMenu [navbarStart (fmap (\(t, _) -> navItem (t, t)) suppViews)]]
+      let formatTab (t, i) = t <> ":" <> T.pack (show i)
+       in nav
+            [classList [("navbar", True)]]
+            [navbarMenu [navbarStart (fmap (\(k, _) -> navItem (k, formatTab k)) suppViews)]]
     suppViewContents =
       case msuppView of
         Nothing -> div [] []

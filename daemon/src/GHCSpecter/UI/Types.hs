@@ -56,7 +56,7 @@ data SourceViewUI = SourceViewUI
   -- ^ expanded module in SourceView
   , _srcViewFocusedBinding :: Maybe Text
   -- ^ focused binding if exist
-  , _srcViewSuppViewTab :: Maybe Text
+  , _srcViewSuppViewTab :: Maybe (Text, Int)
   }
 
 makeClassy ''SourceViewUI

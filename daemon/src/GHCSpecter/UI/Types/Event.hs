@@ -41,7 +41,7 @@ data SourceViewEvent
   = SelectModule ModuleName
   | UnselectModule
   | SetBreakpoint ModuleName Bool
-  | SourceViewTab Text
+  | SourceViewTab (Text, Int)
   deriving (Show, Eq)
 
 data ModuleGraphEvent

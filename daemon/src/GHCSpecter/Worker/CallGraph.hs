@@ -57,8 +57,7 @@ import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
-  ( HasHieState (..),
-    HasServerState (..),
+  ( HasServerState (..),
     ServerState (..),
     SupplementaryView (..),
   )
@@ -227,4 +226,4 @@ worker var modName modHieInfo = do
       atomically $
         modifyTVar' var $
           serverSuppView
-            %~ M.alter (append ("Call Graph", SuppViewCallgraph callGraphViz)) modName
+            %~ M.alter (append (("CallGraph", 0), SuppViewCallgraph callGraphViz)) modName

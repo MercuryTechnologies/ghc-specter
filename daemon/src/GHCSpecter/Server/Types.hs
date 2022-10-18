@@ -157,7 +157,7 @@ data ServerState = ServerState
   , _serverTiming :: TimingState
   , _serverPaused :: KeyMap DriverId BreakpointLoc
   , _serverConsole :: KeyMap DriverId [ConsoleItem]
-  , _serverSuppView :: Map ModuleName [(Text, SupplementaryView)]
+  , _serverSuppView :: Map ModuleName [((Text, Int), SupplementaryView)]
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
