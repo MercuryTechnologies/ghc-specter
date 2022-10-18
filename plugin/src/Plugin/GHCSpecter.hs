@@ -64,17 +64,16 @@ import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
-import Plugin.GHCSpecter.Console
-  ( CommandSet (..),
-    breakPoint,
-    emptyCommandSet,
-  )
-import Plugin.GHCSpecter.Task.Core2Core
-  ( listCore,
-    printCore,
-  )
-import Plugin.GHCSpecter.Task.Typecheck
-  ( fetchUnqualifiedImports,
+import Plugin.GHCSpecter.Console (breakPoint)
+import Plugin.GHCSpecter.Task
+  ( core2coreCommands,
+    driverCommands,
+    parsedResultActionCommands,
+    postPhaseCommands,
+    prePhaseCommands,
+    renamedResultActionCommands,
+    spliceRunActionCommands,
+    typecheckResultActionCommands,
   )
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
@@ -208,8 +207,7 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
     msrcFile' <- traverse canonicalizePath msrcFile
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName msrcFile'
-  let cmdSet = CommandSet []
-  breakPoint queue drvId modNameRef ParsedResultAction cmdSet
+  breakPoint queue drvId modNameRef ParsedResultAction parsedResultActionCommands
   pure parsedMod
 
 --
@@ -224,8 +222,12 @@ renamedResultActionPlugin ::
   HsGroup GhcRn ->
   TcM (TcGblEnv, HsGroup GhcRn)
 renamedResultActionPlugin queue drvId modNameRef env grp = do
-  let cmdSet = CommandSet []
-  breakPoint queue drvId modNameRef RenamedResultAction cmdSet
+  breakPoint
+    queue
+    drvId
+    modNameRef
+    RenamedResultAction
+    (renamedResultActionCommands grp)
   pure (env, grp)
 
 --
@@ -239,8 +241,12 @@ spliceRunActionPlugin ::
   LHsExpr GhcTc ->
   TcM (LHsExpr GhcTc)
 spliceRunActionPlugin queue drvId modNameRef expr = do
-  let cmdSet = CommandSet []
-  breakPoint queue drvId modNameRef SpliceRunAction cmdSet
+  breakPoint
+    queue
+    drvId
+    modNameRef
+    SpliceRunAction
+    (spliceRunActionCommands expr)
   pure expr
 
 --
@@ -263,9 +269,12 @@ typeCheckResultActionPlugin queue drvId modNameRef modSummary tc = do
       let hiefile = ml_hie_file modLoc
       hiefile' <- canonicalizePath hiefile
       queueMessage queue (CMHsHie drvId hiefile')
-
-  let cmdSet = CommandSet [(":unqualified", \_ -> fetchUnqualifiedImports tc)]
-  breakPoint queue drvId modNameRef TypecheckResultAction cmdSet
+  breakPoint
+    queue
+    drvId
+    modNameRef
+    TypecheckResultAction
+    (typecheckResultActionCommands tc)
   pure tc
 
 --
@@ -290,14 +299,8 @@ corePlugin queue drvId mmodNameRef todos = do
       todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
   pure todos'
   where
-    cmdSet guts =
-      CommandSet
-        [ (":list-core", \_ -> listCore guts)
-        , (":print-core", printCore guts)
-        ]
-
     eachPlugin pass guts = do
-      breakPoint queue drvId mmodNameRef (Core2Core pass) (cmdSet guts)
+      breakPoint queue drvId mmodNameRef (Core2Core pass) (core2coreCommands guts)
       pure guts
 
 --
@@ -330,21 +333,21 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
-  breakPoint queue drvId modNameRef StartDriver emptyCommandSet
+  breakPoint queue drvId modNameRef StartDriver driverCommands
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
       runPhaseHook' phase fp = do
         -- pre phase timing
         let phaseTxt = T.pack (showPpr dflags phase)
             locPrePhase = PreRunPhase phaseTxt
-        breakPoint queue drvId modNameRef locPrePhase emptyCommandSet
+        breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
         sendCompStateOnPhase queue drvId phase
         -- actual runPhase
         (phase', fp') <- runPhase phase fp
         -- post phase timing
         let phase'Txt = T.pack (showPpr dflags phase')
             locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-        breakPoint queue drvId modNameRef locPostPhase emptyCommandSet
+        breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
         sendCompStateOnPhase queue drvId phase'
         pure (phase', fp')
       hooks' = hooks {runPhaseHook = Just runPhaseHook'}
