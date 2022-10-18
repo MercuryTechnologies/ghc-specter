@@ -236,7 +236,12 @@ spliceRunActionPlugin ::
   LHsExpr GhcTc ->
   TcM (LHsExpr GhcTc)
 spliceRunActionPlugin queue drvId modNameRef expr = do
-  breakPoint queue drvId modNameRef SpliceRunAction spliceRunActionCommands
+  breakPoint
+    queue
+    drvId
+    modNameRef
+    SpliceRunAction
+    (spliceRunActionCommands expr)
   pure expr
 
 --

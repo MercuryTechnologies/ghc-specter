@@ -272,6 +272,9 @@ goCommon ev (view, model0) = do
                     | msg == ":next" -> do
                         sendRequest $ ConsoleReq drvId NextBreakpoint
                         pure model
+                    | msg == ":show-expr" -> do
+                        sendRequest $ ConsoleReq drvId ShowExpr
+                        pure model
                     | msg == ":unqualified" -> do
                         sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
                         pure model

@@ -91,6 +91,8 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
           let console = psConsoleState psess
               console' = console {consoleDriverInStep = Just drvId}
            in psess {psConsoleState = console'}
+    ShowExpr ->
+      doCommand ":show-expr" (== SpliceRunAction) "show expr" []
     ShowUnqualifiedImports ->
       doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
     ListCore ->

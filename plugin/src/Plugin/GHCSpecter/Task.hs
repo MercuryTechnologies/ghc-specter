@@ -20,11 +20,16 @@ import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
 import GHC.Driver.Pipeline (CompPipeline)
+import GHC.Hs.Extension (GhcTc)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply)
+import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Task.Core2Core (listCore, printCore)
-import Plugin.GHCSpecter.Task.Typecheck (fetchUnqualifiedImports)
+import Plugin.GHCSpecter.Task.Typecheck
+  ( fetchUnqualifiedImports,
+    showSpliceExpr,
+  )
 
 type CommandArg = Text
 
@@ -47,8 +52,9 @@ parsedResultActionCommands = emptyCommandSet
 renamedResultActionCommands :: CommandSet TcM
 renamedResultActionCommands = emptyCommandSet
 
-spliceRunActionCommands :: CommandSet TcM
-spliceRunActionCommands = emptyCommandSet
+spliceRunActionCommands :: LHsExpr GhcTc -> CommandSet TcM
+spliceRunActionCommands expr =
+  CommandSet [(":show-expr", \_ -> showSpliceExpr expr)]
 
 typecheckResultActionCommands :: TcGblEnv -> CommandSet TcM
 typecheckResultActionCommands tc =

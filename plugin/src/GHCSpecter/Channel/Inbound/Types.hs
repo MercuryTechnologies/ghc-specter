@@ -29,6 +29,7 @@ instance ToJSON SessionRequest
 data ConsoleRequest
   = Ping Text
   | NextBreakpoint
+  | ShowExpr
   | ShowUnqualifiedImports
   | ListCore
   | PrintCore [Text]
