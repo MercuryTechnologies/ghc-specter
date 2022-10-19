@@ -146,6 +146,18 @@ nav {
     padding: 3px;
 }
 
+.console-help-content button {
+    font-family: "Courier", monospace;
+    font-size: 6px;
+    padding: 0;
+    border: solid 0.5px grey;
+    background: honeydew;
+}
+
+.console-help-content button:hover {
+    background: lightskyblue;
+}
+
 .console-help-content p {
     margin: 0;
     padding: 0;
