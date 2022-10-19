@@ -30,7 +30,9 @@ data ConsoleRequest
   = Ping Text
   | NextBreakpoint
   | ShowRenamed
+  | ShowSplice
   | ShowExpr
+  | ShowResult
   | ShowUnqualifiedImports
   | ListCore
   | PrintCore [Text]

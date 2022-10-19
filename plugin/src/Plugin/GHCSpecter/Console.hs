@@ -40,7 +40,7 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
   )
 import Plugin.GHCSpecter.Comm (queueMessage)
-import Plugin.GHCSpecter.Task (CommandSet (..))
+import Plugin.GHCSpecter.Tasks (CommandSet (..))
 import Plugin.GHCSpecter.Types
   ( ConsoleState (..),
     MsgQueue (..),
@@ -93,8 +93,12 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
            in psess {psConsoleState = console'}
     ShowRenamed ->
       doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
+    ShowSplice ->
+      doCommand ":show-splice" (\x -> x == RnSplice) "show splice" []
     ShowExpr ->
-      doCommand ":show-expr" (== SpliceRunAction) "show expr" []
+      doCommand ":show-expr" (\x -> x == SpliceRunAction || x == PreRunMeta) "show expr" []
+    ShowResult ->
+      doCommand ":show-result" (\x -> x == PostRunMeta) "show expr" []
     ShowUnqualifiedImports ->
       doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
     ListCore ->

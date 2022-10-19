@@ -23,13 +23,7 @@ import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
-import GHC.Driver.Hooks (runPhaseHook)
-import GHC.Driver.Phases (Phase (As, StopLn))
-import GHC.Driver.Pipeline
-  ( CompPipeline,
-    PhasePlus (HscOut, RealPhase),
-    runPhase,
-  )
+import GHC.Driver.Hooks (Hooks (..))
 import GHC.Driver.Plugins
   ( Plugin (..),
     PluginWithArgs (..),
@@ -40,7 +34,13 @@ import GHC.Driver.Plugins
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Tc.Types
+  ( TcGblEnv (..),
+    TcM,
+    TcPlugin (..),
+    TcPluginResult (..),
+    unsafeTcPluginTcM,
+  )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
@@ -65,12 +65,16 @@ import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Task
+import Plugin.GHCSpecter.Hooks
+  ( runMetaHook',
+    runPhaseHook',
+    runRnSpliceHook',
+  )
+import Plugin.GHCSpecter.Tasks
   ( core2coreCommands,
     driverCommands,
+    emptyCommandSet,
     parsedResultActionCommands,
-    postPhaseCommands,
-    prePhaseCommands,
     renamedResultActionCommands,
     spliceRunActionCommands,
     typecheckResultActionCommands,
@@ -165,30 +169,6 @@ sendModuleName ::
 sendModuleName queue drvId modName msrcfile =
   queueMessage queue (CMModuleInfo drvId modName msrcfile)
 
-sendCompStateOnPhase ::
-  MsgQueue ->
-  DriverId ->
-  PhasePlus ->
-  CompPipeline ()
-sendCompStateOnPhase queue drvId phase = do
-  case phase of
-    RealPhase StopLn -> liftIO do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    RealPhase (As _) -> liftIO $ do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerAs, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    HscOut _ _ _ -> liftIO $ do
-      -- send timing information
-      hscOutTime <- getCurrentTime
-      let timer = Timer [(TimerHscOut, hscOutTime)]
-      queueMessage queue (CMTiming drvId timer)
-    _ -> pure ()
-
 --
 -- parsedResultAction plugin
 --
@@ -248,6 +228,46 @@ spliceRunActionPlugin queue drvId modNameRef expr = do
     SpliceRunAction
     (spliceRunActionCommands expr)
   pure expr
+
+--
+-- typecheck plugin
+--
+
+typecheckPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  TcPlugin
+typecheckPlugin queue drvId modNameRef =
+  TcPlugin
+    { tcPluginInit =
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckInit
+            emptyCommandSet
+          pure ()
+    , tcPluginSolve = \_ _ _ _ ->
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckSolve
+            emptyCommandSet
+          pure (TcPluginOk [] [])
+    , tcPluginStop = \_ ->
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckStop
+            emptyCommandSet
+          pure ()
+    }
 
 --
 -- typeCheckResultAction plugin
@@ -328,29 +348,20 @@ driver opts env0 = do
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
           , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
+          , tcPlugin = \_opts -> Just $ typecheckPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
   breakPoint queue drvId modNameRef StartDriver driverCommands
-  let dflags = hsc_dflags env
-      hooks = hsc_hooks env
-      runPhaseHook' phase fp = do
-        -- pre phase timing
-        let phaseTxt = T.pack (showPpr dflags phase)
-            locPrePhase = PreRunPhase phaseTxt
-        breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
-        sendCompStateOnPhase queue drvId phase
-        -- actual runPhase
-        (phase', fp') <- runPhase phase fp
-        -- post phase timing
-        let phase'Txt = T.pack (showPpr dflags phase')
-            locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-        breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
-        sendCompStateOnPhase queue drvId phase'
-        pure (phase', fp')
-      hooks' = hooks {runPhaseHook = Just runPhaseHook'}
+  let hooks = hsc_hooks env
+      hooks' =
+        hooks
+          { runRnSpliceHook = Just (runRnSpliceHook' queue drvId modNameRef)
+          , runMetaHook = Just (runMetaHook' queue drvId modNameRef)
+          , runPhaseHook = Just (runPhaseHook' queue drvId modNameRef)
+          }
       env' = env {hsc_hooks = hooks'}
   pure env'
 

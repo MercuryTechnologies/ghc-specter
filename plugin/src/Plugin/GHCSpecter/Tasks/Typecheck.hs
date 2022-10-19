@@ -1,7 +1,9 @@
-module Plugin.GHCSpecter.Task.Typecheck
+module Plugin.GHCSpecter.Tasks.Typecheck
   ( fetchUnqualifiedImports,
     showRenamed,
+    showRnSplice,
     showSpliceExpr,
+    showSpliceResult,
   )
 where
 
@@ -13,18 +15,20 @@ import Data.Map qualified as M
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
-import GHC.Driver.Session (getDynFlags)
+import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
-import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
+import GHC.Types.Meta (MetaResult)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
+import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types
   ( type ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
-import Language.Haskell.Syntax.Expr (LHsExpr)
+import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
 import Plugin.GHCSpecter.Util
   ( formatImportedNames,
     formatName,
@@ -52,8 +56,19 @@ showRenamed grp = do
   let txt = T.pack (showPpr dflags grp)
   pure (ConsoleReplyText (Just "renamed") txt)
 
+showRnSplice :: HsSplice GhcRn -> RnM ConsoleReply
+showRnSplice splice = do
+  dflags <- getDynFlags
+  let txt = T.pack (showPpr dflags splice)
+  pure (ConsoleReplyText (Just "splice") txt)
+
 showSpliceExpr :: LHsExpr GhcTc -> TcM ConsoleReply
 showSpliceExpr expr = do
   dflags <- getDynFlags
   let txt = T.pack (showPpr dflags expr)
-  pure (ConsoleReplyText (Just "splice") txt)
+  pure (ConsoleReplyText (Just "splice-expr") txt)
+
+showSpliceResult :: Outputable r => DynFlags -> r -> ConsoleReply
+showSpliceResult dflags result =
+  let txt = T.pack (showPpr dflags result)
+   in ConsoleReplyText (Just "meta") txt

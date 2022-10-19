@@ -54,8 +54,13 @@ data BreakpointLoc
   = StartDriver
   | ParsedResultAction
   | RenamedResultAction
+  | PreRunMeta
   | SpliceRunAction
-  | Typecheck
+  | PostRunMeta
+  | RnSplice
+  | TypecheckInit
+  | TypecheckSolve
+  | TypecheckStop
   | TypecheckResultAction
   | Core2Core Text
   | PreRunPhase Text
