@@ -80,7 +80,13 @@ runRnSpliceHook' queue drvId modNameRef splice = do
   breakPoint queue drvId modNameRef RnSplice (rnSpliceCommands splice)
   pure splice
 
--- HACK: as constructors of MetaResult are not exported, this is the only way.
+-- NOTE: This is a HACK. The constructors of MetaResult are deliberately
+-- not exposed, and therefore, runMeta wraps runMetaHook with internal
+-- case pattern match corresponding to MetaRequest.
+-- We circumvent this problem by replacing the wrapper function provided
+-- by MetaRequest constructors with our custom function with a breakpoint.
+-- Unfortunately, the MetaRequest constructor functions are pure functions,
+-- so the ugly unsafePerformIO hack is needed here.
 wrapMeta ::
   (Outputable s) =>
   (s -> MetaResult) ->
