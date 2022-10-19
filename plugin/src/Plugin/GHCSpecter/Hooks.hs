@@ -16,10 +16,20 @@ import GHC.Driver.Pipeline
     PhasePlus (HscOut, RealPhase),
     runPhase,
   )
-import GHC.Hs.Extension (GhcRn)
+import GHC.Driver.Session (DynFlags)
+import GHC.Hs.Extension (GhcPs, GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (RnM, TcM)
-import GHC.Types.Meta (MetaHook)
+import GHC.ThToHs
+  ( convertToHsDecls,
+    convertToHsExpr,
+    convertToHsType,
+    convertToPat,
+  )
+import GHC.Types.Basic (Origin)
+import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
+import GHC.Types.SrcLoc (SrcSpan)
+import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -30,8 +40,10 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Util.GHC (showPpr)
-import Language.Haskell.Syntax.Expr (HsSplice)
+import GHCSpecter.Util.GHC (printPpr, showPpr)
+import GHCi.RemoteTypes (ForeignHValue)
+import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
+import Language.Haskell.TH qualified as TH
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Tasks
@@ -41,6 +53,7 @@ import Plugin.GHCSpecter.Tasks
     rnSpliceCommands,
   )
 import Plugin.GHCSpecter.Types (MsgQueue)
+import System.IO.Unsafe (unsafePerformIO)
 
 sendCompStateOnPhase ::
   MsgQueue ->
@@ -76,16 +89,42 @@ runRnSpliceHook' queue drvId modNameRef splice = do
   breakPoint queue drvId modNameRef RnSplice (rnSpliceCommands splice)
   pure splice
 
+-- HACK: as constructors of MetaResult are not exported, this is the only way.
+wrapMetaE :: DynFlags -> (LHsExpr GhcPs -> MetaResult) -> LHsExpr GhcPs -> MetaResult
+wrapMetaE dflags unMetaE expr = unsafePerformIO (printPpr dflags expr >> pure (unMetaE expr))
+{-# NOINLINE wrapMetaE #-}
+
 runMetaHook' ::
   MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
   MetaHook TcM
 runMetaHook' queue drvId modNameRef metaReq expr = do
+  dflags <- getDynFlags
   breakPoint queue drvId modNameRef PreRunMeta emptyCommandSet
-  result <- defaultRunMeta metaReq expr
-  breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-  pure result
+  -- HACK: as constructors of MetaResult are not exported, this is the only way.
+  case metaReq of
+    MetaE r -> do
+      let r' = wrapMetaE dflags r
+      result <- defaultRunMeta (MetaE r') expr
+      breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
+      pure result
+    MetaP r -> do
+      result <- defaultRunMeta (MetaP r) expr
+      breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
+      pure result
+    MetaT r -> do
+      result <- defaultRunMeta (MetaT r) expr
+      breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
+      pure result
+    MetaD r -> do
+      result <- defaultRunMeta (MetaD r) expr
+      breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
+      pure result
+    MetaAW r -> do
+      result <- defaultRunMeta (MetaAW r) expr
+      breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
+      pure result
 
 runPhaseHook' ::
   MsgQueue ->

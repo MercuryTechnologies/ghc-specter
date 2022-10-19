@@ -87,10 +87,12 @@ library:
     - errors
     - extra
     - ghc == 9.2.*
+    - ghci == 9.2.*
     - hiedb
     - network
     - process
     - stm
+    - template-haskell
     - time
     - transformers
     - yaml
