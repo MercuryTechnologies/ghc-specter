@@ -40,11 +40,7 @@ import GHC.Driver.Plugins
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Gen.Splice
-  ( -- defaultRunMeta
-    runMeta',
-    runQResult,
-  )
+import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types
   ( TcGblEnv (..),
     TcM,
@@ -52,16 +48,8 @@ import GHC.Tc.Types
     TcPluginResult (..),
     unsafeTcPluginTcM,
   )
-import GHC.ThToHs
-  ( convertToHsDecls,
-    convertToHsExpr,
-    convertToHsType,
-    convertToPat,
-  )
-import GHC.Types.Meta (MetaRequest (..))
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -82,7 +70,6 @@ import GHCSpecter.Config
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
-import Language.Haskell.TH qualified as TH
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Task
@@ -400,30 +387,8 @@ driver opts env0 = do
       hooks = hsc_hooks env
       runMetaHook' metaReq expr = do
         breakPoint queue drvId modNameRef PreRunMeta emptyCommandSet
-        -- HACK: as constructors of MetaResult are not exported, this is the only way.
-        case metaReq of
-          MetaE r -> do
-            result' <- runMeta' True ppr (runQResult TH.pprint convertToHsExpr runTHExp) expr
-            breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-            pure (r result')
-          MetaP r -> do
-            result' <- runMeta' True ppr (runQResult TH.pprint convertToPat runTHPat) expr
-            breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-            pure (r result')
-          MetaT r -> do
-            result' <- runMeta' True ppr (runQResult TH.pprint convertToHsType runTHType) expr
-            breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-            pure (r result')
-          MetaD r -> do
-            result' <- runMeta' True ppr (runQResult TH.pprint convertToHsDecls runTHDec) expr
-            breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-            pure (r result')
-          MetaAW r -> do
-            result' <- runMeta' False (const empty) (const convertAnnotationWrapper)
-            breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
-            pure (r result')
-      -- result <- defaultRunMeta metaReq expr
-      -- pure result
+        result <- defaultRunMeta metaReq expr
+        pure result
       runPhaseHook' phase fp = do
         -- pre phase timing
         let phaseTxt = T.pack (showPpr dflags phase)
