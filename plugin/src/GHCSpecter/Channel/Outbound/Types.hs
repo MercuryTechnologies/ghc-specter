@@ -55,6 +55,8 @@ data BreakpointLoc
   | ParsedResultAction
   | RenamedResultAction
   | SpliceRunAction
+  | PreRunMeta
+  | PostRunMeta
   | TypecheckInit
   | TypecheckSolve
   | TypecheckStop

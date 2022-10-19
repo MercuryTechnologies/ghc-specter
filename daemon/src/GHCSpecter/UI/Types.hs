@@ -180,6 +180,8 @@ consoleCommandList bp =
     ParsedResultAction -> [":next", ":goto-source"]
     RenamedResultAction -> [":next", ":goto-source", ":show-renamed"]
     SpliceRunAction -> [":next", ":goto-source", ":show-expr"]
+    PreRunMeta -> [":next", ":goto-source"]
+    PostRunMeta -> [":next", ":goto-source"]
     TypecheckInit -> [":next", ":goto-source"]
     TypecheckSolve -> [":next", ":goto-source"]
     TypecheckStop -> [":next", ":goto-source"]
