@@ -130,7 +130,7 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
              in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
           classify txt =
             if txt == ":next" || txt == ":goto-source"
-              then Left (txt, ConsoleButtonPressed txt)
+              then Left (txt, ConsoleButtonPressed True txt)
               else Right txt
           helpMsgs =
             maybe
