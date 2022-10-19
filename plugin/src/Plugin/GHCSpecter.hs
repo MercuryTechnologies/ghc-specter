@@ -40,7 +40,13 @@ import GHC.Driver.Plugins
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Tc.Types
+  ( TcGblEnv (..),
+    TcM,
+    TcPlugin (..),
+    TcPluginResult (..),
+    unsafeTcPluginTcM,
+  )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
@@ -68,6 +74,7 @@ import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Task
   ( core2coreCommands,
     driverCommands,
+    emptyCommandSet,
     parsedResultActionCommands,
     postPhaseCommands,
     prePhaseCommands,
@@ -250,6 +257,38 @@ spliceRunActionPlugin queue drvId modNameRef expr = do
   pure expr
 
 --
+-- typecheck plugin
+--
+
+typecheckPlugin ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  TcPlugin
+typecheckPlugin queue drvId modNameRef =
+  TcPlugin
+    { tcPluginInit =
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckInit
+            emptyCommandSet
+          pure ()
+    , tcPluginSolve = \_ _ _ _ -> pure (TcPluginOk [] [])
+    , tcPluginStop = \_ ->
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckStop
+            emptyCommandSet
+          pure ()
+    }
+
+--
 -- typeCheckResultAction plugin
 --
 
@@ -328,6 +367,7 @@ driver opts env0 = do
           , parsedResultAction = \_opts -> parsedResultActionPlugin queue drvId modNameRef
           , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
           , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
+          , tcPlugin = \_opts -> Just $ typecheckPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
           }
       env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}

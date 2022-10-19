@@ -55,7 +55,8 @@ data BreakpointLoc
   | ParsedResultAction
   | RenamedResultAction
   | SpliceRunAction
-  | Typecheck
+  | TypecheckInit
+  | TypecheckStop
   | TypecheckResultAction
   | Core2Core Text
   | PreRunPhase Text
