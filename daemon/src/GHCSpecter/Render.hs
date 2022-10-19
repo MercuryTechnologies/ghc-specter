@@ -125,9 +125,14 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
           mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
        in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
     getHelp k =
-      fromMaybe
-        ["No Help!"]
-        (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
+      let title =
+            let mpaused = lookupKey k pausedMap
+             in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
+          helpMsgs =
+            fromMaybe
+              ["No Help!"]
+              (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
+       in (title, helpMsgs)
     consolePanel
       | sessionIsPaused sessionInfo =
           [ ConsoleEv

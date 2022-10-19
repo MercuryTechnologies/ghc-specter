@@ -123,7 +123,7 @@ nav {
 
 .console-help {
     margin: 0;
-    padding: 3px;
+    padding: 0;
     background-color: honeydew;
     color: black;
     position: absolute;
@@ -134,9 +134,23 @@ nav {
     font-size: 6px;
 }
 
-.console-help p {
+.console-help-title {
+    margin: 0;
+    padding: 3px;
+    border-bottom: solid 0.5px black;
+    font-family: "Arial", San-Serif;
+    font-size: 6px;
+}
+
+.console-help-content {
+    padding: 3px;
+}
+
+.console-help-content p {
     margin: 0;
     padding: 0;
+    font-family: "Courier", monospace;
+    font-size: 6px;
 }
 
 .console-item {

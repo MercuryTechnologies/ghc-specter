@@ -41,7 +41,7 @@ render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   KeyMap k [ConsoleItem] ->
-  (k -> [Text]) ->
+  (k -> (Text, [Text])) ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
@@ -103,7 +103,11 @@ render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
             ]
         ]
     consoleHelp =
-      let txts = fromMaybe [] (getHelp <$> mfocus)
-          elems = fmap (\t -> p [] [text t]) txts
-       in divClass "console-help" [] elems
+      let mhelp = getHelp <$> mfocus
+          (title, txts) = fromMaybe ("", []) mhelp
+          titleElem =
+            divClass "console-help-title" [] [text title]
+          helpElems =
+            divClass "console-help-content" [] (fmap (\t -> p [] [text t]) txts)
+       in divClass "console-help" [] [titleElem, helpElems]
     console = divClass "console" [] [consoleContent, consoleInput, consoleHelp]

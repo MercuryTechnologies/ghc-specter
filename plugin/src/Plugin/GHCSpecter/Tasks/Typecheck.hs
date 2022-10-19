@@ -19,7 +19,6 @@ import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
-import GHC.Types.Meta (MetaResult)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types
