@@ -54,8 +54,8 @@ data BreakpointLoc
   = StartDriver
   | ParsedResultAction
   | RenamedResultAction
-  | SpliceRunAction
   | PreRunMeta
+  | SpliceRunAction
   | PostRunMeta
   | TypecheckInit
   | TypecheckSolve

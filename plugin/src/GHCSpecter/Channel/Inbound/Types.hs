@@ -31,6 +31,7 @@ data ConsoleRequest
   | NextBreakpoint
   | ShowRenamed
   | ShowExpr
+  | ShowResult
   | ShowUnqualifiedImports
   | ListCore
   | PrintCore [Text]

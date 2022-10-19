@@ -91,6 +91,7 @@ library:
     - network
     - process
     - stm
+    - template-haskell
     - time
     - transformers
     - yaml

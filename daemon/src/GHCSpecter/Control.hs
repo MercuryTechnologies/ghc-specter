@@ -280,7 +280,6 @@ goCommon ev (view, model0) = do
               let appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
                   appendConsoleMsg newMsg Nothing = Just [newMsg]
                   appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
-
                   ss' =
                     ss
                       & ( serverConsole
@@ -297,6 +296,9 @@ goCommon ev (view, model0) = do
                         pure model
                     | msg == ":show-expr" -> do
                         sendRequest $ ConsoleReq drvId ShowExpr
+                        pure model
+                    | msg == ":show-result" -> do
+                        sendRequest $ ConsoleReq drvId ShowResult
                         pure model
                     | msg == ":unqualified" -> do
                         sendRequest $ ConsoleReq drvId ShowUnqualifiedImports

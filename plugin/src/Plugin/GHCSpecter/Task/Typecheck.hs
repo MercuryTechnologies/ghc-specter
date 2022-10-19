@@ -2,6 +2,7 @@ module Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
     showRenamed,
     showSpliceExpr,
+    showSpliceResult,
   )
 where
 
@@ -17,7 +18,9 @@ import GHC.Driver.Session (getDynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
 import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Types.Meta (MetaResult)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
+import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types
   ( type ModuleName,
   )
@@ -57,3 +60,9 @@ showSpliceExpr expr = do
   dflags <- getDynFlags
   let txt = T.pack (showPpr dflags expr)
   pure (ConsoleReplyText (Just "splice") txt)
+
+showSpliceResult :: Outputable r => r -> TcM ConsoleReply
+showSpliceResult result = do
+  dflags <- getDynFlags
+  let txt = T.pack (showPpr dflags result)
+  pure (ConsoleReplyText (Just "meta") txt)

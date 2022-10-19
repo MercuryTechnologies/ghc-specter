@@ -94,7 +94,9 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
     ShowRenamed ->
       doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
     ShowExpr ->
-      doCommand ":show-expr" (== SpliceRunAction) "show expr" []
+      doCommand ":show-expr" (\x -> x == SpliceRunAction || x == PreRunMeta) "show expr" []
+    ShowResult ->
+      doCommand ":show-result" (\x -> x == PostRunMeta) "show expr" []
     ShowUnqualifiedImports ->
       doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
     ListCore ->
