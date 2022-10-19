@@ -1,4 +1,4 @@
-module Plugin.GHCSpecter.Task.Typecheck
+module Plugin.GHCSpecter.Tasks.Typecheck
   ( fetchUnqualifiedImports,
     showRenamed,
     showRnSplice,

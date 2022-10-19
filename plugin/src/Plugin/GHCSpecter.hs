@@ -72,7 +72,7 @@ import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Task
+import Plugin.GHCSpecter.Tasks
   ( core2coreCommands,
     driverCommands,
     emptyCommandSet,

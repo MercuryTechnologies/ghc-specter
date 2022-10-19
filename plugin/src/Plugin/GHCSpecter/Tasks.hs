@@ -1,4 +1,4 @@
-module Plugin.GHCSpecter.Task
+module Plugin.GHCSpecter.Tasks
   ( -- * command set
     type CommandArg,
     CommandSet (..),
@@ -30,8 +30,8 @@ import GHC.Utils.Outputable (Outputable (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
-import Plugin.GHCSpecter.Task.Core2Core (listCore, printCore)
-import Plugin.GHCSpecter.Task.Typecheck
+import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
+import Plugin.GHCSpecter.Tasks.Typecheck
   ( fetchUnqualifiedImports,
     showRenamed,
     showRnSplice,

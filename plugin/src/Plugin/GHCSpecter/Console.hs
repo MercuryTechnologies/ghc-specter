@@ -40,7 +40,7 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
   )
 import Plugin.GHCSpecter.Comm (queueMessage)
-import Plugin.GHCSpecter.Task (CommandSet (..))
+import Plugin.GHCSpecter.Tasks (CommandSet (..))
 import Plugin.GHCSpecter.Types
   ( ConsoleState (..),
     MsgQueue (..),

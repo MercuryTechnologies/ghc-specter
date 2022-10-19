@@ -1,4 +1,4 @@
-module Plugin.GHCSpecter.Task.Core2Core
+module Plugin.GHCSpecter.Tasks.Core2Core
   ( listCore,
     printCore,
   )
