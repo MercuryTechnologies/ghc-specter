@@ -23,7 +23,7 @@ import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
-import GHC.Driver.Hooks (Hooks (runMetaHook, runPhaseHook))
+import GHC.Driver.Hooks (Hooks (..))
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline
   ( CompPipeline,
@@ -80,6 +80,7 @@ import Plugin.GHCSpecter.Task
     postPhaseCommands,
     prePhaseCommands,
     renamedResultActionCommands,
+    rnSpliceCommands,
     spliceRunActionCommands,
     typecheckResultActionCommands,
   )
@@ -385,9 +386,13 @@ driver opts env0 = do
   breakPoint queue drvId modNameRef StartDriver driverCommands
   let dflags = hsc_dflags env
       hooks = hsc_hooks env
+      runRnSpliceHook' splice = do
+        breakPoint queue drvId modNameRef RnSplice (rnSpliceCommands splice)
+        pure splice
       runMetaHook' metaReq expr = do
         breakPoint queue drvId modNameRef PreRunMeta emptyCommandSet
         result <- defaultRunMeta metaReq expr
+        breakPoint queue drvId modNameRef PostRunMeta emptyCommandSet
         pure result
       runPhaseHook' phase fp = do
         -- pre phase timing
@@ -405,7 +410,8 @@ driver opts env0 = do
         pure (phase', fp')
       hooks' =
         hooks
-          { runMetaHook = Just runMetaHook'
+          { runRnSpliceHook = Just runRnSpliceHook'
+          , runMetaHook = Just runMetaHook'
           , runPhaseHook = Just runPhaseHook'
           }
       env' = env {hsc_hooks = hooks'}

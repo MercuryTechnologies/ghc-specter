@@ -57,6 +57,7 @@ data BreakpointLoc
   | PreRunMeta
   | SpliceRunAction
   | PostRunMeta
+  | RnSplice
   | TypecheckInit
   | TypecheckSolve
   | TypecheckStop

@@ -93,6 +93,8 @@ consoleAction queue drvId loc cmds actionRef = liftIO $ do
            in psess {psConsoleState = console'}
     ShowRenamed ->
       doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
+    ShowSplice ->
+      doCommand ":show-splice" (\x -> x == RnSplice) "show splice" []
     ShowExpr ->
       doCommand ":show-expr" (\x -> x == SpliceRunAction || x == PreRunMeta) "show expr" []
     ShowResult ->

@@ -297,6 +297,9 @@ goCommon ev (view, model0) = do
                     | msg == ":show-expr" -> do
                         sendRequest $ ConsoleReq drvId ShowExpr
                         pure model
+                    | msg == ":show-splice" -> do
+                        sendRequest $ ConsoleReq drvId ShowSplice
+                        pure model
                     | msg == ":show-result" -> do
                         sendRequest $ ConsoleReq drvId ShowResult
                         pure model

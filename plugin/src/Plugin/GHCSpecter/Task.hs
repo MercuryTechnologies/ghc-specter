@@ -10,7 +10,8 @@ module Plugin.GHCSpecter.Task
     renamedResultActionCommands,
     preRunMetaCommands,
     spliceRunActionCommands,
-    postRunMetaCommands,
+    -- postRunMetaCommands,
+    rnSpliceCommands,
     typecheckResultActionCommands,
     core2coreCommands,
     prePhaseCommands,
@@ -23,16 +24,17 @@ import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
 import GHC.Driver.Pipeline (CompPipeline)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Types (TcGblEnv (..), TcM)
+import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Utils.Outputable (Outputable (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply)
 import Language.Haskell.Syntax.Decls (HsGroup)
-import Language.Haskell.Syntax.Expr (LHsExpr)
+import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
 import Plugin.GHCSpecter.Task.Core2Core (listCore, printCore)
 import Plugin.GHCSpecter.Task.Typecheck
   ( fetchUnqualifiedImports,
     showRenamed,
+    showRnSplice,
     showSpliceExpr,
     showSpliceResult,
   )
@@ -59,6 +61,10 @@ renamedResultActionCommands :: HsGroup GhcRn -> CommandSet TcM
 renamedResultActionCommands grp =
   CommandSet [(":show-renamed", \_ -> showRenamed grp)]
 
+rnSpliceCommands :: HsSplice GhcRn -> CommandSet RnM
+rnSpliceCommands splice =
+  CommandSet [(":show-splice", \_ -> showRnSplice splice)]
+
 preRunMetaCommands :: LHsExpr GhcTc -> CommandSet TcM
 preRunMetaCommands expr =
   CommandSet [(":show-expr", \_ -> showSpliceExpr expr)]
@@ -67,9 +73,11 @@ spliceRunActionCommands :: LHsExpr GhcTc -> CommandSet TcM
 spliceRunActionCommands expr =
   CommandSet [(":show-expr", \_ -> showSpliceExpr expr)]
 
+{-
 postRunMetaCommands :: (Outputable r) => r -> CommandSet TcM
 postRunMetaCommands result =
   CommandSet [(":show-result", \_ -> showSpliceResult result)]
+-}
 
 typecheckResultActionCommands :: TcGblEnv -> CommandSet TcM
 typecheckResultActionCommands tc =

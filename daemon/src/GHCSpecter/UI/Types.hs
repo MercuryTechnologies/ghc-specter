@@ -181,6 +181,7 @@ consoleCommandList bp =
     RenamedResultAction -> [":next", ":goto-source", ":show-renamed"]
     PreRunMeta -> [":next", ":goto-source", ":show-expr"]
     SpliceRunAction -> [":next", ":goto-source", ":show-expr"]
+    RnSplice -> [":next", ":goto-source", ":show-splice"]
     PostRunMeta -> [":next", ":goto-source", ":show-result"]
     TypecheckInit -> [":next", ":goto-source"]
     TypecheckSolve -> [":next", ":goto-source"]
