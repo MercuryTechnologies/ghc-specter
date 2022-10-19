@@ -8,9 +8,9 @@ module Plugin.GHCSpecter.Tasks
     driverCommands,
     parsedResultActionCommands,
     renamedResultActionCommands,
-    preRunMetaCommands,
+    preMetaCommands,
     spliceRunActionCommands,
-    -- postRunMetaCommands,
+    postMetaCommands,
     rnSpliceCommands,
     typecheckResultActionCommands,
     core2coreCommands,
@@ -23,11 +23,12 @@ import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
 import GHC.Driver.Pipeline (CompPipeline)
+import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Utils.Outputable (Outputable (..))
-import GHCSpecter.Channel.Outbound.Types (ConsoleReply)
+import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
 import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
@@ -65,19 +66,17 @@ rnSpliceCommands :: HsSplice GhcRn -> CommandSet RnM
 rnSpliceCommands splice =
   CommandSet [(":show-splice", \_ -> showRnSplice splice)]
 
-preRunMetaCommands :: LHsExpr GhcTc -> CommandSet TcM
-preRunMetaCommands expr =
+preMetaCommands :: LHsExpr GhcTc -> CommandSet TcM
+preMetaCommands expr =
   CommandSet [(":show-expr", \_ -> showSpliceExpr expr)]
 
 spliceRunActionCommands :: LHsExpr GhcTc -> CommandSet TcM
 spliceRunActionCommands expr =
   CommandSet [(":show-expr", \_ -> showSpliceExpr expr)]
 
-{-
-postRunMetaCommands :: (Outputable r) => r -> CommandSet TcM
-postRunMetaCommands result =
-  CommandSet [(":show-result", \_ -> showSpliceResult result)]
--}
+postMetaCommands :: (Outputable r) => DynFlags -> r -> CommandSet IO
+postMetaCommands dflags result =
+  CommandSet [(":show-result", \_ -> pure (showSpliceResult dflags result))]
 
 typecheckResultActionCommands :: TcGblEnv -> CommandSet TcM
 typecheckResultActionCommands tc =

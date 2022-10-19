@@ -15,7 +15,7 @@ import Data.Map qualified as M
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
-import GHC.Driver.Session (getDynFlags)
+import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
@@ -68,8 +68,7 @@ showSpliceExpr expr = do
   let txt = T.pack (showPpr dflags expr)
   pure (ConsoleReplyText (Just "splice-expr") txt)
 
-showSpliceResult :: Outputable r => r -> TcM ConsoleReply
-showSpliceResult result = do
-  dflags <- getDynFlags
+showSpliceResult :: Outputable r => DynFlags -> r -> ConsoleReply
+showSpliceResult dflags result =
   let txt = T.pack (showPpr dflags result)
-  pure (ConsoleReplyText (Just "meta") txt)
+   in ConsoleReplyText (Just "meta") txt
