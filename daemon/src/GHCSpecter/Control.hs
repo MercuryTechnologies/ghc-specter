@@ -10,8 +10,10 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
+import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types
   ( ConsoleRequest (..),
     Request (..),
@@ -261,6 +263,58 @@ showBanner = do
           go start
         else pure ()
 
+processConsoleCommand :: MainView -> UIModel -> DriverId -> Text -> Control UIModel
+processConsoleCommand view model drvId msg
+  | msg == ":next" = do
+      sendRequest $ ConsoleReq drvId NextBreakpoint
+      pure model
+  | msg == ":show-renamed" = do
+      sendRequest $ ConsoleReq drvId ShowRenamed
+      pure model
+  | msg == ":show-expr" = do
+      sendRequest $ ConsoleReq drvId ShowExpr
+      pure model
+  | msg == ":show-splice" = do
+      sendRequest $ ConsoleReq drvId ShowSplice
+      pure model
+  | msg == ":show-result" = do
+      sendRequest $ ConsoleReq drvId ShowResult
+      pure model
+  | msg == ":unqualified" = do
+      sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+      pure model
+  | msg == ":list-core" = do
+      sendRequest $ ConsoleReq drvId ListCore
+      pure model
+  | ":print-core" `T.isPrefixOf` msg = do
+      let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
+      sendRequest $ ConsoleReq drvId (PrintCore args)
+      case NE.nonEmpty args of
+        Nothing -> pure model
+        Just (NE.head -> sym) ->
+          let model1 = (modelSourceView . srcViewFocusedBinding .~ Just sym) model
+           in pure model1
+  | msg == ":goto-source" = do
+      ss <- getSS
+      let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
+          model' =
+            (modelSourceView . srcViewExpandedModule .~ mmod) model
+      branchTab TabSourceView (view, model')
+      -- should not be reached.
+      pure model'
+  | otherwise = do
+      sendRequest $ ConsoleReq drvId (Ping msg)
+      pure model
+
+appendNewCommand :: DriverId -> Text -> Control ()
+appendNewCommand drvId newMsg = do
+  ss <- getSS
+  let newCmd = ConsoleCommand newMsg
+      append Nothing = Just [newCmd]
+      append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
+      ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
+  putSS ss'
+
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model0) = do
@@ -276,67 +330,25 @@ goCommon ev (view, model0) = do
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") $ model0
-              ss <- getSS
-              let appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
-                  appendConsoleMsg newMsg Nothing = Just [newMsg]
-                  appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
-                  ss' =
-                    ss
-                      & ( serverConsole
-                            %~ alterToKeyMap (appendConsoleMsg (ConsoleCommand msg)) drvId
-                        )
-              putSS ss'
-              model' <-
-                if
-                    | msg == ":next" -> do
-                        sendRequest $ ConsoleReq drvId NextBreakpoint
-                        pure model
-                    | msg == ":show-renamed" -> do
-                        sendRequest $ ConsoleReq drvId ShowRenamed
-                        pure model
-                    | msg == ":show-expr" -> do
-                        sendRequest $ ConsoleReq drvId ShowExpr
-                        pure model
-                    | msg == ":show-splice" -> do
-                        sendRequest $ ConsoleReq drvId ShowSplice
-                        pure model
-                    | msg == ":show-result" -> do
-                        sendRequest $ ConsoleReq drvId ShowResult
-                        pure model
-                    | msg == ":unqualified" -> do
-                        sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
-                        pure model
-                    | msg == ":list-core" -> do
-                        sendRequest $ ConsoleReq drvId ListCore
-                        pure model
-                    | ":print-core" `T.isPrefixOf` msg -> do
-                        let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
-                        sendRequest $ ConsoleReq drvId (PrintCore args)
-                        case NE.nonEmpty args of
-                          Nothing -> pure model
-                          Just (NE.head -> sym) ->
-                            let model1 = (modelSourceView . srcViewFocusedBinding .~ Just sym) model
-                             in pure model1
-                    | msg == ":goto-source" -> do
-                        ss <- getSS
-                        let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
-                            model' =
-                              (modelSourceView . srcViewExpandedModule .~ mmod) model
-                        branchTab TabSourceView (view, model')
-                        -- should not be reached.
-                        pure model'
-                    | otherwise -> do
-                        sendRequest $ ConsoleReq drvId (Ping msg)
-                        pure model
+              appendNewCommand drvId msg
+              model' <- processConsoleCommand view model drvId msg
               pure model'
           else pure model0
       ConsoleEv (ConsoleInput content) -> do
         let model = (modelConsole . consoleInputEntry .~ content) model0
         pure model
-      ConsoleEv (ConsoleButtonPressed content) -> do
-        printMsg content
-        let model = (modelConsole . consoleInputEntry .~ content) model0
-        pure model
+      ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
+        printMsg msg
+        if isImmediate
+          then do
+            case model0 ^. modelConsole . consoleFocus of
+              Nothing -> pure model0
+              Just drvId -> do
+                let model = (modelConsole . consoleInputEntry .~ "") $ model0
+                appendNewCommand drvId msg
+                model' <- processConsoleCommand view model drvId msg
+                pure model'
+          else pure $ (modelConsole . consoleInputEntry .~ msg) model0
       _ -> pure model0
   ui <- getUI
   ss <- getSS

@@ -39,7 +39,7 @@ render (ConsoleText txt) =
 render (ConsoleButton buttonss) =
   let mkButton (label, cmd) =
         button
-          [ ConsoleButtonPressed cmd <$ onClick
+          [ ConsoleButtonPressed False cmd <$ onClick
           , style [("display", "inline-block")]
           ]
           [text label]

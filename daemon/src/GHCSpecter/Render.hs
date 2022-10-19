@@ -16,7 +16,6 @@ import Concur.Replica
     width,
   )
 import Control.Lens (to, (^.))
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -55,7 +54,8 @@ import GHCSpecter.UI.Types
     consoleCommandList,
   )
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
+  ( ConsoleEvent (..),
+    Event (..),
     Tab (..),
   )
 import GHCSpecter.Util.Map (forwardLookup, keyMapToList, lookupKey)
@@ -125,9 +125,19 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
           mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
        in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
     getHelp k =
-      fromMaybe
-        ["No Help!"]
-        (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
+      let title =
+            let mpaused = lookupKey k pausedMap
+             in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
+          classify txt =
+            if txt == ":next" || txt == ":goto-source"
+              then Left (txt, ConsoleButtonPressed True txt)
+              else Right txt
+          helpMsgs =
+            maybe
+              [Right "No Help!"]
+              (fmap classify)
+              (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
+       in (title, helpMsgs)
     consolePanel
       | sessionIsPaused sessionInfo =
           [ ConsoleEv

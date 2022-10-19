@@ -83,7 +83,8 @@ data ConsoleEvent k
   = ConsoleTab k
   | ConsoleKey Text
   | ConsoleInput Text
-  | ConsoleButtonPressed Text
+  | -- | True: send the command immediately, False: wait for user's Enter.
+    ConsoleButtonPressed Bool Text
   deriving (Show, Eq)
 
 data BackgroundEvent

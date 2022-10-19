@@ -20,7 +20,8 @@ import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
+  ( button,
+    div,
     el,
     input,
     nav,
@@ -41,7 +42,8 @@ render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   KeyMap k [ConsoleItem] ->
-  (k -> [Text]) ->
+  -- | getHelp. (title, help items), help item: Left: button, Right: text
+  (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
@@ -103,7 +105,13 @@ render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
             ]
         ]
     consoleHelp =
-      let txts = fromMaybe [] (getHelp <$> mfocus)
-          elems = fmap (\t -> p [] [text t]) txts
-       in divClass "console-help" [] elems
+      let mhelp = getHelp <$> mfocus
+          (title, items) = fromMaybe ("", []) mhelp
+          titleElem =
+            divClass "console-help-title" [] [text title]
+          renderItem (Left (txt, ev)) = div [] [button [ev <$ onClick] [text txt]]
+          renderItem (Right txt) = p [] [text txt]
+          helpElems =
+            divClass "console-help-content" [] (fmap renderItem items)
+       in divClass "console-help" [] [titleElem, helpElems]
     console = divClass "console" [] [consoleContent, consoleInput, consoleHelp]
