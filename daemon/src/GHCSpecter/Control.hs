@@ -306,6 +306,15 @@ processConsoleCommand view model drvId msg
       sendRequest $ ConsoleReq drvId (Ping msg)
       pure model
 
+appendNewCommand :: DriverId -> Text -> Control ()
+appendNewCommand drvId newMsg = do
+  ss <- getSS
+  let newCmd = ConsoleCommand newMsg
+      append Nothing = Just [newCmd]
+      append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
+      ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
+  putSS ss'
+
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goCommon ev (view, model0) = do
@@ -321,16 +330,7 @@ goCommon ev (view, model0) = do
             Just drvId -> do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") $ model0
-              ss <- getSS
-              let appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
-                  appendConsoleMsg newMsg Nothing = Just [newMsg]
-                  appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
-                  ss' =
-                    ss
-                      & ( serverConsole
-                            %~ alterToKeyMap (appendConsoleMsg (ConsoleCommand msg)) drvId
-                        )
-              putSS ss'
+              appendNewCommand drvId msg
               model' <- processConsoleCommand view model drvId msg
               pure model'
           else pure model0
@@ -344,18 +344,8 @@ goCommon ev (view, model0) = do
             case model0 ^. modelConsole . consoleFocus of
               Nothing -> pure model0
               Just drvId -> do
-                let -- msg = model0 ^. modelConsole . consoleInputEntry
-                    model = (modelConsole . consoleInputEntry .~ "") $ model0
-                ss <- getSS
-                let appendConsoleMsg :: ConsoleItem -> Maybe [ConsoleItem] -> Maybe [ConsoleItem]
-                    appendConsoleMsg newMsg Nothing = Just [newMsg]
-                    appendConsoleMsg newMsg (Just prevMsgs) = Just (prevMsgs ++ [newMsg])
-                    ss' =
-                      ss
-                        & ( serverConsole
-                              %~ alterToKeyMap (appendConsoleMsg (ConsoleCommand msg)) drvId
-                          )
-                putSS ss'
+                let model = (modelConsole . consoleInputEntry .~ "") $ model0
+                appendNewCommand drvId msg
                 model' <- processConsoleCommand view model drvId msg
                 pure model'
           else pure $ (modelConsole . consoleInputEntry .~ msg) model0
