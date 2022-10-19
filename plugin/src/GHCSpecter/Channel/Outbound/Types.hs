@@ -56,6 +56,7 @@ data BreakpointLoc
   | RenamedResultAction
   | SpliceRunAction
   | TypecheckInit
+  | TypecheckSolve
   | TypecheckStop
   | TypecheckResultAction
   | Core2Core Text

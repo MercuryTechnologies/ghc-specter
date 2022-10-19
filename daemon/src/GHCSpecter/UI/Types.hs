@@ -181,6 +181,7 @@ consoleCommandList bp =
     RenamedResultAction -> [":next", ":goto-source", ":show-renamed"]
     SpliceRunAction -> [":next", ":goto-source", ":show-expr"]
     TypecheckInit -> [":next", ":goto-source"]
+    TypecheckSolve -> [":next", ":goto-source"]
     TypecheckStop -> [":next", ":goto-source"]
     TypecheckResultAction -> [":next", ":goto-source", ":unqualified"]
     Core2Core {} -> [":next", ":goto-source", ":list-core", ":print-core"]

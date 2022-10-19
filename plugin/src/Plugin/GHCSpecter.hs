@@ -276,7 +276,15 @@ typecheckPlugin queue drvId modNameRef =
             TypecheckInit
             emptyCommandSet
           pure ()
-    , tcPluginSolve = \_ _ _ _ -> pure (TcPluginOk [] [])
+    , tcPluginSolve = \_ _ _ _ ->
+        unsafeTcPluginTcM $ do
+          breakPoint
+            queue
+            drvId
+            modNameRef
+            TypecheckSolve
+            emptyCommandSet
+          pure (TcPluginOk [] [])
     , tcPluginStop = \_ ->
         unsafeTcPluginTcM $ do
           breakPoint
