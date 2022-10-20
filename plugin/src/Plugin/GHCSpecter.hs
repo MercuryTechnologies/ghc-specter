@@ -14,6 +14,7 @@ import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
     readTVar,
+    stateTVar,
   )
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
@@ -155,11 +156,12 @@ initGhcSession opts env = do
     let modGraph = hsc_mod_graph env
     modSources <- extractModuleSources modGraph
     sinfo <-
-      atomically $ do
-        sinfo0 <- psSessionInfo <$> readTVar sessionRef
-        let sinfo = sinfo0 {sessionModuleSources = modSources}
-        modifyTVar' sessionRef (\s -> s {psSessionInfo = sinfo})
-        pure sinfo
+      atomically $
+        stateTVar sessionRef $ \ps ->
+          let sinfo0 = psSessionInfo ps
+              sinfo = sinfo0 {sessionModuleSources = modSources}
+              ps' = ps {psSessionInfo = sinfo}
+           in (sinfo, ps')
     queueMessage queue (CMSession sinfo)
   pure queue
 
