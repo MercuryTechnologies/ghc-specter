@@ -30,7 +30,6 @@ import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessageBox (..),
     SessionInfo (..),
-    emptyModuleGraphInfo,
     emptySessionInfo,
   )
 import GHCSpecter.Config (Config, emptyConfig)
