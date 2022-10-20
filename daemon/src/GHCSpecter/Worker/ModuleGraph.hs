@@ -7,7 +7,7 @@ module GHCSpecter.Worker.ModuleGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens ((%~), (.~))
+import Control.Lens ((.~))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -15,11 +15,8 @@ import Data.Functor.Identity (runIdentity)
 import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
-import Data.Map.Strict (Map)
-import Data.Map.Strict qualified as M
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
@@ -38,8 +35,7 @@ import GHCSpecter.GraphLayout.Algorithm.Cluster
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
 import GHCSpecter.Server.Types
-  ( HasHieState (..),
-    HasModuleGraphState (..),
+  ( HasModuleGraphState (..),
     HasServerState (..),
     ServerState (..),
     incrementSN,
