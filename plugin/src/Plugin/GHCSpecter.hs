@@ -18,6 +18,7 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -116,6 +117,9 @@ initGhcSession opts env = do
         case opts of
           ipcfile : _ -> cfg1 {configSocket = ipcfile}
           _ -> cfg1
+  -- modSources <- extractModuleSources modGraph
+  let modSources = M.empty
+          
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
   (isNewStart, queue) <-
@@ -130,7 +134,6 @@ initGhcSession opts env = do
         -- session start
         Nothing -> do
           let modGraph = hsc_mod_graph env
-              modSources = extractModuleSources modGraph
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
