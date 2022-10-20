@@ -64,31 +64,32 @@ runMessageQueue cfg queue = do
       let msgList = F.toList msgs
       msgList `seq` sendObject sock msgList
     receiver :: Socket -> IO ()
-    receiver sock = forever $ do
+    receiver sock = do
       putStrLn "################"
       putStrLn "receiver started"
       putStrLn "################"
-      msg :: Request <- receiveObject sock
-      putStrLn "################"
-      putStrLn $ "message received: " ++ show msg
-      putStrLn "################"
-      atomically $
-        case msg of
-          SessionReq Pause ->
-            modifyTVar' sessionRef $ \s ->
-              let sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = True}
-               in s {psSessionInfo = sinfo'}
-          SessionReq Resume ->
-            modifyTVar' sessionRef $ \s ->
-              let sinfo = psSessionInfo s
-                  sinfo' = sinfo {sessionIsPaused = False}
-               in s {psSessionInfo = sinfo'}
-          SessionReq (SetModuleBreakpoints mods) ->
-            modifyTVar' sessionRef $ \s ->
-              s {psModuleBreakpoints = mods}
-          ConsoleReq drvId' creq ->
-            writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
+      forever $ do
+        msg :: Request <- receiveObject sock
+        putStrLn "################"
+        putStrLn $ "message received: " ++ show msg
+        putStrLn "################"
+        atomically $
+          case msg of
+            SessionReq Pause ->
+              modifyTVar' sessionRef $ \s ->
+                let sinfo = psSessionInfo s
+                    sinfo' = sinfo {sessionIsPaused = True}
+                 in s {psSessionInfo = sinfo'}
+            SessionReq Resume ->
+              modifyTVar' sessionRef $ \s ->
+                let sinfo = psSessionInfo s
+                    sinfo' = sinfo {sessionIsPaused = False}
+                 in s {psSessionInfo = sinfo'}
+            SessionReq (SetModuleBreakpoints mods) ->
+              modifyTVar' sessionRef $ \s ->
+                s {psModuleBreakpoints = mods}
+            ConsoleReq drvId' creq ->
+              writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
 queueMessage :: MsgQueue -> ChanMessage a -> IO ()
 queueMessage queue !msg =

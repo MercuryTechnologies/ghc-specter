@@ -87,7 +87,10 @@ library:
     - base64-bytestring
     - concur-core
     - concur-replica
+    - conduit
+    - conduit-extra
     - containers
+    - directory
     - discrimination
     - errors
     - extra

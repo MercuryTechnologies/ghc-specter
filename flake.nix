@@ -67,6 +67,8 @@
           p.cabal-install
           p.concur-core
           p.concur-replica
+          p.conduit
+          p.conduit-extra
           p.discrimination
           p.extra
           p.fourmolu

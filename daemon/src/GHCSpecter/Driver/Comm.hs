@@ -124,8 +124,7 @@ invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
-    CMModuleInfo {- _ modu mfile -} {} -> pure ()
-    {-
+    CMModuleInfo {- _ modu mfile -} {} -> pure () {-  do
       src <-
         case mfile of
           Nothing -> pure ""
@@ -137,7 +136,7 @@ invokeWorker ssRef workQ (CMBox o) =
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'
-      void $ forkIO (moduleSourceWorker ssRef modSrcs)
+      -- void $ forkIO (moduleSourceWorker ssRef modSrcs)
       void $ forkIO (moduleGraphWorker ssRef mgi)
     CMHsHie _drvId hiefile ->
       void $ forkIO (hieWorker ssRef workQ hiefile)

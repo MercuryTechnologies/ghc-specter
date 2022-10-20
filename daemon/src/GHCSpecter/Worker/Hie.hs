@@ -13,7 +13,9 @@ import Control.Concurrent.STM
     modifyTVar',
     writeTQueue,
   )
+import Control.Exception qualified as E  
 import Control.Lens ((%~), (.~))
+import Control.Monad.Extra (whenM)
 import Data.Foldable (for_)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
@@ -50,6 +52,16 @@ import HieDb.Compat
   )
 import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import HieDb.Utils (genDefRow, genRefsAndDecls)
+import System.Directory (doesFileExist)
+import System.IO (IOMode (..), withFile)
+
+import Control.Monad.Trans.Resource (runResourceT)
+import Data.Conduit
+import Data.Conduit.Binary qualified as CB
+-- import Data.Conduit.Text
+import Data.ByteString.Lazy qualified as BL
+import Data.Text.Encoding (decodeUtf8)
+
 
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
@@ -119,8 +131,22 @@ moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do
   for_ (M.toList modSrcs) $ \(modu, srcFile) -> do
     putStrLn $ "loading source: " ++ srcFile
-    src <- TIO.readFile srcFile
-    let update Nothing = Just ((modHieSource .~ src) emptyModuleHieInfo)
-        update (Just modHie) = Just ((modHieSource .~ src) modHie)
-    atomically $
-      modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.alter update modu)
+    {-
+    whenM (doesFileExist srcFile) $ do
+      withFile srcFile ReadMode $ \h -> do
+        !src <-
+          (TIO.hGetContents h) `E.catch` \(e :: E.SomeException) -> do
+            putStrLn "exception happened!!!!!!!!"
+            pure ""
+      
+        --      lbs <-
+        --  runResourceT $
+        --    runConduit $
+        --     CB.sourceFile srcFile .| CB.sinkLbs
+        -- let src = decodeUtf8 $ BL.toStrict lbs
+        -- TIO.readFile srcFile
+        let update Nothing = Just ((modHieSource .~ src) emptyModuleHieInfo)
+            update (Just modHie) = Just ((modHieSource .~ src) modHie)
+        atomically $
+          modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.alter update modu)
+    -}
