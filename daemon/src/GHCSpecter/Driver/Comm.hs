@@ -35,17 +35,12 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
-import GHCSpecter.Data.GHC.Hie
-  ( HasModuleHieInfo (..),
-    emptyModuleHieInfo,
-  )
 import GHCSpecter.Driver.Session.Types
   ( HasServerSession (..),
     ServerSession (..),
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
-    HasHieState (..),
     HasServerState (..),
     HasTimingState (..),
     ServerState (..),
@@ -124,15 +119,7 @@ invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
-    CMModuleInfo {- _ modu mfile -} {} -> pure ()
-    {-
-      src <-
-        case mfile of
-          Nothing -> pure ""
-          Just file -> TIO.readFile file
-      let modHie = (modHieSource .~ src) emptyModuleHieInfo
-      atomically $
-        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie) -}
+    CMModuleInfo {} -> pure ()
     CMTiming {} -> pure ()
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
