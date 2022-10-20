@@ -97,8 +97,11 @@ import System.Process (getCurrentPid)
 -- | GHC session-wide initialization
 initGhcSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
 initGhcSession opts env = do
-  -- unfortunately, with current initialization mechanism,
-  -- this should be done for every driver start to avoid race condition.
+  -- NOTE: Read session and overwrite on the session should be done in a single
+  -- atomic STM operation. As a consequence, unfortunately, the necessary IO
+  -- action should be done outside STM beforehand, which implies the action will
+  -- be done multiple times per every driver start.
+  -- This is because we do not have a plugin insertion at real GHC initialization.
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
   queue_ <- initMsgQueue
