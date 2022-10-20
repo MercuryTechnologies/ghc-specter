@@ -117,9 +117,6 @@ initGhcSession opts env = do
         case opts of
           ipcfile : _ -> cfg1 {configSocket = ipcfile}
           _ -> cfg1
-  -- modSources <- extractModuleSources modGraph
-  let modSources = M.empty
-          
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
   (isNewStart, queue) <-
@@ -140,7 +137,7 @@ initGhcSession opts env = do
                   { sessionProcessId = pid
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
-                  , sessionModuleSources = modSources
+                  , sessionModuleSources = M.empty
                   , sessionIsPaused = configStartWithBreakpoint cfg2
                   }
           modifyTVar'
@@ -155,7 +152,14 @@ initGhcSession opts env = do
           pure (True, queue_)
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg2 queue
-    sinfo <- psSessionInfo <$> atomically (readTVar sessionRef)
+    let modGraph = hsc_mod_graph env
+    modSources <- extractModuleSources modGraph
+    sinfo <-
+      atomically $ do
+        sinfo0 <- psSessionInfo <$> readTVar sessionRef
+        let sinfo = sinfo0 {sessionModuleSources = modSources}
+        modifyTVar' sessionRef (\s -> s {psSessionInfo = sinfo})
+        pure sinfo
     queueMessage queue (CMSession sinfo)
   pure queue
 
