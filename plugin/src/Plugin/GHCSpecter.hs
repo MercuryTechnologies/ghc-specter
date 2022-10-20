@@ -14,10 +14,12 @@ import Control.Concurrent.STM
   ( atomically,
     modifyTVar',
     readTVar,
+    stateTVar,
   )
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -87,6 +89,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
+    extractModuleSources,
     getModuleName,
   )
 import System.Directory (canonicalizePath)
@@ -131,12 +134,13 @@ initGhcSession opts env = do
           let modGraph = hsc_mod_graph env
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
-                modGraphInfo
-                  `seq` SessionInfo
-                    pid
-                    (Just startTime)
-                    modGraphInfo
-                    (configStartWithBreakpoint cfg2)
+                SessionInfo
+                  { sessionProcessId = pid
+                  , sessionStartTime = Just startTime
+                  , sessionModuleGraph = modGraphInfo
+                  , sessionModuleSources = M.empty
+                  , sessionIsPaused = configStartWithBreakpoint cfg2
+                  }
           modifyTVar'
             sessionRef
             ( \s ->
@@ -149,7 +153,15 @@ initGhcSession opts env = do
           pure (True, queue_)
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg2 queue
-    sinfo <- psSessionInfo <$> atomically (readTVar sessionRef)
+    let modGraph = hsc_mod_graph env
+    modSources <- extractModuleSources modGraph
+    sinfo <-
+      atomically $
+        stateTVar sessionRef $ \ps ->
+          let sinfo0 = psSessionInfo ps
+              sinfo = sinfo0 {sessionModuleSources = modSources}
+              ps' = ps {psSessionInfo = sinfo}
+           in (sinfo, ps')
     queueMessage queue (CMSession sinfo)
   pure queue
 

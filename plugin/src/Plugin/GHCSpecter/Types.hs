@@ -30,7 +30,7 @@ import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
 import GHCSpecter.Channel.Outbound.Types
   ( ChanMessageBox (..),
     SessionInfo (..),
-    emptyModuleGraphInfo,
+    emptySessionInfo,
   )
 import GHCSpecter.Config (Config, emptyConfig)
 import System.IO.Unsafe (unsafePerformIO)
@@ -67,7 +67,7 @@ emptyPluginSession :: PluginSession
 emptyPluginSession =
   PluginSession
     { psSessionConfig = emptyConfig
-    , psSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo True
+    , psSessionInfo = emptySessionInfo
     , psMessageQueue = Nothing
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState

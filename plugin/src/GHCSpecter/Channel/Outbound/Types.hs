@@ -4,7 +4,6 @@
 module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
     BreakpointLoc (..),
-    SessionInfo (..),
     TimerTag (..),
     Timer (..),
     getStartTime,
@@ -14,6 +13,8 @@ module GHCSpecter.Channel.Outbound.Types
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
     ConsoleReply (..),
+    SessionInfo (..),
+    emptySessionInfo,
 
     -- * channel
     Channel (..),
@@ -27,6 +28,8 @@ import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
 import Data.IntMap (IntMap)
 import Data.List qualified as L
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as M
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.Tree (Forest)
@@ -74,36 +77,6 @@ instance FromJSON BreakpointLoc
 
 instance ToJSON BreakpointLoc
 
-data ModuleGraphInfo = ModuleGraphInfo
-  { mginfoModuleNameMap :: IntMap ModuleName
-  , mginfoModuleDep :: IntMap [Int]
-  , mginfoModuleTopSorted :: [Int]
-  }
-  deriving (Show, Read, Generic)
-
-instance FromJSON ModuleGraphInfo
-
-instance ToJSON ModuleGraphInfo
-
-instance Binary ModuleGraphInfo
-
-emptyModuleGraphInfo :: ModuleGraphInfo
-emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
-
-data SessionInfo = SessionInfo
-  { sessionProcessId :: Int
-  , sessionStartTime :: Maybe UTCTime
-  , sessionModuleGraph :: ModuleGraphInfo
-  , sessionIsPaused :: Bool
-  }
-  deriving (Show, Generic)
-
-instance Binary SessionInfo
-
-instance FromJSON SessionInfo
-
-instance ToJSON SessionInfo
-
 data TimerTag
   = -- | start
     TimerStart
@@ -149,6 +122,41 @@ data ConsoleReply
   deriving (Show, Generic)
 
 instance Binary ConsoleReply
+
+data ModuleGraphInfo = ModuleGraphInfo
+  { mginfoModuleNameMap :: IntMap ModuleName
+  , mginfoModuleDep :: IntMap [Int]
+  , mginfoModuleTopSorted :: [Int]
+  }
+  deriving (Show, Read, Generic)
+
+instance FromJSON ModuleGraphInfo
+
+instance ToJSON ModuleGraphInfo
+
+instance Binary ModuleGraphInfo
+
+emptyModuleGraphInfo :: ModuleGraphInfo
+emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
+
+data SessionInfo = SessionInfo
+  { sessionProcessId :: Int
+  , sessionStartTime :: Maybe UTCTime
+  , sessionModuleGraph :: ModuleGraphInfo
+  , sessionModuleSources :: Map ModuleName FilePath
+  , sessionIsPaused :: Bool
+  }
+  deriving (Show, Generic)
+
+instance Binary SessionInfo
+
+instance FromJSON SessionInfo
+
+instance ToJSON SessionInfo
+
+emptySessionInfo :: SessionInfo
+emptySessionInfo =
+  SessionInfo 0 Nothing emptyModuleGraphInfo M.empty True
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports

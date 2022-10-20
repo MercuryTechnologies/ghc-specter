@@ -1,6 +1,7 @@
 module Plugin.GHCSpecter.Util
   ( -- * Utilities
     getTopSortedModules,
+    extractModuleSources,
     extractModuleGraphInfo,
     getModuleName,
     getModuleNameFromPipeState,
@@ -16,7 +17,7 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
-import Data.Maybe (mapMaybe)
+import Data.Maybe (catMaybes, mapMaybe)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHC.Data.Graph.Directed qualified as G
@@ -43,8 +44,10 @@ import GHC.Types.Name.Reader
 import GHC.Unit.Module.Graph
   ( ModuleGraph,
     ModuleGraphNode (..),
+    mgModSummaries,
     mgModSummaries',
   )
+import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
 import GHC.Unit.Module.ModSummary
   ( ExtendedModSummary (..),
@@ -55,6 +58,7 @@ import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
+import System.Directory (canonicalizePath)
 
 getModuleName :: ModSummary -> ModuleName
 getModuleName = T.pack . moduleNameString . moduleName . ms_mod
@@ -69,6 +73,15 @@ getTopSortedModules =
   mapMaybe (fmap getModuleName . gnode2ModSummary)
     . concatMap G.flattenSCC
     . flip (topSortModuleGraph False) Nothing
+
+extractModuleSources :: ModuleGraph -> IO (Map ModuleName FilePath)
+extractModuleSources modGraph = do
+  M.fromList . catMaybes <$> traverse extract (mgModSummaries modGraph)
+  where
+    extract ms = do
+      let msrcFile = ml_hs_file (ms_location ms)
+      msrcFile' <- traverse canonicalizePath msrcFile
+      pure $ fmap (getModuleName ms,) msrcFile'
 
 extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
 extractModuleGraphInfo modGraph = do
