@@ -92,54 +92,63 @@ import Plugin.GHCSpecter.Util
 import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
 
+-- TODO: Make the initialization work with GHCi.
+
 -- | GHC session-wide initialization
 initGhcSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
 initGhcSession opts env = do
-  ps <- atomically $ readTVar sessionRef
-  let ghcSessionInfo = psSessionInfo ps
-      mtimeQueue =
-        (,) <$> sessionStartTime ghcSessionInfo <*> psMessageQueue ps
-  case mtimeQueue of
-    -- session start
-    Nothing -> do
-      startTime <- getCurrentTime
-      pid <- fromInteger . toInteger <$> getCurrentPid
-      queue <- initMsgQueue
-      let modGraph = hsc_mod_graph env
-          modGraphInfo = extractModuleGraphInfo modGraph
-      ecfg <- loadConfig defaultGhcSpecterConfigFile
-      let cfg1 =
-            case ecfg of
-              Left _ -> emptyConfig
-              Right cfg -> cfg
-          -- overwrite ipcfile if specified by CLI arguments
-          cfg2 =
-            case opts of
-              ipcfile : _ -> cfg1 {configSocket = ipcfile}
-              _ -> cfg1
-          newGhcSessionInfo =
-            modGraphInfo
-              `seq` SessionInfo
-                pid
-                (Just startTime)
+  -- unfortunately, with current initialization mechanism,
+  -- this should be done for every driver start to avoid race condition.
+  startTime <- getCurrentTime
+  pid <- fromInteger . toInteger <$> getCurrentPid
+  queue_ <- initMsgQueue
+  ecfg <- loadConfig defaultGhcSpecterConfigFile
+  let cfg1 =
+        case ecfg of
+          Left _ -> emptyConfig
+          Right cfg -> cfg
+      -- overwrite ipcfile if specified by CLI arguments
+      cfg2 =
+        case opts of
+          ipcfile : _ -> cfg1 {configSocket = ipcfile}
+          _ -> cfg1
+  -- read/write should be atomic inside a single STM. i.e. no interleaving
+  -- IO actions are allowed.
+  (isNewStart, queue) <-
+    atomically $ do
+      ps <- readTVar sessionRef
+      let ghcSessionInfo = psSessionInfo ps
+          mtimeQueue =
+            (,) <$> sessionStartTime ghcSessionInfo <*> psMessageQueue ps
+      case mtimeQueue of
+        -- session has started already.
+        Just (_, queue) -> pure (False, queue)
+        -- session start
+        Nothing -> do
+          let modGraph = hsc_mod_graph env
+              modGraphInfo = extractModuleGraphInfo modGraph
+              newGhcSessionInfo =
                 modGraphInfo
-                (configStartWithBreakpoint cfg2)
-      atomically $
-        modifyTVar'
-          sessionRef
-          ( \s ->
-              s
-                { psSessionConfig = cfg2
-                , psSessionInfo = newGhcSessionInfo
-                , psMessageQueue = Just queue
-                }
-          )
-      void $ forkOS $ runMessageQueue cfg2 queue
-      queueMessage queue (CMSession newGhcSessionInfo)
-      pure queue
-    -- session has started already.
-    Just (_, queue) ->
-      pure queue
+                  `seq` SessionInfo
+                    pid
+                    (Just startTime)
+                    modGraphInfo
+                    (configStartWithBreakpoint cfg2)
+          modifyTVar'
+            sessionRef
+            ( \s ->
+                s
+                  { psSessionConfig = cfg2
+                  , psSessionInfo = newGhcSessionInfo
+                  , psMessageQueue = Just queue_
+                  }
+            )
+          pure (True, queue_)
+  when isNewStart $ do
+    void $ forkOS $ runMessageQueue cfg2 queue
+    sinfo <- psSessionInfo <$> atomically (readTVar sessionRef)
+    queueMessage queue (CMSession sinfo)
+  pure queue
 
 -- | Driver session-wide initialization
 initDriverSession :: IO DriverId
