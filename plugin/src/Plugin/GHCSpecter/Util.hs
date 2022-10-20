@@ -43,8 +43,10 @@ import GHC.Types.Name.Reader
 import GHC.Unit.Module.Graph
   ( ModuleGraph,
     ModuleGraphNode (..),
+    mgModSummaries,
     mgModSummaries',
   )
+import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
 import GHC.Unit.Module.ModSummary
   ( ExtendedModSummary (..),
@@ -70,7 +72,13 @@ getTopSortedModules =
     . concatMap G.flattenSCC
     . flip (topSortModuleGraph False) Nothing
 
-extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
+extractModuleSources :: ModuleGraph -> Map ModuleName FilePath
+extractModuleSources modGraph = M.fromList $ mapMaybe extract (mgModSummaries modGraph)
+  where
+    extract ms =
+      (getModuleName ms,) <$> ml_hs_file (ms_location ms)
+
+extractModuleGraphInfo :: ModuleGraph -> (ModuleGraphInfo, Map ModuleName FilePath)
 extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
       vtxs = G.verticesG graph
@@ -89,7 +97,9 @@ extractModuleGraphInfo modGraph = do
           (\n -> M.lookup n modNameRevMap)
           $ getTopSortedModules modGraph
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-   in ModuleGraphInfo modNameMap modDeps topSorted
+      mgi = ModuleGraphInfo modNameMap modDeps topSorted
+      moduleSources = extractModuleSources modGraph
+   in (mgi, moduleSources)
 
 getModuleNameFromPipeState :: PipeState -> Maybe ModuleName
 getModuleNameFromPipeState pstate =

@@ -130,13 +130,13 @@ initGhcSession opts env = do
         -- session start
         Nothing -> do
           let modGraph = hsc_mod_graph env
-              !modGraphInfo = extractModuleGraphInfo modGraph
+              (modGraphInfo, modSources) = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcessId = pid
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
-                  , sessionModuleSources = M.empty
+                  , sessionModuleSources = modSources
                   , sessionIsPaused = configStartWithBreakpoint cfg2
                   }
           modifyTVar'
