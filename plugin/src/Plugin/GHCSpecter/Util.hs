@@ -1,6 +1,7 @@
 module Plugin.GHCSpecter.Util
   ( -- * Utilities
     getTopSortedModules,
+    extractModuleSources,
     extractModuleGraphInfo,
     getModuleName,
     getModuleNameFromPipeState,
@@ -78,7 +79,7 @@ extractModuleSources modGraph = M.fromList $ mapMaybe extract (mgModSummaries mo
     extract ms =
       (getModuleName ms,) <$> ml_hs_file (ms_location ms)
 
-extractModuleGraphInfo :: ModuleGraph -> (ModuleGraphInfo, Map ModuleName FilePath)
+extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
 extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
       vtxs = G.verticesG graph
@@ -97,9 +98,7 @@ extractModuleGraphInfo modGraph = do
           (\n -> M.lookup n modNameRevMap)
           $ getTopSortedModules modGraph
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-      mgi = ModuleGraphInfo modNameMap modDeps topSorted
-      moduleSources = extractModuleSources modGraph
-   in (mgi, moduleSources)
+   in ModuleGraphInfo modNameMap modDeps topSorted
 
 getModuleNameFromPipeState :: PipeState -> Maybe ModuleName
 getModuleNameFromPipeState pstate =
