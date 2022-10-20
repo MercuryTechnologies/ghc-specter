@@ -18,7 +18,6 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
-import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -88,6 +87,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
+    extractModuleSources,
     getModuleName,
   )
 import System.Directory (canonicalizePath)
@@ -130,7 +130,8 @@ initGhcSession opts env = do
         -- session start
         Nothing -> do
           let modGraph = hsc_mod_graph env
-              (modGraphInfo, modSources) = extractModuleGraphInfo modGraph
+              modSources = extractModuleSources modGraph
+              modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcessId = pid

@@ -57,7 +57,10 @@ import GHCSpecter.Util.Map
     forwardLookup,
     insertToBiKeyMap,
   )
-import GHCSpecter.Worker.Hie (hieWorker)
+import GHCSpecter.Worker.Hie
+  ( hieWorker,
+    moduleSourceWorker,
+  )
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
@@ -121,17 +124,20 @@ invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
-    CMModuleInfo _ modu mfile -> do
+    CMModuleInfo {- _ modu mfile -} {} -> pure ()
+    {-
       src <-
         case mfile of
           Nothing -> pure ""
           Just file -> TIO.readFile file
       let modHie = (modHieSource .~ src) emptyModuleHieInfo
       atomically $
-        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
+        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie) -}
     CMTiming {} -> pure ()
     CMSession s' -> do
-      let mgi = sessionModuleGraph s'
+      let modSrcs = sessionModuleSources s'
+          mgi = sessionModuleGraph s'
+      void $ forkIO (moduleSourceWorker ssRef modSrcs)
       void $ forkIO (moduleGraphWorker ssRef mgi)
     CMHsHie _drvId hiefile ->
       void $ forkIO (hieWorker ssRef workQ hiefile)
