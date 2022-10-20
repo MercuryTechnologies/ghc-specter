@@ -143,7 +143,7 @@ data SessionInfo = SessionInfo
   { sessionProcessId :: Int
   , sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
-  , sessionModuleSources :: Map ModuleName FilePath
+  -- , sessionModuleSources :: Map ModuleName FilePath
   , sessionIsPaused :: Bool
   }
   deriving (Show, Generic)
@@ -156,7 +156,7 @@ instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
-  SessionInfo 0 Nothing emptyModuleGraphInfo M.empty True
+  SessionInfo 0 Nothing emptyModuleGraphInfo {- M.empty -} True
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports

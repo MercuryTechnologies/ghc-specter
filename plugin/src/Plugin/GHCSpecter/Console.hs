@@ -145,7 +145,6 @@ breakPoint queue drvId mmodNameRef loc cmds = do
       action
       liftIO $ do
         mmodName <- liftIO $ readIORef mmodNameRef
-        putStrLn $ "here i am" ++ show mmodName        
         atomically $ do
           psess <- readTVar sessionRef
           let modBreakpoints = psModuleBreakpoints psess

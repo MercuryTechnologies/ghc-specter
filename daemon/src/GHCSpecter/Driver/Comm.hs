@@ -124,17 +124,17 @@ invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
 invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
-    CMModuleInfo {- _ modu mfile -} {} -> pure () {-  do
+    CMModuleInfo _ modu mfile -> {- pure () -}  do
       src <-
         case mfile of
           Nothing -> pure ""
           Just file -> TIO.readFile file
       let modHie = (modHieSource .~ src) emptyModuleHieInfo
       atomically $
-        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie) -}
+        modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.insert modu modHie)
     CMTiming {} -> pure ()
     CMSession s' -> do
-      let modSrcs = sessionModuleSources s'
+      let -- modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'
       -- void $ forkIO (moduleSourceWorker ssRef modSrcs)
       void $ forkIO (moduleGraphWorker ssRef mgi)

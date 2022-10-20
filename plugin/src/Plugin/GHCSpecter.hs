@@ -107,8 +107,8 @@ initGhcSession opts env = do
       pid <- fromInteger . toInteger <$> getCurrentPid
       queue <- initMsgQueue
       let modGraph = hsc_mod_graph env
-          !modGraphInfo = extractModuleGraphInfo modGraph
-      !modSources <- extractModuleSources modGraph
+          modGraphInfo = extractModuleGraphInfo modGraph
+      modSources <- extractModuleSources modGraph
       ecfg <- loadConfig defaultGhcSpecterConfigFile
       let cfg1 =
             case ecfg of
@@ -120,13 +120,17 @@ initGhcSession opts env = do
               ipcfile : _ -> cfg1 {configSocket = ipcfile}
               _ -> cfg1
           newGhcSessionInfo =
-            SessionInfo
-              { sessionProcessId = pid
-              , sessionStartTime = Just startTime
-              , sessionModuleGraph = modGraphInfo
-              , sessionModuleSources = modSources
-              , sessionIsPaused = configStartWithBreakpoint cfg2
-              }
+            modGraphInfo
+              `seq`
+              -- modSources
+              -- `seq`
+                 SessionInfo
+                   { sessionProcessId = pid
+                   , sessionStartTime = Just startTime
+                   , sessionModuleGraph = modGraphInfo
+                   -- , sessionModuleSources = modSources
+                   , sessionIsPaused = configStartWithBreakpoint cfg2
+                   }
       atomically $
         modifyTVar'
           sessionRef
