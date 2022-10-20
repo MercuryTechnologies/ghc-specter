@@ -107,7 +107,7 @@ initGhcSession opts env = do
       pid <- fromInteger . toInteger <$> getCurrentPid
       queue <- initMsgQueue
       let modGraph = hsc_mod_graph env
-          !modGraphInfo = extractModuleGraphInfo modGraph
+          (modGraphInfo, modSources) = extractModuleGraphInfo modGraph
       ecfg <- loadConfig defaultGhcSpecterConfigFile
       let cfg1 =
             case ecfg of
@@ -123,7 +123,7 @@ initGhcSession opts env = do
               { sessionProcessId = pid
               , sessionStartTime = Just startTime
               , sessionModuleGraph = modGraphInfo
-              , sessionModuleSources = M.empty
+              , sessionModuleSources = modSources
               , sessionIsPaused = configStartWithBreakpoint cfg2
               }
       atomically $
