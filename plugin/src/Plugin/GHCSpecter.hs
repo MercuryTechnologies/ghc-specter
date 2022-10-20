@@ -18,6 +18,7 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -129,14 +130,15 @@ initGhcSession opts env = do
         -- session start
         Nothing -> do
           let modGraph = hsc_mod_graph env
-              modGraphInfo = extractModuleGraphInfo modGraph
+              !modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
-                modGraphInfo
-                  `seq` SessionInfo
-                    pid
-                    (Just startTime)
-                    modGraphInfo
-                    (configStartWithBreakpoint cfg2)
+                SessionInfo
+                  { sessionProcessId = pid
+                  , sessionStartTime = Just startTime
+                  , sessionModuleGraph = modGraphInfo
+                  , sessionModuleSources = M.empty
+                  , sessionIsPaused = configStartWithBreakpoint cfg2
+                  }
           modifyTVar'
             sessionRef
             ( \s ->

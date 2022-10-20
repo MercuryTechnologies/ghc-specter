@@ -52,7 +52,7 @@ import GHCSpecter.Channel.Outbound.Types
     Channel,
     SessionInfo (..),
     Timer,
-    emptyModuleGraphInfo,
+    emptySessionInfo,
   )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
@@ -176,7 +176,7 @@ emptyServerState =
     { _serverMessageSN = 0
     , _serverShouldUpdate = True
     , _serverInbox = mempty
-    , _serverSessionInfo = SessionInfo 0 Nothing emptyModuleGraphInfo False
+    , _serverSessionInfo = emptySessionInfo
     , _serverDriverModuleMap = emptyBiKeyMap
     , _serverTiming = emptyTimingState
     , _serverPaused = emptyKeyMap
