@@ -118,6 +118,7 @@ hieWorker ssRef workQ hiefile = do
 moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do
   for_ (M.toList modSrcs) $ \(modu, srcFile) -> do
+    putStrLn $ "loading source: " ++ srcFile
     src <- TIO.readFile srcFile
     let update Nothing = Just ((modHieSource .~ src) emptyModuleHieInfo)
         update (Just modHie) = Just ((modHieSource .~ src) modHie)
