@@ -18,6 +18,7 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, newIORef, writeIORef)
+import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
@@ -106,7 +107,7 @@ initGhcSession opts env = do
       pid <- fromInteger . toInteger <$> getCurrentPid
       queue <- initMsgQueue
       let modGraph = hsc_mod_graph env
-          modGraphInfo = extractModuleGraphInfo modGraph
+          !modGraphInfo = extractModuleGraphInfo modGraph
       ecfg <- loadConfig defaultGhcSpecterConfigFile
       let cfg1 =
             case ecfg of
@@ -118,12 +119,13 @@ initGhcSession opts env = do
               ipcfile : _ -> cfg1 {configSocket = ipcfile}
               _ -> cfg1
           newGhcSessionInfo =
-            modGraphInfo
-              `seq` SessionInfo
-                pid
-                (Just startTime)
-                modGraphInfo
-                (configStartWithBreakpoint cfg2)
+            SessionInfo
+              { sessionProcessId = pid
+              , sessionStartTime = Just startTime
+              , sessionModuleGraph = modGraphInfo
+              , sessionModuleSources = M.empty
+              , sessionIsPaused = configStartWithBreakpoint cfg2
+              }
       atomically $
         modifyTVar'
           sessionRef
