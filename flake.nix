@@ -32,9 +32,13 @@
       inputs.flake-utils.follows = "flake-utils";
       inputs.fficxx.follows = "fficxx";
     };
+    fourmolu = {
+      url = "github:9999years/fourmolu/ghc94";
+      flake = false;
+    };
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , discrimination, fficxx, hs-ogdf }:
+    , discrimination, fficxx, hs-ogdf, fourmolu }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -48,12 +52,15 @@
           "discrimination" =
             hself.callCabal2nix "discrimination" discrimination { };
           "http2" = final.haskell.lib.dontCheck hsuper.http2;
-          "replica" = hself.callCabal2nix "replica" replica { };
+          "newtype-generics" = final.haskell.lib.doJailbreak hsuper.newtype-generics;
+           "replica" = hself.callCabal2nix "replica" replica { };
           "retry" = final.haskell.lib.dontCheck hsuper.retry;
 
-          # likely due to the GHC 9.4.2 Word8 bug.
           # TODO: check whether this will be fixed in GHC 9.4.3.
           "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
+          # will be merged soon to the master.
+          "fourmolu" = hself.callCabal2nix "fourmolu" fourmolu { };
+
         };
 
         hpkgsFor = compiler:
@@ -72,7 +79,8 @@
               p.concur-replica
               p.discrimination
               p.extra
-              #p.fourmolu
+              # commented out due to a build failure with strange link segfault.x
+              # p.fourmolu
               p.hiedb
               p.hpack
               p.hspec

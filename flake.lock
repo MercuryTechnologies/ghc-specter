@@ -90,6 +90,23 @@
         "type": "github"
       }
     },
+    "fourmolu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1666375537,
+        "narHash": "sha256-Oz9W12U9o2RQajm5RO33TxTuQNM9O56YiRqwVYwPtn8=",
+        "owner": "9999years",
+        "repo": "fourmolu",
+        "rev": "622ef6355646fc932900693792624215f1593fe2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "9999years",
+        "ref": "ghc94",
+        "repo": "fourmolu",
+        "type": "github"
+      }
+    },
     "hs-ogdf": {
       "inputs": {
         "fficxx": [
@@ -157,6 +174,7 @@
         "discrimination": "discrimination",
         "fficxx": "fficxx",
         "flake-utils": "flake-utils",
+        "fourmolu": "fourmolu",
         "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",
         "replica": "replica"

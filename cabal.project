@@ -1,4 +1,4 @@
 packages:
-  ./daemon/*.cabal
+  -- ./daemon/*.cabal
   ./plugin/*.cabal
   ./ghc-build-analyzer/*.cabal
