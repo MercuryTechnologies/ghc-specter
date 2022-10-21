@@ -34,6 +34,23 @@
         "type": "github"
       }
     },
+    "discrimination": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1660747417,
+        "narHash": "sha256-+ATHOl3SMCyKaS/MA8LK1O1M5iRc8rKOYLqC/ze2xL0=",
+        "owner": "ekmett",
+        "repo": "discrimination",
+        "rev": "7b691d6dc8125d803f1e306ca800a001ae64e84a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ekmett",
+        "ref": "master",
+        "repo": "discrimination",
+        "type": "github"
+      }
+    },
     "fficxx": {
       "inputs": {
         "flake-utils": [
@@ -137,6 +154,7 @@
       "inputs": {
         "concur": "concur",
         "concur-replica": "concur-replica",
+        "discrimination": "discrimination",
         "fficxx": "fficxx",
         "flake-utils": "flake-utils",
         "hs-ogdf": "hs-ogdf",

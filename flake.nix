@@ -17,6 +17,10 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
+    discrimination = {
+      url = "github:ekmett/discrimination/master";
+      flake = false;
+    };
     fficxx = {
       url = "github:wavewave/fficxx/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -30,21 +34,10 @@
     };
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf }:
+    , discrimination, fficxx, hs-ogdf }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlayGHC = final: prev: {
-          haskellPackages = prev.haskell.packages.ghc924;
-        };
-        pkgs = import nixpkgs {
-          #overlays = [
-          #  overlayGHC
-          #  (fficxx.overlay.${system})
-          #  (hs-ogdf.overlay.${system})
-          #];
-          inherit system;
-          #config.allowBroken = true;
-        };
+        pkgs = import nixpkgs { inherit system; };
 
         haskellOverlay = final: hself: hsuper: {
           "criterion" = final.haskell.lib.dontCheck hsuper.criterion;
@@ -52,9 +45,15 @@
             hself.callCabal2nix "concur-core" (concur + "/concur-core") { };
           "concur-replica" =
             hself.callCabal2nix "concur-replica" concur-replica { };
+          "discrimination" =
+            hself.callCabal2nix "discrimination" discrimination { };
           "http2" = final.haskell.lib.dontCheck hsuper.http2;
           "replica" = hself.callCabal2nix "replica" replica { };
           "retry" = final.haskell.lib.dontCheck hsuper.retry;
+
+          # likely due to the GHC 9.4.2 Word8 bug.
+          # TODO: check whether this will be fixed in GHC 9.4.3.
+          "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
         };
 
         hpkgsFor = compiler:
@@ -73,7 +72,7 @@
               p.concur-replica
               p.discrimination
               p.extra
-              p.fourmolu
+              #p.fourmolu
               p.hiedb
               p.hpack
               p.hspec
