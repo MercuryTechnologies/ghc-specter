@@ -69,10 +69,10 @@ gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
 gnode2ModSummary InstantiationNode {} = Nothing
 #if MIN_VERSION_ghc (9, 4, 0)
 gnode2ModSummary (ModuleNode _ modSummary) = Just modSummary
+gnode2ModSummary LinkNode {} = Nothing
 #elif MIN_VERSION_ghc (9, 2, 0)
 gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
 #endif
-gnode2ModSummary LinkNode {} = Nothing
 
 -- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
 getTopSortedModules :: ModuleGraph -> [ModuleName]

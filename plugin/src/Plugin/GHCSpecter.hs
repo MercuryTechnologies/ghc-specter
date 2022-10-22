@@ -307,7 +307,10 @@ typecheckPlugin queue drvId modNameRef =
             TypecheckSolve
             emptyCommandSet
           pure (TcPluginOk [] [])
+#if MIN_VERSION_ghc(9, 4, 0)
     , tcPluginRewrite = \_ -> emptyUFM
+#elif MIN_VERSION_ghc(9, 2, 0)
+#endif
     , tcPluginStop = \_ ->
         unsafeTcPluginTcM $ do
           breakPoint
