@@ -79,10 +79,10 @@ import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
+-- #if MIN_VERSION_ghc(9, 4, 0)
+-- #elif MIN_VERSION_ghc(9, 2, 0)
     runPhaseHook',
-#endif
+-- #endif
     runRnSpliceHook',
   )
 import Plugin.GHCSpecter.Tasks
@@ -407,10 +407,7 @@ driver opts env0 = do
         hooks
           { runRnSpliceHook = Just (runRnSpliceHook' queue drvId modNameRef)
           , runMetaHook = Just (runMetaHook' queue drvId modNameRef)
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
           , runPhaseHook = Just (runPhaseHook' queue drvId modNameRef)
-#endif
           }
       env' = env {hsc_hooks = hooks'}
   pure env'

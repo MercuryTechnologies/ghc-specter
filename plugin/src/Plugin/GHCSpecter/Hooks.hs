@@ -3,21 +3,23 @@
 module Plugin.GHCSpecter.Hooks
   ( runRnSpliceHook',
     runMetaHook',
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
     runPhaseHook',
-#endif
   )
 where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
 #if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Pipeline.Phases
+  ( PhaseHook (..),
+    TPhase (..),
+  )
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
 #endif
@@ -101,8 +103,42 @@ runMetaHook' queue drvId modNameRef metaReq expr = do
           MetaAW r -> MetaAW (wrapMeta r queue drvId modNameRef dflags)
   defaultRunMeta metaReq' expr
 
-
 #if MIN_VERSION_ghc(9, 4, 0)
+tphase2Text :: TPhase res -> Text
+tphase2Text p =
+  case p of
+    T_Unlit {} -> "T_Unlit"
+    T_FileArgs {} -> "T_FileArgs"
+    T_Cpp {} -> "T_Cpp"
+    T_HsPp {} -> "T_HsPp"
+    T_HscRecomp {} -> "T_HsRecomp"
+    T_Hsc {} -> "T_Hsc"
+    T_HscPostTc {} -> "T_HscPostTc"
+    T_HscBackend {} -> "T_HscBackend"
+    T_CmmCpp {} -> "T_CmmCpp"
+    T_Cmm {} -> "T_Cmm"
+    T_Cc {} -> "T_Cc"
+    T_As {} -> "T_As"
+    T_LlvmOpt {} -> "T_LlvmOpt"
+    T_LlvmLlc {} -> "T_LlvmLlc"
+    T_LlvmMangle {} -> "T_LlvmMangle"
+    T_MergeForeign {} -> "T_MergeForeign"
+
+runPhaseHook' ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  PhaseHook
+runPhaseHook' queue drvId modNameRef = PhaseHook $ \p -> do
+  let phaseTxt = tphase2Text p
+  let locPrePhase = PreRunPhase phaseTxt
+  breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
+  r <- runPhase p
+  let phase'Txt = phaseTxt -- T.pack (showPpr dflags phase')
+      locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+  breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
+  pure r
+
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::
   MsgQueue ->
