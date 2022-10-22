@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE GADTs #-}
 
 module Plugin.GHCSpecter.Hooks
   ( runRnSpliceHook',
@@ -124,20 +125,54 @@ tphase2Text p =
     T_LlvmMangle {} -> "T_LlvmMangle"
     T_MergeForeign {} -> "T_MergeForeign"
 
+sendCompStateOnPhase ::
+  MsgQueue ->
+  DriverId ->
+  TPhase r ->
+  IO ()
+sendCompStateOnPhase queue drvId phase = do
+  case phase of
+    T_Unlit {} -> pure ()
+    T_FileArgs {} -> pure ()
+    T_Cpp {} -> pure ()
+    T_HsPp {} -> pure ()
+    T_HscRecomp {} -> pure ()
+    T_Hsc {} -> pure ()
+    T_HscPostTc {} -> do
+      -- send timing information
+      hscOutTime <- getCurrentTime
+      let timer = Timer [(TimerHscOut, hscOutTime)]
+      queueMessage queue (CMTiming drvId timer)
+    T_HscBackend {} -> pure ()
+    T_CmmCpp {} -> pure ()
+    T_Cmm {} -> pure ()
+    T_Cc {} -> pure ()
+    T_As {} -> do
+      -- send timing information
+      endTime <- getCurrentTime
+      let timer = Timer [(TimerAs, endTime)]
+      queueMessage queue (CMTiming drvId timer)
+    T_LlvmOpt {} -> pure ()
+    T_LlvmLlc {} -> pure ()
+    T_LlvmMangle {} -> pure ()
+    T_MergeForeign {} -> pure ()
+
 runPhaseHook' ::
   MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
   PhaseHook
-runPhaseHook' queue drvId modNameRef = PhaseHook $ \p -> do
-  let phaseTxt = tphase2Text p
+runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
+  let phaseTxt = tphase2Text phase
   let locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
-  r <- runPhase p
-  let phase'Txt = phaseTxt -- T.pack (showPpr dflags phase')
+  sendCompStateOnPhase queue drvId phase
+  result <- runPhase phase
+  let phase'Txt = phaseTxt
       locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
   breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
-  pure r
+  sendCompStateOnPhase queue drvId phase
+  pure result
 
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::

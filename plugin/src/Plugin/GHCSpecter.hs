@@ -33,14 +33,17 @@ import GHC.Driver.Plugins
     StaticPlugin (..),
     defaultPlugin,
 #if MIN_VERSION_ghc(9, 4, 0)
-    ParsedResult,
     staticPlugins,
 #elif MIN_VERSION_ghc(9, 2, 0)
 #endif
     type CommandLineOption,
   )
-import GHC.Driver.Session (gopt)
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Plugins (ParsedResult)
+#elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
+#endif
+import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types
   ( TcGblEnv (..),
@@ -53,6 +56,10 @@ import GHC.Tc.Types
 #endif
     unsafeTcPluginTcM,
   )
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Types.Unique.FM (emptyUFM)
+#elif MIN_VERSION_ghc(9, 2, 0)
+#endif
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
@@ -300,6 +307,7 @@ typecheckPlugin queue drvId modNameRef =
             TypecheckSolve
             emptyCommandSet
           pure (TcPluginOk [] [])
+    , tcPluginRewrite = \_ -> emptyUFM
     , tcPluginStop = \_ ->
         unsafeTcPluginTcM $ do
           breakPoint
