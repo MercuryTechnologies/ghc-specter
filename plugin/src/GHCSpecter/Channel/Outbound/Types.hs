@@ -77,14 +77,17 @@ instance FromJSON BreakpointLoc
 
 instance ToJSON BreakpointLoc
 
+-- TODO: GHC 9.4 changed compilation phase semantics considerably.
+-- We need to introduce GHC version dependent tag concept.
+-- This timer tag is incomplete after all.
 data TimerTag
   = -- | start
     TimerStart
   | -- | Haskell compiler finished
     TimerHscOut
-  | -- | Assembler phase
+  | -- | Assembler phase start
     TimerAs
-  | -- | StopLn phase
+  | -- | StopLn phase i.e. compilation end
     TimerEnd
   deriving (Enum, Eq, Ord, Generic, Show)
 
