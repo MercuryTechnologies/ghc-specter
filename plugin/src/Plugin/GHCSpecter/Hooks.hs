@@ -1,7 +1,12 @@
+{-# LANGUAGE CPP #-}
+
 module Plugin.GHCSpecter.Hooks
   ( runRnSpliceHook',
     runMetaHook',
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
     runPhaseHook',
+#endif
   )
 where
 
@@ -11,11 +16,11 @@ import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Driver.Phases (Phase (As, StopLn))
-import GHC.Driver.Pipeline
-  ( CompPipeline,
-    PhasePlus (HscOut, RealPhase),
-    runPhase,
-  )
+import GHC.Driver.Pipeline (runPhase)
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
+import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
+#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
@@ -45,30 +50,6 @@ import Plugin.GHCSpecter.Tasks
   )
 import Plugin.GHCSpecter.Types (MsgQueue)
 import System.IO.Unsafe (unsafePerformIO)
-
-sendCompStateOnPhase ::
-  MsgQueue ->
-  DriverId ->
-  PhasePlus ->
-  CompPipeline ()
-sendCompStateOnPhase queue drvId phase = do
-  case phase of
-    RealPhase StopLn -> liftIO do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    RealPhase (As _) -> liftIO $ do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerAs, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    HscOut _ _ _ -> liftIO $ do
-      -- send timing information
-      hscOutTime <- getCurrentTime
-      let timer = Timer [(TimerHscOut, hscOutTime)]
-      queueMessage queue (CMTiming drvId timer)
-    _ -> pure ()
 
 runRnSpliceHook' ::
   MsgQueue ->
@@ -120,6 +101,33 @@ runMetaHook' queue drvId modNameRef metaReq expr = do
           MetaAW r -> MetaAW (wrapMeta r queue drvId modNameRef dflags)
   defaultRunMeta metaReq' expr
 
+
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
+sendCompStateOnPhase ::
+  MsgQueue ->
+  DriverId ->
+  PhasePlus ->
+  CompPipeline ()
+sendCompStateOnPhase queue drvId phase = do
+  case phase of
+    RealPhase StopLn -> liftIO do
+      -- send timing information
+      endTime <- getCurrentTime
+      let timer = Timer [(TimerEnd, endTime)]
+      queueMessage queue (CMTiming drvId timer)
+    RealPhase (As _) -> liftIO $ do
+      -- send timing information
+      endTime <- getCurrentTime
+      let timer = Timer [(TimerAs, endTime)]
+      queueMessage queue (CMTiming drvId timer)
+    HscOut _ _ _ -> liftIO $ do
+      -- send timing information
+      hscOutTime <- getCurrentTime
+      let timer = Timer [(TimerHscOut, hscOutTime)]
+      queueMessage queue (CMTiming drvId timer)
+    _ -> pure ()
+
 runPhaseHook' ::
   MsgQueue ->
   DriverId ->
@@ -142,3 +150,4 @@ runPhaseHook' queue drvId modNameRef phase fp = do
   breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
   sendCompStateOnPhase queue drvId phase'
   pure (phase', fp')
+#endif
