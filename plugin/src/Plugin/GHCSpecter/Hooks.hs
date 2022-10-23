@@ -144,7 +144,14 @@ sendCompStateOnPhase queue drvId phase pt = do
     T_Cpp {} -> pure ()
     T_HsPp {} -> pure ()
     T_HscRecomp {} -> pure ()
-    T_Hsc {} -> pure ()
+    T_Hsc {} ->
+      case pt of
+        PhaseStart -> do
+          -- send timing information
+          startTime <- getCurrentTime
+          let timer = Timer [(TimerStart, startTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
     T_HscPostTc {} ->
       case pt of
         PhaseEnd -> do
@@ -161,8 +168,8 @@ sendCompStateOnPhase queue drvId phase pt = do
       case pt of
         PhaseStart -> do
           -- send timing information
-          endTime <- getCurrentTime
-          let timer = Timer [(TimerAs, endTime)]
+          asStartTime <- getCurrentTime
+          let timer = Timer [(TimerAs, asStartTime)]
           queueMessage queue (CMTiming drvId timer)
         _ -> pure ()
     T_LlvmOpt {} -> pure ()
@@ -184,6 +191,7 @@ runPhaseHook' ::
   PhaseHook
 runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
   let phaseTxt = tphase2Text phase
+  print phaseTxt
   let locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
   sendCompStateOnPhase queue drvId phase PhaseStart
