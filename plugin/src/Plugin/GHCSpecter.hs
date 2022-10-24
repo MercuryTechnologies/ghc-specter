@@ -129,15 +129,7 @@ initGhcSession opts env = do
   pid <- fromInteger . toInteger <$> getCurrentPid
   queue_ <- initMsgQueue
   ecfg <- loadConfig defaultGhcSpecterConfigFile
-  let cfg1 =
-        case ecfg of
-          Left _ -> emptyConfig
-          Right cfg -> cfg
-      -- overwrite ipcfile if specified by CLI arguments
-      cfg2 =
-        case opts of
-          ipcfile : _ -> cfg1 {configSocket = ipcfile}
-          _ -> cfg1
+  let cfg = either (\_ -> emptyConfig) id ecfg
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
   (isNewStart, queue) <-
@@ -159,20 +151,20 @@ initGhcSession opts env = do
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty
-                  , sessionIsPaused = configStartWithBreakpoint cfg2
+                  , sessionIsPaused = configStartWithBreakpoint cfg
                   }
           modifyTVar'
             sessionRef
             ( \s ->
                 s
-                  { psSessionConfig = cfg2
+                  { psSessionConfig = cfg
                   , psSessionInfo = newGhcSessionInfo
                   , psMessageQueue = Just queue_
                   }
             )
           pure (True, queue_)
   when isNewStart $ do
-    void $ forkOS $ runMessageQueue cfg2 queue
+    void $ forkOS $ runMessageQueue cfg queue
     let modGraph = hsc_mod_graph env
     modSources <- extractModuleSources modGraph
     sinfo <-
@@ -330,10 +322,12 @@ typeCheckResultActionPlugin ::
   MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
+  [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typeCheckResultActionPlugin queue drvId modNameRef modSummary tc = do
+typeCheckResultActionPlugin queue drvId modNameRef opts modSummary tc = do
+  liftIO $ putStrLn $ "typeCheckResultActionPlugin : " ++ show opts
   -- send HIE file information to the daemon after compilation
   dflags <- getDynFlags
   let modLoc = ms_location modSummary
@@ -402,7 +396,7 @@ driver opts env0 = do
           , renamedResultAction = \_opts -> renamedResultActionPlugin queue drvId modNameRef
           , spliceRunAction = \_opts -> spliceRunActionPlugin queue drvId modNameRef
           , tcPlugin = \_opts -> Just $ typecheckPlugin queue drvId modNameRef
-          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
+          , typeCheckResultAction = \opts -> typeCheckResultActionPlugin queue drvId modNameRef opts
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
 #if MIN_VERSION_ghc(9, 4, 0)

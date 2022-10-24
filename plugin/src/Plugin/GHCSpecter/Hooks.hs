@@ -21,6 +21,12 @@ import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
   )
+import GHC.Driver.Env.Types (HscEnv (..))
+import GHC.Driver.Plugins
+  ( Plugins (..),
+    PluginWithArgs (..),
+    StaticPlugin (..),
+  )
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
 #endif
@@ -52,6 +58,7 @@ import Plugin.GHCSpecter.Tasks
     rnSpliceCommands,
   )
 import Plugin.GHCSpecter.Types (MsgQueue)
+import Plugin.GHCSpecter.Util (getModuleName)
 import System.IO.Unsafe (unsafePerformIO)
 
 data PhasePoint = PhaseStart | PhaseEnd
@@ -191,10 +198,25 @@ runPhaseHook' ::
   PhaseHook
 runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
   let phaseTxt = tphase2Text phase
+  print phaseTxt
   let locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
   sendCompStateOnPhase queue drvId phase PhaseStart
-  result <- runPhase phase
+  let phase' = case phase of
+        T_Hsc env modSummary ->
+          let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
+              -- TODO: find way to update only the ghc-specter-plugin plugin.
+              provideContext (StaticPlugin pa) =
+                let pa' = pa {paArguments = [T.unpack (getModuleName modSummary)]}
+                 in StaticPlugin pa'
+              plugins = hsc_plugins env
+              splugins = staticPlugins plugins
+              splugins' = fmap provideContext splugins
+              plugins' = plugins {staticPlugins = splugins'}
+              env' = env {hsc_plugins = plugins'}
+           in T_Hsc env' modSummary
+        _ -> phase
+  result <- runPhase phase'
   let phase'Txt = phaseTxt
       locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
   breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
