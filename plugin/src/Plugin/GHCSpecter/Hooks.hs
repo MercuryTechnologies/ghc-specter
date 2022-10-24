@@ -191,7 +191,6 @@ runPhaseHook' ::
   PhaseHook
 runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
   let phaseTxt = tphase2Text phase
-  print phaseTxt
   let locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
   sendCompStateOnPhase queue drvId phase PhaseStart
