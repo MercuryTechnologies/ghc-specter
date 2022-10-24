@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Plugin.GHCSpecter.Tasks
   ( -- * command set
     type CommandArg,
@@ -22,7 +24,10 @@ where
 import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Driver.Pipeline (CompPipeline)
+#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
@@ -89,8 +94,16 @@ core2coreCommands guts =
     , (":print-core", printCore guts)
     ]
 
+#if MIN_VERSION_ghc(9, 4, 0)
+prePhaseCommands :: CommandSet IO
+#elif MIN_VERSION_ghc(9, 2, 0)
 prePhaseCommands :: CommandSet CompPipeline
+#endif
 prePhaseCommands = emptyCommandSet
 
+#if MIN_VERSION_ghc(9, 4, 0)
+postPhaseCommands :: CommandSet IO
+#elif MIN_VERSION_ghc(9, 2, 0)
 postPhaseCommands :: CommandSet CompPipeline
+#endif
 postPhaseCommands = emptyCommandSet

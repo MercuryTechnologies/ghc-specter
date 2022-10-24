@@ -34,6 +34,23 @@
         "type": "github"
       }
     },
+    "discrimination": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1660747417,
+        "narHash": "sha256-+ATHOl3SMCyKaS/MA8LK1O1M5iRc8rKOYLqC/ze2xL0=",
+        "owner": "ekmett",
+        "repo": "discrimination",
+        "rev": "7b691d6dc8125d803f1e306ca800a001ae64e84a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ekmett",
+        "ref": "master",
+        "repo": "discrimination",
+        "type": "github"
+      }
+    },
     "fficxx": {
       "inputs": {
         "flake-utils": [
@@ -44,16 +61,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1664079829,
-        "narHash": "sha256-qEmIkvoCThRV9Eh51hvgtf8hDfBX2vjEXmh2ejqZOt0=",
+        "lastModified": 1666386261,
+        "narHash": "sha256-OAbetFHl6z4XKjdLWjSULbGVZsQ8xtKp/2ThVzFwVeE=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "819aa9caefab1c58381dd4ba274fe7e7fd4a3d90",
+        "rev": "df56f97154703504f9cf6cc97cf633b18d28b189",
         "type": "github"
       },
       "original": {
         "owner": "wavewave",
-        "ref": "aarch64-darwin",
+        "ref": "master",
         "repo": "fficxx",
         "type": "github"
       }
@@ -73,6 +90,23 @@
         "type": "github"
       }
     },
+    "fourmolu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1666375537,
+        "narHash": "sha256-Oz9W12U9o2RQajm5RO33TxTuQNM9O56YiRqwVYwPtn8=",
+        "owner": "9999years",
+        "repo": "fourmolu",
+        "rev": "622ef6355646fc932900693792624215f1593fe2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "9999years",
+        "ref": "ghc94",
+        "repo": "fourmolu",
+        "type": "github"
+      }
+    },
     "hs-ogdf": {
       "inputs": {
         "fficxx": [
@@ -86,33 +120,33 @@
         ]
       },
       "locked": {
-        "lastModified": 1661452672,
-        "narHash": "sha256-R38pmA2GStr+aSJLWFKjkz9YjzRgha+Ubbwubp9VdiQ=",
+        "lastModified": 1666387879,
+        "narHash": "sha256-bCZ73EHXTBB5EGQ4hd/EBIVSi7ep8mSK5CrHSxwc7+0=",
         "owner": "wavewave",
         "repo": "hs-ogdf",
-        "rev": "41343170b3a393ed5bd6034dd5af0b5f2051ceba",
+        "rev": "0c41e45929a2ae951384b1b414e20c6c6a855108",
         "type": "github"
       },
       "original": {
         "owner": "wavewave",
-        "ref": "aarch64-darwin",
+        "ref": "master",
         "repo": "hs-ogdf",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1659364842,
-        "narHash": "sha256-JqdX44cNoQpUnaYmpYrnQpwl/1bY6Raubkz1egzyM3E=",
-        "owner": "avieth",
+        "lastModified": 1666371646,
+        "narHash": "sha256-gLaVWLbbig3MjLbb2NzVzWe4XK8w/Qw7iJdD0u1dzDY=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "346134b9b036a6f5c3f7239b450343c88954acea",
+        "rev": "71c5816834f93840dd301ec384c9d7947e97c27d",
         "type": "github"
       },
       "original": {
-        "owner": "avieth",
+        "owner": "NixOS",
+        "ref": "master",
         "repo": "nixpkgs",
-        "rev": "346134b9b036a6f5c3f7239b450343c88954acea",
         "type": "github"
       }
     },
@@ -137,8 +171,10 @@
       "inputs": {
         "concur": "concur",
         "concur-replica": "concur-replica",
+        "discrimination": "discrimination",
         "fficxx": "fficxx",
         "flake-utils": "flake-utils",
+        "fourmolu": "fourmolu",
         "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",
         "replica": "replica"

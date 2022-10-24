@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GADTs #-}
+
 module Plugin.GHCSpecter.Hooks
   ( runRnSpliceHook',
     runMetaHook',
@@ -7,15 +10,20 @@ where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Driver.Phases (Phase (As, StopLn))
-import GHC.Driver.Pipeline
-  ( CompPipeline,
-    PhasePlus (HscOut, RealPhase),
-    runPhase,
+import GHC.Driver.Pipeline (runPhase)
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Pipeline.Phases
+  ( PhaseHook (..),
+    TPhase (..),
   )
+#elif MIN_VERSION_ghc(9, 2, 0)
+import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
+#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
@@ -46,29 +54,7 @@ import Plugin.GHCSpecter.Tasks
 import Plugin.GHCSpecter.Types (MsgQueue)
 import System.IO.Unsafe (unsafePerformIO)
 
-sendCompStateOnPhase ::
-  MsgQueue ->
-  DriverId ->
-  PhasePlus ->
-  CompPipeline ()
-sendCompStateOnPhase queue drvId phase = do
-  case phase of
-    RealPhase StopLn -> liftIO do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    RealPhase (As _) -> liftIO $ do
-      -- send timing information
-      endTime <- getCurrentTime
-      let timer = Timer [(TimerAs, endTime)]
-      queueMessage queue (CMTiming drvId timer)
-    HscOut _ _ _ -> liftIO $ do
-      -- send timing information
-      hscOutTime <- getCurrentTime
-      let timer = Timer [(TimerHscOut, hscOutTime)]
-      queueMessage queue (CMTiming drvId timer)
-    _ -> pure ()
+data PhasePoint = PhaseStart | PhaseEnd
 
 runRnSpliceHook' ::
   MsgQueue ->
@@ -120,6 +106,130 @@ runMetaHook' queue drvId modNameRef metaReq expr = do
           MetaAW r -> MetaAW (wrapMeta r queue drvId modNameRef dflags)
   defaultRunMeta metaReq' expr
 
+#if MIN_VERSION_ghc(9, 4, 0)
+tphase2Text :: TPhase res -> Text
+tphase2Text p =
+  case p of
+    T_Unlit {} -> "T_Unlit"
+    T_FileArgs {} -> "T_FileArgs"
+    T_Cpp {} -> "T_Cpp"
+    T_HsPp {} -> "T_HsPp"
+    T_HscRecomp {} -> "T_HsRecomp"
+    T_Hsc {} -> "T_Hsc"
+    T_HscPostTc {} -> "T_HscPostTc"
+    T_HscBackend {} -> "T_HscBackend"
+    T_CmmCpp {} -> "T_CmmCpp"
+    T_Cmm {} -> "T_Cmm"
+    T_Cc {} -> "T_Cc"
+    T_As {} -> "T_As"
+    T_LlvmOpt {} -> "T_LlvmOpt"
+    T_LlvmLlc {} -> "T_LlvmLlc"
+    T_LlvmMangle {} -> "T_LlvmMangle"
+    T_MergeForeign {} -> "T_MergeForeign"
+
+-- NOTE: I tried to approximate GHC 9.2 version of this function.
+-- TODO: Figure out more robust way for detecting the end of
+-- compilation. In the worst case, we can just turn on timing
+-- log and parse the message on the fly.
+sendCompStateOnPhase ::
+  MsgQueue ->
+  DriverId ->
+  TPhase r ->
+  PhasePoint ->
+  IO ()
+sendCompStateOnPhase queue drvId phase pt = do
+  case phase of
+    T_Unlit {} -> pure ()
+    T_FileArgs {} -> pure ()
+    T_Cpp {} -> pure ()
+    T_HsPp {} -> pure ()
+    T_HscRecomp {} -> pure ()
+    T_Hsc {} ->
+      case pt of
+        PhaseStart -> do
+          -- send timing information
+          startTime <- getCurrentTime
+          let timer = Timer [(TimerStart, startTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
+    T_HscPostTc {} ->
+      case pt of
+        PhaseEnd -> do
+          -- send timing information
+          hscOutTime <- getCurrentTime
+          let timer = Timer [(TimerHscOut, hscOutTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
+    T_HscBackend {} -> pure ()
+    T_CmmCpp {} -> pure ()
+    T_Cmm {} -> pure ()
+    T_Cc {} -> pure ()
+    T_As {} ->
+      case pt of
+        PhaseStart -> do
+          -- send timing information
+          asStartTime <- getCurrentTime
+          let timer = Timer [(TimerAs, asStartTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
+    T_LlvmOpt {} -> pure ()
+    T_LlvmLlc {} -> pure ()
+    T_LlvmMangle {} -> pure ()
+    T_MergeForeign {} ->
+      case pt of
+        PhaseEnd -> do
+          -- send timing information
+          endTime <- getCurrentTime
+          let timer = Timer [(TimerEnd, endTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
+
+runPhaseHook' ::
+  MsgQueue ->
+  DriverId ->
+  IORef (Maybe ModuleName) ->
+  PhaseHook
+runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
+  let phaseTxt = tphase2Text phase
+  let locPrePhase = PreRunPhase phaseTxt
+  breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
+  sendCompStateOnPhase queue drvId phase PhaseStart
+  result <- runPhase phase
+  let phase'Txt = phaseTxt
+      locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+  breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
+  sendCompStateOnPhase queue drvId phase PhaseEnd
+  pure result
+
+#elif MIN_VERSION_ghc(9, 2, 0)
+sendCompStateOnPhase ::
+  MsgQueue ->
+  DriverId ->
+  PhasePlus ->
+  PhasePoint ->
+  CompPipeline ()
+sendCompStateOnPhase queue drvId phase pt = do
+  case phase of
+    RealPhase StopLn -> liftIO do
+      -- send timing information
+      endTime <- getCurrentTime
+      let timer = Timer [(TimerEnd, endTime)]
+      queueMessage queue (CMTiming drvId timer)
+    RealPhase (As _) ->
+      case pt of
+        PhaseStart -> liftIO $ do
+          -- send timing information
+          endTime <- getCurrentTime
+          let timer = Timer [(TimerAs, endTime)]
+          queueMessage queue (CMTiming drvId timer)
+        _ -> pure ()
+    HscOut _ _ _ -> liftIO $ do
+      -- send timing information
+      hscOutTime <- getCurrentTime
+      let timer = Timer [(TimerHscOut, hscOutTime)]
+      queueMessage queue (CMTiming drvId timer)
+    _ -> pure ()
+
 runPhaseHook' ::
   MsgQueue ->
   DriverId ->
@@ -133,12 +243,13 @@ runPhaseHook' queue drvId modNameRef phase fp = do
   let phaseTxt = T.pack (showPpr dflags phase)
       locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
-  sendCompStateOnPhase queue drvId phase
+  sendCompStateOnPhase queue drvId phase PhaseStart
   -- actual runPhase
   (phase', fp') <- runPhase phase fp
   -- post phase timing
   let phase'Txt = T.pack (showPpr dflags phase')
       locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
   breakPoint queue drvId modNameRef locPostPhase postPhaseCommands
-  sendCompStateOnPhase queue drvId phase'
+  sendCompStateOnPhase queue drvId phase' PhaseEnd
   pure (phase', fp')
+#endif

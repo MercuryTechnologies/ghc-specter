@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GHCSpecter.Worker.Hie
@@ -22,7 +23,10 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.IO qualified as TIO
 import GHC.Iface.Ext.Binary
   ( HieFileResult (..),
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
     NameCacheUpdater (NCU),
+#endif
     readHieFile,
   )
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
@@ -89,9 +93,14 @@ convertDefRow DefRow {..} =
 
 hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
 hieWorker ssRef workQ hiefile = do
+#if MIN_VERSION_ghc(9, 4, 0)
+  nc <- initNameCache 'z' []
+  hieResult <- readHieFile nc hiefile
+#elif MIN_VERSION_ghc(9, 2, 0)
   uniq_supply <- mkSplitUniqSupply 'z'
   let nc = initNameCache uniq_supply []
   hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
+#endif
   let hf = hie_file_result hieResult
       src = decodeUtf8With (\_ _ -> Just ' ') $ hie_hs_src hf
       modu = hie_module hf

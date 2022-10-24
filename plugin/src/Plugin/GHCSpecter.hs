@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 
 -- This module provides the current module under compilation.
 module Plugin.GHCSpecter
@@ -31,18 +32,34 @@ import GHC.Driver.Plugins
     PluginWithArgs (..),
     StaticPlugin (..),
     defaultPlugin,
+#if MIN_VERSION_ghc(9, 4, 0)
+    staticPlugins,
+#elif MIN_VERSION_ghc(9, 2, 0)
+#endif
     type CommandLineOption,
   )
-import GHC.Driver.Session (gopt)
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Plugins (ParsedResult)
+#elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
+#endif
+import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types
   ( TcGblEnv (..),
     TcM,
     TcPlugin (..),
-    TcPluginResult (..),
+#if MIN_VERSION_ghc(9, 4, 0)
+    TcPluginSolveResult(TcPluginOk),
+#elif MIN_VERSION_ghc(9, 2, 0)
+    TcPluginResult (TcPluginOk),
+#endif
     unsafeTcPluginTcM,
   )
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Types.Unique.FM (emptyUFM)
+#elif MIN_VERSION_ghc(9, 2, 0)
+#endif
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
@@ -69,7 +86,10 @@ import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
+-- #if MIN_VERSION_ghc(9, 4, 0)
+-- #elif MIN_VERSION_ghc(9, 2, 0)
     runPhaseHook',
+-- #endif
     runRnSpliceHook',
   )
 import Plugin.GHCSpecter.Tasks
@@ -202,9 +222,14 @@ parsedResultActionPlugin ::
   DriverId ->
   IORef (Maybe ModuleName) ->
   ModSummary ->
+#if MIN_VERSION_ghc(9, 4, 0)
+  ParsedResult ->
+  Hsc ParsedResult
+#elif MIN_VERSION_ghc(9, 2, 0)
   HsParsedModule ->
   Hsc HsParsedModule
-parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
+#endif
+parsedResultActionPlugin queue drvId modNameRef modSummary parsed = do
   let modName = getModuleName modSummary
       msrcFile = ml_hs_file $ ms_location modSummary
   liftIO $ do
@@ -212,7 +237,7 @@ parsedResultActionPlugin queue drvId modNameRef modSummary parsedMod = do
     writeIORef modNameRef (Just modName)
     sendModuleName queue drvId modName msrcFile'
   breakPoint queue drvId modNameRef ParsedResultAction parsedResultActionCommands
-  pure parsedMod
+  pure parsed
 
 --
 -- renamedResultAction plugin
@@ -282,6 +307,10 @@ typecheckPlugin queue drvId modNameRef =
             TypecheckSolve
             emptyCommandSet
           pure (TcPluginOk [] [])
+#if MIN_VERSION_ghc(9, 4, 0)
+    , tcPluginRewrite = \_ -> emptyUFM
+#elif MIN_VERSION_ghc(9, 2, 0)
+#endif
     , tcPluginStop = \_ ->
         unsafeTcPluginTcM $ do
           breakPoint
@@ -375,7 +404,12 @@ driver opts env0 = do
           , tcPlugin = \_opts -> Just $ typecheckPlugin queue drvId modNameRef
           , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin queue drvId modNameRef
           }
-      env = env0 {hsc_static_plugins = [StaticPlugin (PluginWithArgs newPlugin opts)]}
+      splugin = StaticPlugin (PluginWithArgs newPlugin opts)
+#if MIN_VERSION_ghc(9, 4, 0)
+      env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
+#elif MIN_VERSION_ghc(9, 2, 0)
+      env = env0 {hsc_static_plugins = [splugin]}
+#endif
   startTime <- getCurrentTime
   sendModuleStart queue drvId startTime
   breakPoint queue drvId modNameRef StartDriver driverCommands
