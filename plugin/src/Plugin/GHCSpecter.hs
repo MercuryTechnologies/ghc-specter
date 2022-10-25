@@ -382,10 +382,10 @@ driver opts env0 = do
   let hooks = hsc_hooks env
       hooks' =
         hooks
-         --        { runRnSpliceHook = Just (runRnSpliceHook' drvId)
-         --        , runMetaHook = Just (runMetaHook' drvId)
-         --        , runPhaseHook = Just (runPhaseHook' drvId)
-         --        }
+          { runRnSpliceHook = Just runRnSpliceHook'
+          , runMetaHook = Just runMetaHook'
+          , runPhaseHook = Just runPhaseHook'
+          }
       env' = env {hsc_hooks = hooks'}
   pure env'
 #elif MIN_VERSION_ghc(9, 2, 0)
@@ -409,9 +409,9 @@ driver opts env0 = do
   let hooks = hsc_hooks env
       hooks' =
         hooks
-          { runRnSpliceHook = Just (runRnSpliceHook' drvId)
-          , runMetaHook = Just (runMetaHook' drvId)
-          , runPhaseHook = Just (runPhaseHook' drvId)
+          { runRnSpliceHook = Just runRnSpliceHook'
+          , runMetaHook = Just runMetaHook'
+          , runPhaseHook = Just runPhaseHook'
           }
       env' = env {hsc_hooks = hooks'}
   pure env'
