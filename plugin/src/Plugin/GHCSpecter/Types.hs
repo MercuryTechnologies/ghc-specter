@@ -16,12 +16,15 @@ module Plugin.GHCSpecter.Types
 
     -- * utilities
     getMsgQueue,
+    assignModuleToDriverId,
+    getModuleFromDriverId,
   )
 where
 
 import Control.Concurrent.STM
   ( TVar,
     atomically,
+    modifyTVar',
     newTVarIO,
     readTVar,
   )
@@ -38,6 +41,12 @@ import GHCSpecter.Channel.Outbound.Types
     emptySessionInfo,
   )
 import GHCSpecter.Config (Config, emptyConfig)
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    emptyBiKeyMap,
+    forwardLookup,
+    insertToBiKeyMap,
+  )
 import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
@@ -63,6 +72,7 @@ data PluginSession = PluginSession
   { psSessionConfig :: Config
   , psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
+  , psDrvIdModuleMap :: BiKeyMap DriverId ModuleName
   , psNextDriverId :: DriverId
   , psConsoleState :: ConsoleState
   , psModuleBreakpoints :: [ModuleName]
@@ -74,6 +84,7 @@ emptyPluginSession =
     { psSessionConfig = emptyConfig
     , psSessionInfo = emptySessionInfo
     , psMessageQueue = Nothing
+    , psDrvIdModuleMap = emptyBiKeyMap
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState
     , psModuleBreakpoints = []
@@ -84,7 +95,22 @@ sessionRef :: TVar PluginSession
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
 
+-----------------------
+-- Utility functions --
+-----------------------
 
 getMsgQueue :: IO (Maybe MsgQueue)
 getMsgQueue =
   psMessageQueue <$> atomically (readTVar sessionRef)
+
+assignModuleToDriverId :: DriverId -> ModuleName -> IO ()
+assignModuleToDriverId drvId modName =
+  atomically $ do
+    drvModMap <- psDrvIdModuleMap <$> readTVar sessionRef
+    let drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
+    modifyTVar' sessionRef $ \s -> s {psDrvIdModuleMap = drvModMap'}
+
+getModuleFromDriverId :: DriverId -> IO (Maybe ModuleName)
+getModuleFromDriverId drvId = do
+  drvModMap <- psDrvIdModuleMap <$> atomically (readTVar sessionRef)
+  pure $ forwardLookup drvId drvModMap

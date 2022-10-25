@@ -19,8 +19,6 @@ import Control.Concurrent.STM
   )
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_)
-import Data.IORef (IORef, newIORef, writeIORef)
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -103,9 +101,8 @@ import Plugin.GHCSpecter.Tasks
     typecheckResultActionCommands,
   )
 import Plugin.GHCSpecter.Types
-  ( MsgQueue (..),
-    PluginSession (..),
-    getMsgQueue,
+  ( PluginSession (..),
+    assignModuleToDriverId,
     initMsgQueue,
     sessionRef,
   )
@@ -120,7 +117,7 @@ import System.Process (getCurrentPid)
 -- TODO: Make the initialization work with GHCi.
 
 -- | GHC session-wide initialization
-initGhcSession :: [CommandLineOption] -> HscEnv -> IO MsgQueue
+initGhcSession :: [CommandLineOption] -> HscEnv -> IO ()
 initGhcSession opts env = do
   -- NOTE: Read session and overwrite on the session should be done in a single
   -- atomic STM operation. As a consequence, unfortunately, the necessary IO
@@ -185,7 +182,6 @@ initGhcSession opts env = do
               ps' = ps {psSessionInfo = sinfo}
            in (sinfo, ps')
     queueMessage (CMSession sinfo)
-  pure queue
 
 -- | Driver session-wide initialization
 initDriverSession :: IO DriverId
@@ -219,7 +215,6 @@ sendModuleName drvId modName msrcfile =
 
 parsedResultActionPlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   ModSummary ->
 #if MIN_VERSION_ghc(9, 4, 0)
   ParsedResult ->
@@ -228,14 +223,15 @@ parsedResultActionPlugin ::
   HsParsedModule ->
   Hsc HsParsedModule
 #endif
-parsedResultActionPlugin drvId modNameRef modSummary parsed = do
+parsedResultActionPlugin drvId modSummary parsed = do
   let modName = getModuleName modSummary
       msrcFile = ml_hs_file $ ms_location modSummary
   liftIO $ do
     msrcFile' <- traverse canonicalizePath msrcFile
-    writeIORef modNameRef (Just modName)
+    -- TODO: this should be moved to runPhase on GHC 9.4
+    assignModuleToDriverId drvId modName
     sendModuleName drvId modName msrcFile'
-  breakPoint drvId modNameRef ParsedResultAction parsedResultActionCommands
+  breakPoint drvId ParsedResultAction parsedResultActionCommands
   pure parsed
 
 --
@@ -244,14 +240,12 @@ parsedResultActionPlugin drvId modNameRef modSummary parsed = do
 
 renamedResultActionPlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   TcGblEnv ->
   HsGroup GhcRn ->
   TcM (TcGblEnv, HsGroup GhcRn)
-renamedResultActionPlugin drvId modNameRef env grp = do
+renamedResultActionPlugin drvId env grp = do
   breakPoint
     drvId
-    modNameRef
     RenamedResultAction
     (renamedResultActionCommands grp)
   pure (env, grp)
@@ -262,13 +256,11 @@ renamedResultActionPlugin drvId modNameRef env grp = do
 
 spliceRunActionPlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   LHsExpr GhcTc ->
   TcM (LHsExpr GhcTc)
-spliceRunActionPlugin drvId modNameRef expr = do
+spliceRunActionPlugin drvId expr = do
   breakPoint
     drvId
-    modNameRef
     SpliceRunAction
     (spliceRunActionCommands expr)
   pure expr
@@ -279,15 +271,13 @@ spliceRunActionPlugin drvId modNameRef expr = do
 
 typecheckPlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   TcPlugin
-typecheckPlugin drvId modNameRef =
+typecheckPlugin drvId  =
   TcPlugin
     { tcPluginInit =
         unsafeTcPluginTcM $ do
           breakPoint
             drvId
-            modNameRef
             TypecheckInit
             emptyCommandSet
           pure ()
@@ -295,7 +285,6 @@ typecheckPlugin drvId modNameRef =
         unsafeTcPluginTcM $ do
           breakPoint
             drvId
-            modNameRef
             TypecheckSolve
             emptyCommandSet
           pure (TcPluginOk [] [])
@@ -307,7 +296,6 @@ typecheckPlugin drvId modNameRef =
         unsafeTcPluginTcM $ do
           breakPoint
             drvId
-            modNameRef
             TypecheckStop
             emptyCommandSet
           pure ()
@@ -319,11 +307,10 @@ typecheckPlugin drvId modNameRef =
 
 typeCheckResultActionPlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typeCheckResultActionPlugin drvId modNameRef modSummary tc = do
+typeCheckResultActionPlugin drvId modSummary tc = do
   -- send HIE file information to the daemon after compilation
   dflags <- getDynFlags
   let modLoc = ms_location modSummary
@@ -334,7 +321,6 @@ typeCheckResultActionPlugin drvId modNameRef modSummary tc = do
       queueMessage (CMHsHie drvId hiefile')
   breakPoint
     drvId
-    modNameRef
     TypecheckResultAction
     (typecheckResultActionCommands tc)
   pure tc
@@ -345,10 +331,9 @@ typeCheckResultActionPlugin drvId modNameRef modSummary tc = do
 
 corePlugin ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   [CoreToDo] ->
   CoreM [CoreToDo]
-corePlugin drvId mmodNameRef todos = do
+corePlugin drvId todos = do
   dflags <- getDynFlags
   let startPlugin =
         CoreDoPluginPass
@@ -361,7 +346,7 @@ corePlugin drvId mmodNameRef todos = do
   pure todos'
   where
     eachPlugin pass guts = do
-      breakPoint drvId mmodNameRef (Core2Core pass) (core2coreCommands guts)
+      breakPoint drvId (Core2Core pass) (core2coreCommands guts)
       pure guts
 
 --
@@ -372,12 +357,11 @@ corePlugin drvId mmodNameRef todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  queue <- initGhcSession opts env0
+  initGhcSession opts env0
   -- Module name is unknown when this driver plugin is called.
   -- Therefore, we save the module name when it is available
   -- in the actual compilation runPhase.
   -- TODO: Make (DriverId -> ModuleName) map and store it in SessionRef
-  modNameRef <- newIORef Nothing
   drvId <- initDriverSession
   let -- NOTE: this will wipe out all other plugins and fix opts
       -- TODO: if other plugins exist, throw exception.
@@ -385,12 +369,12 @@ driver opts env0 = do
       -- TODO: tcPlugin. need different mechanism
       newPlugin =
         plugin
-          { installCoreToDos = \_opts -> corePlugin drvId modNameRef
-          , parsedResultAction = \_opts -> parsedResultActionPlugin drvId modNameRef
-          , renamedResultAction = \_opts -> renamedResultActionPlugin drvId modNameRef
-          , spliceRunAction = \_opts -> spliceRunActionPlugin drvId modNameRef
-          , tcPlugin = \_opts -> Just $ typecheckPlugin drvId modNameRef
-          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin drvId modNameRef
+          { installCoreToDos = \_opts -> corePlugin drvId
+          , parsedResultAction = \_opts -> parsedResultActionPlugin drvId
+          , renamedResultAction = \_opts -> renamedResultActionPlugin drvId
+          , spliceRunAction = \_opts -> spliceRunActionPlugin drvId
+          , tcPlugin = \_opts -> Just $ typecheckPlugin drvId
+          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin drvId
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
 #if MIN_VERSION_ghc(9, 4, 0)
@@ -400,13 +384,13 @@ driver opts env0 = do
 #endif
   startTime <- getCurrentTime
   sendModuleStart drvId startTime
-  breakPoint drvId modNameRef StartDriver driverCommands
+  breakPoint drvId StartDriver driverCommands
   let hooks = hsc_hooks env
       hooks' =
         hooks
-          { runRnSpliceHook = Just (runRnSpliceHook' drvId modNameRef)
-          , runMetaHook = Just (runMetaHook' drvId modNameRef)
-          , runPhaseHook = Just (runPhaseHook' drvId modNameRef)
+          { runRnSpliceHook = Just (runRnSpliceHook' drvId)
+          , runMetaHook = Just (runMetaHook' drvId)
+          , runPhaseHook = Just (runPhaseHook' drvId)
           }
       env' = env {hsc_hooks = hooks'}
   pure env'

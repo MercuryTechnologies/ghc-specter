@@ -46,6 +46,7 @@ import Plugin.GHCSpecter.Types
   ( ConsoleState (..),
     MsgQueue (..),
     PluginSession (..),
+    getModuleFromDriverId,
     getMsgQueue,
     sessionRef,
   )
@@ -131,11 +132,10 @@ breakPoint ::
   forall m.
   MonadIO m =>
   DriverId ->
-  IORef (Maybe ModuleName) ->
   BreakpointLoc ->
   CommandSet m ->
   m ()
-breakPoint drvId mmodNameRef loc cmds = do
+breakPoint drvId loc cmds = do
   actionRef <- liftIO $ newTVarIO Nothing
   tid <- liftIO $ forkIO $ sessionInPause drvId loc cmds actionRef
   loopM (go actionRef) (pure (), True)
@@ -145,7 +145,7 @@ breakPoint drvId mmodNameRef loc cmds = do
     go actionRef (action, isBlocked) = do
       action
       liftIO $ do
-        mmodName <- liftIO $ readIORef mmodNameRef
+        mmodName <- getModuleFromDriverId drvId
         atomically $ do
           psess <- readTVar sessionRef
           let modBreakpoints = psModuleBreakpoints psess

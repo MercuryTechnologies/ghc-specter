@@ -9,7 +9,6 @@ module Plugin.GHCSpecter.Hooks
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.IORef (IORef)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
@@ -30,10 +29,7 @@ import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
 import GHC.Utils.Outputable (Outputable)
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
@@ -51,18 +47,16 @@ import Plugin.GHCSpecter.Tasks
     prePhaseCommands,
     rnSpliceCommands,
   )
-import Plugin.GHCSpecter.Types (MsgQueue)
 import System.IO.Unsafe (unsafePerformIO)
 
 data PhasePoint = PhaseStart | PhaseEnd
 
 runRnSpliceHook' ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   HsSplice GhcRn ->
   RnM (HsSplice GhcRn)
-runRnSpliceHook' drvId modNameRef splice = do
-  breakPoint drvId modNameRef RnSplice (rnSpliceCommands splice)
+runRnSpliceHook' drvId splice = do
+  breakPoint drvId RnSplice (rnSpliceCommands splice)
   pure splice
 
 -- NOTE: This is a HACK. The constructors of MetaResult are deliberately
@@ -76,31 +70,29 @@ wrapMeta ::
   (Outputable s) =>
   (s -> MetaResult) ->
   DriverId ->
-  IORef (Maybe ModuleName) ->
   DynFlags ->
   s ->
   MetaResult
-wrapMeta unMeta drvId modNameRef dflags s =
+wrapMeta unMeta drvId dflags s =
   unsafePerformIO $ do
-    breakPoint drvId modNameRef PostRunMeta (postMetaCommands dflags s)
+    breakPoint drvId PostRunMeta (postMetaCommands dflags s)
     pure (unMeta s)
 {-# NOINLINE wrapMeta #-}
 
 runMetaHook' ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   MetaHook TcM
-runMetaHook' drvId modNameRef metaReq expr = do
+runMetaHook' drvId metaReq expr = do
   dflags <- getDynFlags
-  breakPoint drvId modNameRef PreRunMeta (preMetaCommands expr)
+  breakPoint drvId PreRunMeta (preMetaCommands expr)
   -- HACK: as constructors of MetaResult are not exported, this is the only way.
   let metaReq' =
         case metaReq of
-          MetaE r -> MetaE (wrapMeta r drvId modNameRef dflags)
-          MetaP r -> MetaP (wrapMeta r drvId modNameRef dflags)
-          MetaT r -> MetaT (wrapMeta r drvId modNameRef dflags)
-          MetaD r -> MetaD (wrapMeta r drvId modNameRef dflags)
-          MetaAW r -> MetaAW (wrapMeta r drvId modNameRef dflags)
+          MetaE r -> MetaE (wrapMeta r drvId dflags)
+          MetaP r -> MetaP (wrapMeta r drvId dflags)
+          MetaT r -> MetaT (wrapMeta r drvId dflags)
+          MetaD r -> MetaD (wrapMeta r drvId dflags)
+          MetaAW r -> MetaAW (wrapMeta r drvId dflags)
   defaultRunMeta metaReq' expr
 
 #if MIN_VERSION_ghc(9, 4, 0)
@@ -180,19 +172,16 @@ sendCompStateOnPhase drvId phase pt = do
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 
-runPhaseHook' ::
-  DriverId ->
-  IORef (Maybe ModuleName) ->
-  PhaseHook
-runPhaseHook' drvId modNameRef = PhaseHook $ \phase -> do
+runPhaseHook' :: DriverId -> PhaseHook
+runPhaseHook' drvId = PhaseHook $ \phase -> do
   let phaseTxt = tphase2Text phase
   let locPrePhase = PreRunPhase phaseTxt
-  breakPoint drvId modNameRef locPrePhase prePhaseCommands
+  breakPoint drvId locPrePhase prePhaseCommands
   sendCompStateOnPhase drvId phase PhaseStart
   result <- runPhase phase
   let phase'Txt = phaseTxt
       locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-  breakPoint drvId modNameRef locPostPhase postPhaseCommands
+  breakPoint drvId locPostPhase postPhaseCommands
   sendCompStateOnPhase drvId phase PhaseEnd
   pure result
 
@@ -226,23 +215,22 @@ sendCompStateOnPhase drvId phase pt = do
 
 runPhaseHook' ::
   DriverId ->
-  IORef (Maybe ModuleName) ->
   PhasePlus ->
   FilePath ->
   CompPipeline (PhasePlus, FilePath)
-runPhaseHook' drvId modNameRef phase fp = do
+runPhaseHook' drvId phase fp = do
   dflags <- getDynFlags
   -- pre phase timing
   let phaseTxt = T.pack (showPpr dflags phase)
       locPrePhase = PreRunPhase phaseTxt
-  breakPoint drvId modNameRef locPrePhase prePhaseCommands
+  breakPoint drvId locPrePhase prePhaseCommands
   sendCompStateOnPhase drvId phase PhaseStart
   -- actual runPhase
   (phase', fp') <- runPhase phase fp
   -- post phase timing
   let phase'Txt = T.pack (showPpr dflags phase')
       locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-  breakPoint drvId modNameRef locPostPhase postPhaseCommands
+  breakPoint drvId locPostPhase postPhaseCommands
   sendCompStateOnPhase drvId phase' PhaseEnd
   pure (phase', fp')
 #endif
