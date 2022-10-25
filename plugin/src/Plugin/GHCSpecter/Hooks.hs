@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Plugin.GHCSpecter.Hooks
   ( runRnSpliceHook',
@@ -17,6 +18,8 @@ import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
 #if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Phases (StopPhase (..))
+import GHC.Driver.Pipeline.Monad (PipeEnv (..))
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
@@ -27,6 +30,9 @@ import GHC.Driver.Plugins
     PluginWithArgs (..),
     StaticPlugin (..),
   )
+import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.Name qualified as GHC (ModuleName)
+import GHC.Unit.Types (GenModule (moduleName))
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
 #endif
@@ -191,6 +197,59 @@ sendCompStateOnPhase queue drvId phase pt = do
           queueMessage queue (CMTiming drvId timer)
         _ -> pure ()
 
+envFromTPhase :: TPhase res -> (HscEnv, Maybe PipeEnv, Maybe GHC.ModuleName)
+envFromTPhase p =
+  case p of
+    T_Unlit penv env _ -> (env, Just penv, Nothing)
+    T_FileArgs env _ -> (env, Nothing, Nothing)
+    T_Cpp penv env _ -> (env, Just penv, Nothing)
+    T_HsPp penv env _ _ -> (env, Just penv, Nothing)
+    T_HscRecomp penv env _ _ -> (env, Just penv, Nothing)
+    T_Hsc env modSummary -> (env, Nothing, Just (moduleName (ms_mod modSummary)))
+    T_HscPostTc env modSummary _ _ _ -> (env, Nothing, Just (moduleName (ms_mod modSummary)))
+    T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just mname)
+    T_CmmCpp penv env _ -> (env, Just penv, Nothing)
+    T_Cmm penv env _ -> (env, Just penv, Nothing)
+    T_Cc _ penv env _ -> (env, Just penv, Nothing)
+    T_As _ penv env _ _ -> (env, Just penv, Nothing)
+    T_LlvmOpt penv env _ -> (env, Just penv, Nothing)
+    T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
+    T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
+    T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
+
+showStopPhase :: StopPhase -> String
+showStopPhase StopPreprocess = "StopPreprocess"
+showStopPhase StopC = "StopC"
+showStopPhase StopAs = "StopAs"
+showStopPhase NoStop = "NoStop"
+
+showPipeEnv :: PipeEnv -> String
+showPipeEnv PipeEnv {..} =
+  "PipeEnv ("
+    ++ showStopPhase stop_phase
+    ++ ", "
+    ++ show src_filename
+    ++ ", "
+    ++ show src_basename
+    ++ ", "
+    ++ show src_suffix
+    ++ ", "
+    ++ show start_phase
+    ++ ", "
+    ++ show output_spec
+    ++ ")"
+
+showPluginArgs :: TPhase res -> IO ()
+showPluginArgs phase = do
+  let phaseTxt = tphase2Text phase
+      (env, mpenv, mname) = envFromTPhase phase
+      plugins = hsc_plugins env
+      splugins = staticPlugins plugins
+      args = fmap (paArguments . spPlugin) splugins
+  print (phaseTxt, fmap showPipeEnv mpenv)
+  print (phaseTxt, mname)
+  print (phaseTxt, args)
+
 runPhaseHook' ::
   MsgQueue ->
   DriverId ->
@@ -202,6 +261,9 @@ runPhaseHook' queue drvId modNameRef = PhaseHook $ \phase -> do
   let locPrePhase = PreRunPhase phaseTxt
   breakPoint queue drvId modNameRef locPrePhase prePhaseCommands
   sendCompStateOnPhase queue drvId phase PhaseStart
+
+  showPluginArgs phase
+
   let phase' = case phase of
         T_Hsc env modSummary ->
           let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
