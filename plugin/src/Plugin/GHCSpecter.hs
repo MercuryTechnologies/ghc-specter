@@ -19,6 +19,8 @@ import Control.Concurrent.STM
   )
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable (for_)
+import Data.Functor ((<&>))
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -90,6 +92,7 @@ import Plugin.GHCSpecter.Util
     extractModuleSources,
     getModuleName,
   )
+import Safe (headMay, readMay)
 import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
 -- GHC-version-dependent imports
@@ -202,7 +205,7 @@ sendModuleName drvId modName msrcfile =
 --
 
 parsedResultActionPlugin ::
-  DriverId ->
+  [CommandLineOption] ->
   ModSummary ->
 #if MIN_VERSION_ghc(9, 4, 0)
   ParsedResult ->
@@ -211,15 +214,17 @@ parsedResultActionPlugin ::
   HsParsedModule ->
   Hsc HsParsedModule
 #endif
-parsedResultActionPlugin drvId modSummary parsed = do
-  let modName = getModuleName modSummary
-      msrcFile = ml_hs_file $ ms_location modSummary
-  liftIO $ do
-    msrcFile' <- traverse canonicalizePath msrcFile
-    -- TODO: this should be moved to runPhase on GHC 9.4
-    assignModuleToDriverId drvId modName
-    sendModuleName drvId modName msrcFile'
-  breakPoint drvId ParsedResultAction parsedResultActionCommands
+parsedResultActionPlugin opts modSummary parsed = do
+  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+    let modName = getModuleName modSummary
+        msrcFile = ml_hs_file $ ms_location modSummary
+    liftIO $ do
+      putStrLn $ "Inside parsedResultActionPlugin: " <> show drvId
+      msrcFile' <- traverse canonicalizePath msrcFile
+      -- TODO: this should be moved to runPhase on GHC 9.4
+      assignModuleToDriverId drvId modName
+      sendModuleName drvId modName msrcFile'
+    breakPoint drvId ParsedResultAction parsedResultActionCommands
   pure parsed
 
 --
@@ -227,15 +232,16 @@ parsedResultActionPlugin drvId modSummary parsed = do
 --
 
 renamedResultActionPlugin ::
-  DriverId ->
+  [CommandLineOption] ->
   TcGblEnv ->
   HsGroup GhcRn ->
   TcM (TcGblEnv, HsGroup GhcRn)
-renamedResultActionPlugin drvId env grp = do
-  breakPoint
-    drvId
-    RenamedResultAction
-    (renamedResultActionCommands grp)
+renamedResultActionPlugin opts env grp = do
+  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+    breakPoint
+      drvId
+      RenamedResultAction
+      (renamedResultActionCommands grp)
   pure (env, grp)
 
 --
@@ -243,14 +249,15 @@ renamedResultActionPlugin drvId env grp = do
 --
 
 spliceRunActionPlugin ::
-  DriverId ->
+  [CommandLineOption] ->
   LHsExpr GhcTc ->
   TcM (LHsExpr GhcTc)
-spliceRunActionPlugin drvId expr = do
-  breakPoint
-    drvId
-    SpliceRunAction
-    (spliceRunActionCommands expr)
+spliceRunActionPlugin opts expr = do
+  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+    breakPoint
+      drvId
+      SpliceRunAction
+      (spliceRunActionCommands expr)
   pure expr
 
 --
@@ -258,59 +265,61 @@ spliceRunActionPlugin drvId expr = do
 --
 
 typecheckPlugin ::
-  DriverId ->
-  TcPlugin
-typecheckPlugin drvId  =
-  TcPlugin
-    { tcPluginInit =
-        unsafeTcPluginTcM $ do
-          breakPoint
-            drvId
-            TypecheckInit
-            emptyCommandSet
-          pure ()
-    , tcPluginSolve = \_ _ _ _ ->
-        unsafeTcPluginTcM $ do
-          breakPoint
-            drvId
-            TypecheckSolve
-            emptyCommandSet
-          pure (TcPluginOk [] [])
+  [CommandLineOption] ->
+  Maybe TcPlugin
+typecheckPlugin opts =
+  (DriverId <$> (readMay =<< headMay opts)) <&> \drvId ->
+    TcPlugin
+      { tcPluginInit =
+          unsafeTcPluginTcM $ do
+            breakPoint
+              drvId
+              TypecheckInit
+              emptyCommandSet
+            pure ()
+      , tcPluginSolve = \_ _ _ _ ->
+          unsafeTcPluginTcM $ do
+            breakPoint
+              drvId
+              TypecheckSolve
+              emptyCommandSet
+            pure (TcPluginOk [] [])
 #if MIN_VERSION_ghc(9, 4, 0)
-    , tcPluginRewrite = \_ -> emptyUFM
+      , tcPluginRewrite = \_ -> emptyUFM
 #elif MIN_VERSION_ghc(9, 2, 0)
 #endif
-    , tcPluginStop = \_ ->
-        unsafeTcPluginTcM $ do
-          breakPoint
-            drvId
-            TypecheckStop
-            emptyCommandSet
-          pure ()
-    }
+      , tcPluginStop = \_ ->
+          unsafeTcPluginTcM $ do
+            breakPoint
+              drvId
+              TypecheckStop
+              emptyCommandSet
+            pure ()
+      }
 
 --
 -- typeCheckResultAction plugin
 --
 
 typeCheckResultActionPlugin ::
-  DriverId ->
+  [CommandLineOption] ->
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typeCheckResultActionPlugin drvId modSummary tc = do
-  -- send HIE file information to the daemon after compilation
-  dflags <- getDynFlags
-  let modLoc = ms_location modSummary
-  when (gopt Opt_WriteHie dflags) $
-    liftIO $ do
-      let hiefile = ml_hie_file modLoc
-      hiefile' <- canonicalizePath hiefile
-      queueMessage (CMHsHie drvId hiefile')
-  breakPoint
-    drvId
-    TypecheckResultAction
-    (typecheckResultActionCommands tc)
+typeCheckResultActionPlugin opts modSummary tc = do
+  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+    -- send HIE file information to the daemon after compilation
+    dflags <- getDynFlags
+    let modLoc = ms_location modSummary
+    when (gopt Opt_WriteHie dflags) $
+      liftIO $ do
+        let hiefile = ml_hie_file modLoc
+        hiefile' <- canonicalizePath hiefile
+        queueMessage (CMHsHie drvId hiefile')
+    breakPoint
+      drvId
+      TypecheckResultAction
+      (typecheckResultActionCommands tc)
   pure tc
 
 --
@@ -318,24 +327,26 @@ typeCheckResultActionPlugin drvId modSummary tc = do
 --
 
 corePlugin ::
-  DriverId ->
+  [CommandLineOption] ->
   [CoreToDo] ->
   CoreM [CoreToDo]
-corePlugin drvId todos = do
-  dflags <- getDynFlags
-  let startPlugin =
-        CoreDoPluginPass
-          "Core2CoreStart"
-          (eachPlugin (T.pack "Core2CoreStart"))
-      mkPlugin pass =
-        let label = "After:" <> show pass
-         in CoreDoPluginPass label (eachPlugin (T.pack label))
-      todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
-  pure todos'
-  where
-    eachPlugin pass guts = do
-      breakPoint drvId (Core2Core pass) (core2coreCommands guts)
-      pure guts
+corePlugin opts todos = do
+  case (DriverId <$> (readMay =<< headMay opts)) of
+    Nothing -> pure todos
+    Just drvId -> do
+      dflags <- getDynFlags
+      let eachPlugin pass guts = do
+            breakPoint drvId (Core2Core pass) (core2coreCommands guts)
+            pure guts
+          startPlugin =
+            CoreDoPluginPass
+              "Core2CoreStart"
+              (eachPlugin (T.pack "Core2CoreStart"))
+          mkPlugin pass =
+            let label = "After:" <> show pass
+             in CoreDoPluginPass label (eachPlugin (T.pack label))
+          todos' = startPlugin : concatMap (\todo -> [todo, mkPlugin (showPpr dflags todo)]) todos
+      pure todos'
 
 --
 -- top-level driver plugin
@@ -346,30 +357,52 @@ corePlugin drvId todos = do
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
   initGhcSession opts env0
-  -- Module name is unknown when this driver plugin is called.
-  -- Therefore, we save the module name when it is available
-  -- in the actual compilation runPhase.
-  -- TODO: Make (DriverId -> ModuleName) map and store it in SessionRef
-  drvId <- initDriverSession
-  let -- NOTE: this will wipe out all other plugins and fix opts
-      -- TODO: if other plugins exist, throw exception.
-      -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-      -- TODO: tcPlugin. need different mechanism
-      newPlugin =
+  -- Note: Here we try to detect the start of the compilation of each module
+  -- and assign driver id per the instance.
+  -- From GHC 9.4, the start point can be consistenly detected by runPhaseHook.
+  -- However, unfortunately, on GHC 9.2, runPhaseHook is not called there in
+  -- the usual "ghc --make" case, but fortunately, the driver plugin initialization
+  -- is invoked at the module compilation start though this is not an intended
+  -- behavior. Thus, I assign the driver id here for GHC 9.2.
+  -- NOTE2: this will wipe out all other plugins and fix opts
+  -- TODO: if other plugins exist, throw exception.
+  -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
+#if MIN_VERSION_ghc(9, 4, 0)
+  let newPlugin =
         plugin
-          { installCoreToDos = \_opts -> corePlugin drvId
-          , parsedResultAction = \_opts -> parsedResultActionPlugin drvId
-          , renamedResultAction = \_opts -> renamedResultActionPlugin drvId
-          , spliceRunAction = \_opts -> spliceRunActionPlugin drvId
-          , tcPlugin = \_opts -> Just $ typecheckPlugin drvId
-          , typeCheckResultAction = \_opts -> typeCheckResultActionPlugin drvId
+          { installCoreToDos = corePlugin
+          , parsedResultAction = parsedResultActionPlugin
+          , renamedResultAction = renamedResultActionPlugin
+          , spliceRunAction = spliceRunActionPlugin
+          , tcPlugin = typecheckPlugin
+          , typeCheckResultAction = typeCheckResultActionPlugin
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
-#if MIN_VERSION_ghc(9, 4, 0)
       env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
+  let hooks = hsc_hooks env
+      hooks' =
+        hooks
+         --        { runRnSpliceHook = Just (runRnSpliceHook' drvId)
+         --        , runMetaHook = Just (runMetaHook' drvId)
+         --        , runPhaseHook = Just (runPhaseHook' drvId)
+         --        }
+      env' = env {hsc_hooks = hooks'}
+  pure env'
 #elif MIN_VERSION_ghc(9, 2, 0)
+  drvId <- initDriverSession
+  let opts' = [show (unDriverId drvId)] -- ignore opts
+      newPlugin =
+        plugin
+          { installCoreToDos = corePlugin
+          , parsedResultAction = parsedResultActionPlugin
+          , renamedResultAction = renamedResultActionPlugin
+          , spliceRunAction = spliceRunActionPlugin
+          , tcPlugin = typecheckPlugin
+          , typeCheckResultAction = typeCheckResultActionPlugin
+          }
+      splugin = StaticPlugin (PluginWithArgs newPlugin opts')
       env = env0 {hsc_static_plugins = [splugin]}
-#endif
+  -- send module start signal here on GHC 9.2
   startTime <- getCurrentTime
   sendModuleStart drvId startTime
   breakPoint drvId StartDriver driverCommands
@@ -382,6 +415,7 @@ driver opts env0 = do
           }
       env' = env {hsc_hooks = hooks'}
   pure env'
+#endif
 
 --
 -- Main entry point

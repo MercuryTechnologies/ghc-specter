@@ -89,6 +89,7 @@ library:
     - hiedb
     - network
     - process
+    - safe
     - stm
     - time
     - transformers
