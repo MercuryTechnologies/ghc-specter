@@ -10,13 +10,13 @@ where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef)
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
 #if MIN_VERSION_ghc(9, 4, 0)
+import Data.Text (Text)
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),

@@ -127,11 +127,17 @@ stepControl (Free (GetUI cont)) = do
 stepControl (Free (PutUI ui next)) = do
   putUI' ui
   pure (Left next)
+stepControl (Free (ModifyUI upd next)) = do
+  modifyUI' upd
+  pure (Left next)
 stepControl (Free (GetSS cont)) = do
   ss <- getSS'
   pure (Left (cont ss))
 stepControl (Free (PutSS ss next)) = do
   putSS' ss
+  pure (Left next)
+stepControl (Free (ModifySS upd next)) = do
+  modifySS' upd
   pure (Left next)
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
