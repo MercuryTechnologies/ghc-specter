@@ -8,21 +8,9 @@ module Plugin.GHCSpecter.Hooks
   )
 where
 
-import Control.Monad.IO.Class (liftIO)
-import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
-import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
-#if MIN_VERSION_ghc(9, 4, 0)
-import Data.Text (Text)
-import GHC.Driver.Pipeline.Phases
-  ( PhaseHook (..),
-    TPhase (..),
-  )
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
-#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
@@ -36,7 +24,6 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Expr (HsSplice)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
@@ -48,6 +35,21 @@ import Plugin.GHCSpecter.Tasks
     rnSpliceCommands,
   )
 import System.IO.Unsafe (unsafePerformIO)
+-- GHC version dependent imports
+#if MIN_VERSION_ghc(9, 4, 0)
+import Data.Text (Text)
+import GHC.Driver.Pipeline.Phases
+  ( PhaseHook (..),
+    TPhase (..),
+  )
+#elif MIN_VERSION_ghc(9, 2, 0)
+import Control.Monad.IO.Class (liftIO)
+import Data.Text qualified as T
+import GHC.Driver.Phases (Phase (As, StopLn))
+import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
+import GHCSpecter.Util.GHC (showPpr)
+#endif
+
 
 data PhasePoint = PhaseStart | PhaseEnd
 

@@ -22,15 +22,11 @@ import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Foldable (for_)
-import Data.IORef (IORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types
   ( ConsoleRequest (..),
   )
