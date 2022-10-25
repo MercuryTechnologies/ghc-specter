@@ -71,6 +71,8 @@ import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
     runPhaseHook',
     runRnSpliceHook',
+    sendModuleName,
+    sendModuleStart,
   )
 import Plugin.GHCSpecter.Tasks
   ( core2coreCommands,
@@ -184,22 +186,6 @@ initDriverSession = do
       pure drvId'
   pure newDrvId
 
-sendModuleStart ::
-  DriverId ->
-  UTCTime ->
-  IO ()
-sendModuleStart drvId startTime = do
-  let timer = Timer [(TimerStart, startTime)]
-  queueMessage (CMTiming drvId timer)
-
-sendModuleName ::
-  DriverId ->
-  ModuleName ->
-  Maybe FilePath ->
-  IO ()
-sendModuleName drvId modName msrcfile =
-  queueMessage (CMModuleInfo drvId modName msrcfile)
-
 --
 -- parsedResultAction plugin
 --
@@ -216,14 +202,18 @@ parsedResultActionPlugin ::
 #endif
 parsedResultActionPlugin opts modSummary parsed = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
+    -- NOTE: on GHC 9.2, we send module name information here.
     let modName = getModuleName modSummary
         msrcFile = ml_hs_file $ ms_location modSummary
     liftIO $ do
-      putStrLn $ "Inside parsedResultActionPlugin: " <> show drvId
       msrcFile' <- traverse canonicalizePath msrcFile
-      -- TODO: this should be moved to runPhase on GHC 9.4
       assignModuleToDriverId drvId modName
+      for_ msrcFile $ \srcFile ->
+        assignModuleFileToDriverId driId srcFile
       sendModuleName drvId modName msrcFile'
+#endif
     breakPoint drvId ParsedResultAction parsedResultActionCommands
   pure parsed
 

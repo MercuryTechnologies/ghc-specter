@@ -17,7 +17,9 @@ module Plugin.GHCSpecter.Types
     -- * utilities
     getMsgQueue,
     assignModuleToDriverId,
+    assignModuleFileToDriverId,
     getModuleFromDriverId,
+    getModuleFileFromDriverId,
   )
 where
 
@@ -73,6 +75,7 @@ data PluginSession = PluginSession
   , psSessionInfo :: SessionInfo
   , psMessageQueue :: Maybe MsgQueue
   , psDrvIdModuleMap :: BiKeyMap DriverId ModuleName
+  , psDrvIdModuleFileMap :: BiKeyMap DriverId FilePath
   , psNextDriverId :: DriverId
   , psConsoleState :: ConsoleState
   , psModuleBreakpoints :: [ModuleName]
@@ -85,6 +88,7 @@ emptyPluginSession =
     , psSessionInfo = emptySessionInfo
     , psMessageQueue = Nothing
     , psDrvIdModuleMap = emptyBiKeyMap
+    , psDrvIdModuleFileMap = emptyBiKeyMap
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState
     , psModuleBreakpoints = []
@@ -106,11 +110,25 @@ getMsgQueue =
 assignModuleToDriverId :: DriverId -> ModuleName -> IO ()
 assignModuleToDriverId drvId modName =
   atomically $ do
-    drvModMap <- psDrvIdModuleMap <$> readTVar sessionRef
-    let drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
+    s <- readTVar sessionRef
+    let drvModMap = psDrvIdModuleMap s
+        drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
     modifyTVar' sessionRef $ \s -> s {psDrvIdModuleMap = drvModMap'}
+
+assignModuleFileToDriverId :: DriverId -> FilePath -> IO ()
+assignModuleFileToDriverId drvId modFile =
+  atomically $ do
+    s <- readTVar sessionRef
+    let drvModFileMap = psDrvIdModuleFileMap s
+        drvModFileMap' = insertToBiKeyMap (drvId, modFile) drvModFileMap
+    modifyTVar' sessionRef $ \s -> s {psDrvIdModuleFileMap = drvModFileMap'}
 
 getModuleFromDriverId :: DriverId -> IO (Maybe ModuleName)
 getModuleFromDriverId drvId = do
   drvModMap <- psDrvIdModuleMap <$> atomically (readTVar sessionRef)
   pure $ forwardLookup drvId drvModMap
+
+getModuleFileFromDriverId :: DriverId -> IO (Maybe FilePath)
+getModuleFileFromDriverId drvId = do
+  drvModFileMap <- psDrvIdModuleFileMap <$> atomically (readTVar sessionRef)
+  pure $ forwardLookup drvId drvModFileMap
