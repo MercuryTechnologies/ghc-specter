@@ -58,7 +58,7 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     Tab (..),
   )
-import GHCSpecter.Util.Map (forwardLookup, keyMapToList, lookupKey)
+import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
 import Prelude hiding (div, span)
 
 renderBanner :: Text -> Double -> Widget IHTML a

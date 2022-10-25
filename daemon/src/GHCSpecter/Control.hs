@@ -77,7 +77,7 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
   )
-import GHCSpecter.Util.Map
+import GHCSpecter.Data.Map
   ( alterToKeyMap,
     forwardLookup,
   )

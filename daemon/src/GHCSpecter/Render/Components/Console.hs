@@ -16,6 +16,11 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Text (Text)
+import GHCSpecter.Data.Map
+  ( IsKey (..),
+    KeyMap,
+    lookupKey,
+  )
 import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
@@ -31,11 +36,6 @@ import GHCSpecter.UI.ConcurReplica.DOM
   )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
-import GHCSpecter.Util.Map
-  ( IsKey (..),
-    KeyMap,
-    lookupKey,
-  )
 import Prelude hiding (div)
 
 render ::

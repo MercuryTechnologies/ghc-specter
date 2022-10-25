@@ -27,6 +27,7 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
     Timer,
   )
+import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
@@ -56,7 +57,6 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     SubModuleEvent (..),
   )
-import GHCSpecter.Util.Map (BiKeyMap, KeyMap)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

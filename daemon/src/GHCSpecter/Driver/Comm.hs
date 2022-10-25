@@ -35,6 +35,11 @@ import GHCSpecter.Comm
     runServer,
     sendObject,
   )
+import GHCSpecter.Data.Map
+  ( alterToKeyMap,
+    forwardLookup,
+    insertToBiKeyMap,
+  )
 import GHCSpecter.Driver.Session.Types
   ( HasServerSession (..),
     ServerSession (..),
@@ -46,11 +51,6 @@ import GHCSpecter.Server.Types
     ServerState (..),
     SupplementaryView (..),
     incrementSN,
-  )
-import GHCSpecter.Util.Map
-  ( alterToKeyMap,
-    forwardLookup,
-    insertToBiKeyMap,
   )
 import GHCSpecter.Worker.Hie
   ( hieWorker,
