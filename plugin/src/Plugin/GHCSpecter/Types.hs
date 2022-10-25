@@ -13,12 +13,17 @@ module Plugin.GHCSpecter.Types
 
     -- * global variable
     sessionRef,
+
+    -- * utilities
+    getMsgQueue,
   )
 where
 
 import Control.Concurrent.STM
   ( TVar,
+    atomically,
     newTVarIO,
+    readTVar,
   )
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
@@ -78,3 +83,8 @@ emptyPluginSession =
 sessionRef :: TVar PluginSession
 {-# NOINLINE sessionRef #-}
 sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
+
+
+getMsgQueue :: IO (Maybe MsgQueue)
+getMsgQueue =
+  psMessageQueue <$> atomically (readTVar sessionRef)

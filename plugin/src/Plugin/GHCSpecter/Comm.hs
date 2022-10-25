@@ -36,6 +36,7 @@ import Network.Socket (Socket)
 import Plugin.GHCSpecter.Types
   ( MsgQueue (..),
     PluginSession (..),
+    getMsgQueue,
     sessionRef,
   )
 import System.Directory (doesFileExist)
@@ -91,7 +92,9 @@ runMessageQueue cfg queue = do
             ConsoleReq drvId' creq ->
               writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
-queueMessage :: MsgQueue -> ChanMessage a -> IO ()
-queueMessage queue !msg =
-  atomically $
-    modifyTVar' (msgSenderQueue queue) (|> CMBox msg)
+queueMessage :: ChanMessage a -> IO ()
+queueMessage !msg = do
+  mqueue <- getMsgQueue
+  for_ mqueue $ \queue ->
+    atomically $
+      modifyTVar' (msgSenderQueue queue) (|> CMBox msg)

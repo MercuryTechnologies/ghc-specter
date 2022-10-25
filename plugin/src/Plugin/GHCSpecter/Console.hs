@@ -21,6 +21,7 @@ import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (MonadIO (..))
+import Data.Foldable (for_)
 import Data.IORef (IORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (isNothing)
@@ -45,98 +46,98 @@ import Plugin.GHCSpecter.Types
   ( ConsoleState (..),
     MsgQueue (..),
     PluginSession (..),
+    getMsgQueue,
     sessionRef,
   )
 
 consoleAction ::
   MonadIO m =>
-  MsgQueue ->
   DriverId ->
   BreakpointLoc ->
   CommandSet m ->
   TVar (Maybe (m ())) ->
   IO ()
-consoleAction queue drvId loc cmds actionRef = liftIO $ do
-  let rQ = msgReceiverQueue queue
-  req <-
-    atomically $ do
-      mreq <- readTVar rQ
-      case mreq of
-        Nothing -> retry
-        Just (drvId', req) ->
-          if drvId == drvId'
-            then do
-              writeTVar rQ Nothing
-              pure req
-            else retry
-  let doCommand cmdStr chkLoc cmdDesc args
-        | chkLoc loc
-        , Just cmd <- L.lookup cmdStr (unCommandSet cmds) = do
-            let action = liftIO . reply =<< cmd args
-            atomically $
-              writeTVar actionRef (Just action)
-        | otherwise =
-            reply $
-              ConsoleReplyText Nothing $
-                "cannot " <> cmdDesc <> " at the breakpoint: " <> T.pack (show loc)
-  case req of
-    Ping msg -> do
-      TIO.putStrLn $ "ping: " <> msg
-      let pongMsg = "pong: " <> msg
-      reply (ConsoleReplyText Nothing pongMsg)
-    NextBreakpoint -> do
-      putStrLn "NextBreakpoint"
-      atomically $
-        modifyTVar' sessionRef $ \psess ->
-          let console = psConsoleState psess
-              console' = console {consoleDriverInStep = Just drvId}
-           in psess {psConsoleState = console'}
-    ShowRenamed ->
-      doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
-    ShowSplice ->
-      doCommand ":show-splice" (\x -> x == RnSplice) "show splice" []
-    ShowExpr ->
-      doCommand ":show-expr" (\x -> x == SpliceRunAction || x == PreRunMeta) "show expr" []
-    ShowResult ->
-      doCommand ":show-result" (\x -> x == PostRunMeta) "show expr" []
-    ShowUnqualifiedImports ->
-      doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
-    ListCore ->
-      doCommand ":list-core" (\case Core2Core _ -> True; _ -> False) "list core" []
-    PrintCore args ->
-      doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
+consoleAction drvId loc cmds actionRef = liftIO $ do
+  mqueue <- getMsgQueue
+  for_ mqueue $ \queue -> do
+    let rQ = msgReceiverQueue queue
+    req <-
+      atomically $ do
+        mreq <- readTVar rQ
+        case mreq of
+          Nothing -> retry
+          Just (drvId', req) ->
+            if drvId == drvId'
+              then do
+                writeTVar rQ Nothing
+                pure req
+              else retry
+    let doCommand cmdStr chkLoc cmdDesc args
+          | chkLoc loc
+          , Just cmd <- L.lookup cmdStr (unCommandSet cmds) = do
+              let action = liftIO . reply =<< cmd args
+              atomically $
+                writeTVar actionRef (Just action)
+          | otherwise =
+              reply $
+                ConsoleReplyText Nothing $
+                  "cannot " <> cmdDesc <> " at the breakpoint: " <> T.pack (show loc)
+    case req of
+      Ping msg -> do
+        TIO.putStrLn $ "ping: " <> msg
+        let pongMsg = "pong: " <> msg
+        reply (ConsoleReplyText Nothing pongMsg)
+      NextBreakpoint -> do
+        putStrLn "NextBreakpoint"
+        atomically $
+          modifyTVar' sessionRef $ \psess ->
+            let console = psConsoleState psess
+                console' = console {consoleDriverInStep = Just drvId}
+             in psess {psConsoleState = console'}
+      ShowRenamed ->
+        doCommand ":show-renamed" (== RenamedResultAction) "show renamed group" []
+      ShowSplice ->
+        doCommand ":show-splice" (\x -> x == RnSplice) "show splice" []
+      ShowExpr ->
+        doCommand ":show-expr" (\x -> x == SpliceRunAction || x == PreRunMeta) "show expr" []
+      ShowResult ->
+        doCommand ":show-result" (\x -> x == PostRunMeta) "show expr" []
+      ShowUnqualifiedImports ->
+        doCommand ":unqualified" (== TypecheckResultAction) "show unqualified imports" []
+      ListCore ->
+        doCommand ":list-core" (\case Core2Core _ -> True; _ -> False) "list core" []
+      PrintCore args ->
+        doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
   where
-    reply = queueMessage queue . CMConsole drvId
+    reply = queueMessage . CMConsole drvId
 
 sessionInPause ::
   MonadIO m =>
-  MsgQueue ->
   DriverId ->
   BreakpointLoc ->
   CommandSet m ->
   TVar (Maybe (m ())) ->
   IO ()
-sessionInPause queue drvId loc cmds actionRef = do
+sessionInPause drvId loc cmds actionRef = do
   atomically $ do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
     -- proceed when the session is paused.
     STM.check isPaused
-  queueMessage queue (CMPaused drvId (Just loc))
-  (forever $ consoleAction queue drvId loc cmds actionRef)
-    `catch` (\(_e :: AsyncException) -> queueMessage queue (CMPaused drvId Nothing))
+  queueMessage (CMPaused drvId (Just loc))
+  (forever $ consoleAction drvId loc cmds actionRef)
+    `catch` (\(_e :: AsyncException) -> queueMessage (CMPaused drvId Nothing))
 
 breakPoint ::
   forall m.
   MonadIO m =>
-  MsgQueue ->
   DriverId ->
   IORef (Maybe ModuleName) ->
   BreakpointLoc ->
   CommandSet m ->
   m ()
-breakPoint queue drvId mmodNameRef loc cmds = do
+breakPoint drvId mmodNameRef loc cmds = do
   actionRef <- liftIO $ newTVarIO Nothing
-  tid <- liftIO $ forkIO $ sessionInPause queue drvId loc cmds actionRef
+  tid <- liftIO $ forkIO $ sessionInPause drvId loc cmds actionRef
   loopM (go actionRef) (pure (), True)
   liftIO $ killThread tid
   where
