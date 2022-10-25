@@ -6,8 +6,10 @@ module GHCSpecter.Control.Types
     -- * Primitive operations of eDSL
     getUI,
     putUI,
+    modifyUI,
     getSS,
     putSS,
+    modifySS,
     sendRequest,
     nextEvent,
     printMsg,
@@ -30,11 +32,15 @@ import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
 
 -- | Pattern functor for effects of Control DSL.
+-- TODO: remove PutUI and PutSS in the end
+-- to guarantee atomic updates.
 data ControlF r
   = GetUI (UIState -> r)
   | PutUI UIState r
+  | ModifyUI (UIState -> UIState) r
   | GetSS (ServerState -> r)
   | PutSS ServerState r
+  | ModifySS (ServerState -> ServerState) r
   | SendRequest Request r
   | NextEvent (Event -> r)
   | PrintMsg Text r
@@ -54,11 +60,17 @@ getUI = liftF (GetUI id)
 putUI :: UIState -> Control ()
 putUI ui = liftF (PutUI ui ())
 
+modifyUI :: (UIState -> UIState) -> Control ()
+modifyUI upd = liftF (ModifyUI upd ())
+
 getSS :: Control ServerState
 getSS = liftF (GetSS id)
 
 putSS :: ServerState -> Control ()
 putSS ss = liftF (PutSS ss ())
+
+modifySS :: (ServerState -> ServerState) -> Control ()
+modifySS upd = liftF (ModifySS upd ())
 
 sendRequest :: Request -> Control ()
 sendRequest b = liftF (SendRequest b ())

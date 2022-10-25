@@ -54,11 +54,11 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     emptySessionInfo,
   )
+import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)
-import GHCSpecter.Util.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 
 type ChanModule = (Channel, Text)
 

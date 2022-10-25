@@ -1,4 +1,4 @@
-module GHCSpecter.Util.Map
+module GHCSpecter.Data.Map
   ( -- * IsKey class
     IsKey (..),
 

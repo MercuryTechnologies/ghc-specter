@@ -37,20 +37,20 @@ import GHCSpecter.Channel.Outbound.Types
     getHscOutTime,
     getStartTime,
   )
-import GHCSpecter.Data.Timing.Types
-  ( HasTimingInfo (..),
-    HasTimingTable (..),
-    TimingInfo (..),
-    TimingTable,
-    emptyTimingTable,
-  )
-import GHCSpecter.Util.Map
+import GHCSpecter.Data.Map
   ( BiKeyMap,
     KeyMap,
     backwardLookup,
     forwardLookup,
     keyMapToList,
     lookupKey,
+  )
+import GHCSpecter.Data.Timing.Types
+  ( HasTimingInfo (..),
+    HasTimingTable (..),
+    TimingInfo (..),
+    TimingTable,
+    emptyTimingTable,
   )
 
 isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool

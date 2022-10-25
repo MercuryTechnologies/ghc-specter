@@ -25,6 +25,13 @@ import GHCSpecter.Channel.Outbound.Types
     Timer,
     getEndTime,
   )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    KeyMap,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -43,13 +50,6 @@ import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
-  )
-import GHCSpecter.Util.Map
-  ( BiKeyMap,
-    KeyMap,
-    forwardLookup,
-    keyMapToList,
-    lookupKey,
   )
 import Prelude hiding (div)
 

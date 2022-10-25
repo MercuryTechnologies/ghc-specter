@@ -21,14 +21,8 @@ import Data.Map qualified as M
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHC.Data.Bag (bagToList)
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Make (topSortModuleGraph)
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Unit.Module.Graph (moduleGraphNodes)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Driver.Make (moduleGraphNodes)
-#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Plugins
   ( ModSummary,
@@ -49,11 +43,6 @@ import GHC.Unit.Module.Graph
     mgModSummaries',
   )
 import GHC.Unit.Module.Location (ModLocation (..))
-import GHC.Unit.Module.ModIface (ModIface_ (mi_module))
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
-#endif
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
@@ -61,6 +50,14 @@ import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import System.Directory (canonicalizePath)
+-- GHC-version-dependent imports
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Data.Bag (bagToList)
+import GHC.Unit.Module.Graph (moduleGraphNodes)
+#elif MIN_VERSION_ghc(9, 2, 0)
+import GHC.Driver.Make (moduleGraphNodes)
+import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
+#endif
 
 getModuleName :: ModSummary -> ModuleName
 getModuleName = T.pack . moduleNameString . moduleName . ms_mod

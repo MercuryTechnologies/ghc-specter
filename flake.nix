@@ -16,10 +16,6 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
-    discrimination = {
-      url = "github:ekmett/discrimination/master";
-      flake = false;
-    };
     fficxx = {
       url = "github:wavewave/fficxx/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -37,7 +33,7 @@
     };
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , discrimination, fficxx, hs-ogdf, fourmolu }:
+    , fficxx, hs-ogdf, fourmolu }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -49,7 +45,7 @@
           "concur-replica" =
             hself.callCabal2nix "concur-replica" concur-replica { };
           "discrimination" =
-            hself.callCabal2nix "discrimination" discrimination { };
+            hself.callHackage "discrimination" "0.5" { };
           "http2" = final.haskell.lib.dontCheck hsuper.http2;
           "newtype-generics" = final.haskell.lib.doJailbreak hsuper.newtype-generics;
            "replica" = hself.callCabal2nix "replica" replica { };
