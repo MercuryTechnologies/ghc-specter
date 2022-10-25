@@ -31,34 +31,16 @@ import GHC.Driver.Plugins
     PluginWithArgs (..),
     StaticPlugin (..),
     defaultPlugin,
-#if MIN_VERSION_ghc(9, 4, 0)
-    staticPlugins,
-#elif MIN_VERSION_ghc(9, 2, 0)
-#endif
     type CommandLineOption,
   )
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Driver.Plugins (ParsedResult)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Hs (HsParsedModule)
-#endif
 import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types
   ( TcGblEnv (..),
     TcM,
     TcPlugin (..),
-#if MIN_VERSION_ghc(9, 4, 0)
-    TcPluginSolveResult(TcPluginOk),
-#elif MIN_VERSION_ghc(9, 2, 0)
-    TcPluginResult (TcPluginOk),
-#endif
     unsafeTcPluginTcM,
   )
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Types.Unique.FM (emptyUFM)
-#elif MIN_VERSION_ghc(9, 2, 0)
-#endif
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types
@@ -85,10 +67,7 @@ import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
--- #if MIN_VERSION_ghc(9, 4, 0)
--- #elif MIN_VERSION_ghc(9, 2, 0)
     runPhaseHook',
--- #endif
     runRnSpliceHook',
   )
 import Plugin.GHCSpecter.Tasks
@@ -113,6 +92,15 @@ import Plugin.GHCSpecter.Util
   )
 import System.Directory (canonicalizePath)
 import System.Process (getCurrentPid)
+-- GHC-version-dependent imports
+#if MIN_VERSION_ghc(9, 4, 0)
+import GHC.Driver.Plugins (ParsedResult, staticPlugins)
+import GHC.Tc.Types (TcPluginSolveResult(TcPluginOk))
+import GHC.Types.Unique.FM (emptyUFM)
+#elif MIN_VERSION_ghc(9, 2, 0)
+import GHC.Hs (HsParsedModule)
+import GHC.Tc.Types (TcPluginResult (TcPluginOk))
+#endif
 
 -- TODO: Make the initialization work with GHCi.
 
