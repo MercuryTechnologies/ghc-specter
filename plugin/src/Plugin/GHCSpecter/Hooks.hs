@@ -279,12 +279,6 @@ sendCompStateOnPhase drvId phase pt = do
           startTime <- getCurrentTime
           sendModuleStart drvId startTime
           -- send module name information
-          {- let modName = getModuleName modSummary
-              msrcFile = ml_hs_file $ ms_location modSummary
-          msrcFile' <- traverse canonicalizePath msrcFile
-          assignModuleToDriverId drvId modName
-          for_ msrcFile $ \srcFile ->
-            assignModuleFileToDriverId drvId srcFile -}
           mmodName <- getModuleFromDriverId drvId
           msrcFile <- getModuleFileFromDriverId drvId
           msrcFile' <- traverse canonicalizePath msrcFile
@@ -327,16 +321,12 @@ runPhaseHook' :: PhaseHook
 runPhaseHook' = PhaseHook $ \phase -> do
   let (hscenv, mpenv, mname) = envFromTPhase phase
       phaseTxt = tphase2Text phase
-      -- mdrvId = getDriverIdFromHscEnv hscenv
-
-  print (phaseTxt, fmap showPipeEnv mpenv)
-  print (phaseTxt, mname)
   (phase', mdrvId) <-
     case phase of
       T_Hsc env modSummary -> do
         mdrvId' <- Just <$> issueNewDriverId modSummary
         let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
-           -- TODO: find way to update only the ghc-specter-plugin plugin.
+           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
            provideContext (StaticPlugin pa) =
              let pa' = pa {paArguments = [T.unpack (getModuleName modSummary)]}
               in StaticPlugin pa'

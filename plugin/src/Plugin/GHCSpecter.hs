@@ -86,6 +86,7 @@ import Plugin.GHCSpecter.Tasks
 import Plugin.GHCSpecter.Types
   ( PluginSession (..),
     assignModuleToDriverId,
+    assignModuleFileToDriverId,
     initMsgQueue,
     sessionRef,
   )
@@ -211,7 +212,7 @@ parsedResultActionPlugin opts modSummary parsed = do
       msrcFile' <- traverse canonicalizePath msrcFile
       assignModuleToDriverId drvId modName
       for_ msrcFile $ \srcFile ->
-        assignModuleFileToDriverId driId srcFile
+        assignModuleFileToDriverId drvId srcFile
       sendModuleName drvId modName msrcFile'
 #endif
     breakPoint drvId ParsedResultAction parsedResultActionCommands
