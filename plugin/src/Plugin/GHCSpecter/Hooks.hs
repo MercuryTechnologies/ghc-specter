@@ -12,6 +12,7 @@ import Data.Maybe (listToMaybe)
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
+import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Pipeline (runPhase)
 import GHC.Driver.Plugins
   ( Plugin (..),
@@ -46,14 +47,18 @@ import System.IO.Unsafe (unsafePerformIO)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
 import Data.Text (Text)
+import GHC.Driver.Pipeline (PipeEnv)
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
   )
+import GHC.Driver.Plugins (staticPlugins)
+import GHC.Unit.Module.ModSummary (ModSummary (ms_mod))
+import GHC.Unit.Module.Name qualified as GHC (ModuleName)
+import GHC.Unit.Types (GenModule (moduleName))
 #elif MIN_VERSION_ghc(9, 2, 0)
 import Control.Monad.IO.Class (liftIO)
 import Data.Text qualified as T
-import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline.Monad
   ( CompPipeline,
@@ -66,11 +71,18 @@ import GHCSpecter.Util.GHC (showPpr)
 
 data PhasePoint = PhaseStart | PhaseEnd
 
+-- NOTE: always assume a single static plugin, the first arg = drvId
 getDriverIdFromHscEnv :: HscEnv -> Maybe DriverId
 getDriverIdFromHscEnv hscenv = do
+#if MIN_VERSION_ghc(9, 4, 0)
+  sp <- listToMaybe (staticPlugins (hsc_plugins hscenv))
+  arg1 <- listToMaybe (paArguments (spPlugin sp))
+  DriverId <$> readMay arg1
+#elif MIN_VERSION_ghc(9, 2, 0)
   sp <- listToMaybe (hsc_static_plugins hscenv)
   arg1 <- listToMaybe (paArguments (spPlugin sp))
   DriverId <$> readMay arg1
+#endif
 
 runRnSpliceHook' :: HsSplice GhcRn -> RnM (HsSplice GhcRn)
 runRnSpliceHook' splice = do
@@ -140,6 +152,26 @@ tphase2Text p =
     T_LlvmMangle {} -> "T_LlvmMangle"
     T_MergeForeign {} -> "T_MergeForeign"
 
+envFromTPhase :: TPhase res -> (HscEnv, Maybe PipeEnv, Maybe GHC.ModuleName)
+envFromTPhase p =
+  case p of
+    T_Unlit penv env _ -> (env, Just penv, Nothing)
+    T_FileArgs env _ -> (env, Nothing, Nothing)
+    T_Cpp penv env _ -> (env, Just penv, Nothing)
+    T_HsPp penv env _ _ -> (env, Just penv, Nothing)
+    T_HscRecomp penv env _ _ -> (env, Just penv, Nothing)
+    T_Hsc env modSummary -> (env, Nothing, Just (moduleName (ms_mod modSummary)))
+    T_HscPostTc env modSummary _ _ _ -> (env, Nothing, Just (moduleName (ms_mod modSummary)))
+    T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just mname)
+    T_CmmCpp penv env _ -> (env, Just penv, Nothing)
+    T_Cmm penv env _ -> (env, Just penv, Nothing)
+    T_Cc _ penv env _ -> (env, Just penv, Nothing)
+    T_As _ penv env _ _ -> (env, Just penv, Nothing)
+    T_LlvmOpt penv env _ -> (env, Just penv, Nothing)
+    T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
+    T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
+    T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
+
 -- NOTE: I tried to approximate GHC 9.2 version of this function.
 -- TODO: Figure out more robust way for detecting the end of
 -- compilation. In the worst case, we can just turn on timing
@@ -196,18 +228,23 @@ sendCompStateOnPhase drvId phase pt = do
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 
-runPhaseHook' :: DriverId -> PhaseHook
-runPhaseHook' drvId = PhaseHook $ \phase -> do
-  let phaseTxt = tphase2Text phase
-  let locPrePhase = PreRunPhase phaseTxt
-  breakPoint drvId locPrePhase prePhaseCommands
-  sendCompStateOnPhase drvId phase PhaseStart
-  result <- runPhase phase
-  let phase'Txt = phaseTxt
-      locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-  breakPoint drvId locPostPhase postPhaseCommands
-  sendCompStateOnPhase drvId phase PhaseEnd
-  pure result
+runPhaseHook' :: PhaseHook
+runPhaseHook' = PhaseHook $ \phase -> do
+  let (hscenv, _, _) = envFromTPhase phase
+      mdrvId = getDriverIdFromHscEnv hscenv
+  case mdrvId of
+    Nothing -> runPhase phase
+    Just drvId -> do
+      let phaseTxt = tphase2Text phase
+      let locPrePhase = PreRunPhase phaseTxt
+      breakPoint drvId locPrePhase prePhaseCommands
+      sendCompStateOnPhase drvId phase PhaseStart
+      result <- runPhase phase
+      let phase'Txt = phaseTxt
+          locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+      breakPoint drvId locPostPhase postPhaseCommands
+      sendCompStateOnPhase drvId phase PhaseEnd
+      pure result
 
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::
@@ -243,8 +280,7 @@ runPhaseHook' ::
   CompPipeline (PhasePlus, FilePath)
 runPhaseHook' phase fp = do
   hscenv <- getPipeSession
-  let -- NOTE: always assume a single static plugin, the first arg = drvId
-      mdrvId = getDriverIdFromHscEnv hscenv
+  let mdrvId = getDriverIdFromHscEnv hscenv
   case mdrvId of
     Nothing -> runPhase phase fp
     Just drvId -> do
