@@ -372,15 +372,6 @@ driver opts env0 = do
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
       env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
-  let hooks = hsc_hooks env
-      hooks' =
-        hooks
-          { runRnSpliceHook = Just runRnSpliceHook'
-          , runMetaHook = Just runMetaHook'
-          , runPhaseHook = Just runPhaseHook'
-          }
-      env' = env {hsc_hooks = hooks'}
-  pure env'
 #elif MIN_VERSION_ghc(9, 2, 0)
   drvId <- initDriverSession
   let opts' = [show (unDriverId drvId)] -- ignore opts
@@ -399,6 +390,7 @@ driver opts env0 = do
   startTime <- getCurrentTime
   sendModuleStart drvId startTime
   breakPoint drvId StartDriver driverCommands
+#endif
   let hooks = hsc_hooks env
       hooks' =
         hooks
@@ -408,7 +400,7 @@ driver opts env0 = do
           }
       env' = env {hsc_hooks = hooks'}
   pure env'
-#endif
+
 
 --
 -- Main entry point
