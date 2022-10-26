@@ -23,7 +23,7 @@ import Data.Foldable (for_)
 import Data.Functor ((<&>))
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
-import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
@@ -45,16 +45,11 @@ import GHC.Tc.Types
   )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
     SessionInfo (..),
-    Timer (..),
-    TimerTag (..),
   )
 import GHCSpecter.Config
   ( Config (..),
@@ -71,12 +66,9 @@ import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
     runPhaseHook',
     runRnSpliceHook',
-    sendModuleName,
-    sendModuleStart,
   )
 import Plugin.GHCSpecter.Tasks
   ( core2coreCommands,
-    driverCommands,
     emptyCommandSet,
     parsedResultActionCommands,
     renamedResultActionCommands,
@@ -85,15 +77,12 @@ import Plugin.GHCSpecter.Tasks
   )
 import Plugin.GHCSpecter.Types
   ( PluginSession (..),
-    assignModuleToDriverId,
-    assignModuleFileToDriverId,
     initMsgQueue,
     sessionRef,
   )
 import Plugin.GHCSpecter.Util
   ( extractModuleGraphInfo,
     extractModuleSources,
-    getModuleName,
   )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath)
@@ -106,6 +95,16 @@ import GHC.Types.Unique.FM (emptyUFM)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
+import Plugin.GHCSpecter.Hooks
+  ( sendModuleName,
+    sendModuleStart,
+  )
+import Plugin.GHCSpecter.Tasks (driverCommands)
+import Plugin.GHCSpecter.Types
+  ( assignModuleToDriverId,
+    assignModuleFileToDriverId,
+  )
+import Plugin.GHCSpecter.Util (getModuleName)
 #endif
 
 -- TODO: Make the initialization work with GHCi.
@@ -178,6 +177,8 @@ initGhcSession opts env = do
     queueMessage (CMSession sinfo)
 
 -- | Driver session-wide initialization
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
 initDriverSession :: IO DriverId
 initDriverSession = do
   newDrvId <-
@@ -186,6 +187,7 @@ initDriverSession = do
       modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId' + 1})
       pure drvId'
   pure newDrvId
+#endif
 
 --
 -- parsedResultAction plugin
@@ -210,9 +212,9 @@ parsedResultActionPlugin opts modSummary parsed = do
         msrcFile = ml_hs_file $ ms_location modSummary
     liftIO $ do
       msrcFile' <- traverse canonicalizePath msrcFile
-      assignModuleToDriverId drvId modName
+      atomically $ assignModuleToDriverId drvId modName
       for_ msrcFile $ \srcFile ->
-        assignModuleFileToDriverId drvId srcFile
+        atomically $ assignModuleFileToDriverId drvId srcFile
       sendModuleName drvId modName msrcFile'
 #endif
     breakPoint drvId ParsedResultAction parsedResultActionCommands

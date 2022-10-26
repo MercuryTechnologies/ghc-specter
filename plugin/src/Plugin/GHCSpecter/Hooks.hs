@@ -251,8 +251,8 @@ sendCompStateOnPhase drvId phase pt = do
           startTime <- getCurrentTime
           sendModuleStart drvId startTime
           -- send module name information
-          mmodName <- getModuleFromDriverId drvId
-          msrcFile <- getModuleFileFromDriverId drvId
+          mmodName <- atomically $ getModuleFromDriverId drvId
+          msrcFile <- atomically $ getModuleFileFromDriverId drvId
           msrcFile' <- traverse canonicalizePath msrcFile
           for_ mmodName $ \modName ->
             sendModuleName drvId modName msrcFile'

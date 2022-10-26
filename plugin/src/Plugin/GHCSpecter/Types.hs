@@ -24,8 +24,8 @@ module Plugin.GHCSpecter.Types
 where
 
 import Control.Concurrent.STM
-  ( TVar,
-    atomically,
+  ( STM,
+    TVar,
     modifyTVar',
     newTVarIO,
     readTVar,
@@ -103,32 +103,30 @@ sessionRef = unsafePerformIO (newTVarIO emptyPluginSession)
 -- Utility functions --
 -----------------------
 
-getMsgQueue :: IO (Maybe MsgQueue)
+getMsgQueue :: STM (Maybe MsgQueue)
 getMsgQueue =
-  psMessageQueue <$> atomically (readTVar sessionRef)
+  psMessageQueue <$> readTVar sessionRef
 
-assignModuleToDriverId :: DriverId -> ModuleName -> IO ()
-assignModuleToDriverId drvId modName =
-  atomically $ do
-    s <- readTVar sessionRef
-    let drvModMap = psDrvIdModuleMap s
-        drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
-    modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleMap = drvModMap'}
+assignModuleToDriverId :: DriverId -> ModuleName -> STM ()
+assignModuleToDriverId drvId modName = do
+  s <- readTVar sessionRef
+  let drvModMap = psDrvIdModuleMap s
+      drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
+  modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleMap = drvModMap'}
 
-assignModuleFileToDriverId :: DriverId -> FilePath -> IO ()
-assignModuleFileToDriverId drvId modFile =
-  atomically $ do
-    s <- readTVar sessionRef
-    let drvModFileMap = psDrvIdModuleFileMap s
-        drvModFileMap' = insertToBiKeyMap (drvId, modFile) drvModFileMap
-    modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleFileMap = drvModFileMap'}
+assignModuleFileToDriverId :: DriverId -> FilePath -> STM ()
+assignModuleFileToDriverId drvId modFile = do
+  s <- readTVar sessionRef
+  let drvModFileMap = psDrvIdModuleFileMap s
+      drvModFileMap' = insertToBiKeyMap (drvId, modFile) drvModFileMap
+  modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleFileMap = drvModFileMap'}
 
-getModuleFromDriverId :: DriverId -> IO (Maybe ModuleName)
+getModuleFromDriverId :: DriverId -> STM (Maybe ModuleName)
 getModuleFromDriverId drvId = do
-  drvModMap <- psDrvIdModuleMap <$> atomically (readTVar sessionRef)
+  drvModMap <- psDrvIdModuleMap <$> readTVar sessionRef
   pure $ forwardLookup drvId drvModMap
 
-getModuleFileFromDriverId :: DriverId -> IO (Maybe FilePath)
+getModuleFileFromDriverId :: DriverId -> STM (Maybe FilePath)
 getModuleFileFromDriverId drvId = do
-  drvModFileMap <- psDrvIdModuleFileMap <$> atomically (readTVar sessionRef)
+  drvModFileMap <- psDrvIdModuleFileMap <$> readTVar sessionRef
   pure $ forwardLookup drvId drvModFileMap
