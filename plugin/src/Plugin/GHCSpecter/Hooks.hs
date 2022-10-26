@@ -328,7 +328,7 @@ runPhaseHook' = PhaseHook $ \phase -> do
         let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
            -- TODO: find way to update the plugin options only for ghc-specter-plugin.
            provideContext (StaticPlugin pa) =
-             let pa' = pa {paArguments = [T.unpack (getModuleName modSummary)]}
+             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
               in StaticPlugin pa'
            plugins = hsc_plugins env
            splugins = staticPlugins plugins
