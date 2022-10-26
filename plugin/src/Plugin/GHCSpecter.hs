@@ -49,6 +49,7 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
+    ProcessInfo (..),
     SessionInfo (..),
   )
 import GHCSpecter.Config
@@ -85,7 +86,8 @@ import Plugin.GHCSpecter.Util
     extractModuleSources,
   )
 import Safe (headMay, readMay)
-import System.Directory (canonicalizePath)
+import System.Directory (canonicalizePath, getCurrentDirectory)
+import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
 -- GHC-version-dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
@@ -119,6 +121,9 @@ initGhcSession env = do
   -- This is because we do not have a plugin insertion at real GHC initialization.
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
+  execPath <- getExecutablePath
+  cwd <- canonicalizePath =<< getCurrentDirectory
+  args <- getArgs
   queue_ <- initMsgQueue
   ecfg <- loadConfig defaultGhcSpecterConfigFile
   let cfg = either (const emptyConfig) id ecfg
@@ -139,7 +144,7 @@ initGhcSession env = do
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
-                  { sessionProcessId = pid
+                  { sessionProcess = ProcessInfo pid execPath cwd args
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty

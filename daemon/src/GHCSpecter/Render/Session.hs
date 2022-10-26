@@ -21,6 +21,7 @@ import GHCSpecter.Channel.Common.Types
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc,
     ModuleGraphInfo (..),
+    ProcessInfo (..),
     SessionInfo (..),
     Timer,
     getEndTime,
@@ -32,7 +33,7 @@ import GHCSpecter.Data.Map
     keyMapToList,
     lookupKey,
   )
-import GHCSpecter.Render.Util (divClass)
+import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     HasTimingState (..),
@@ -97,6 +98,23 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
         ]
         (fmap (\x -> p [] [text x]) msgs)
 
+renderProcessInfo :: ProcessInfo -> Widget IHTML Event
+renderProcessInfo procinfo =
+  divClass
+    "process-info"
+    []
+    [ div [] [spanClass "box" [] [text "Process ID"], text ": ", msgPID]
+    , div [] [spanClass "box" [] [text "Executable path"], text ": ", msgPath]
+    , div [] [spanClass "box" [] [text "Current Directory"], text ": ", msgCWD]
+    , div [] [spanClass "box" [] [text "CLI Arguments"], text ": ", msgArgs]
+    ]
+  where
+    packShow = T.pack . show
+    msgPID = text $ packShow $ procPID procinfo
+    msgPath = text $ T.pack $ procExecPath procinfo
+    msgCWD = text $ T.pack $ procCWD procinfo
+    msgArgs = text $ T.intercalate " " (fmap T.pack (procArguments procinfo))
+
 -- | Top-level render function for the Session tab.
 render :: ServerState -> Widget IHTML Event
 render ss =
@@ -116,7 +134,6 @@ render ss =
               nDone = length timingDone
               nInProg = length timingInProg
               messageTime = "Session started at " <> T.pack (show sessionStartTime)
-              messageProc = "Session Pid: " <> T.pack (show (sessionProcessId sessionInfo))
               messageModuleStatus =
                 "# of modules (done / in progress / total): "
                   <> T.pack (show nDone)
@@ -133,7 +150,7 @@ render ss =
                     ]
                 ]
                 ( [ pre [] [text messageTime]
-                  , pre [] [text messageProc]
+                  , renderProcessInfo (sessionProcess sessionInfo)
                   , pre [] [text messageModuleStatus]
                   , renderSessionButtons sessionInfo
                   , renderModuleInProgress drvModMap pausedMap timingInProg
