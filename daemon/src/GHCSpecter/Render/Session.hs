@@ -163,7 +163,13 @@ render ss =
                     , ("overflow", "hidden")
                     ]
                 ]
-                ( [ divClass "session-section" [] [text messageTime]
+                ( [ divClass
+                      "session-section columns"
+                      []
+                      [ divClass "column is-one-quarter" [] [text messageTime]
+                      , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
+                      , divClass "column is-half" [] []
+                      ]
                   , div
                       []
                       [ divClass "session-title" [] [text "Process Info"]
@@ -174,7 +180,6 @@ render ss =
                       [ divClass "session-title" [] [text "Compilation Status"]
                       , renderCompilationStatus (nDone, nInProg, nTot)
                       ]
-                  , renderSessionButtons sessionInfo
                   , renderModuleInProgress drvModMap pausedMap timingInProg
                   ]
                 )
