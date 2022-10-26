@@ -1,23 +1,37 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Plugin.GHCSpecter.Hooks
-  ( runRnSpliceHook',
+  ( -- * send information
+    sendModuleStart,
+    sendModuleName,
+
+    -- * hooks
+    runRnSpliceHook',
     runMetaHook',
     runPhaseHook',
   )
 where
 
-import Data.Time.Clock (getCurrentTime)
+import Data.Maybe (listToMaybe)
+import Data.Text qualified as T
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
+import GHC.Data.IOEnv (getEnv)
+import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Pipeline (runPhase)
+import GHC.Driver.Plugins
+  ( PluginWithArgs (..),
+    StaticPlugin (..),
+  )
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
-import GHC.Tc.Types (RnM, TcM)
+import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
 import GHC.Utils.Outputable (Outputable)
-import GHCSpecter.Channel.Common.Types (DriverId)
+import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
@@ -34,32 +48,83 @@ import Plugin.GHCSpecter.Tasks
     prePhaseCommands,
     rnSpliceCommands,
   )
+import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
+import Control.Applicative ((<|>))
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
+import Data.Foldable (for_)
 import Data.Text (Text)
+import GHC.Driver.Pipeline (PipeEnv (..))
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
   )
+import GHC.Driver.Plugins (staticPlugins)
+import GHC.Unit.Module.Location (ModLocation (..))
+import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.Name qualified as GHC
+import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
+import Plugin.GHCSpecter.Types
+  ( PluginSession (..),
+    getModuleFromDriverId,
+    getModuleFileFromDriverId,
+    sessionRef,
+  )
+import Plugin.GHCSpecter.Util (getModuleName)
+import System.Directory (canonicalizePath)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import Control.Monad.IO.Class (liftIO)
-import Data.Text qualified as T
 import GHC.Driver.Phases (Phase (As, StopLn))
-import GHC.Driver.Pipeline (CompPipeline, PhasePlus (HscOut, RealPhase))
+import GHC.Driver.Pipeline.Monad
+  ( CompPipeline,
+    PhasePlus (HscOut, RealPhase),
+    getPipeSession,
+  )
 import GHCSpecter.Util.GHC (showPpr)
 #endif
 
 
 data PhasePoint = PhaseStart | PhaseEnd
 
-runRnSpliceHook' ::
+-- NOTE: always assume a single static plugin, the first arg = drvId
+getDriverIdFromHscEnv :: HscEnv -> Maybe DriverId
+getDriverIdFromHscEnv hscenv = do
+#if MIN_VERSION_ghc(9, 4, 0)
+  sp <- listToMaybe (staticPlugins (hsc_plugins hscenv))
+  arg1 <- listToMaybe (paArguments (spPlugin sp))
+  DriverId <$> readMay arg1
+#elif MIN_VERSION_ghc(9, 2, 0)
+  sp <- listToMaybe (hsc_static_plugins hscenv)
+  arg1 <- listToMaybe (paArguments (spPlugin sp))
+  DriverId <$> readMay arg1
+#endif
+
+sendModuleStart ::
   DriverId ->
-  HsSplice GhcRn ->
-  RnM (HsSplice GhcRn)
-runRnSpliceHook' drvId splice = do
-  breakPoint drvId RnSplice (rnSpliceCommands splice)
-  pure splice
+  UTCTime ->
+  IO ()
+sendModuleStart drvId startTime = do
+  let timer = Timer [(TimerStart, startTime)]
+  queueMessage (CMTiming drvId timer)
+
+sendModuleName ::
+  DriverId ->
+  ModuleName ->
+  Maybe FilePath ->
+  IO ()
+sendModuleName drvId modName msrcfile =
+  queueMessage (CMModuleInfo drvId modName msrcfile)
+
+runRnSpliceHook' :: HsSplice GhcRn -> RnM (HsSplice GhcRn)
+runRnSpliceHook' splice = do
+  mdrvId <- getDriverIdFromHscEnv . env_top <$> getEnv
+  case mdrvId of
+    Nothing -> pure splice
+    Just drvId -> do
+      breakPoint drvId RnSplice (rnSpliceCommands splice)
+      pure splice
 
 -- NOTE: This is a HACK. The constructors of MetaResult are deliberately
 -- not exposed, and therefore, runMeta wraps runMetaHook with internal
@@ -81,21 +146,23 @@ wrapMeta unMeta drvId dflags s =
     pure (unMeta s)
 {-# NOINLINE wrapMeta #-}
 
-runMetaHook' ::
-  DriverId ->
-  MetaHook TcM
-runMetaHook' drvId metaReq expr = do
-  dflags <- getDynFlags
-  breakPoint drvId PreRunMeta (preMetaCommands expr)
-  -- HACK: as constructors of MetaResult are not exported, this is the only way.
-  let metaReq' =
-        case metaReq of
-          MetaE r -> MetaE (wrapMeta r drvId dflags)
-          MetaP r -> MetaP (wrapMeta r drvId dflags)
-          MetaT r -> MetaT (wrapMeta r drvId dflags)
-          MetaD r -> MetaD (wrapMeta r drvId dflags)
-          MetaAW r -> MetaAW (wrapMeta r drvId dflags)
-  defaultRunMeta metaReq' expr
+runMetaHook' :: MetaHook TcM
+runMetaHook' metaReq expr = do
+  mdrvId <- getDriverIdFromHscEnv . env_top <$> getEnv
+  case mdrvId of
+    Nothing -> defaultRunMeta metaReq expr
+    Just drvId -> do
+      dflags <- getDynFlags
+      breakPoint drvId PreRunMeta (preMetaCommands expr)
+      -- HACK: as constructors of MetaResult are not exported, this is the only way.
+      let metaReq' =
+            case metaReq of
+              MetaE r -> MetaE (wrapMeta r drvId dflags)
+              MetaP r -> MetaP (wrapMeta r drvId dflags)
+              MetaT r -> MetaT (wrapMeta r drvId dflags)
+              MetaD r -> MetaD (wrapMeta r drvId dflags)
+              MetaAW r -> MetaAW (wrapMeta r drvId dflags)
+      defaultRunMeta metaReq' expr
 
 #if MIN_VERSION_ghc(9, 4, 0)
 tphase2Text :: TPhase res -> Text
@@ -118,6 +185,49 @@ tphase2Text p =
     T_LlvmMangle {} -> "T_LlvmMangle"
     T_MergeForeign {} -> "T_MergeForeign"
 
+envFromTPhase :: TPhase res -> (HscEnv, Maybe PipeEnv, Maybe ModuleName)
+envFromTPhase p =
+  case p of
+    T_Unlit penv env _ -> (env, Just penv, Nothing)
+    T_FileArgs env _ -> (env, Nothing, Nothing)
+    T_Cpp penv env _ -> (env, Just penv, Nothing)
+    T_HsPp penv env _ _ -> (env, Just penv, Nothing)
+    T_HscRecomp penv env _ _ -> (env, Just penv, Nothing)
+    T_Hsc env modSummary -> (env, Nothing, Just (getModuleName modSummary))
+    T_HscPostTc env modSummary _ _ _ -> (env, Nothing, Just (getModuleName modSummary))
+    T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just (T.pack (GHC.moduleNameString mname)))
+    T_CmmCpp penv env _ -> (env, Just penv, Nothing)
+    T_Cmm penv env _ -> (env, Just penv, Nothing)
+    T_Cc _ penv env _ -> (env, Just penv, Nothing)
+    T_As _ penv env _ _ -> (env, Just penv, Nothing)
+    T_LlvmOpt penv env _ -> (env, Just penv, Nothing)
+    T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
+    T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
+    T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
+
+issueNewDriverId :: ModSummary -> IO DriverId
+issueNewDriverId modSummary = do
+  atomically $ do
+    s <- readTVar sessionRef
+    let drvId = psNextDriverId s
+        modName = getModuleName modSummary
+        mmodFile = ml_hs_file $ ms_location modSummary
+
+        drvModMap = psDrvIdModuleMap s
+        drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
+        drvModFileMap = psDrvIdModuleFileMap s
+        drvModFileMap' =
+          case mmodFile of
+            Nothing -> drvModFileMap
+            Just modFile -> insertToBiKeyMap (drvId, modFile) drvModFileMap
+        s' =
+          s { psDrvIdModuleMap = drvModMap'
+            , psDrvIdModuleFileMap = drvModFileMap'
+            , psNextDriverId = drvId + 1
+            }
+    writeTVar sessionRef s'
+    pure drvId
+
 -- NOTE: I tried to approximate GHC 9.2 version of this function.
 -- TODO: Figure out more robust way for detecting the end of
 -- compilation. In the worst case, we can just turn on timing
@@ -139,8 +249,13 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           startTime <- getCurrentTime
-          let timer = Timer [(TimerStart, startTime)]
-          queueMessage (CMTiming drvId timer)
+          sendModuleStart drvId startTime
+          -- send module name information
+          mmodName <- atomically $ getModuleFromDriverId drvId
+          msrcFile <- atomically $ getModuleFileFromDriverId drvId
+          msrcFile' <- traverse canonicalizePath msrcFile
+          for_ mmodName $ \modName ->
+            sendModuleName drvId modName msrcFile'
         _ -> pure ()
     T_HscPostTc {} ->
       case pt of
@@ -174,18 +289,46 @@ sendCompStateOnPhase drvId phase pt = do
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 
-runPhaseHook' :: DriverId -> PhaseHook
-runPhaseHook' drvId = PhaseHook $ \phase -> do
-  let phaseTxt = tphase2Text phase
-  let locPrePhase = PreRunPhase phaseTxt
-  breakPoint drvId locPrePhase prePhaseCommands
-  sendCompStateOnPhase drvId phase PhaseStart
-  result <- runPhase phase
-  let phase'Txt = phaseTxt
-      locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-  breakPoint drvId locPostPhase postPhaseCommands
-  sendCompStateOnPhase drvId phase PhaseEnd
-  pure result
+runPhaseHook' :: PhaseHook
+runPhaseHook' = PhaseHook $ \phase -> do
+  let (_, mpenv, mname) = envFromTPhase phase
+      phaseTxt = tphase2Text phase
+  (phase', mdrvId) <-
+    case phase of
+      T_Hsc env modSummary -> do
+        mdrvId' <- Just <$> issueNewDriverId modSummary
+        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
+           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
+           provideContext (StaticPlugin pa) =
+             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
+              in StaticPlugin pa'
+           plugins = hsc_plugins env
+           splugins = staticPlugins plugins
+           splugins' = fmap provideContext splugins
+           plugins' = plugins {staticPlugins = splugins'}
+           env' = env {hsc_plugins = plugins'}
+           phase' = T_Hsc env' modSummary
+        pure (phase', mdrvId')
+      _ -> atomically $ do
+        s <- readTVar sessionRef
+        let mdrvId' =
+              (mname >>= \name -> backwardLookup name (psDrvIdModuleMap s))
+              <|> ( mpenv >>= \(PipeEnv {..}) ->
+                      backwardLookup src_filename (psDrvIdModuleFileMap s)
+                  )
+        pure (phase, mdrvId')
+  case mdrvId of
+    Nothing -> runPhase phase'
+    Just drvId -> do
+      let locPrePhase = PreRunPhase phaseTxt
+      breakPoint drvId locPrePhase prePhaseCommands
+      sendCompStateOnPhase drvId phase PhaseStart
+      result <- runPhase phase'
+      let phase'Txt = phaseTxt
+          locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+      breakPoint drvId locPostPhase postPhaseCommands
+      sendCompStateOnPhase drvId phase PhaseEnd
+      pure result
 
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::
@@ -216,23 +359,27 @@ sendCompStateOnPhase drvId phase pt = do
     _ -> pure ()
 
 runPhaseHook' ::
-  DriverId ->
   PhasePlus ->
   FilePath ->
   CompPipeline (PhasePlus, FilePath)
-runPhaseHook' drvId phase fp = do
-  dflags <- getDynFlags
-  -- pre phase timing
-  let phaseTxt = T.pack (showPpr dflags phase)
-      locPrePhase = PreRunPhase phaseTxt
-  breakPoint drvId locPrePhase prePhaseCommands
-  sendCompStateOnPhase drvId phase PhaseStart
-  -- actual runPhase
-  (phase', fp') <- runPhase phase fp
-  -- post phase timing
-  let phase'Txt = T.pack (showPpr dflags phase')
-      locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-  breakPoint drvId locPostPhase postPhaseCommands
-  sendCompStateOnPhase drvId phase' PhaseEnd
-  pure (phase', fp')
+runPhaseHook' phase fp = do
+  hscenv <- getPipeSession
+  let mdrvId = getDriverIdFromHscEnv hscenv
+  case mdrvId of
+    Nothing -> runPhase phase fp
+    Just drvId -> do
+      dflags <- getDynFlags
+      -- pre phase timing
+      let phaseTxt = T.pack (showPpr dflags phase)
+          locPrePhase = PreRunPhase phaseTxt
+      breakPoint drvId locPrePhase prePhaseCommands
+      sendCompStateOnPhase drvId phase PhaseStart
+      -- actual runPhase
+      (phase', fp') <- runPhase phase fp
+      -- post phase timing
+      let phase'Txt = T.pack (showPpr dflags phase')
+          locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+      breakPoint drvId locPostPhase postPhaseCommands
+      sendCompStateOnPhase drvId phase' PhaseEnd
+      pure (phase', fp')
 #endif

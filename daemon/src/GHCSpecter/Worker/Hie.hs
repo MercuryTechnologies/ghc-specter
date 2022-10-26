@@ -23,10 +23,6 @@ import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.IO qualified as TIO
 import GHC.Iface.Ext.Binary
   ( HieFileResult (..),
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
-    NameCacheUpdater (NCU),
-#endif
     readHieFile,
   )
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
@@ -47,13 +43,17 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
 import HieDb.Compat
-  ( mkSplitUniqSupply,
-    moduleName,
+  ( moduleName,
     moduleNameString,
     occNameString,
   )
 import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import HieDb.Utils (genDefRow, genRefsAndDecls)
+#if MIN_VERSION_ghc(9, 4, 0)
+#elif MIN_VERSION_ghc(9, 2, 0)
+import GHC.Iface.Ext.Binary (NameCacheUpdater (NCU))
+import HieDb.Compat (mkSplitUniqSupply)
+#endif
 
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =

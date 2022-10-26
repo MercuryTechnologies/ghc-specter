@@ -94,7 +94,7 @@ runMessageQueue cfg queue = do
 
 queueMessage :: ChanMessage a -> IO ()
 queueMessage !msg = do
-  mqueue <- getMsgQueue
+  mqueue <- atomically getMsgQueue
   for_ mqueue $ \queue ->
     atomically $
       modifyTVar' (msgSenderQueue queue) (|> CMBox msg)

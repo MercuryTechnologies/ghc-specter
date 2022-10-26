@@ -55,7 +55,7 @@ consoleAction ::
   TVar (Maybe (m ())) ->
   IO ()
 consoleAction drvId loc cmds actionRef = liftIO $ do
-  mqueue <- getMsgQueue
+  mqueue <- atomically getMsgQueue
   for_ mqueue $ \queue -> do
     let rQ = msgReceiverQueue queue
     req <-
@@ -141,7 +141,8 @@ breakPoint drvId loc cmds = do
     go actionRef (action, isBlocked) = do
       action
       liftIO $ do
-        mmodName <- getModuleFromDriverId drvId
+        -- TODO: a series of @atomically@ looks fishy. combine them if okay.
+        mmodName <- atomically $ getModuleFromDriverId drvId
         atomically $ do
           psess <- readTVar sessionRef
           let modBreakpoints = psModuleBreakpoints psess

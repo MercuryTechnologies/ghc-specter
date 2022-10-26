@@ -120,9 +120,7 @@ invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
-    CMTiming drvId timer' -> do
-      print (drvId, timer')
-      pure ()
+    CMTiming {} -> pure ()
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'
