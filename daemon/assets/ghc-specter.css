@@ -6,8 +6,8 @@ body {
 }
 
 button {
-    font-size: 10px;
-    padding: 2px;
+    font-size: 8px;
+    padding: 0px;
     border: solid 0.5px grey;
     background: white;
 }
@@ -21,12 +21,24 @@ button:hover {
     text-align: center;
 }
 
+.session-title {
+    margin: 8px 2px 2px 2px;
+    font-size: 10px;
+    font-weight: bold;
+}
+.session-section {
+    padding: 5px;
+    width: 75vw;
+    font-size: 8px;
+}
+
 nav {
     margin: 2px 2px 1px 0px;
     padding: 2px 2px 2px 0px;
     border-bottom: solid 0.5px grey;
     white-space: nowrap;
     overflow-x: scroll;
+    width: 100%;
 }
 
 .is-tab {
@@ -73,14 +85,6 @@ nav {
 
 .column.is-three-quarters {
     width: 75%;
-}
-
-nav {
-    width: 100%;
-}
-
-.box {
-    border: solid 0.5px grey;
 }
 
 .module-status {
@@ -270,6 +274,12 @@ ul.tree span::before {
 .core-expr > pre {
     margin: 0;
     padding: 0;
+}
+
+/* common property classes */
+
+.box {
+    border: solid 0.5px grey;
 }
 
 .error {

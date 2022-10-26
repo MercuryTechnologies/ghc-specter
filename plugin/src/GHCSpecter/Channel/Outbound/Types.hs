@@ -13,6 +13,8 @@ module GHCSpecter.Channel.Outbound.Types
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
     ConsoleReply (..),
+    ProcessInfo (..),
+    emptyProcessInfo,
     SessionInfo (..),
     emptySessionInfo,
 
@@ -142,8 +144,26 @@ instance Binary ModuleGraphInfo
 emptyModuleGraphInfo :: ModuleGraphInfo
 emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 
+-- | GHC process info, including process id, command line arguments.
+data ProcessInfo = ProcessInfo
+  { procPID :: Int
+  , procExecPath  :: FilePath
+  , procCWD :: FilePath
+  , procArguments :: [String]
+  }
+  deriving (Show, Generic)
+
+instance Binary ProcessInfo
+
+instance FromJSON ProcessInfo
+
+instance ToJSON ProcessInfo
+
+emptyProcessInfo :: ProcessInfo
+emptyProcessInfo = ProcessInfo 0 "" "" []
+
 data SessionInfo = SessionInfo
-  { sessionProcessId :: Int
+  { sessionProcess :: ProcessInfo
   , sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
   , sessionModuleSources :: Map ModuleName FilePath
@@ -159,7 +179,7 @@ instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
-  SessionInfo 0 Nothing emptyModuleGraphInfo M.empty True
+  SessionInfo emptyProcessInfo Nothing emptyModuleGraphInfo M.empty True
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports

@@ -49,6 +49,7 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
+    ProcessInfo (..),
     SessionInfo (..),
   )
 import GHCSpecter.Config
@@ -85,7 +86,8 @@ import Plugin.GHCSpecter.Util
     extractModuleSources,
   )
 import Safe (headMay, readMay)
-import System.Directory (canonicalizePath)
+import System.Directory (canonicalizePath, getCurrentDirectory)
+import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
 -- GHC-version-dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
@@ -110,8 +112,8 @@ import Plugin.GHCSpecter.Util (getModuleName)
 -- TODO: Make the initialization work with GHCi.
 
 -- | GHC session-wide initialization
-initGhcSession :: [CommandLineOption] -> HscEnv -> IO ()
-initGhcSession opts env = do
+initGhcSession :: HscEnv -> IO ()
+initGhcSession env = do
   -- NOTE: Read session and overwrite on the session should be done in a single
   -- atomic STM operation. As a consequence, unfortunately, the necessary IO
   -- action should be done outside STM beforehand, which implies the action will
@@ -119,17 +121,12 @@ initGhcSession opts env = do
   -- This is because we do not have a plugin insertion at real GHC initialization.
   startTime <- getCurrentTime
   pid <- fromInteger . toInteger <$> getCurrentPid
+  execPath <- getExecutablePath
+  cwd <- canonicalizePath =<< getCurrentDirectory
+  args <- getArgs
   queue_ <- initMsgQueue
   ecfg <- loadConfig defaultGhcSpecterConfigFile
-  let cfg1 =
-        case ecfg of
-          Left _ -> emptyConfig
-          Right cfg -> cfg
-      -- overwrite ipcfile if specified by CLI arguments
-      cfg2 =
-        case opts of
-          ipcfile : _ -> cfg1 {configSocket = ipcfile}
-          _ -> cfg1
+  let cfg = either (const emptyConfig) id ecfg
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
   (isNewStart, queue) <-
@@ -147,24 +144,24 @@ initGhcSession opts env = do
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
-                  { sessionProcessId = pid
+                  { sessionProcess = ProcessInfo pid execPath cwd args
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty
-                  , sessionIsPaused = configStartWithBreakpoint cfg2
+                  , sessionIsPaused = configStartWithBreakpoint cfg
                   }
           modifyTVar'
             sessionRef
             ( \s ->
                 s
-                  { psSessionConfig = cfg2
+                  { psSessionConfig = cfg
                   , psSessionInfo = newGhcSessionInfo
                   , psMessageQueue = Just queue_
                   }
             )
           pure (True, queue_)
   when isNewStart $ do
-    void $ forkOS $ runMessageQueue cfg2 queue
+    void $ forkOS $ runMessageQueue cfg queue
     let modGraph = hsc_mod_graph env
     modSources <- extractModuleSources modGraph
     sinfo <-
@@ -349,7 +346,7 @@ corePlugin opts todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  initGhcSession opts env0
+  initGhcSession env0
   -- Note: Here we try to detect the start of the compilation of each module
   -- and assign driver id per the instance.
   -- From GHC 9.4, the start point can be consistenly detected by runPhaseHook.
