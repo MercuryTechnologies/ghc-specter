@@ -14,9 +14,6 @@ module Plugin.GHCSpecter.Hooks
   )
 where
 
-import Control.Applicative ((<|>))
-import Control.Concurrent.STM (atomically, readTVar, writeTVar)
-import Data.Foldable (for_)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -25,8 +22,7 @@ import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Pipeline (runPhase)
 import GHC.Driver.Plugins
-  ( Plugin (..),
-    PluginWithArgs (..),
+  ( PluginWithArgs (..),
     StaticPlugin (..),
   )
 import GHC.Driver.Session (DynFlags)
@@ -34,7 +30,6 @@ import GHC.Hs.Extension (GhcRn)
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
-import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
@@ -43,7 +38,6 @@ import GHCSpecter.Channel.Outbound.Types
     Timer (..),
     TimerTag (..),
   )
-import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
 import Language.Haskell.Syntax.Expr (HsSplice)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
@@ -54,34 +48,34 @@ import Plugin.GHCSpecter.Tasks
     prePhaseCommands,
     rnSpliceCommands,
   )
-import Plugin.GHCSpecter.Types
-  ( PluginSession (..),
-    assignModuleToDriverId,
-    assignModuleFileToDriverId,
-    getModuleFromDriverId,
-    getModuleFileFromDriverId,
-    sessionRef,
-  )
-import Plugin.GHCSpecter.Util (getModuleName)
 import Safe (readMay)
-import System.Directory (canonicalizePath)
 import System.IO.Unsafe (unsafePerformIO)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
+import Control.Applicative ((<|>))
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
+import Data.Foldable (for_)
 import Data.Text (Text)
-import GHC.Driver.Phases (StopPhase (..))
 import GHC.Driver.Pipeline (PipeEnv (..))
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
   )
 import GHC.Driver.Plugins (staticPlugins)
+import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name qualified as GHC
-import GHC.Unit.Types (GenModule (moduleName))
+import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
+import Plugin.GHCSpecter.Types
+  ( PluginSession (..),
+    getModuleFromDriverId,
+    getModuleFileFromDriverId,
+    sessionRef,
+  )
+import Plugin.GHCSpecter.Util (getModuleName)
+import System.Directory (canonicalizePath)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import Control.Monad.IO.Class (liftIO)
-import Data.Text qualified as T
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline.Monad
   ( CompPipeline,
@@ -191,28 +185,6 @@ tphase2Text p =
     T_LlvmMangle {} -> "T_LlvmMangle"
     T_MergeForeign {} -> "T_MergeForeign"
 
-showStopPhase :: StopPhase -> String
-showStopPhase StopPreprocess = "StopPreprocess"
-showStopPhase StopC = "StopC"
-showStopPhase StopAs = "StopAs"
-showStopPhase NoStop = "NoStop"
-
-showPipeEnv :: PipeEnv -> String
-showPipeEnv PipeEnv {..} =
-  "PipeEnv ("
-    ++ showStopPhase stop_phase
-    ++ ", "
-    ++ show src_filename
-    ++ ", "
-    ++ show src_basename
-    ++ ", "
-    ++ show src_suffix
-    ++ ", "
-    ++ show start_phase
-    ++ ", "
-    ++ show output_spec
-    ++ ")"
-
 envFromTPhase :: TPhase res -> (HscEnv, Maybe PipeEnv, Maybe ModuleName)
 envFromTPhase p =
   case p of
@@ -272,7 +244,7 @@ sendCompStateOnPhase drvId phase pt = do
     T_Cpp {} -> pure ()
     T_HsPp {} -> pure ()
     T_HscRecomp {} -> pure ()
-    T_Hsc _ modSummary ->
+    T_Hsc {} ->
       case pt of
         PhaseStart -> do
           -- send timing information
@@ -319,7 +291,7 @@ sendCompStateOnPhase drvId phase pt = do
 
 runPhaseHook' :: PhaseHook
 runPhaseHook' = PhaseHook $ \phase -> do
-  let (hscenv, mpenv, mname) = envFromTPhase phase
+  let (_, mpenv, mname) = envFromTPhase phase
       phaseTxt = tphase2Text phase
   (phase', mdrvId) <-
     case phase of

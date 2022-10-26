@@ -113,7 +113,7 @@ assignModuleToDriverId drvId modName =
     s <- readTVar sessionRef
     let drvModMap = psDrvIdModuleMap s
         drvModMap' = insertToBiKeyMap (drvId, modName) drvModMap
-    modifyTVar' sessionRef $ \s -> s {psDrvIdModuleMap = drvModMap'}
+    modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleMap = drvModMap'}
 
 assignModuleFileToDriverId :: DriverId -> FilePath -> IO ()
 assignModuleFileToDriverId drvId modFile =
@@ -121,7 +121,7 @@ assignModuleFileToDriverId drvId modFile =
     s <- readTVar sessionRef
     let drvModFileMap = psDrvIdModuleFileMap s
         drvModFileMap' = insertToBiKeyMap (drvId, modFile) drvModFileMap
-    modifyTVar' sessionRef $ \s -> s {psDrvIdModuleFileMap = drvModFileMap'}
+    modifyTVar' sessionRef $ \s' -> s' {psDrvIdModuleFileMap = drvModFileMap'}
 
 getModuleFromDriverId :: DriverId -> IO (Maybe ModuleName)
 getModuleFromDriverId drvId = do
