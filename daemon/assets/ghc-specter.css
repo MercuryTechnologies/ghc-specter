@@ -6,8 +6,8 @@ body {
 }
 
 button {
-    font-size: 10px;
-    padding: 2px;
+    font-size: 8px;
+    padding: 0px;
     border: solid 0.5px grey;
     background: white;
 }
@@ -21,11 +21,14 @@ button:hover {
     text-align: center;
 }
 
-.process-info {
+.session-title {
+    margin: 8px 2px 2px 2px;
+    font-size: 10px;
+    font-weight: bold;
+}
+.session-section {
     padding: 5px;
     width: 75vw;
-    height: 30vh;
-    overflow: scroll;
     font-size: 8px;
 }
 
