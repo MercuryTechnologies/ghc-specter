@@ -14,7 +14,7 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~), (^.), _1, _2)
+import Control.Lens ((%~), (.~), (^.), _2)
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
@@ -121,11 +121,11 @@ invokeWorker ssRef workQ (CMBox o) =
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
     CMTiming _ timer -> do
-      let liveBytes = mapMaybe (^. _2 . _2) (unTimer timer)
-          format bytes =
+      let memInfos = mapMaybe (^. _2 . _2) (unTimer timer)
+          {- format bytes =
             let n = fromIntegral (bytes `div` (100_000_000))
-             in (replicate n '#' ++ "     " ++ show bytes)
-      F.traverse_ (putStrLn . format) liveBytes
+             in (replicate n '#' ++ "     " ++ show bytes) -}
+      F.traverse_ {- (putStrLn . format) -} print memInfos
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'

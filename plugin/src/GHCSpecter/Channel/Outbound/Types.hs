@@ -5,6 +5,7 @@ module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
     BreakpointLoc (..),
     TimerTag (..),
+    MemInfo (..),
     Timer (..),
     getStartTime,
     getHscOutTime,
@@ -27,6 +28,7 @@ where
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
+import Data.Int (Int64)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Map.Strict (Map)
@@ -103,8 +105,19 @@ instance Binary TimerTag where
   put tag = put (fromEnum tag)
   get = toEnum <$> get
 
--- timestamp and live memory from GC.
-newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe Word64))]}
+data MemInfo = MemInfo
+  { memLiveBytes :: Word64
+  , memAllocCounter :: Int64
+  }
+  deriving (Show, Generic)
+
+instance Binary MemInfo
+
+instance FromJSON MemInfo
+
+instance ToJSON MemInfo
+
+newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary, FromJSON, ToJSON)
 
 getStartTime :: Timer -> Maybe UTCTime

@@ -18,7 +18,6 @@ import Control.Monad.Extra (ifM)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Data.Word (Word64)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
@@ -43,6 +42,7 @@ import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
+    MemInfo (..),
     Timer (..),
     TimerTag (..),
   )
@@ -58,6 +58,7 @@ import Plugin.GHCSpecter.Tasks
   )
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Mem (setAllocationCounter, getAllocationCounter)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
 import Control.Applicative ((<|>))
@@ -112,10 +113,10 @@ getDriverIdFromHscEnv hscenv = do
 sendModuleStart ::
   DriverId ->
   UTCTime ->
-  Maybe Word64 ->
+  Maybe MemInfo ->
   IO ()
-sendModuleStart drvId startTime mliveBytes = do
-  let timer = Timer [(TimerStart, (startTime, mliveBytes))]
+sendModuleStart drvId startTime mmeminfo = do
+  let timer = Timer [(TimerStart, (startTime, mmeminfo))]
   queueMessage (CMTiming drvId timer)
 
 sendModuleName ::
@@ -237,12 +238,14 @@ issueNewDriverId modSummary = do
     writeTVar sessionRef s'
     pure drvId
 
-getLiveBytes :: IO (Maybe Word64)
-getLiveBytes =
-  ifM
-    getRTSStatsEnabled
-    (Just . gcdetails_live_bytes . gc <$> getRTSStats)
-    (pure Nothing)
+getMemInfo :: IO (Maybe MemInfo)
+getMemInfo = ifM getRTSStatsEnabled getInfo (pure Nothing)
+  where
+    getInfo = do
+      rtsstats <- getRTSStats
+      alloc <- getAllocationCounter
+      let liveBytes = gcdetails_live_bytes . gc $ rtsstats
+      pure $ Just $ MemInfo liveBytes alloc
 
 -- NOTE: I tried to approximate GHC 9.2 version of this function.
 -- TODO: Figure out more robust way for detecting the end of
@@ -265,8 +268,9 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           startTime <- getCurrentTime
-          mliveBytes <- getLiveBytes
-          sendModuleStart drvId startTime mliveBytes
+          setAllocationCounter 0
+          mmeminfo <- getMemInfo
+          sendModuleStart drvId startTime mmeminfo
           -- send module name information
           mmodName <- atomically $ getModuleFromDriverId drvId
           msrcFile <- atomically $ getModuleFileFromDriverId drvId
@@ -279,8 +283,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           hscOutTime <- getCurrentTime
-          mliveBytes <- getLiveBytes
-          let timer = Timer [(TimerHscOut, (hscOutTime, mliveBytes))]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_HscBackend {} -> pure ()
@@ -292,8 +296,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           asStartTime <- getCurrentTime
-          mliveBytes <- getLiveBytes
-          let timer = Timer [(TimerAs, (asStartTime, mliveBytes))]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerAs, (asStartTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_LlvmOpt {} -> pure ()
@@ -304,8 +308,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           endTime <- getCurrentTime
-          mliveBytes <- getLiveBytes
-          let timer = Timer [(TimerEnd, (endTime, mliveBytes))]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 
