@@ -14,11 +14,11 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~), (^.))
+import Control.Lens ((%~), (.~), (^.), _1, _2)
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -120,7 +120,12 @@ invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
-    CMTiming {} -> pure ()
+    CMTiming _ timer -> do
+      let liveBytes = mapMaybe (^. _2 . _2) (unTimer timer)
+          format bytes =
+            let n = fromIntegral (bytes `div` (100_000_000))
+             in (replicate n '#' ++ "     " ++ show bytes)
+      F.traverse_ (putStrLn . format) liveBytes
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'

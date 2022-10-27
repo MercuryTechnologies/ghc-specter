@@ -388,7 +388,7 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [splugin]}
   -- send module start signal here on GHC 9.2
   startTime <- getCurrentTime
-  sendModuleStart drvId startTime
+  sendModuleStart drvId startTime Nothing
   breakPoint drvId StartDriver driverCommands
 #endif
   let hooks = hsc_hooks env

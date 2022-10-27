@@ -14,10 +14,11 @@ module Plugin.GHCSpecter.Hooks
   )
 where
 
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (ifM)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Word (Word64)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
@@ -111,9 +112,10 @@ getDriverIdFromHscEnv hscenv = do
 sendModuleStart ::
   DriverId ->
   UTCTime ->
+  Maybe Word64 ->
   IO ()
-sendModuleStart drvId startTime = do
-  let timer = Timer [(TimerStart, startTime)]
+sendModuleStart drvId startTime mliveBytes = do
+  let timer = Timer [(TimerStart, (startTime, mliveBytes))]
   queueMessage (CMTiming drvId timer)
 
 sendModuleName ::
@@ -235,6 +237,13 @@ issueNewDriverId modSummary = do
     writeTVar sessionRef s'
     pure drvId
 
+getLiveBytes :: IO (Maybe Word64)
+getLiveBytes =
+  ifM
+    getRTSStatsEnabled
+    (Just . gcdetails_live_bytes . gc <$> getRTSStats)
+    (pure Nothing)
+
 -- NOTE: I tried to approximate GHC 9.2 version of this function.
 -- TODO: Figure out more robust way for detecting the end of
 -- compilation. In the worst case, we can just turn on timing
@@ -254,12 +263,10 @@ sendCompStateOnPhase drvId phase pt = do
     T_Hsc {} ->
       case pt of
         PhaseStart -> do
-          whenM getRTSStatsEnabled $ do
-            stats <- getRTSStats
-            print (gcdetails_live_bytes (gc stats))
           -- send timing information
           startTime <- getCurrentTime
-          sendModuleStart drvId startTime
+          mliveBytes <- getLiveBytes
+          sendModuleStart drvId startTime mliveBytes
           -- send module name information
           mmodName <- atomically $ getModuleFromDriverId drvId
           msrcFile <- atomically $ getModuleFileFromDriverId drvId
@@ -272,7 +279,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           hscOutTime <- getCurrentTime
-          let timer = Timer [(TimerHscOut, hscOutTime)]
+          mliveBytes <- getLiveBytes
+          let timer = Timer [(TimerHscOut, (hscOutTime, mliveBytes))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_HscBackend {} -> pure ()
@@ -284,7 +292,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           asStartTime <- getCurrentTime
-          let timer = Timer [(TimerAs, asStartTime)]
+          mliveBytes <- getLiveBytes
+          let timer = Timer [(TimerAs, (asStartTime, mliveBytes))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_LlvmOpt {} -> pure ()
@@ -295,7 +304,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           endTime <- getCurrentTime
-          let timer = Timer [(TimerEnd, endTime)]
+          mliveBytes <- getLiveBytes
+          let timer = Timer [(TimerEnd, (endTime, mliveBytes))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 

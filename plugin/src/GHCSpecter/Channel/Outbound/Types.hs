@@ -34,6 +34,7 @@ import Data.Map.Strict qualified as M
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.Tree (Forest)
+import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.RTS.Flags (RTSFlags)
 import GHCSpecter.Channel.Common.Types
@@ -102,20 +103,21 @@ instance Binary TimerTag where
   put tag = put (fromEnum tag)
   get = toEnum <$> get
 
-newtype Timer = Timer {unTimer :: [(TimerTag, UTCTime)]}
+-- timestamp and live memory from GC.
+newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe Word64))]}
   deriving (Show, Generic, Binary, FromJSON, ToJSON)
 
 getStartTime :: Timer -> Maybe UTCTime
-getStartTime (Timer ts) = L.lookup TimerStart ts
+getStartTime (Timer ts) = fmap fst $ L.lookup TimerStart ts
 
 getHscOutTime :: Timer -> Maybe UTCTime
-getHscOutTime (Timer ts) = L.lookup TimerHscOut ts
+getHscOutTime (Timer ts) = fmap fst $ L.lookup TimerHscOut ts
 
 getAsTime :: Timer -> Maybe UTCTime
-getAsTime (Timer ts) = L.lookup TimerAs ts
+getAsTime (Timer ts) = fmap fst $ L.lookup TimerAs ts
 
 getEndTime :: Timer -> Maybe UTCTime
-getEndTime (Timer ts) = L.lookup TimerEnd ts
+getEndTime (Timer ts) = fmap fst $ L.lookup TimerEnd ts
 
 data ConsoleReply
   = -- | simple textual reply (with name optionally)
