@@ -23,6 +23,7 @@ import GHC.RTS.Flags
     TickyFlags,
     TraceFlags,
   )
+import GHC.Stats (GCDetails, RTSStats)
 
 -- orphan instances
 instance Binary GiveGCStats
@@ -124,3 +125,14 @@ instance FromJSON RTSFlags
 
 instance ToJSON RTSFlags
 
+instance Binary GCDetails
+
+instance FromJSON GCDetails
+
+instance ToJSON GCDetails
+
+instance Binary RTSStats
+
+instance FromJSON RTSStats
+
+instance ToJSON RTSStats
