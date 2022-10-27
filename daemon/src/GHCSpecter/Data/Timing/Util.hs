@@ -46,16 +46,16 @@ import GHCSpecter.Data.Map
     lookupKey,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasTimingInfo (..),
+  ( HasPipelineInfo (..),
     HasTimingTable (..),
-    TimingInfo (..),
+    PipelineInfo (..),
     TimingTable,
     emptyTimingTable,
   )
 
-isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool
+isTimeInTimerRange :: (Ord a) => a -> PipelineInfo a -> Bool
 isTimeInTimerRange x tinfo =
-  x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
+  x >= (tinfo ^. plStart) && x <= (tinfo ^. plEnd)
 
 isModuleCompilationDone :: BiKeyMap DriverId ModuleName -> KeyMap DriverId Timer -> ModuleName -> Bool
 isModuleCompilationDone drvModMap timing modu =
@@ -86,16 +86,16 @@ makeTimingTable timing drvModMap mgi sessStart =
           modAsTimeDiff = modAsTime `diffUTCTime` sessStart
           modEndTimeDiff = modEndTime `diffUTCTime` sessStart
           tinfo =
-            TimingInfo
-              { _timingStart = modStartTimeDiff
-              , _timingHscOut = modHscOutTimeDiff
-              , _timingAs = modAsTimeDiff
-              , _timingEnd = modEndTimeDiff
+            PipelineInfo
+              { _plStart = modStartTimeDiff
+              , _plHscOut = modHscOutTimeDiff
+              , _plAs = modAsTimeDiff
+              , _plEnd = modEndTimeDiff
               }
       pure (modName, tinfo)
     timingInfos =
       fmap (first findModName)
-        . L.sortOn (^. _2 . timingStart)
+        . L.sortOn (^. _2 . plStart)
         . mapMaybe subtractTime
         $ keyMapToList timing
 
@@ -115,7 +115,7 @@ makeTimingTable timing drvModMap mgi sessStart =
           upTiming = filter isMyUpstream timingInfos'
       if (null upTiming)
         then Nothing
-        else pure $ L.maximumBy (compare `on` (^. _2 . timingEnd)) upTiming
+        else pure $ L.maximumBy (compare `on` (^. _2 . plEnd)) upTiming
 
     lastDepMap =
       M.fromList $

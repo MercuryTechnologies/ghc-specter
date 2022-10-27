@@ -37,7 +37,7 @@ import GHCSpecter.Channel.Outbound.Types
     SessionInfo (..),
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasTimingInfo (..),
+  ( HasPipelineInfo (..),
     HasTimingTable (..),
     TimingTable,
   )
@@ -171,7 +171,7 @@ renderTimingChart tui ttable =
   let timingInfos = ttable ^. ttableTimingInfos
       mhoveredMod = tui ^. timingUIHoveredModule
       nMods = length timingInfos
-      modEndTimes = fmap (^. _2 . timingEnd) timingInfos
+      modEndTimes = fmap (^. _2 . plEnd) timingInfos
       totalTime =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
@@ -180,22 +180,22 @@ renderTimingChart tui ttable =
       topOfBox :: Int -> Int
       topOfBox = floor . module2Y . fromIntegral
       leftOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
+        let startTime = tinfo ^. plStart
          in floor (diffTime2X totalTime startTime) :: Int
       rightOfBox (_, tinfo) =
-        let endTime = tinfo ^. timingEnd
+        let endTime = tinfo ^. plEnd
          in floor (diffTime2X totalTime endTime) :: Int
       widthOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            endTime = tinfo ^. timingEnd
+        let startTime = tinfo ^. plStart
+            endTime = tinfo ^. plEnd
          in floor (diffTime2X totalTime (endTime - startTime)) :: Int
       widthHscOutOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            hscOutTime = tinfo ^. timingHscOut
+        let startTime = tinfo ^. plStart
+            hscOutTime = tinfo ^. plHscOut
          in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
       widthAsOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            asTime = tinfo ^. timingAs
+        let startTime = tinfo ^. plStart
+            asTime = tinfo ^. plAs
          in floor (diffTime2X totalTime (asTime - startTime)) :: Int
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
@@ -545,7 +545,7 @@ renderBlockerGraph ss =
     maxTime =
       case ttable ^. ttableTimingInfos of
         [] -> secondsToNominalDiffTime 1.0
-        ts -> maximum (fmap (\(_, t) -> t ^. timingEnd - t ^. timingStart) ts)
+        ts -> maximum (fmap (\(_, t) -> t ^. plEnd - t ^. plStart) ts)
     mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
       case mblockerGraphViz of
@@ -554,7 +554,7 @@ renderBlockerGraph ss =
           let valueFor name =
                 fromMaybe 0 $ do
                   t <- L.lookup (Just name) (ttable ^. ttableTimingInfos)
-                  pure $ realToFrac ((t ^. timingEnd - t ^. timingStart) / maxTime)
+                  pure $ realToFrac ((t ^. plEnd - t ^. plStart) / maxTime)
            in [ TimingEv . BlockerModuleGraphEv
                   <$> GraphView.renderModuleGraph
                     nameMap
