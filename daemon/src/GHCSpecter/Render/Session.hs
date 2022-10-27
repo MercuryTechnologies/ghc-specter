@@ -14,6 +14,8 @@ import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import GHC.RTS.Flags (RTSFlags)
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
@@ -52,6 +54,7 @@ import GHCSpecter.UI.Types.Event
   ( Event (..),
     SessionEvent (..),
   )
+import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
@@ -77,6 +80,21 @@ renderSessionButtons session =
             , classList [("button", True)]
             ]
             [text txt]
+
+renderCompilationStatus :: (Int, Int, Int) -> Widget IHTML a
+renderCompilationStatus (nDone, nInProg, nTot) =
+  divClass
+    "session-section"
+    []
+    [text messageModuleStatus]
+  where
+    messageModuleStatus =
+      "# of modules (done / in progress / total): "
+        <> T.pack (show nDone)
+        <> " / "
+        <> T.pack (show nInProg)
+        <> " / "
+        <> T.pack (show nTot)
 
 renderModuleInProgress ::
   BiKeyMap DriverId ModuleName ->
@@ -110,36 +128,76 @@ renderProcessInfo procinfo =
         []
         [ div [] [spanClass "box" [] [text "CLI Arguments"], text ":"]
         , div
-            [style [("height", "30vh"), ("overflow", "scroll")]]
-            [msgArgs]
+            [style [("height", "10vh"), ("overflow", "scroll")]]
+            msgArgs
         ]
     ]
   where
-    packShow = T.pack . show
-    msgPID = text $ packShow $ procPID procinfo
+    msgPID = text $ T.pack $ show $ procPID procinfo
     msgPath = text $ T.pack $ procExecPath procinfo
     msgCWD = text $ T.pack $ procCWD procinfo
-    msgArgs = text $ T.intercalate " " (fmap T.pack (procArguments procinfo))
+    msgArgs =
+      let mkItem x = p [style [("margin", "0")]] [text (T.pack x)]
+       in fmap mkItem (procArguments procinfo)
 
-renderCompilationStatus :: (Int, Int, Int) -> Widget IHTML a
-renderCompilationStatus (nDone, nInProg, nTot) =
+renderRTSInfo :: RTSFlags -> Widget IHTML a
+renderRTSInfo rtsflags =
   divClass
     "session-section"
-    []
-    [text messageModuleStatus]
+    [style [("height", "20vh"), ("overflow", "scroll")]]
+    [msg]
   where
-    messageModuleStatus =
-      "# of modules (done / in progress / total): "
-        <> T.pack (show nDone)
-        <> " / "
-        <> T.pack (show nInProg)
-        <> " / "
-        <> T.pack (show nTot)
+    msg = pre [] [text $ TL.toStrict $ pShowNoColor rtsflags]
 
 -- | Top-level render function for the Session tab.
 render :: ServerState -> Widget IHTML Event
 render ss =
-  let sessionInfo = ss ^. serverSessionInfo
+      case sessionStartTime sessionInfo of
+        Nothing ->
+          pre [] [text "GHC Session has not been started"]
+        Just sessionStartTime -> do
+          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
+              topPart =
+                [ divClass
+                    "session-section columns"
+                    []
+                    [ divClass "column is-one-quarter" [] [text messageTime]
+                    , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
+                    , divClass "column is-half" [] []
+                    ]
+                ]
+              statusPart =
+                [ div
+                    []
+                    [ divClass "session-title" [] [text "Compilation Status"]
+                    , renderCompilationStatus (nDone, nInProg, nTot)
+                    ]
+                , renderModuleInProgress drvModMap pausedMap timingInProg
+                ]
+              infoPart =
+                flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
+                  [ div
+                      []
+                      [ divClass "session-title" [] [text "Process Info"]
+                      , renderProcessInfo procinfo
+                      ]
+                  , div
+                      []
+                      [ divClass "session-title" [] [text "GHC RTS Info"]
+                      , renderRTSInfo (procRTSFlags procinfo)
+                      ]
+                  ]
+           in divClass
+                "box"
+                [ style
+                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+                    , ("position", "relative")
+                    , ("overflow", "scroll")
+                    ]
+                ]
+                (topPart ++ statusPart ++ infoPart)
+  where
+      sessionInfo = ss ^. serverSessionInfo
       mgi = sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming . tsTimingMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -150,36 +208,3 @@ render ss =
         partition (\(_, t) -> isJust (getEndTime t)) timingList
       nDone = length timingDone
       nInProg = length timingInProg
-   in case sessionStartTime sessionInfo of
-        Nothing ->
-          pre [] [text "GHC Session has not been started"]
-        Just sessionStartTime -> do
-          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
-           in divClass
-                "box"
-                [ style
-                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-                    , ("position", "relative")
-                    , ("overflow", "hidden")
-                    ]
-                ]
-                ( [ divClass
-                      "session-section columns"
-                      []
-                      [ divClass "column is-one-quarter" [] [text messageTime]
-                      , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
-                      , divClass "column is-half" [] []
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "Process Info"]
-                      , renderProcessInfo (sessionProcess sessionInfo)
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "Compilation Status"]
-                      , renderCompilationStatus (nDone, nInProg, nTot)
-                      ]
-                  , renderModuleInProgress drvModMap pausedMap timingInProg
-                  ]
-                )

@@ -14,7 +14,6 @@ module GHCSpecter.Channel.Outbound.Types
     emptyModuleGraphInfo,
     ConsoleReply (..),
     ProcessInfo (..),
-    emptyProcessInfo,
     SessionInfo (..),
     emptySessionInfo,
 
@@ -25,7 +24,7 @@ module GHCSpecter.Channel.Outbound.Types
   )
 where
 
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
 import Data.IntMap (IntMap)
@@ -36,10 +35,12 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.Tree (Forest)
 import GHC.Generics (Generic)
+import GHC.RTS.Flags (RTSFlags)
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
     type ModuleName,
   )
+import GHCSpecter.Data.GHC.Orphans ()
 
 data Channel
   = CheckImports
@@ -150,6 +151,7 @@ data ProcessInfo = ProcessInfo
   , procExecPath  :: FilePath
   , procCWD :: FilePath
   , procArguments :: [String]
+  , procRTSFlags :: RTSFlags
   }
   deriving (Show, Generic)
 
@@ -159,11 +161,8 @@ instance FromJSON ProcessInfo
 
 instance ToJSON ProcessInfo
 
-emptyProcessInfo :: ProcessInfo
-emptyProcessInfo = ProcessInfo 0 "" "" []
-
 data SessionInfo = SessionInfo
-  { sessionProcess :: ProcessInfo
+  { sessionProcess :: Maybe ProcessInfo
   , sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
   , sessionModuleSources :: Map ModuleName FilePath
@@ -179,7 +178,7 @@ instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
-  SessionInfo emptyProcessInfo Nothing emptyModuleGraphInfo M.empty True
+  SessionInfo Nothing Nothing emptyModuleGraphInfo M.empty True
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports

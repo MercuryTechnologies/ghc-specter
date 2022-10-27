@@ -80,6 +80,7 @@
               p.hpack
               p.hspec
               p.lens
+              p.pretty-simple
               p.OGDF
               p.optparse-applicative
               p.replica
