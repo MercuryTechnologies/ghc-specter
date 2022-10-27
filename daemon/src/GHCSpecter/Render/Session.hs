@@ -136,10 +136,64 @@ renderCompilationStatus (nDone, nInProg, nTot) =
         <> " / "
         <> T.pack (show nTot)
 
+renderRTSInfo :: Widget IHTML a
+renderRTSInfo =
+  divClass
+    "session-section"
+    []
+    [text dummyMessage]
+  where
+    dummyMessage = "hello there"
+
 -- | Top-level render function for the Session tab.
 render :: ServerState -> Widget IHTML Event
 render ss =
-  let sessionInfo = ss ^. serverSessionInfo
+      case sessionStartTime sessionInfo of
+        Nothing ->
+          pre [] [text "GHC Session has not been started"]
+        Just sessionStartTime -> do
+          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
+              topPart =
+                [ divClass
+                    "session-section columns"
+                    []
+                    [ divClass "column is-one-quarter" [] [text messageTime]
+                    , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
+                    , divClass "column is-half" [] []
+                    ]
+                ]
+              processPart =
+                flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
+                  [ div
+                      []
+                      [ divClass "session-title" [] [text "Process Info"]
+                      , renderProcessInfo procinfo
+                      ]
+                  , div
+                      []
+                      [ divClass "session-title" [] [text "GHC RTS Info"]
+                      , renderRTSInfo
+                      ]
+                  ]
+              statusPart =
+                [ div
+                    []
+                    [ divClass "session-title" [] [text "Compilation Status"]
+                    , renderCompilationStatus (nDone, nInProg, nTot)
+                    ]
+                , renderModuleInProgress drvModMap pausedMap timingInProg
+                ]
+           in divClass
+                "box"
+                [ style
+                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+                    , ("position", "relative")
+                    , ("overflow", "hidden")
+                    ]
+                ]
+                (topPart ++ processPart ++ statusPart)
+  where
+      sessionInfo = ss ^. serverSessionInfo
       mgi = sessionModuleGraph sessionInfo
       timing = ss ^. serverTiming . tsTimingMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -150,36 +204,3 @@ render ss =
         partition (\(_, t) -> isJust (getEndTime t)) timingList
       nDone = length timingDone
       nInProg = length timingInProg
-   in case sessionStartTime sessionInfo of
-        Nothing ->
-          pre [] [text "GHC Session has not been started"]
-        Just sessionStartTime -> do
-          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
-           in divClass
-                "box"
-                [ style
-                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-                    , ("position", "relative")
-                    , ("overflow", "hidden")
-                    ]
-                ]
-                ( [ divClass
-                      "session-section columns"
-                      []
-                      [ divClass "column is-one-quarter" [] [text messageTime]
-                      , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
-                      , divClass "column is-half" [] []
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "Process Info"]
-                      , renderProcessInfo (sessionProcess sessionInfo)
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "Compilation Status"]
-                      , renderCompilationStatus (nDone, nInProg, nTot)
-                      ]
-                  , renderModuleInProgress drvModMap pausedMap timingInProg
-                  ]
-                )

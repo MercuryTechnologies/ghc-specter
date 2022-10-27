@@ -37,6 +37,7 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
+import GHC.RTS.Flags (getRTSFlags)
 import GHC.Tc.Types
   ( TcGblEnv (..),
     TcM,
@@ -124,6 +125,8 @@ initGhcSession env = do
   execPath <- getExecutablePath
   cwd <- canonicalizePath =<< getCurrentDirectory
   args <- getArgs
+  rtsflags <- getRTSFlags
+  print rtsflags
   queue_ <- initMsgQueue
   ecfg <- loadConfig defaultGhcSpecterConfigFile
   let cfg = either (const emptyConfig) id ecfg
@@ -144,7 +147,7 @@ initGhcSession env = do
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
-                  { sessionProcess = ProcessInfo pid execPath cwd args
+                  { sessionProcess = Just (ProcessInfo pid execPath cwd args)
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty
