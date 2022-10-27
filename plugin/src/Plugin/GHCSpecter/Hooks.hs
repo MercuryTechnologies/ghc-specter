@@ -14,6 +14,7 @@ module Plugin.GHCSpecter.Hooks
   )
 where
 
+import Control.Monad.Extra (whenM)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -27,6 +28,12 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
+import GHC.Stats
+  ( GCDetails (..),
+    RTSStats (..),
+    getRTSStats,
+    getRTSStatsEnabled,
+  )
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
@@ -247,6 +254,9 @@ sendCompStateOnPhase drvId phase pt = do
     T_Hsc {} ->
       case pt of
         PhaseStart -> do
+          whenM getRTSStatsEnabled $ do
+            stats <- getRTSStats
+            print (gcdetails_live_bytes (gc stats))
           -- send timing information
           startTime <- getCurrentTime
           sendModuleStart drvId startTime
