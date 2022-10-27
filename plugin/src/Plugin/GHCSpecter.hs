@@ -126,7 +126,7 @@ initGhcSession env = do
   cwd <- canonicalizePath =<< getCurrentDirectory
   args <- getArgs
   rtsflags <- getRTSFlags
-  print rtsflags
+  -- print rtsflags
   queue_ <- initMsgQueue
   ecfg <- loadConfig defaultGhcSpecterConfigFile
   let cfg = either (const emptyConfig) id ecfg
@@ -147,7 +147,7 @@ initGhcSession env = do
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
-                  { sessionProcess = Just (ProcessInfo pid execPath cwd args)
+                  { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty

@@ -212,7 +212,7 @@ instance FromJSON DoTrace
 
 instance ToJSON DoTrace
 
--- instance Generic IoSubSystem
+instance Generic IoSubSystem
 
 instance Binary IoSubSystem where
   put = put . fromEnum
@@ -263,7 +263,8 @@ instance Binary RTSFlags
 
 instance FromJSON RTSFlags
 
-instance ToJSON RTSFlags
+instance ToJSON RTSFlags where
+  toJSON = A.genericToJSON A.defaultOptions
 
 -- | GHC process info, including process id, command line arguments.
 data ProcessInfo = ProcessInfo
@@ -271,7 +272,7 @@ data ProcessInfo = ProcessInfo
   , procExecPath  :: FilePath
   , procCWD :: FilePath
   , procArguments :: [String]
-  -- , procRTSFlags :: RTSFlags
+  , procRTSFlags :: RTSFlags
   }
   deriving (Show, Generic)
 
