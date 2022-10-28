@@ -142,7 +142,13 @@ renderTimingMode model ss =
         ]
         ( [ TimingView.render (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable
           , div
-              [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
+              [ style
+                  [ ("position", "absolute")
+                  , ("top", "0")
+                  , ("right", "0")
+                  , ("background-color", "white")
+                  ]
+              ]
               [renderCheckbox (model ^. modelTiming)]
           ]
         )

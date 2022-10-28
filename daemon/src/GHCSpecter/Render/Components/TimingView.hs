@@ -27,6 +27,7 @@ import Data.Time.Clock
     secondsToNominalDiffTime,
   )
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
+import GHCSpecter.Channel.Outbound.Types (MemInfo (..))
 import GHCSpecter.Data.Map
   ( BiKeyMap,
     forwardLookup,
@@ -158,7 +159,7 @@ renderTimingChart drvModMap tui ttable =
     , S.g
         []
         ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-            ++ (fmap makeItems filteredItems)
+            ++ (fmap makeItem filteredItems)
             ++ lineToUpstream
             ++ linesToDownstream
         )
@@ -237,7 +238,7 @@ renderTimingChart drvModMap tui ttable =
             , classList [("small", True)]
             ]
             [text moduTxt]
-    makeItems x =
+    makeItem x =
       let mmodu = x ^. _2 . _1
           props =
             case mmodu of
@@ -399,22 +400,74 @@ renderBlockerLine hoveredMod ttable =
           fmap (\modu -> p [] [text modu]) downMods
         )
 
-renderMemChart :: Widget IHTML Event
-renderMemChart =
+renderMemChart ::
+  BiKeyMap DriverId ModuleName ->
+  TimingUI ->
+  TimingTable ->
+  Widget IHTML Event
+renderMemChart drvModMap tui ttable =
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.text
-        [ SP.x "10"
-        , SP.y "10"
-        , classList [("small", True)]
-        ]
-        [text "Hello There"]
+    , S.g [] (fmap makeItem filteredItems)
     ]
   where
+    timingInfos = ttable ^. ttableTimingInfos
+    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    (i, _) `isInRange` (y0, y1) =
+      let y = topOfBox i
+       in y0 <= y && y <= y1
+
+    allItems = zip [0 ..] timingInfos'
+    filteredItems =
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+
+    nMods = length timingInfos
+    totalHeight = 5 * nMods
+
+    topOfBox :: Int -> Int
+    topOfBox = floor . module2Y . fromIntegral
+
+    widthOfBox minfo =
+      let alloc = negate (memAllocCounter minfo)
+          -- ratio to 4 GiB
+          allocRatio :: Double
+          allocRatio = fromIntegral alloc / fromIntegral (4 * 1024 * 1024 * 1024)
+       in floor (allocRatio * 150) :: Int
+
+    box (i, item) =
+      case item ^. _2 . plEnd . _2 of
+        Nothing -> []
+        Just minfo ->
+          [ S.rect
+              ( [ SP.x "0"
+                , SP.y (T.pack $ show (topOfBox i))
+                , width (T.pack $ show (widthOfBox minfo))
+                , height "3"
+                , SP.fill "lightslategray"
+                ]
+              )
+              []
+          ]
+    moduleText (i, item@(mmodu, _)) =
+      let moduTxt = fromMaybe "" mmodu
+       in S.text
+            [ SP.x "150"
+            , SP.y (T.pack $ show (topOfBox i + 3))
+            , classList [("small", True)]
+            ]
+            [text moduTxt]
+    makeItem x =
+      S.g [] (box x ++ [moduleText x])
+
+
+    viewboxProp =
+      SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
+        [0, viewPortY tui, 300, timingHeight]
     svgProps =
-      [ width "100"
+      [ width "300"
       , height (T.pack (show timingHeight))
+      , viewboxProp
       , SP.version "1.1"
       , xmlns
       ]
@@ -440,7 +493,7 @@ render drvModMap tui ttable =
           , divClass
               "box column is-one-fifth"
               [style [("overflow", "hidden")]]
-              [renderMemChart]
+              [renderMemChart drvModMap tui ttable]
           ]
       , renderTimingBar tui ttable
       ]
