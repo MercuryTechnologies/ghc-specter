@@ -120,12 +120,7 @@ invokeWorker ssRef workQ (CMBox o) =
   case o of
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
-    CMTiming _ timer -> do
-      let memInfos = mapMaybe (^. _2 . _2) (unTimer timer)
-          {- format bytes =
-            let n = fromIntegral (bytes `div` (100_000_000))
-             in (replicate n '#' ++ "     " ++ show bytes) -}
-      F.traverse_ {- (putStrLn . format) -} print memInfos
+    CMTiming {} -> pure ()
     CMSession s' -> do
       let modSrcs = sessionModuleSources s'
           mgi = sessionModuleGraph s'

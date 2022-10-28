@@ -65,7 +65,8 @@ import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
-  ( runMetaHook',
+  ( getMemInfo,
+    runMetaHook',
     runPhaseHook',
     runRnSpliceHook',
   )
@@ -388,7 +389,8 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [splugin]}
   -- send module start signal here on GHC 9.2
   startTime <- getCurrentTime
-  sendModuleStart drvId startTime Nothing
+  mmeminfo <- getMemInfo
+  sendModuleStart drvId startTime mmeminfo
   breakPoint drvId StartDriver driverCommands
 #endif
   let hooks = hsc_hooks env

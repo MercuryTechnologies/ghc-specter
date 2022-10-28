@@ -3,7 +3,10 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Plugin.GHCSpecter.Hooks
-  ( -- * send information
+  ( -- * utility
+    getMemInfo,
+
+    -- * send information
     sendModuleStart,
     sendModuleName,
 
@@ -109,6 +112,15 @@ getDriverIdFromHscEnv hscenv = do
   arg1 <- listToMaybe (paArguments (spPlugin sp))
   DriverId <$> readMay arg1
 #endif
+
+getMemInfo :: IO (Maybe MemInfo)
+getMemInfo = ifM getRTSStatsEnabled getInfo (pure Nothing)
+  where
+    getInfo = do
+      rtsstats <- getRTSStats
+      alloc <- getAllocationCounter
+      let liveBytes = gcdetails_live_bytes . gc $ rtsstats
+      pure $ Just $ MemInfo liveBytes alloc
 
 sendModuleStart ::
   DriverId ->
@@ -238,15 +250,6 @@ issueNewDriverId modSummary = do
     writeTVar sessionRef s'
     pure drvId
 
-getMemInfo :: IO (Maybe MemInfo)
-getMemInfo = ifM getRTSStatsEnabled getInfo (pure Nothing)
-  where
-    getInfo = do
-      rtsstats <- getRTSStats
-      alloc <- getAllocationCounter
-      let liveBytes = gcdetails_live_bytes . gc $ rtsstats
-      pure $ Just $ MemInfo liveBytes alloc
-
 -- NOTE: I tried to approximate GHC 9.2 version of this function.
 -- TODO: Figure out more robust way for detecting the end of
 -- compilation. In the worst case, we can just turn on timing
@@ -365,20 +368,23 @@ sendCompStateOnPhase drvId phase pt = do
     RealPhase StopLn -> liftIO do
       -- send timing information
       endTime <- getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
       queueMessage (CMTiming drvId timer)
     RealPhase (As _) ->
       case pt of
         PhaseStart -> liftIO $ do
           -- send timing information
-          endTime <- getCurrentTime
-          let timer = Timer [(TimerAs, endTime)]
+          startTime <- getCurrentTime
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerAs, (startTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     HscOut _ _ _ -> liftIO $ do
       -- send timing information
       hscOutTime <- getCurrentTime
-      let timer = Timer [(TimerHscOut, hscOutTime)]
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
       queueMessage (CMTiming drvId timer)
     _ -> pure ()
 
