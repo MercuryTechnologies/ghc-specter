@@ -7,10 +7,10 @@ module GHCSpecter.Channel.Outbound.Types
     TimerTag (..),
     MemInfo (..),
     Timer (..),
-    getStartTime,
-    getHscOutTime,
-    getAsTime,
-    getEndTime,
+    getStart,
+    getHscOut,
+    getAs,
+    getEnd,
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
     ConsoleReply (..),
@@ -120,17 +120,17 @@ instance ToJSON MemInfo
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary, FromJSON, ToJSON)
 
-getStartTime :: Timer -> Maybe UTCTime
-getStartTime (Timer ts) = fmap fst $ L.lookup TimerStart ts
+getStart :: Timer -> Maybe (UTCTime, Maybe MemInfo)
+getStart (Timer ts) = L.lookup TimerStart ts
 
-getHscOutTime :: Timer -> Maybe UTCTime
-getHscOutTime (Timer ts) = fmap fst $ L.lookup TimerHscOut ts
+getHscOut :: Timer -> Maybe (UTCTime, Maybe MemInfo)
+getHscOut (Timer ts) = L.lookup TimerHscOut ts
 
-getAsTime :: Timer -> Maybe UTCTime
-getAsTime (Timer ts) = fmap fst $ L.lookup TimerAs ts
+getAs :: Timer -> Maybe (UTCTime, Maybe MemInfo)
+getAs (Timer ts) = L.lookup TimerAs ts
 
-getEndTime :: Timer -> Maybe UTCTime
-getEndTime (Timer ts) = fmap fst $ L.lookup TimerEnd ts
+getEnd :: Timer -> Maybe (UTCTime, Maybe MemInfo)
+getEnd (Timer ts) = L.lookup TimerEnd ts
 
 data ConsoleReply
   = -- | simple textual reply (with name optionally)

@@ -177,7 +177,7 @@ renderTimingChart drvModMap tui ttable =
   let timingInfos = ttable ^. ttableTimingInfos
       mhoveredMod = tui ^. timingUIHoveredModule
       nMods = length timingInfos
-      modEndTimes = fmap (^. _2 . plEnd) timingInfos
+      modEndTimes = fmap (^. _2 . plEnd . _1) timingInfos
       totalTime =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
@@ -186,22 +186,22 @@ renderTimingChart drvModMap tui ttable =
       topOfBox :: Int -> Int
       topOfBox = floor . module2Y . fromIntegral
       leftOfBox (_, tinfo) =
-        let startTime = tinfo ^. plStart
+        let startTime = tinfo ^. plStart . _1
          in floor (diffTime2X totalTime startTime) :: Int
       rightOfBox (_, tinfo) =
-        let endTime = tinfo ^. plEnd
+        let endTime = tinfo ^. plEnd . _1
          in floor (diffTime2X totalTime endTime) :: Int
       widthOfBox (_, tinfo) =
-        let startTime = tinfo ^. plStart
-            endTime = tinfo ^. plEnd
+        let startTime = tinfo ^. plStart . _1
+            endTime = tinfo ^. plEnd . _1
          in floor (diffTime2X totalTime (endTime - startTime)) :: Int
       widthHscOutOfBox (_, tinfo) =
-        let startTime = tinfo ^. plStart
-            hscOutTime = tinfo ^. plHscOut
+        let startTime = tinfo ^. plStart . _1
+            hscOutTime = tinfo ^. plHscOut . _1
          in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
       widthAsOfBox (_, tinfo) =
-        let startTime = tinfo ^. plStart
-            asTime = tinfo ^. plAs
+        let startTime = tinfo ^. plStart . _1
+            asTime = tinfo ^. plAs . _1
          in floor (diffTime2X totalTime (asTime - startTime)) :: Int
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
@@ -554,7 +554,7 @@ renderBlockerGraph ss =
     maxTime =
       case ttable ^. ttableTimingInfos of
         [] -> secondsToNominalDiffTime 1.0
-        ts -> maximum (fmap (\(_, t) -> t ^. plEnd - t ^. plStart) ts)
+        ts -> maximum (fmap (\(_, t) -> t ^. plEnd . _1 - t ^. plStart . _1) ts)
     mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
       case mblockerGraphViz of
@@ -564,7 +564,7 @@ renderBlockerGraph ss =
                 fromMaybe 0 $ do
                   i <- backwardLookup name drvModMap
                   t <- L.lookup i (ttable ^. ttableTimingInfos)
-                  pure $ realToFrac ((t ^. plEnd - t ^. plStart) / maxTime)
+                  pure $ realToFrac ((t ^. plEnd . _1 - t ^. plStart . _1) / maxTime)
            in [ TimingEv . BlockerModuleGraphEv
                   <$> GraphView.renderModuleGraph
                     nameMap

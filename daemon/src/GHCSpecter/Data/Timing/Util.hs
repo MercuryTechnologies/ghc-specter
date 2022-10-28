@@ -12,7 +12,7 @@ module GHCSpecter.Data.Timing.Util
   )
 where
 
-import Control.Lens (to, (&), (.~), (^.), (^?), _2, _Just)
+import Control.Lens (to, (&), (.~), (^.), (^?), _1, _2, _Just)
 import Data.Bifunctor (first)
 import Data.Function (on)
 import Data.IntMap (IntMap)
@@ -32,10 +32,10 @@ import GHCSpecter.Channel.Common.Types
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     Timer (..),
-    getAsTime,
-    getEndTime,
-    getHscOutTime,
-    getStartTime,
+    getAs,
+    getEnd,
+    getHscOut,
+    getStart,
   )
 import GHCSpecter.Data.Map
   ( BiKeyMap,
@@ -53,15 +53,15 @@ import GHCSpecter.Data.Timing.Types
     emptyTimingTable,
   )
 
-isTimeInTimerRange :: (Ord a) => a -> PipelineInfo a -> Bool
+isTimeInTimerRange :: (Ord a) => a -> PipelineInfo (a, b) -> Bool
 isTimeInTimerRange x tinfo =
-  x >= (tinfo ^. plStart) && x <= (tinfo ^. plEnd)
+  x >= (tinfo ^. plStart . _1) && x <= (tinfo ^. plEnd . _1)
 
 isModuleCompilationDone :: BiKeyMap DriverId ModuleName -> KeyMap DriverId Timer -> ModuleName -> Bool
 isModuleCompilationDone drvModMap timing modu =
   isJust $ do
     i <- backwardLookup modu drvModMap
-    timing ^? to (lookupKey i) . _Just . to getEndTime . _Just
+    timing ^? to (lookupKey i) . _Just . to getEnd . _Just . _1
 
 makeTimingTable ::
   KeyMap DriverId Timer ->
@@ -77,24 +77,24 @@ makeTimingTable timing drvModMap mgi sessStart =
   where
     findModName drvId = forwardLookup drvId drvModMap
     subtractTime (modName, timer) = do
-      modStartTime <- getStartTime timer
-      modHscOutTime <- getHscOutTime timer
-      modAsTime <- getAsTime timer
-      modEndTime <- getEndTime timer
+      (modStartTime, mmodStartMem) <- getStart timer
+      (modHscOutTime, mmodHscOutMem) <- getHscOut timer
+      (modAsTime, mmodAsMem) <- getAs timer
+      (modEndTime, mmodEndMem) <- getEnd timer
       let modStartTimeDiff = modStartTime `diffUTCTime` sessStart
           modHscOutTimeDiff = modHscOutTime `diffUTCTime` sessStart
           modAsTimeDiff = modAsTime `diffUTCTime` sessStart
           modEndTimeDiff = modEndTime `diffUTCTime` sessStart
           tinfo =
             PipelineInfo
-              { _plStart = modStartTimeDiff
-              , _plHscOut = modHscOutTimeDiff
-              , _plAs = modAsTimeDiff
-              , _plEnd = modEndTimeDiff
+              { _plStart = (modStartTimeDiff, mmodStartMem)
+              , _plHscOut = (modHscOutTimeDiff, mmodHscOutMem)
+              , _plAs = (modAsTimeDiff, mmodAsMem)
+              , _plEnd = (modEndTimeDiff, mmodEndMem)
               }
       pure (modName, tinfo)
     timingInfos =
-      L.sortOn (^. _2 . plStart)
+      L.sortOn (^. _2 . plStart . _1)
         . mapMaybe subtractTime
         $ keyMapToList timing
 
@@ -114,7 +114,7 @@ makeTimingTable timing drvModMap mgi sessStart =
           upTiming = filter isMyUpstream timingInfos'
       if (null upTiming)
         then Nothing
-        else pure $ L.maximumBy (compare `on` (^. _2 . plEnd)) upTiming
+        else pure $ L.maximumBy (compare `on` (^. _2 . plEnd . _1)) upTiming
 
     lastDepMap =
       M.fromList $
