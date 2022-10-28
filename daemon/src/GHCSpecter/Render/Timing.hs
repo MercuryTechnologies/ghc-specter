@@ -19,7 +19,7 @@ import Concur.Replica
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (to, (^.), _1, _2)
+import Control.Lens (to, (^.), (%~), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
@@ -31,13 +31,18 @@ import Data.Time.Clock
     nominalDiffTimeToSeconds,
     secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel.Common.Types (ModuleName)
+import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),
   )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    backwardLookup,
+    forwardLookup,
+  )
 import GHCSpecter.Data.Timing.Types
-  ( HasTimingInfo (..),
+  ( HasPipelineInfo (..),
     HasTimingTable (..),
     TimingTable,
   )
@@ -164,14 +169,15 @@ module2Y :: Double -> Double
 module2Y i = 5.0 * i + 1.0
 
 renderTimingChart ::
+  BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart tui ttable =
+renderTimingChart drvModMap tui ttable =
   let timingInfos = ttable ^. ttableTimingInfos
       mhoveredMod = tui ^. timingUIHoveredModule
       nMods = length timingInfos
-      modEndTimes = fmap (^. _2 . timingEnd) timingInfos
+      modEndTimes = fmap (^. _2 . plEnd) timingInfos
       totalTime =
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
@@ -180,22 +186,22 @@ renderTimingChart tui ttable =
       topOfBox :: Int -> Int
       topOfBox = floor . module2Y . fromIntegral
       leftOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
+        let startTime = tinfo ^. plStart
          in floor (diffTime2X totalTime startTime) :: Int
       rightOfBox (_, tinfo) =
-        let endTime = tinfo ^. timingEnd
+        let endTime = tinfo ^. plEnd
          in floor (diffTime2X totalTime endTime) :: Int
       widthOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            endTime = tinfo ^. timingEnd
+        let startTime = tinfo ^. plStart
+            endTime = tinfo ^. plEnd
          in floor (diffTime2X totalTime (endTime - startTime)) :: Int
       widthHscOutOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            hscOutTime = tinfo ^. timingHscOut
+        let startTime = tinfo ^. plStart
+            hscOutTime = tinfo ^. plHscOut
          in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
       widthAsOfBox (_, tinfo) =
-        let startTime = tinfo ^. timingStart
-            asTime = tinfo ^. timingAs
+        let startTime = tinfo ^. plStart
+            asTime = tinfo ^. plAs
          in floor (diffTime2X totalTime (asTime - startTime)) :: Int
       (i, _) `isInRange` (y0, y1) =
         let y = topOfBox i
@@ -242,10 +248,11 @@ renderTimingChart tui ttable =
               ]
               [text moduTxt]
       makeItems x =
-        let props =
-              case x of
-                (_, (Nothing, _)) -> []
-                (_, (Just modu, _)) ->
+        let mmodu = x ^. _2 . _1
+            props =
+              case mmodu of
+                Nothing -> []
+                Just modu ->
                   [ TimingEv (HoverOnModule modu) <$ onMouseEnter
                   , TimingEv (HoverOffModule modu) <$ onMouseLeave
                   ]
@@ -271,7 +278,8 @@ renderTimingChart tui ttable =
               | otherwise = []
          in mouseMove ++ prop1
 
-      allItems = zip [0 ..] timingInfos
+      timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+      allItems = zip [0 ..] timingInfos'
       filteredItems =
         filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
@@ -520,7 +528,7 @@ renderTimingMode model ss =
             , ("position", "relative")
             ]
         ]
-        ( [ renderTimingChart (model ^. modelTiming) ttable
+        ( [ renderTimingChart (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable
           , div
               [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
               [renderCheckbox (model ^. modelTiming)]
@@ -540,12 +548,13 @@ renderBlockerGraph ss =
     contents
   where
     sessionInfo = ss ^. serverSessionInfo
+    drvModMap = ss ^. serverDriverModuleMap
     nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
     ttable = ss ^. serverTiming . tsTimingTable
     maxTime =
       case ttable ^. ttableTimingInfos of
         [] -> secondsToNominalDiffTime 1.0
-        ts -> maximum (fmap (\(_, t) -> t ^. timingEnd - t ^. timingStart) ts)
+        ts -> maximum (fmap (\(_, t) -> t ^. plEnd - t ^. plStart) ts)
     mblockerGraphViz = ss ^. serverTiming . tsBlockerGraphViz
     contents =
       case mblockerGraphViz of
@@ -553,8 +562,9 @@ renderBlockerGraph ss =
         Just blockerGraphViz ->
           let valueFor name =
                 fromMaybe 0 $ do
-                  t <- L.lookup (Just name) (ttable ^. ttableTimingInfos)
-                  pure $ realToFrac ((t ^. timingEnd - t ^. timingStart) / maxTime)
+                  i <- backwardLookup name drvModMap
+                  t <- L.lookup i (ttable ^. ttableTimingInfos)
+                  pure $ realToFrac ((t ^. plEnd - t ^. plStart) / maxTime)
            in [ TimingEv . BlockerModuleGraphEv
                   <$> GraphView.renderModuleGraph
                     nameMap

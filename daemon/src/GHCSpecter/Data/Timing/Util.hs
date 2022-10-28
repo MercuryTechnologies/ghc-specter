@@ -46,16 +46,16 @@ import GHCSpecter.Data.Map
     lookupKey,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasTimingInfo (..),
+  ( HasPipelineInfo (..),
     HasTimingTable (..),
-    TimingInfo (..),
+    PipelineInfo (..),
     TimingTable,
     emptyTimingTable,
   )
 
-isTimeInTimerRange :: (Ord a) => a -> TimingInfo a -> Bool
+isTimeInTimerRange :: (Ord a) => a -> PipelineInfo a -> Bool
 isTimeInTimerRange x tinfo =
-  x >= (tinfo ^. timingStart) && x <= (tinfo ^. timingEnd)
+  x >= (tinfo ^. plStart) && x <= (tinfo ^. plEnd)
 
 isModuleCompilationDone :: BiKeyMap DriverId ModuleName -> KeyMap DriverId Timer -> ModuleName -> Bool
 isModuleCompilationDone drvModMap timing modu =
@@ -86,22 +86,21 @@ makeTimingTable timing drvModMap mgi sessStart =
           modAsTimeDiff = modAsTime `diffUTCTime` sessStart
           modEndTimeDiff = modEndTime `diffUTCTime` sessStart
           tinfo =
-            TimingInfo
-              { _timingStart = modStartTimeDiff
-              , _timingHscOut = modHscOutTimeDiff
-              , _timingAs = modAsTimeDiff
-              , _timingEnd = modEndTimeDiff
+            PipelineInfo
+              { _plStart = modStartTimeDiff
+              , _plHscOut = modHscOutTimeDiff
+              , _plAs = modAsTimeDiff
+              , _plEnd = modEndTimeDiff
               }
       pure (modName, tinfo)
     timingInfos =
-      fmap (first findModName)
-        . L.sortOn (^. _2 . timingStart)
+      L.sortOn (^. _2 . plStart)
         . mapMaybe subtractTime
         $ keyMapToList timing
 
     -- Nothing case is stripped out in this var.
     timingInfos' =
-      mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
+      mapMaybe (\(i, t) -> findModName i >>= \n -> pure (n, t)) timingInfos
 
     modNameMap = mginfoModuleNameMap mgi
     -- TODO: This should be cached.
@@ -115,7 +114,7 @@ makeTimingTable timing drvModMap mgi sessStart =
           upTiming = filter isMyUpstream timingInfos'
       if (null upTiming)
         then Nothing
-        else pure $ L.maximumBy (compare `on` (^. _2 . timingEnd)) upTiming
+        else pure $ L.maximumBy (compare `on` (^. _2 . plEnd)) upTiming
 
     lastDepMap =
       M.fromList $
