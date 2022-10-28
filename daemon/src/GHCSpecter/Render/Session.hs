@@ -26,7 +26,7 @@ import GHCSpecter.Channel.Outbound.Types
     ProcessInfo (..),
     SessionInfo (..),
     Timer,
-    getEndTime,
+    getEnd,
   )
 import GHCSpecter.Data.Map
   ( BiKeyMap,
@@ -205,6 +205,6 @@ render ss =
       nTot = IM.size (mginfoModuleNameMap mgi)
       timingList = keyMapToList timing
       (timingDone, timingInProg) =
-        partition (\(_, t) -> isJust (getEndTime t)) timingList
+        partition (\(_, t) -> isJust (getEnd t)) timingList
       nDone = length timingDone
       nInProg = length timingInProg

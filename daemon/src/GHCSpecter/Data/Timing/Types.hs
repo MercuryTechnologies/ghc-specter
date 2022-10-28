@@ -20,6 +20,7 @@ import Data.Map.Strict qualified as M
 import Data.Time.Clock (NominalDiffTime)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
+import GHCSpecter.Channel.Outbound.Types (MemInfo)
 
 -- | Information along the compilation pipeline for a single module
 data PipelineInfo a = PipelineInfo
@@ -28,7 +29,7 @@ data PipelineInfo a = PipelineInfo
   , _plAs :: a
   , _plEnd :: a
   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Functor)
 
 makeClassy ''PipelineInfo
 
@@ -37,7 +38,8 @@ instance FromJSON a => FromJSON (PipelineInfo a)
 instance ToJSON a => ToJSON (PipelineInfo a)
 
 data TimingTable = TimingTable
-  { _ttableTimingInfos :: [(DriverId, PipelineInfo NominalDiffTime)]
+  { -- | Start-time-ordered info table.
+    _ttableTimingInfos :: [(DriverId, PipelineInfo (NominalDiffTime, Maybe MemInfo))]
   , _ttableBlockingUpstreamDependency :: Map ModuleName ModuleName
   , _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }

@@ -3,7 +3,10 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Plugin.GHCSpecter.Hooks
-  ( -- * send information
+  ( -- * utility
+    getMemInfo,
+
+    -- * send information
     sendModuleStart,
     sendModuleName,
 
@@ -14,6 +17,7 @@ module Plugin.GHCSpecter.Hooks
   )
 where
 
+import Control.Monad.Extra (ifM)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -27,6 +31,12 @@ import GHC.Driver.Plugins
   )
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
+import GHC.Stats
+  ( GCDetails (..),
+    RTSStats (..),
+    getRTSStats,
+    getRTSStatsEnabled,
+  )
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
@@ -35,6 +45,7 @@ import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc (..),
     ChanMessage (..),
+    MemInfo (..),
     Timer (..),
     TimerTag (..),
   )
@@ -50,6 +61,7 @@ import Plugin.GHCSpecter.Tasks
   )
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Mem (getAllocationCounter)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
 import Control.Applicative ((<|>))
@@ -74,6 +86,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util (getModuleName)
 import System.Directory (canonicalizePath)
+import System.Mem (setAllocationCounter)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import Control.Monad.IO.Class (liftIO)
 import GHC.Driver.Phases (Phase (As, StopLn))
@@ -101,12 +114,22 @@ getDriverIdFromHscEnv hscenv = do
   DriverId <$> readMay arg1
 #endif
 
+getMemInfo :: IO (Maybe MemInfo)
+getMemInfo = ifM getRTSStatsEnabled getInfo (pure Nothing)
+  where
+    getInfo = do
+      rtsstats <- getRTSStats
+      alloc <- getAllocationCounter
+      let liveBytes = gcdetails_live_bytes . gc $ rtsstats
+      pure $ Just $ MemInfo liveBytes alloc
+
 sendModuleStart ::
   DriverId ->
   UTCTime ->
+  Maybe MemInfo ->
   IO ()
-sendModuleStart drvId startTime = do
-  let timer = Timer [(TimerStart, startTime)]
+sendModuleStart drvId startTime mmeminfo = do
+  let timer = Timer [(TimerStart, (startTime, mmeminfo))]
   queueMessage (CMTiming drvId timer)
 
 sendModuleName ::
@@ -249,7 +272,9 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           startTime <- getCurrentTime
-          sendModuleStart drvId startTime
+          setAllocationCounter 0
+          mmeminfo <- getMemInfo
+          sendModuleStart drvId startTime mmeminfo
           -- send module name information
           mmodName <- atomically $ getModuleFromDriverId drvId
           msrcFile <- atomically $ getModuleFileFromDriverId drvId
@@ -262,7 +287,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           hscOutTime <- getCurrentTime
-          let timer = Timer [(TimerHscOut, hscOutTime)]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_HscBackend {} -> pure ()
@@ -274,7 +300,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseStart -> do
           -- send timing information
           asStartTime <- getCurrentTime
-          let timer = Timer [(TimerAs, asStartTime)]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerAs, (asStartTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     T_LlvmOpt {} -> pure ()
@@ -285,7 +312,8 @@ sendCompStateOnPhase drvId phase pt = do
         PhaseEnd -> do
           -- send timing information
           endTime <- getCurrentTime
-          let timer = Timer [(TimerEnd, endTime)]
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
 
@@ -341,20 +369,23 @@ sendCompStateOnPhase drvId phase pt = do
     RealPhase StopLn -> liftIO do
       -- send timing information
       endTime <- getCurrentTime
-      let timer = Timer [(TimerEnd, endTime)]
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
       queueMessage (CMTiming drvId timer)
     RealPhase (As _) ->
       case pt of
         PhaseStart -> liftIO $ do
           -- send timing information
-          endTime <- getCurrentTime
-          let timer = Timer [(TimerAs, endTime)]
+          startTime <- getCurrentTime
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerAs, (startTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
     HscOut _ _ _ -> liftIO $ do
       -- send timing information
       hscOutTime <- getCurrentTime
-      let timer = Timer [(TimerHscOut, hscOutTime)]
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
       queueMessage (CMTiming drvId timer)
     _ -> pure ()
 

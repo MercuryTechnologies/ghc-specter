@@ -5,6 +5,16 @@ body {
     background: white;
 }
 
+.control {
+    font-size: 8px;
+    padding: 0px;
+}
+
+.checkbox input {
+    width: 6px;
+    height: 6px;
+}
+
 button {
     font-size: 8px;
     padding: 0px;
@@ -71,7 +81,7 @@ nav {
     width: 50%;
 }
 
-.column.is-one-fifths {
+.column.is-one-fifth {
     width: 20%;
 }
 

@@ -163,7 +163,7 @@ renderMainView (view, model, ss) = do
         | otherwise =
             ( section
                 [ style
-                    [ ("max-height", "70vh")
+                    [ ("max-height", "95vh")
                     , ("overflow", "hidden")
                     ]
                 ]

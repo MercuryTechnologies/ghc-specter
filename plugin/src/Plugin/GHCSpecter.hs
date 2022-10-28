@@ -99,7 +99,8 @@ import GHC.Types.Unique.FM (emptyUFM)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
 import Plugin.GHCSpecter.Hooks
-  ( sendModuleName,
+  ( getMemInfo,
+    sendModuleName,
     sendModuleStart,
   )
 import Plugin.GHCSpecter.Tasks (driverCommands)
@@ -108,6 +109,7 @@ import Plugin.GHCSpecter.Types
     assignModuleFileToDriverId,
   )
 import Plugin.GHCSpecter.Util (getModuleName)
+import System.Mem (setAllocationCounter)
 #endif
 
 -- TODO: Make the initialization work with GHCi.
@@ -388,7 +390,9 @@ driver opts env0 = do
       env = env0 {hsc_static_plugins = [splugin]}
   -- send module start signal here on GHC 9.2
   startTime <- getCurrentTime
-  sendModuleStart drvId startTime
+  setAllocationCounter 0
+  mmeminfo <- getMemInfo
+  sendModuleStart drvId startTime mmeminfo
   breakPoint drvId StartDriver driverCommands
 #endif
   let hooks = hsc_hooks env
