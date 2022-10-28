@@ -428,15 +428,16 @@ renderMemChart drvModMap tui ttable =
     topOfBox :: Int -> Int
     topOfBox = floor . module2Y . fromIntegral
 
-    widthOfBox minfo =
-      let alloc = negate (memAllocCounter minfo)
-          -- ratio to 4 GiB
+    alloc2X alloc =
+      let -- ratio to 4 GiB
           allocRatio :: Double
           allocRatio = fromIntegral alloc / fromIntegral (4 * 1024 * 1024 * 1024)
        in floor (allocRatio * 150) :: Int
 
-    box (i, item) =
-      case item ^. _2 . plEnd . _2 of
+    widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
+
+    box color lz (i, item) =
+      case item ^.  _2 . lz . _2 of
         Nothing -> []
         Just minfo ->
           [ S.rect
@@ -444,11 +445,12 @@ renderMemChart drvModMap tui ttable =
                 , SP.y (T.pack $ show (topOfBox i))
                 , width (T.pack $ show (widthOfBox minfo))
                 , height "3"
-                , SP.fill "lightslategray"
+                , SP.fill color
                 ]
               )
               []
           ]
+
     moduleText (i, item@(mmodu, _)) =
       let moduTxt = fromMaybe "" mmodu
        in S.text
@@ -458,8 +460,21 @@ renderMemChart drvModMap tui ttable =
             ]
             [text moduTxt]
     makeItem x =
-      S.g [] (box x ++ [moduleText x])
-
+      if (tui ^. timingUIPartition)
+      then
+        S.g
+          []
+          ( box "lightslategray" plEnd x
+              ++ box "deepskyblue" plAs x
+              ++ box "royalblue" plHscOut x
+              ++ [moduleText x]
+          )
+      else
+        S.g
+          []
+          ( box "lightslategray" plEnd x
+              ++ [moduleText x]
+          )
 
     viewboxProp =
       SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
