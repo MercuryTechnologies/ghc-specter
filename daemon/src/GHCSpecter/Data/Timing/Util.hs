@@ -94,14 +94,13 @@ makeTimingTable timing drvModMap mgi sessStart =
               }
       pure (modName, tinfo)
     timingInfos =
-      fmap (first findModName)
-        . L.sortOn (^. _2 . plStart)
+      L.sortOn (^. _2 . plStart)
         . mapMaybe subtractTime
         $ keyMapToList timing
 
     -- Nothing case is stripped out in this var.
     timingInfos' =
-      mapMaybe (\(mn, t) -> (,t) <$> mn) timingInfos
+      mapMaybe (\(i, t) -> findModName i >>= \n -> pure (n, t)) timingInfos
 
     modNameMap = mginfoModuleNameMap mgi
     -- TODO: This should be cached.

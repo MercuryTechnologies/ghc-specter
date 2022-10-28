@@ -19,7 +19,7 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
 import Data.Time.Clock (NominalDiffTime)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (ModuleName)
+import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 
 -- information along the compilation pipeline for a single module
 data PipelineInfo a = PipelineInfo
@@ -38,7 +38,7 @@ instance ToJSON a => ToJSON (PipelineInfo a)
 
 data TimingTable = TimingTable
   { -- TODO: use DriverId.
-    _ttableTimingInfos :: [(Maybe ModuleName, PipelineInfo NominalDiffTime)]
+    _ttableTimingInfos :: [(DriverId, PipelineInfo NominalDiffTime)]
   , _ttableBlockingUpstreamDependency :: Map ModuleName ModuleName
   , _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }
