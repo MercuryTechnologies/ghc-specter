@@ -422,16 +422,13 @@ renderMemChart drvModMap tui ttable =
     filteredItems =
       filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-
     topOfBox :: Int -> Int
     topOfBox = floor . module2Y . fromIntegral
 
     alloc2X alloc =
       let -- ratio to 4 GiB
           allocRatio :: Double
-          allocRatio = fromIntegral alloc / fromIntegral (4 * 1024 * 1024 * 1024)
+          allocRatio = fromIntegral alloc / (4 * 1024 * 1024 * 1024)
        in floor (allocRatio * 150) :: Int
 
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
@@ -451,7 +448,7 @@ renderMemChart drvModMap tui ttable =
               []
           ]
 
-    moduleText (i, item@(mmodu, _)) =
+    moduleText (i, (mmodu, _)) =
       let moduTxt = fromMaybe "" mmodu
        in S.text
             [ SP.x "150"

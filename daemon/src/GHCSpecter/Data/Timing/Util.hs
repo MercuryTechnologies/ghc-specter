@@ -13,7 +13,6 @@ module GHCSpecter.Data.Timing.Util
 where
 
 import Control.Lens (to, (&), (.~), (^.), (^?), _1, _2, _Just)
-import Data.Bifunctor (first)
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM

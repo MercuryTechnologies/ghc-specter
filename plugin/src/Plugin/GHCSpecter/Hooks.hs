@@ -61,7 +61,7 @@ import Plugin.GHCSpecter.Tasks
   )
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
-import System.Mem (setAllocationCounter, getAllocationCounter)
+import System.Mem (getAllocationCounter)
 -- GHC version dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
 import Control.Applicative ((<|>))
@@ -86,6 +86,7 @@ import Plugin.GHCSpecter.Types
   )
 import Plugin.GHCSpecter.Util (getModuleName)
 import System.Directory (canonicalizePath)
+import System.Mem (setAllocationCounter)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import Control.Monad.IO.Class (liftIO)
 import GHC.Driver.Phases (Phase (As, StopLn))

@@ -14,11 +14,11 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~), (^.), _2)
+import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))

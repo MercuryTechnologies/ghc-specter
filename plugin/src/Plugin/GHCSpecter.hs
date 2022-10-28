@@ -65,8 +65,7 @@ import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
-  ( getMemInfo,
-    runMetaHook',
+  ( runMetaHook',
     runPhaseHook',
     runRnSpliceHook',
   )
@@ -100,7 +99,8 @@ import GHC.Types.Unique.FM (emptyUFM)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
 import Plugin.GHCSpecter.Hooks
-  ( sendModuleName,
+  ( getMemInfo,
+    sendModuleName,
     sendModuleStart,
   )
 import Plugin.GHCSpecter.Tasks (driverCommands)
