@@ -42,7 +42,7 @@ import GHCSpecter.Render.Components.TimingView
     renderTimingChart,
     viewPortY,
   )
-import GHCSpecter.Render.Util (divClass, xmlns)
+import GHCSpecter.Render.Util (divClass, spanClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     HasTimingState (..),
@@ -55,6 +55,7 @@ import GHCSpecter.UI.ConcurReplica.DOM
     input,
     label,
     p,
+    span,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -82,7 +83,7 @@ import GHCSpecter.UI.Types.Event
     MouseEvent (..),
     TimingEvent (..),
   )
-import Prelude hiding (div)
+import Prelude hiding (div, span)
 
 buttonShowBlocker :: TimingUI -> Widget IHTML Event
 buttonShowBlocker tui = divClass "control" [] [button']

@@ -5,6 +5,16 @@ body {
     background: white;
 }
 
+.control {
+    font-size: 8px;
+    padding: 0px;
+}
+
+.checkbox input {
+    width: 6px;
+    height: 6px;
+}
+
 button {
     font-size: 8px;
     padding: 0px;
