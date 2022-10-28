@@ -37,11 +37,7 @@ import GHCSpecter.Data.Timing.Types
     TimingTable,
   )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
-import GHCSpecter.Render.Components.TimingView
-  ( module2Y,
-    renderTimingChart,
-    viewPortY,
-  )
+import GHCSpecter.Render.Components.TimingView qualified as TimingView
 import GHCSpecter.Render.Util (divClass, spanClass, xmlns)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
@@ -149,99 +145,6 @@ renderCheckbox tui =
             ]
         ]
 
-renderTimingBar ::
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderTimingBar tui ttable =
-  div [] [svgElement]
-  where
-    timingInfos = ttable ^. ttableTimingInfos
-    nMods = length timingInfos
-
-    topOfBox :: Int -> Int
-    topOfBox = round . module2Y . fromIntegral
-
-    (i, _) `isInRange` (y0, y1) =
-      let y = topOfBox i
-       in y0 <= y && y <= y1
-
-    allItems = zip [0 ..] timingInfos
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
-
-    (minI, maxI) =
-      let idxs = fmap (^. _1) filteredItems
-       in (minimum idxs, maximum idxs)
-
-    convert i = floor @Double (fromIntegral i / fromIntegral nMods * fromIntegral timingWidth)
-    handleX :: Int
-    handleX = if null filteredItems then 0 else convert minI
-    handleWidth :: Int
-    handleWidth = if null filteredItems then 0 else convert (maxI - minI + 1)
-
-    background =
-      S.rect
-        [ MouseEv TimingBar . MouseMove <$> onMouseMove
-        , MouseEv TimingBar . MouseDown <$> onMouseDown
-        , MouseEv TimingBar . MouseUp <$> onMouseUp
-        , SP.x "0"
-        , SP.y "0"
-        , SP.width (T.pack (show timingWidth))
-        , SP.height (T.pack (show timingBarHeight))
-        , SP.fill "lightgray"
-        ]
-        []
-
-    handle =
-      S.rect
-        [ SP.x (T.pack (show handleX))
-        , SP.y "0"
-        , SP.width (T.pack (show handleWidth))
-        , SP.height (T.pack (show timingBarHeight))
-        , SP.stroke "black"
-        , SP.fill "white"
-        ]
-        []
-    svgProps =
-      [ width (T.pack (show timingWidth))
-      , height (T.pack (show timingBarHeight))
-      , SP.version "1.1"
-      , xmlns
-      ]
-
-    svgElement =
-      S.svg
-        svgProps
-        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , background
-        , handle
-        ]
-
-renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
-renderBlockerLine hoveredMod ttable =
-  divClass "blocker" [] [selected, upstream, hr [], downstreams]
-  where
-    upMods =
-      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
-    downMods =
-      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
-
-    selected =
-      divClass "box" [] [p [] [text hoveredMod]]
-    upstream =
-      div
-        []
-        ( divClass "blocker title" [] [text "blocked by"] :
-          fmap (\modu -> p [] [text modu]) upMods
-        )
-    downstreams =
-      div
-        []
-        ( divClass "blocker title" [] [text "blocking"] :
-          fmap (\modu -> p [] [text modu]) downMods
-        )
-
 -- | regular timing view mode
 renderTimingMode :: UIModel -> ServerState -> Widget IHTML Event
 renderTimingMode model ss =
@@ -266,7 +169,7 @@ renderTimingMode model ss =
                     , ("overflow", "hidden")
                     ]
                 ]
-                [renderBlockerLine hoveredMod ttable]
+                [TimingView.renderBlockerLine hoveredMod ttable]
             ]
    in div
         [ style
@@ -275,11 +178,10 @@ renderTimingMode model ss =
             , ("position", "relative")
             ]
         ]
-        ( [ renderTimingChart (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable
+        ( [ TimingView.render (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable
           , div
               [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
               [renderCheckbox (model ^. modelTiming)]
-          , renderTimingBar (model ^. modelTiming) ttable
           ]
             ++ hoverInfo
         )

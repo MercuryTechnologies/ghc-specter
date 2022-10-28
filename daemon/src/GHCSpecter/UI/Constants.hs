@@ -40,4 +40,4 @@ timingBarHeight = 10
 widgetHeight :: Bool -> Text
 widgetHeight isPaused
   | isPaused = "50vh"
-  | otherwise = "75vh"
+  | otherwise = "95vh"

@@ -6,7 +6,10 @@ module GHCSpecter.Render.Components.TimingView
     module2Y,
 
     -- * render
-    renderTimingChart,
+    -- renderTimingChart,
+    render,
+    renderBlockerLine,
+    renderTimingBar,
   )
 where
 
@@ -46,6 +49,8 @@ import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM
   ( div,
+    hr,
+    p,
     text,
   )
 import GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -66,7 +71,7 @@ import GHCSpecter.UI.Types
     TimingUI,
   )
 import GHCSpecter.UI.Types.Event
-  ( ComponentTag (TimingView),
+  ( ComponentTag (TimingBar, TimingView),
     Event (..),
     MouseEvent (..),
     TimingEvent (..),
@@ -155,16 +160,7 @@ renderTimingChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart drvModMap tui ttable =
-  divClass
-    "box"
-    [ style
-        [ ("width", T.pack (show timingWidth))
-        , ("height", T.pack (show timingHeight))
-        , ("overflow", "hidden")
-        ]
-    ]
-    [svgElement]
+renderTimingChart drvModMap tui ttable = svgElement
   where
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
@@ -320,3 +316,124 @@ renderTimingChart drvModMap tui ttable =
                 ++ linesToDownstream
             )
         ]
+
+renderTimingBar ::
+  TimingUI ->
+  TimingTable ->
+  Widget IHTML Event
+renderTimingBar tui ttable =
+  div [] [svgElement]
+  where
+    timingInfos = ttable ^. ttableTimingInfos
+    nMods = length timingInfos
+
+    topOfBox :: Int -> Int
+    topOfBox = round . module2Y . fromIntegral
+
+    (i, _) `isInRange` (y0, y1) =
+      let y = topOfBox i
+       in y0 <= y && y <= y1
+
+    allItems = zip [0 ..] timingInfos
+    filteredItems =
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+
+    (minI, maxI) =
+      let idxs = fmap (^. _1) filteredItems
+       in (minimum idxs, maximum idxs)
+
+    convert i = floor @Double (fromIntegral i / fromIntegral nMods * fromIntegral timingWidth)
+    handleX :: Int
+    handleX = if null filteredItems then 0 else convert minI
+    handleWidth :: Int
+    handleWidth = if null filteredItems then 0 else convert (maxI - minI + 1)
+
+    background =
+      S.rect
+        [ MouseEv TimingBar . MouseMove <$> onMouseMove
+        , MouseEv TimingBar . MouseDown <$> onMouseDown
+        , MouseEv TimingBar . MouseUp <$> onMouseUp
+        , SP.x "0"
+        , SP.y "0"
+        , SP.width (T.pack (show timingWidth))
+        , SP.height (T.pack (show timingBarHeight))
+        , SP.fill "lightgray"
+        ]
+        []
+
+    handle =
+      S.rect
+        [ SP.x (T.pack (show handleX))
+        , SP.y "0"
+        , SP.width (T.pack (show handleWidth))
+        , SP.height (T.pack (show timingBarHeight))
+        , SP.stroke "black"
+        , SP.fill "white"
+        ]
+        []
+    svgProps =
+      [ width (T.pack (show timingWidth))
+      , height (T.pack (show timingBarHeight))
+      , SP.version "1.1"
+      , xmlns
+      ]
+
+    svgElement =
+      S.svg
+        svgProps
+        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+        , background
+        , handle
+        ]
+
+renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlockerLine hoveredMod ttable =
+  divClass "blocker" [] [selected, upstream, hr [], downstreams]
+  where
+    upMods =
+      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+    downMods =
+      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
+
+    selected =
+      divClass "box" [] [p [] [text hoveredMod]]
+    upstream =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocked by"] :
+          fmap (\modu -> p [] [text modu]) upMods
+        )
+    downstreams =
+      div
+        []
+        ( divClass "blocker title" [] [text "blocking"] :
+          fmap (\modu -> p [] [text modu]) downMods
+        )
+
+renderMemChart :: Widget IHTML Event
+renderMemChart = div [] []
+
+render ::
+  BiKeyMap DriverId ModuleName ->
+  TimingUI ->
+  TimingTable ->
+  Widget IHTML Event
+render drvModMap tui ttable =
+  divClass
+    "box"
+    []
+    [ divClass
+        "columns"
+        []
+        [ divClass
+            "box column is-four-fifths"
+            [style [("overflow", "hidden")]]
+            [ renderTimingChart drvModMap tui ttable
+            ]
+        , divClass
+            "box column is-one-fifth"
+            [style [("overflow", "hidden")]]
+            [renderMemChart]
+        ]
+    , renderTimingBar tui ttable
+    ]

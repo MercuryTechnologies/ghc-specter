@@ -291,7 +291,7 @@ render srcUI ss =
     , height "100%"
     ]
     [ divClass
-        "column box is-one-fifths"
+        "column box is-one-fifth"
         [style [("overflow", "scroll")]]
         [SourceViewEv <$> renderModuleTree srcUI ss]
     , divClass
