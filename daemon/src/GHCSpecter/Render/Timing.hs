@@ -1,6 +1,3 @@
--- {-# LANGUAGE FunctionalDependencies #-}
--- {-# LANGUAGE TemplateHaskell #-}
-
 module GHCSpecter.Render.Timing
   ( render,
   )
@@ -16,16 +13,13 @@ import Concur.Replica
     width,
   )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
-import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1)
 import Data.List qualified as L
-import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, isNothing, maybeToList)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Text qualified as T
 import Data.Time.Clock
   ( secondsToNominalDiffTime,
   )
-import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),
@@ -34,11 +28,10 @@ import GHCSpecter.Data.Map (backwardLookup)
 import GHCSpecter.Data.Timing.Types
   ( HasPipelineInfo (..),
     HasTimingTable (..),
-    TimingTable,
   )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TimingView qualified as TimingView
-import GHCSpecter.Render.Util (divClass, spanClass, xmlns)
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types
   ( HasServerState (..),
     HasTimingState (..),
@@ -47,23 +40,13 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.ConcurReplica.DOM
   ( button,
     div,
-    hr,
     input,
     label,
-    p,
-    span,
     text,
   )
-import GHCSpecter.UI.ConcurReplica.DOM.Events
-  ( onMouseDown,
-    onMouseMove,
-    onMouseUp,
-  )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants
-  ( timingBarHeight,
-    timingHeight,
+  ( timingHeight,
     timingWidth,
     widgetHeight,
   )
@@ -74,9 +57,7 @@ import GHCSpecter.UI.Types
     UIModel,
   )
 import GHCSpecter.UI.Types.Event
-  ( ComponentTag (TimingBar),
-    Event (..),
-    MouseEvent (..),
+  ( Event (..),
     TimingEvent (..),
   )
 import Prelude hiding (div, span)
@@ -152,25 +133,6 @@ renderTimingMode model ss =
         fromMaybe
           (ss ^. serverTiming . tsTimingTable)
           (model ^. modelTiming . timingFrozenTable)
-      mhoveredMod = model ^. modelTiming . timingUIHoveredModule
-      hoverInfo =
-        case mhoveredMod of
-          Nothing -> []
-          Just hoveredMod ->
-            [ divClass
-                "box"
-                [ style
-                    [ ("width", "150px")
-                    , ("height", "120px")
-                    , ("position", "absolute")
-                    , ("bottom", "0")
-                    , ("left", "0")
-                    , ("background", "ivory")
-                    , ("overflow", "hidden")
-                    ]
-                ]
-                [TimingView.renderBlockerLine hoveredMod ttable]
-            ]
    in div
         [ style
             [ ("width", "100%")
@@ -183,7 +145,6 @@ renderTimingMode model ss =
               [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
               [renderCheckbox (model ^. modelTiming)]
           ]
-            ++ hoverInfo
         )
 
 renderBlockerGraph :: ServerState -> Widget IHTML Event

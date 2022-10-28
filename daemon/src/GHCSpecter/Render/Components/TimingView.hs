@@ -1,15 +1,6 @@
 module GHCSpecter.Render.Components.TimingView
-  ( -- * utility
-    viewPortX,
-    viewPortY,
-    diffTime2X,
-    module2Y,
-
-    -- * render
-    -- renderTimingChart,
+  ( -- * render
     render,
-    renderBlockerLine,
-    renderTimingBar,
   )
 where
 
@@ -160,7 +151,18 @@ renderTimingChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart drvModMap tui ttable = svgElement
+renderTimingChart drvModMap tui ttable =
+  S.svg
+    svgProps
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+    , S.g
+        []
+        ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+            ++ (fmap makeItems filteredItems)
+            ++ lineToUpstream
+            ++ linesToDownstream
+        )
+    ]
   where
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
@@ -304,19 +306,6 @@ renderTimingChart drvModMap tui ttable = svgElement
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
-    svgElement =
-      S.svg
-        svgProps
-        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , S.g
-            []
-            ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-                ++ (fmap makeItems filteredItems)
-                ++ lineToUpstream
-                ++ linesToDownstream
-            )
-        ]
-
 renderTimingBar ::
   TimingUI ->
   TimingTable ->
@@ -411,7 +400,25 @@ renderBlockerLine hoveredMod ttable =
         )
 
 renderMemChart :: Widget IHTML Event
-renderMemChart = div [] []
+renderMemChart =
+  S.svg
+    svgProps
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+    , S.text
+        [ SP.x "10"
+        , SP.y "10"
+        , classList [("small", True)]
+        ]
+        [text "Hello There"]
+    ]
+  where
+    svgProps =
+      [ width "100"
+      , height (T.pack (show timingHeight))
+      , SP.version "1.1"
+      , xmlns
+      ]
+
 
 render ::
   BiKeyMap DriverId ModuleName ->
@@ -422,18 +429,40 @@ render drvModMap tui ttable =
   divClass
     "box"
     []
-    [ divClass
-        "columns"
-        []
-        [ divClass
-            "box column is-four-fifths"
-            [style [("overflow", "hidden")]]
-            [ renderTimingChart drvModMap tui ttable
+    ( [ divClass
+          "columns"
+          []
+          [ divClass
+              "box column is-four-fifths"
+              [style [("overflow", "hidden")]]
+              [ renderTimingChart drvModMap tui ttable
+              ]
+          , divClass
+              "box column is-one-fifth"
+              [style [("overflow", "hidden")]]
+              [renderMemChart]
+          ]
+      , renderTimingBar tui ttable
+      ]
+        ++ hoverInfo
+    )
+  where
+      mhoveredMod = tui ^. timingUIHoveredModule
+      hoverInfo =
+        case mhoveredMod of
+          Nothing -> []
+          Just hoveredMod ->
+            [ divClass
+                "box"
+                [ style
+                    [ ("width", "150px")
+                    , ("height", "120px")
+                    , ("position", "absolute")
+                    , ("bottom", "0")
+                    , ("left", "0")
+                    , ("background", "ivory")
+                    , ("overflow", "hidden")
+                    ]
+                ]
+                [renderBlockerLine hoveredMod ttable]
             ]
-        , divClass
-            "box column is-one-fifth"
-            [style [("overflow", "hidden")]]
-            [renderMemChart]
-        ]
-    , renderTimingBar tui ttable
-    ]
