@@ -34,12 +34,20 @@
       url = "github:fourmolu/fourmolu/main";
       flake = false;
     };
+    ghc-debug = {
+      url =
+        "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
+      flake = false;
+    };
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, file-embed, fourmolu }:
+    , fficxx, hs-ogdf, file-embed, fourmolu, ghc-debug }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowBroken = true;
+        };
 
         haskellOverlay = final: hself: hsuper: {
           "criterion" = final.haskell.lib.dontCheck hsuper.criterion;
@@ -65,6 +73,22 @@
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
+          # ghc-debug
+          "ghc-debug-common" =
+            hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
+          "ghc-debug-stub" = final.haskell.lib.doJailbreak
+            (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { });
+          "ghc-debug-client" =
+            hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { };
+          "ghc-debug-test" =
+            hself.callCabal2nix "ghc-debug-test" "${ghc-debug}/test" { };
+          "ghc-debug-dyepack-test" =
+            hself.callCabal2nix "ghc-debug-dyepack-test"
+            "${ghc-debug}/dyepack-test" { };
+          #"ghc-debug-brick" = hself.callCabal2nix "ghc-debug-brick" "${ghc-debug}/brick" { };
+          "ghc-debug-convention" =
+            hself.callCabal2nix "ghc-debug-convention" "${ghc-debug}/convention"
+            { };
         };
 
         hpkgsFor = compiler:
@@ -84,6 +108,13 @@
                 p.concur-replica
                 p.discrimination
                 p.extra
+                p.ghc-debug-common
+                p.ghc-debug-stub
+                #p.ghc-debug-client
+                #p.ghc-debug-test
+                #p.ghc-debug-dyepack-test
+                #p.ghc-debug-brick
+                p.ghc-debug-convention
                 p.hiedb
                 p.hpack
                 p.hspec

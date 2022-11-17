@@ -107,6 +107,23 @@
         "type": "github"
       }
     },
+    "ghc-debug": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1668721384,
+        "narHash": "sha256-lVp2XCjAc9mpOdCOExVGhSOk16XXf6YgdwOCgr4GyWA=",
+        "ref": "wavewave/ghc94",
+        "rev": "8800c82dd6ef60e117751d196b9cc49aa56494db",
+        "revCount": 493,
+        "type": "git",
+        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
+      },
+      "original": {
+        "ref": "wavewave/ghc94",
+        "type": "git",
+        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
+      }
+    },
     "hs-ogdf": {
       "inputs": {
         "fficxx": [
@@ -175,6 +192,7 @@
         "file-embed": "file-embed",
         "flake-utils": "flake-utils",
         "fourmolu": "fourmolu",
+        "ghc-debug": "ghc-debug",
         "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",
         "replica": "replica"
