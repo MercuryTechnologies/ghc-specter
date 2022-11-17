@@ -15,6 +15,8 @@ module GHCSpecter.Channel.Outbound.Types
     emptyModuleGraphInfo,
     ConsoleReply (..),
     ProcessInfo (..),
+    GhcMode (..),
+    Backend (..),
     SessionInfo (..),
     emptySessionInfo,
 
@@ -176,8 +178,30 @@ instance FromJSON ProcessInfo
 
 instance ToJSON ProcessInfo
 
+-- | This is the same as GHC.Driver.Session.GhcMode
+data GhcMode = CompManager | OneShot | MkDepend
+  deriving (Show, Generic)
+
+instance Binary GhcMode
+
+instance FromJSON GhcMode
+
+instance ToJSON GhcMode
+
+-- | This is the same as GHC.Driver.Backend.Backend
+data Backend = NCG | LLVM | ViaC | Interpreter | NoBackend
+  deriving (Show, Generic)
+
+instance Binary Backend
+
+instance FromJSON Backend
+
+instance ToJSON Backend
+
 data SessionInfo = SessionInfo
   { sessionProcess :: Maybe ProcessInfo
+  , sessionGhcMode :: GhcMode
+  , sessionBackend :: Backend
   , sessionStartTime :: Maybe UTCTime
   , sessionModuleGraph :: ModuleGraphInfo
   , sessionModuleSources :: Map ModuleName FilePath
@@ -193,7 +217,7 @@ instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
-  SessionInfo Nothing Nothing emptyModuleGraphInfo M.empty True
+  SessionInfo Nothing CompManager NCG Nothing emptyModuleGraphInfo M.empty True
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
