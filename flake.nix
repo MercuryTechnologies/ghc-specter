@@ -58,7 +58,7 @@
           "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
           "file-embed" = hself.callCabal2nix "file-embed" file-embed { };
           # fixity-th is disabled to avoid segfault during compilation.
-          "fourmolu" = final.haskell.lib.dontCheck
+          "fourmolu_0_9_0_0" = final.haskell.lib.dontCheck
             (final.haskell.lib.overrideCabal
               (hself.callCabal2nix "fourmolu" fourmolu { }) (drv: {
                 configureFlags = [ "-f-fixity-th" ];
@@ -75,27 +75,30 @@
 
         mkShellFor = compiler:
           let
-            hsenv = (hpkgsFor compiler).ghcWithPackages (p: [
-              p.aeson
-              p.binary-instances
-              p.cabal-install
-              p.concur-core
-              p.concur-replica
-              p.discrimination
-              p.extra
-              p.fourmolu
-              p.hiedb
-              p.hpack
-              p.hspec
-              p.lens
-              p.pretty-simple
-              p.OGDF
-              p.optparse-applicative
-              p.replica
-              p.socket
-              p.text
-              p.time
-            ]);
+            hsenv = (hpkgsFor compiler).ghcWithPackages (p:
+              [
+                p.aeson
+                p.binary-instances
+                p.cabal-install
+                p.concur-core
+                p.concur-replica
+                p.discrimination
+                p.extra
+                p.hiedb
+                p.hpack
+                p.hspec
+                p.lens
+                p.pretty-simple
+                p.OGDF
+                p.optparse-applicative
+                p.replica
+                p.socket
+                p.text
+                p.time
+              ] ++ (if compiler == "ghc942" then
+                [ p.fourmolu_0_9_0_0 ]
+              else
+                [ p.fourmolu ]));
           in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
 
         supportedCompilers = [ "ghc924" "ghc942" ];
