@@ -25,6 +25,7 @@ import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
+import GHC.Driver.Backend qualified as GHC (Backend (..))
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
@@ -36,6 +37,7 @@ import GHC.Driver.Plugins
     type CommandLineOption,
   )
 import GHC.Driver.Session (gopt)
+import GHC.Driver.Session qualified as GHC (DynFlags (..), GhcMode (..))
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.RTS.Flags (getRTSFlags)
 import GHC.Tc.Types
@@ -48,8 +50,10 @@ import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types
-  ( BreakpointLoc (..),
+  ( Backend (..),
+    BreakpointLoc (..),
     ChanMessage (..),
+    GhcMode (..),
     ProcessInfo (..),
     SessionInfo (..),
   )
@@ -145,11 +149,25 @@ initGhcSession env = do
         Just (_, queue) -> pure (False, queue)
         -- session start
         Nothing -> do
-          let modGraph = hsc_mod_graph env
+          let ghcMode =
+                case (GHC.ghcMode (hsc_dflags env)) of
+                  GHC.CompManager -> CompManager
+                  GHC.OneShot -> OneShot
+                  GHC.MkDepend -> MkDepend
+              backend =
+                case (GHC.backend (hsc_dflags env)) of
+                  GHC.NCG -> NCG
+                  GHC.LLVM -> LLVM
+                  GHC.ViaC -> ViaC
+                  GHC.Interpreter -> Interpreter
+                  GHC.NoBackend -> NoBackend
+              modGraph = hsc_mod_graph env
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
+                  , sessionGhcMode = ghcMode
+                  , sessionBackend = backend
                   , sessionStartTime = Just startTime
                   , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty
