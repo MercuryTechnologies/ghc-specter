@@ -1,20 +1,19 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.GHC.Hie
-  ( -- * Row data for Hie
-    RefRow' (..),
-    HasRefRow' (..),
-    DeclRow' (..),
-    HasDeclRow' (..),
-    DefRow' (..),
-    HasDefRow' (..),
+module GHCSpecter.Data.GHC.Hie (
+  -- * Row data for Hie
+  RefRow' (..),
+  HasRefRow' (..),
+  DeclRow' (..),
+  HasDeclRow' (..),
+  DefRow' (..),
+  HasDefRow' (..),
 
-    -- * Hie info per module
-    ModuleHieInfo (..),
-    HasModuleHieInfo (..),
-    emptyModuleHieInfo,
-  )
-where
+  -- * Hie info per module
+  ModuleHieInfo (..),
+  HasModuleHieInfo (..),
+  emptyModuleHieInfo,
+) where
 
 import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)

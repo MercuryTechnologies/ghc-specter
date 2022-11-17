@@ -1,10 +1,9 @@
-module GHCSpecter.Util.SourceTree
-  ( makeSourceTree,
-    markLeaf,
-    accumPrefix,
-    expandFocusOnly,
-  )
-where
+module GHCSpecter.Util.SourceTree (
+  makeSourceTree,
+  markLeaf,
+  accumPrefix,
+  expandFocusOnly,
+) where
 
 import Control.Lens (to, (^..))
 import Data.List qualified as L

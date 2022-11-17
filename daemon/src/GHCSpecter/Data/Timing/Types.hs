@@ -1,17 +1,16 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.Timing.Types
-  ( -- * extracted information along the compilation pipeline of a given module
-    PipelineInfo (..),
-    HasPipelineInfo (..),
+module GHCSpecter.Data.Timing.Types (
+  -- * extracted information along the compilation pipeline of a given module
+  PipelineInfo (..),
+  HasPipelineInfo (..),
 
-    -- * collective timing information for the session
-    TimingTable (..),
-    HasTimingTable (..),
-    emptyTimingTable,
-  )
-where
+  -- * collective timing information for the session
+  TimingTable (..),
+  HasTimingTable (..),
+  emptyTimingTable,
+) where
 
 import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)
@@ -38,8 +37,8 @@ instance FromJSON a => FromJSON (PipelineInfo a)
 instance ToJSON a => ToJSON (PipelineInfo a)
 
 data TimingTable = TimingTable
-  { -- | Start-time-ordered info table.
-    _ttableTimingInfos :: [(DriverId, PipelineInfo (NominalDiffTime, Maybe MemInfo))]
+  { _ttableTimingInfos :: [(DriverId, PipelineInfo (NominalDiffTime, Maybe MemInfo))]
+  -- ^ Start-time-ordered info table.
   , _ttableBlockingUpstreamDependency :: Map ModuleName ModuleName
   , _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }

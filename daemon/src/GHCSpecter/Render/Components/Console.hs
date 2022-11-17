@@ -1,39 +1,38 @@
-module GHCSpecter.Render.Components.Console
-  ( render,
-  )
-where
+module GHCSpecter.Render.Components.Console (
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    onClick,
-    onInput,
-    onKeyPress,
-    style,
-    textProp,
-  )
+import Concur.Replica (
+  classList,
+  onClick,
+  onInput,
+  onKeyPress,
+  style,
+  textProp,
+ )
 import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Text (Text)
-import GHCSpecter.Data.Map
-  ( IsKey (..),
-    KeyMap,
-    lookupKey,
-  )
+import GHCSpecter.Data.Map (
+  IsKey (..),
+  KeyMap,
+  lookupKey,
+ )
 import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( button,
-    div,
-    el,
-    input,
-    nav,
-    p,
-    script,
-    text,
-  )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  button,
+  div,
+  el,
+  input,
+  nav,
+  p,
+  script,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)

@@ -1,17 +1,16 @@
-module GHCSpecter.Render.SourceView
-  ( render,
-  )
-where
+module GHCSpecter.Render.SourceView (
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( MouseEvent,
-    classList,
-    height,
-    onChange,
-    onClick,
-    style,
-  )
+import Concur.Replica (
+  MouseEvent,
+  classList,
+  height,
+  onChange,
+  onClick,
+  style,
+ )
 import Concur.Replica.DOM.Props qualified as DP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
 import Data.Bifunctor (first)
@@ -22,55 +21,55 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..), foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.Channel.Outbound.Types
-  ( Channel (..),
-    SessionInfo (..),
-  )
-import GHCSpecter.Data.GHC.Hie
-  ( HasDeclRow' (..),
-    HasModuleHieInfo (..),
-    ModuleHieInfo,
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  Channel (..),
+  SessionInfo (..),
+ )
+import GHCSpecter.Data.GHC.Hie (
+  HasDeclRow' (..),
+  HasModuleHieInfo (..),
+  ModuleHieInfo,
+ )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Server.Types
-  ( HasHieState (..),
-    HasModuleGraphState (..),
-    HasServerState (..),
-    HasTimingState (..),
-    Inbox,
-    ServerState (..),
-    SupplementaryView (..),
-  )
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    el,
-    input,
-    li,
-    nav,
-    pre,
-    script,
-    span,
-    text,
-    ul,
-  )
+import GHCSpecter.Server.Types (
+  HasHieState (..),
+  HasModuleGraphState (..),
+  HasServerState (..),
+  HasTimingState (..),
+  Inbox,
+  ServerState (..),
+  SupplementaryView (..),
+ )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  div,
+  el,
+  input,
+  li,
+  nav,
+  pre,
+  script,
+  span,
+  text,
+  ul,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types
-  ( HasSourceViewUI (..),
-    SourceViewUI (..),
-  )
-import GHCSpecter.UI.Types.Event
-  ( Event (..),
-    SourceViewEvent (..),
-  )
-import GHCSpecter.Util.SourceTree
-  ( accumPrefix,
-    expandFocusOnly,
-    markLeaf,
-  )
+import GHCSpecter.UI.Types (
+  HasSourceViewUI (..),
+  SourceViewUI (..),
+ )
+import GHCSpecter.UI.Types.Event (
+  Event (..),
+  SourceViewEvent (..),
+ )
+import GHCSpecter.Util.SourceTree (
+  accumPrefix,
+  expandFocusOnly,
+  markLeaf,
+ )
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 
@@ -80,10 +79,10 @@ expandableText isBordered isExpandable cls txt =
         | not isBordered && isExpandable = txt <> " ... "
         | otherwise = txt
       spanProps =
-        classList [("expandable " <> cls, True)] :
-        if isBordered
-          then [style [("border", "solid")]]
-          else []
+        classList [("expandable " <> cls, True)]
+          : if isBordered
+            then [style [("border", "solid")]]
+            else []
    in span (onClick : spanProps) [text txt']
 
 -- | show information on unqualified imports

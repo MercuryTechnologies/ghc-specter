@@ -1,30 +1,29 @@
 {-# LANGUAGE BangPatterns #-}
 
 -- | Breadth-First-Search (BFS)
-module GHCSpecter.GraphLayout.Algorithm.BFS
-  ( -- * internal state for BFS
-    BFSState (..),
-    BFSPath (..),
-    MultiBFSPath (..),
+module GHCSpecter.GraphLayout.Algorithm.BFS (
+  -- * internal state for BFS
+  BFSState (..),
+  BFSPath (..),
+  MultiBFSPath (..),
 
-    -- * single-seed use case
-    stepBFS,
-    runStagedBFS,
+  -- * single-seed use case
+  stepBFS,
+  runStagedBFS,
 
-    -- * multi-seed use case
-    stepMultiseedBFS,
-    runMultiseedStagedBFS,
-  )
-where
+  -- * multi-seed use case
+  stepMultiseedBFS,
+  runMultiseedStagedBFS,
+) where
 
 import Control.Monad (join)
 import Control.Monad.Extra (loopM)
-import Control.Monad.Trans.State
-  ( StateT (..),
-    evalStateT,
-    get,
-    modify',
-  )
+import Control.Monad.Trans.State (
+  StateT (..),
+  evalStateT,
+  get,
+  modify',
+ )
 import Data.Bifunctor (bimap)
 import Data.Either (partitionEithers)
 import Data.Foldable qualified as F

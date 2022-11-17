@@ -1,23 +1,22 @@
-module GHCSpecter.Render.Components.TextView
-  ( -- * predefined layout
-    rowSize,
-    ratio,
-    charSize,
-    topOfBox,
-    bottomOfBox,
-    leftOfBox,
-    rightOfBox,
+module GHCSpecter.Render.Components.TextView (
+  -- * predefined layout
+  rowSize,
+  ratio,
+  charSize,
+  topOfBox,
+  bottomOfBox,
+  leftOfBox,
+  rightOfBox,
 
-    -- * top-level render function
-    render,
-  )
-where
+  -- * top-level render function
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( height,
-    width,
-  )
+import Concur.Replica (
+  height,
+  width,
+ )
 import Concur.Replica.SVG.Props qualified as SP
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -52,8 +51,8 @@ render showCharBox txt highlighted =
   -- NOTE: white-space: pre to preserve white-space occurrences in the source code.
   S.svg
     svgProps
-    ( S.style [] [text "text { font: 8px monospace; user-select: none; white-space: pre; }"] :
-      contents
+    ( S.style [] [text "text { font: 8px monospace; user-select: none; white-space: pre; }"]
+        : contents
     )
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.

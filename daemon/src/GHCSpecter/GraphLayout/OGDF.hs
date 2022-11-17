@@ -2,53 +2,52 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module GHCSpecter.GraphLayout.OGDF
-  ( nodeGraphics,
-    edgeGraphics,
-    edgeIntWeight,
-    edgeDoubleWeight,
-    edgeLabel,
-    nodeLabel,
-    edgeType,
-    nodeType,
-    nodeId,
-    edgeArrow,
-    edgeStyle,
-    nodeStyle,
-    nodeTemplate,
-    edgeSubGraphs,
-    nodeWeight,
-    threeD,
-    nodeLabelPosition,
-    --
-    GraphLayouter (..),
-    runGraphLayouter,
-    --
-    newGraphNodeWithSize,
-    appendText,
-    setFillColor,
-    getNodeX,
-    getNodeY,
-    getNodeWidth,
-    getNodeHeight,
-    getCanvasDim,
-    --
-    getAllNodeLayout,
-    getAllEdgeLayout,
-    --
-    doSugiyamaLayout,
-  )
-where
+module GHCSpecter.GraphLayout.OGDF (
+  nodeGraphics,
+  edgeGraphics,
+  edgeIntWeight,
+  edgeDoubleWeight,
+  edgeLabel,
+  nodeLabel,
+  edgeType,
+  nodeType,
+  nodeId,
+  edgeArrow,
+  edgeStyle,
+  nodeStyle,
+  nodeTemplate,
+  edgeSubGraphs,
+  nodeWeight,
+  threeD,
+  nodeLabelPosition,
+  --
+  GraphLayouter (..),
+  runGraphLayouter,
+  --
+  newGraphNodeWithSize,
+  appendText,
+  setFillColor,
+  getNodeX,
+  getNodeY,
+  getNodeWidth,
+  getNodeHeight,
+  getCanvasDim,
+  --
+  getAllNodeLayout,
+  getAllEdgeLayout,
+  --
+  doSugiyamaLayout,
+) where
 
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Resource
-  ( MonadResource (..),
-    ResourceT,
-    allocate,
-    release,
-    runResourceT,
-  )
+import Control.Monad.Trans.Resource (
+  MonadResource (..),
+  ResourceT,
+  allocate,
+  release,
+  runResourceT,
+ )
 import Data.ByteString (useAsCString)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
@@ -56,64 +55,64 @@ import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
 import Foreign.C.Types (CBool (..), CLong)
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable (Storable (peek, poke))
-import GHCSpecter.GraphLayout.Types
-  ( Dimension (..),
-    EdgeLayout (..),
-    NodeLayout (..),
-    Point (..),
-  )
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  EdgeLayout (..),
+  NodeLayout (..),
+  Point (..),
+ )
 import OGDF.Color (color_fromString)
 import OGDF.DPoint
 import OGDF.DPoint.Implementation (dPoint_m_x_get, dPoint_m_y_get)
 import OGDF.DRect (dRect_height, dRect_width)
-import OGDF.EdgeElement
-  ( EdgeElement (..),
-    edgeElement_index,
-    edgeElement_source,
-    edgeElement_succ,
-    edgeElement_target,
-  )
-import OGDF.Graph
-  ( Graph,
-    graph_firstEdge,
-    graph_firstNode,
-    graph_newNode,
-  )
-import OGDF.GraphAttributes
-  ( GraphAttributes,
-    boundingBox,
-    graphAttributes_bends,
-    graphAttributes_fillColor,
-    graphAttributes_height,
-    graphAttributes_label,
-    graphAttributes_width,
-    graphAttributes_x,
-    graphAttributes_y,
-  )
+import OGDF.EdgeElement (
+  EdgeElement (..),
+  edgeElement_index,
+  edgeElement_source,
+  edgeElement_succ,
+  edgeElement_target,
+ )
+import OGDF.Graph (
+  Graph,
+  graph_firstEdge,
+  graph_firstNode,
+  graph_newNode,
+ )
+import OGDF.GraphAttributes (
+  GraphAttributes,
+  boundingBox,
+  graphAttributes_bends,
+  graphAttributes_fillColor,
+  graphAttributes_height,
+  graphAttributes_label,
+  graphAttributes_width,
+  graphAttributes_x,
+  graphAttributes_y,
+ )
 import OGDF.LayoutModule (ILayoutModule (call))
 import OGDF.List.TH qualified as TH
 import OGDF.List.Template
 import OGDF.ListIterator.TH qualified as TH
 import OGDF.ListIterator.Template
 import OGDF.MedianHeuristic (newMedianHeuristic)
-import OGDF.NodeElement
-  ( NodeElement (..),
-    nodeElement_index,
-    nodeElement_succ,
-  )
-import OGDF.OptimalHierarchyLayout
-  ( newOptimalHierarchyLayout,
-    optimalHierarchyLayout_layerDistance,
-    optimalHierarchyLayout_nodeDistance,
-    optimalHierarchyLayout_weightBalancing,
-  )
+import OGDF.NodeElement (
+  NodeElement (..),
+  nodeElement_index,
+  nodeElement_succ,
+ )
+import OGDF.OptimalHierarchyLayout (
+  newOptimalHierarchyLayout,
+  optimalHierarchyLayout_layerDistance,
+  optimalHierarchyLayout_nodeDistance,
+  optimalHierarchyLayout_weightBalancing,
+ )
 import OGDF.OptimalRanking (newOptimalRanking)
-import OGDF.SugiyamaLayout
-  ( newSugiyamaLayout,
-    sugiyamaLayout_setCrossMin,
-    sugiyamaLayout_setLayout,
-    sugiyamaLayout_setRanking,
-  )
+import OGDF.SugiyamaLayout (
+  newSugiyamaLayout,
+  sugiyamaLayout_setCrossMin,
+  sugiyamaLayout_setLayout,
+  sugiyamaLayout_setRanking,
+ )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
 import UnliftIO (MonadUnliftIO (withRunInIO))

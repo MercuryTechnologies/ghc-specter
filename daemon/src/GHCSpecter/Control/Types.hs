@@ -1,26 +1,25 @@
-module GHCSpecter.Control.Types
-  ( -- * eDSL Types
-    ControlF (..),
-    Control,
+module GHCSpecter.Control.Types (
+  -- * eDSL Types
+  ControlF (..),
+  Control,
 
-    -- * Primitive operations of eDSL
-    getUI,
-    putUI,
-    modifyUI,
-    getSS,
-    putSS,
-    modifySS,
-    sendRequest,
-    nextEvent,
-    printMsg,
-    getCurrentTime,
-    getLastUpdatedUI,
-    refreshUIAfter,
-    shouldUpdate,
-    saveSession,
-    asyncWork,
-  )
-where
+  -- * Primitive operations of eDSL
+  getUI,
+  putUI,
+  modifyUI,
+  getSS,
+  putSS,
+  modifySS,
+  sendRequest,
+  nextEvent,
+  printMsg,
+  getCurrentTime,
+  getLastUpdatedUI,
+  refreshUIAfter,
+  shouldUpdate,
+  saveSession,
+  asyncWork,
+) where
 
 import Control.Concurrent.STM (TVar)
 import Control.Monad.Free (Free (..), liftF)

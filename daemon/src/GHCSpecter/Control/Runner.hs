@@ -1,19 +1,18 @@
-module GHCSpecter.Control.Runner
-  ( type Runner,
-    stepControl,
-    stepControlUpToEvent,
-  )
-where
+module GHCSpecter.Control.Runner (
+  type Runner,
+  stepControl,
+  stepControlUpToEvent,
+) where
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM
-  ( TChan,
-    TVar,
-    atomically,
-    readTVar,
-    writeTChan,
-    writeTVar,
-  )
+import Control.Concurrent.STM (
+  TChan,
+  TVar,
+  atomically,
+  readTVar,
+  writeTChan,
+  writeTVar,
+ )
 import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Free (Free (..))
@@ -26,19 +25,19 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types (Request)
-import GHCSpecter.Control.Types
-  ( ControlF (..),
-    type Control,
-  )
+import GHCSpecter.Control.Types (
+  ControlF (..),
+  type Control,
+ )
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.Types
-  ( HasUIState (..),
-    UIState (..),
-  )
-import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (..),
-    Event (..),
-  )
+import GHCSpecter.UI.Types (
+  HasUIState (..),
+  UIState (..),
+ )
+import GHCSpecter.UI.Types.Event (
+  BackgroundEvent (..),
+  Event (..),
+ )
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
 

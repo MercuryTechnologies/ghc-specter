@@ -1,10 +1,9 @@
-module GHCSpecter.Util.ModuleGraph
-  ( -- * show textual info:
-    formatModuleGraphInfo,
-    stat,
-    analyze,
-  )
-where
+module GHCSpecter.Util.ModuleGraph (
+  -- * show textual info:
+  formatModuleGraphInfo,
+  stat,
+  analyze,
+) where
 
 import Control.Monad.Extra (loop)
 import Data.Foldable qualified as F
@@ -13,9 +12,9 @@ import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import GHCSpecter.Channel.Outbound.Types
-  ( ModuleGraphInfo (..),
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  ModuleGraphInfo (..),
+ )
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Algorithm.Cluster (filterOutSmallNodes)
 
@@ -68,7 +67,9 @@ analyze graphInfo =
       legs = fmap leg (initials L.\\ orphans)
       larges = filterOutSmallNodes modDep
       largeNames = mapMaybe (\i -> IM.lookup i (mginfoModuleNameMap graphInfo)) larges
-   in "intials: " <> (T.pack $ show initials) <> ",\n"
+   in "intials: "
+        <> (T.pack $ show initials)
+        <> ",\n"
         <> "terminals: "
         <> (T.pack $ show terminals)
         <> ",\n"

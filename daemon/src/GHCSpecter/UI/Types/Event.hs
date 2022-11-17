@@ -1,21 +1,20 @@
-module GHCSpecter.UI.Types.Event
-  ( -- * Enums
-    Tab (..),
-    DetailLevel (..),
-    ComponentTag (..),
+module GHCSpecter.UI.Types.Event (
+  -- * Enums
+  Tab (..),
+  DetailLevel (..),
+  ComponentTag (..),
 
-    -- * Event types
-    SourceViewEvent (..),
-    SubModuleEvent (..),
-    ModuleGraphEvent (..),
-    SessionEvent (..),
-    TimingEvent (..),
-    MouseEvent (..),
-    ConsoleEvent (..),
-    BackgroundEvent (..),
-    Event (..),
-  )
-where
+  -- * Event types
+  SourceViewEvent (..),
+  SubModuleEvent (..),
+  ModuleGraphEvent (..),
+  SessionEvent (..),
+  TimingEvent (..),
+  MouseEvent (..),
+  ConsoleEvent (..),
+  BackgroundEvent (..),
+  Event (..),
+) where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)

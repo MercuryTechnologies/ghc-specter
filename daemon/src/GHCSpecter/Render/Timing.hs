@@ -1,65 +1,64 @@
-module GHCSpecter.Render.Timing
-  ( render,
-  )
-where
+module GHCSpecter.Render.Timing (
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    height,
-    onChange,
-    onClick,
-    style,
-    width,
-  )
+import Concur.Replica (
+  classList,
+  height,
+  onChange,
+  onClick,
+  style,
+  width,
+ )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Control.Lens (to, (^.), _1)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Text qualified as T
-import Data.Time.Clock
-  ( secondsToNominalDiffTime,
-  )
-import GHCSpecter.Channel.Outbound.Types
-  ( ModuleGraphInfo (..),
-    SessionInfo (..),
-  )
+import Data.Time.Clock (
+  secondsToNominalDiffTime,
+ )
+import GHCSpecter.Channel.Outbound.Types (
+  ModuleGraphInfo (..),
+  SessionInfo (..),
+ )
 import GHCSpecter.Data.Map (backwardLookup)
-import GHCSpecter.Data.Timing.Types
-  ( HasPipelineInfo (..),
-    HasTimingTable (..),
-  )
+import GHCSpecter.Data.Timing.Types (
+  HasPipelineInfo (..),
+  HasTimingTable (..),
+ )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TimingView qualified as TimingView
 import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    HasTimingState (..),
-    ServerState (..),
-  )
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( button,
-    div,
-    input,
-    label,
-    text,
-  )
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState (..),
+ )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  button,
+  div,
+  input,
+  label,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants
-  ( timingHeight,
-    timingWidth,
-    widgetHeight,
-  )
-import GHCSpecter.UI.Types
-  ( HasTimingUI (..),
-    HasUIModel (..),
-    TimingUI,
-    UIModel,
-  )
-import GHCSpecter.UI.Types.Event
-  ( Event (..),
-    TimingEvent (..),
-  )
+import GHCSpecter.UI.Constants (
+  timingHeight,
+  timingWidth,
+  widgetHeight,
+ )
+import GHCSpecter.UI.Types (
+  HasTimingUI (..),
+  HasUIModel (..),
+  TimingUI,
+  UIModel,
+ )
+import GHCSpecter.UI.Types.Event (
+  Event (..),
+  TimingEvent (..),
+ )
 import Prelude hiding (div, span)
 
 buttonShowBlocker :: TimingUI -> Widget IHTML Event

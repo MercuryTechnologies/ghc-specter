@@ -1,54 +1,53 @@
-module Plugin.GHCSpecter.Types
-  ( -- * Message Queue
-    MsgQueue (..),
-    initMsgQueue,
+module Plugin.GHCSpecter.Types (
+  -- * Message Queue
+  MsgQueue (..),
+  initMsgQueue,
 
-    -- * Console state
-    ConsoleState (..),
-    emptyConsoleState,
+  -- * Console state
+  ConsoleState (..),
+  emptyConsoleState,
 
-    -- * PluginSession
-    PluginSession (..),
-    emptyPluginSession,
+  -- * PluginSession
+  PluginSession (..),
+  emptyPluginSession,
 
-    -- * global variable
-    sessionRef,
+  -- * global variable
+  sessionRef,
 
-    -- * utilities
-    getMsgQueue,
-    assignModuleToDriverId,
-    assignModuleFileToDriverId,
-    getModuleFromDriverId,
-    getModuleFileFromDriverId,
-  )
-where
+  -- * utilities
+  getMsgQueue,
+  assignModuleToDriverId,
+  assignModuleFileToDriverId,
+  getModuleFromDriverId,
+  getModuleFileFromDriverId,
+) where
 
-import Control.Concurrent.STM
-  ( STM,
-    TVar,
-    modifyTVar',
-    newTVarIO,
-    readTVar,
-  )
+import Control.Concurrent.STM (
+  STM,
+  TVar,
+  modifyTVar',
+  newTVarIO,
+  readTVar,
+ )
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (
+  DriverId (..),
+  type ModuleName,
+ )
 import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
-import GHCSpecter.Channel.Outbound.Types
-  ( ChanMessageBox (..),
-    SessionInfo (..),
-    emptySessionInfo,
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  ChanMessageBox (..),
+  SessionInfo (..),
+  emptySessionInfo,
+ )
 import GHCSpecter.Config (Config, emptyConfig)
-import GHCSpecter.Data.Map
-  ( BiKeyMap,
-    emptyBiKeyMap,
-    forwardLookup,
-    insertToBiKeyMap,
-  )
+import GHCSpecter.Data.Map (
+  BiKeyMap,
+  emptyBiKeyMap,
+  forwardLookup,
+  insertToBiKeyMap,
+ )
 import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue

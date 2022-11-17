@@ -1,17 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Driver.Session.Types
-  ( -- * session types for daemon
-    ServerSession (..),
-    HasServerSession (..),
-    ClientSession (..),
-    HasClientSession (..),
+module GHCSpecter.Driver.Session.Types (
+  -- * session types for daemon
+  ServerSession (..),
+  HasServerSession (..),
+  ClientSession (..),
+  HasClientSession (..),
 
-    -- * UI Channel
-    UIChannel (..),
-    HasUIChannel (..),
-  )
-where
+  -- * UI Channel
+  UIChannel (..),
+  HasUIChannel (..),
+) where
 
 import Control.Concurrent.STM (TChan, TVar)
 import Control.Lens (makeClassy)

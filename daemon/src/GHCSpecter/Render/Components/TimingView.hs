@@ -1,73 +1,72 @@
-module GHCSpecter.Render.Components.TimingView
-  ( -- * render
-    render,
-  )
-where
+module GHCSpecter.Render.Components.TimingView (
+  -- * render
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    height,
-    onMouseEnter,
-    onMouseLeave,
-    style,
-    width,
-  )
+import Concur.Replica (
+  classList,
+  height,
+  onMouseEnter,
+  onMouseLeave,
+  style,
+  width,
+ )
 import Concur.Replica.SVG.Props qualified as SP
-import Control.Lens (to, (^.), (%~), _1, _2)
+import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time.Clock
-  ( NominalDiffTime,
-    nominalDiffTimeToSeconds,
-    secondsToNominalDiffTime,
-  )
+import Data.Time.Clock (
+  NominalDiffTime,
+  nominalDiffTimeToSeconds,
+  secondsToNominalDiffTime,
+ )
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (MemInfo (..))
-import GHCSpecter.Data.Map
-  ( BiKeyMap,
-    forwardLookup,
-  )
-import GHCSpecter.Data.Timing.Types
-  ( HasPipelineInfo (..),
-    HasTimingTable (..),
-    TimingTable,
-  )
+import GHCSpecter.Data.Map (
+  BiKeyMap,
+  forwardLookup,
+ )
+import GHCSpecter.Data.Timing.Types (
+  HasPipelineInfo (..),
+  HasTimingTable (..),
+  TimingTable,
+ )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Render.Util (divClass, xmlns)
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    hr,
-    p,
-    text,
-  )
-import GHCSpecter.UI.ConcurReplica.DOM.Events
-  ( onMouseDown,
-    onMouseMove,
-    onMouseUp,
-  )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  div,
+  hr,
+  p,
+  text,
+ )
+import GHCSpecter.UI.ConcurReplica.DOM.Events (
+  onMouseDown,
+  onMouseMove,
+  onMouseUp,
+ )
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants
-  ( timingBarHeight,
-    timingHeight,
-    timingMaxWidth,
-    timingWidth,
-  )
-import GHCSpecter.UI.Types
-  ( HasTimingUI (..),
-    TimingUI,
-  )
-import GHCSpecter.UI.Types.Event
-  ( ComponentTag (TimingBar, TimingView),
-    Event (..),
-    MouseEvent (..),
-    TimingEvent (..),
-  )
+import GHCSpecter.UI.Constants (
+  timingBarHeight,
+  timingHeight,
+  timingMaxWidth,
+  timingWidth,
+ )
+import GHCSpecter.UI.Types (
+  HasTimingUI (..),
+  TimingUI,
+ )
+import GHCSpecter.UI.Types.Event (
+  ComponentTag (TimingBar, TimingView),
+  Event (..),
+  MouseEvent (..),
+  TimingEvent (..),
+ )
 import Prelude hiding (div)
 
 viewPortX :: TimingUI -> Int
@@ -390,14 +389,14 @@ renderBlockerLine hoveredMod ttable =
     upstream =
       div
         []
-        ( divClass "blocker title" [] [text "blocked by"] :
-          fmap (\modu -> p [] [text modu]) upMods
+        ( divClass "blocker title" [] [text "blocked by"]
+            : fmap (\modu -> p [] [text modu]) upMods
         )
     downstreams =
       div
         []
-        ( divClass "blocker title" [] [text "blocking"] :
-          fmap (\modu -> p [] [text modu]) downMods
+        ( divClass "blocker title" [] [text "blocking"]
+            : fmap (\modu -> p [] [text modu]) downMods
         )
 
 renderMemChart ::
@@ -426,15 +425,17 @@ renderMemChart drvModMap tui ttable =
     topOfBox = floor . module2Y . fromIntegral
 
     alloc2X alloc =
-      let -- ratio to 4 GiB
-          allocRatio :: Double
-          allocRatio = fromIntegral alloc / (4 * 1024 * 1024 * 1024)
-       in floor (allocRatio * 150) :: Int
+      let
+        -- ratio to 4 GiB
+        allocRatio :: Double
+        allocRatio = fromIntegral alloc / (4 * 1024 * 1024 * 1024)
+       in
+        floor (allocRatio * 150) :: Int
 
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
 
     box color lz (i, item) =
-      case item ^.  _2 . lz . _2 of
+      case item ^. _2 . lz . _2 of
         Nothing -> []
         Just minfo ->
           [ S.rect
@@ -458,20 +459,20 @@ renderMemChart drvModMap tui ttable =
             [text moduTxt]
     makeItem x =
       if (tui ^. timingUIPartition)
-      then
-        S.g
-          []
-          ( box "lightslategray" plEnd x
-              ++ box "deepskyblue" plAs x
-              ++ box "royalblue" plHscOut x
-              ++ [moduleText x]
-          )
-      else
-        S.g
-          []
-          ( box "lightslategray" plEnd x
-              ++ [moduleText x]
-          )
+        then
+          S.g
+            []
+            ( box "lightslategray" plEnd x
+                ++ box "deepskyblue" plAs x
+                ++ box "royalblue" plHscOut x
+                ++ [moduleText x]
+            )
+        else
+          S.g
+            []
+            ( box "lightslategray" plEnd x
+                ++ [moduleText x]
+            )
 
     viewboxProp =
       SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
@@ -483,7 +484,6 @@ renderMemChart drvModMap tui ttable =
       , SP.version "1.1"
       , xmlns
       ]
-
 
 render ::
   BiKeyMap DriverId ModuleName ->
@@ -512,22 +512,22 @@ render drvModMap tui ttable =
         ++ hoverInfo
     )
   where
-      mhoveredMod = tui ^. timingUIHoveredModule
-      hoverInfo =
-        case mhoveredMod of
-          Nothing -> []
-          Just hoveredMod ->
-            [ divClass
-                "box"
-                [ style
-                    [ ("width", "150px")
-                    , ("height", "120px")
-                    , ("position", "absolute")
-                    , ("bottom", "0")
-                    , ("left", "0")
-                    , ("background", "ivory")
-                    , ("overflow", "hidden")
-                    ]
-                ]
-                [renderBlockerLine hoveredMod ttable]
-            ]
+    mhoveredMod = tui ^. timingUIHoveredModule
+    hoverInfo =
+      case mhoveredMod of
+        Nothing -> []
+        Just hoveredMod ->
+          [ divClass
+              "box"
+              [ style
+                  [ ("width", "150px")
+                  , ("height", "120px")
+                  , ("position", "absolute")
+                  , ("bottom", "0")
+                  , ("left", "0")
+                  , ("background", "ivory")
+                  , ("overflow", "hidden")
+                  ]
+              ]
+              [renderBlockerLine hoveredMod ttable]
+          ]

@@ -1,8 +1,7 @@
-module GHCSpecter.Channel.Common.Types
-  ( type ModuleName,
-    DriverId (..),
-  )
-where
+module GHCSpecter.Channel.Common.Types (
+  type ModuleName,
+  DriverId (..),
+) where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary)

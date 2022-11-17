@@ -1,10 +1,9 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module GHCSpecter.Control
-  ( main,
-  )
-where
+module GHCSpecter.Control (
+  main,
+) where
 
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Data.List qualified as L
@@ -14,77 +13,77 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Channel.Inbound.Types
-  ( ConsoleRequest (..),
-    Request (..),
-    SessionRequest (..),
-  )
+import GHCSpecter.Channel.Inbound.Types (
+  ConsoleRequest (..),
+  Request (..),
+  SessionRequest (..),
+ )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Control.Types
-  ( asyncWork,
-    getCurrentTime,
-    getLastUpdatedUI,
-    getSS,
-    getUI,
-    nextEvent,
-    printMsg,
-    putSS,
-    putUI,
-    refreshUIAfter,
-    saveSession,
-    sendRequest,
-    shouldUpdate,
-    type Control,
-  )
+import GHCSpecter.Control.Types (
+  asyncWork,
+  getCurrentTime,
+  getLastUpdatedUI,
+  getSS,
+  getUI,
+  nextEvent,
+  printMsg,
+  putSS,
+  putUI,
+  refreshUIAfter,
+  saveSession,
+  sendRequest,
+  shouldUpdate,
+  type Control,
+ )
+import GHCSpecter.Data.Map (
+  alterToKeyMap,
+  forwardLookup,
+ )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
-import GHCSpecter.Server.Types
-  ( ConsoleItem (..),
-    HasServerState (..),
-    HasTimingState (..),
-    ServerState,
-  )
-import GHCSpecter.UI.Constants
-  ( timingHeight,
-    timingMaxWidth,
-    timingWidth,
-    uiUpdateInterval,
-  )
-import GHCSpecter.UI.Types
-  ( HasConsoleUI (..),
-    HasMainView (..),
-    HasModuleGraphUI (..),
-    HasSourceViewUI (..),
-    HasTimingUI (..),
-    HasUIModel (..),
-    HasUIState (..),
-    MainView,
-    ModuleGraphUI (..),
-    UIModel,
-    UIState,
-    UIView (..),
-    emptyMainView,
-  )
-import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (..),
-    ComponentTag (..),
-    ConsoleEvent (..),
-    Event (..),
-    ModuleGraphEvent (..),
-    MouseEvent (..),
-    SessionEvent (..),
-    SourceViewEvent (..),
-    SubModuleEvent (..),
-    Tab (..),
-    TimingEvent (..),
-  )
-import GHCSpecter.Data.Map
-  ( alterToKeyMap,
-    forwardLookup,
-  )
-import GHCSpecter.Worker.Timing
-  ( timingBlockerGraphWorker,
-    timingWorker,
-  )
+import GHCSpecter.Server.Types (
+  ConsoleItem (..),
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState,
+ )
+import GHCSpecter.UI.Constants (
+  timingHeight,
+  timingMaxWidth,
+  timingWidth,
+  uiUpdateInterval,
+ )
+import GHCSpecter.UI.Types (
+  HasConsoleUI (..),
+  HasMainView (..),
+  HasModuleGraphUI (..),
+  HasSourceViewUI (..),
+  HasTimingUI (..),
+  HasUIModel (..),
+  HasUIState (..),
+  MainView,
+  ModuleGraphUI (..),
+  UIModel,
+  UIState,
+  UIView (..),
+  emptyMainView,
+ )
+import GHCSpecter.UI.Types.Event (
+  BackgroundEvent (..),
+  ComponentTag (..),
+  ConsoleEvent (..),
+  Event (..),
+  ModuleGraphEvent (..),
+  MouseEvent (..),
+  SessionEvent (..),
+  SourceViewEvent (..),
+  SubModuleEvent (..),
+  Tab (..),
+  TimingEvent (..),
+ )
+import GHCSpecter.Worker.Timing (
+  timingBlockerGraphWorker,
+  timingWorker,
+ )
 
 defaultUpdateModel ::
   Event ->
@@ -353,12 +352,13 @@ goCommon ev (view, model0) = do
   ui <- getUI
   ss <- getSS
   (model', ss') <- defaultUpdateModel ev (model, ss)
-  let -- just placeholder
-      view' = view
-      ui' =
-        ui
-          & (uiView .~ MainMode view')
-            . (uiModel .~ model')
+  let
+    -- just placeholder
+    view' = view
+    ui' =
+      ui
+        & (uiView .~ MainMode view')
+          . (uiModel .~ model')
   putUI ui'
   putSS ss'
   pure (view', model')

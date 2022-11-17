@@ -1,24 +1,23 @@
 {-# LANGUAGE MultiWayIf #-}
 
-module GHCSpecter.Data.GHC.Core
-  ( -- * Simplified GHC Core data type
-    Id (..),
-    Bind (..),
-    Literal (..),
-    AltCon (..),
-    Alt (..),
-    Expr (..),
+module GHCSpecter.Data.GHC.Core (
+  -- * Simplified GHC Core data type
+  Id (..),
+  Bind (..),
+  Literal (..),
+  AltCon (..),
+  Alt (..),
+  Expr (..),
 
-    -- * conversion
-    toListTree,
-    toVar,
-    toBind,
-    toLiteral,
-    toAltCon,
-    toAlt,
-    toExpr,
-  )
-where
+  -- * conversion
+  toListTree,
+  toVar,
+  toBind,
+  toLiteral,
+  toAltCon,
+  toAlt,
+  toExpr,
+) where
 
 import Control.Monad ((<=<))
 import Data.Text (Text)
