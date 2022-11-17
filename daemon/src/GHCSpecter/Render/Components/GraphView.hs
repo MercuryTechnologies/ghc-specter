@@ -1,20 +1,19 @@
 {-# LANGUAGE MultiWayIf #-}
 
-module GHCSpecter.Render.Components.GraphView
-  ( renderModuleGraph,
-    renderGraph,
-  )
-where
+module GHCSpecter.Render.Components.GraphView (
+  renderModuleGraph,
+  renderGraph,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    height,
-    onClick,
-    onMouseEnter,
-    onMouseLeave,
-    width,
-  )
+import Concur.Replica (
+  classList,
+  height,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+  width,
+ )
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
@@ -25,15 +24,15 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.GraphLayout.Types
-  ( Dimension (..),
-    EdgeLayout (..),
-    GraphVisInfo (..),
-    HasGraphVisInfo (..),
-    HasNodeLayout (..),
-    NodeLayout (..),
-    Point (..),
-  )
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  EdgeLayout (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
+  HasNodeLayout (..),
+  NodeLayout (..),
+  Point (..),
+ )
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S

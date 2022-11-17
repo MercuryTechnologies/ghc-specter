@@ -1,44 +1,43 @@
-module Plugin.GHCSpecter.Comm
-  ( runMessageQueue,
-    queueMessage,
-  )
-where
+module Plugin.GHCSpecter.Comm (
+  runMessageQueue,
+  queueMessage,
+) where
 
 import Control.Concurrent (forkIO)
-import Control.Concurrent.STM
-  ( atomically,
-    modifyTVar',
-    readTVar,
-    retry,
-    writeTVar,
-  )
+import Control.Concurrent.STM (
+  atomically,
+  modifyTVar',
+  readTVar,
+  retry,
+  writeTVar,
+ )
 import Control.Monad (forever, when)
 import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
-import GHCSpecter.Channel.Inbound.Types
-  ( Request (..),
-    SessionRequest (..),
-  )
-import GHCSpecter.Channel.Outbound.Types
-  ( ChanMessage (..),
-    ChanMessageBox (..),
-    SessionInfo (..),
-  )
-import GHCSpecter.Comm
-  ( receiveObject,
-    runClient,
-    sendObject,
-  )
+import GHCSpecter.Channel.Inbound.Types (
+  Request (..),
+  SessionRequest (..),
+ )
+import GHCSpecter.Channel.Outbound.Types (
+  ChanMessage (..),
+  ChanMessageBox (..),
+  SessionInfo (..),
+ )
+import GHCSpecter.Comm (
+  receiveObject,
+  runClient,
+  sendObject,
+ )
 import GHCSpecter.Config (Config (..))
 import Network.Socket (Socket)
-import Plugin.GHCSpecter.Types
-  ( MsgQueue (..),
-    PluginSession (..),
-    getMsgQueue,
-    sessionRef,
-  )
+import Plugin.GHCSpecter.Types (
+  MsgQueue (..),
+  PluginSession (..),
+  getMsgQueue,
+  sessionRef,
+ )
 import System.Directory (doesFileExist)
 
 runMessageQueue :: Config -> MsgQueue -> IO ()

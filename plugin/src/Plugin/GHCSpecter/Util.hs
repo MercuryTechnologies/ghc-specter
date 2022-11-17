@@ -1,16 +1,15 @@
 {-# LANGUAGE CPP #-}
 
-module Plugin.GHCSpecter.Util
-  ( -- * Utilities
-    getTopSortedModules,
-    extractModuleSources,
-    extractModuleGraphInfo,
-    getModuleName,
-    mkModuleNameMap,
-    formatName,
-    formatImportedNames,
-  )
-where
+module Plugin.GHCSpecter.Util (
+  -- * Utilities
+  getTopSortedModules,
+  extractModuleSources,
+  extractModuleGraphInfo,
+  getModuleName,
+  mkModuleNameMap,
+  formatName,
+  formatImportedNames,
+) where
 
 import Data.Char (isAlpha)
 import Data.IntMap (IntMap)
@@ -24,24 +23,24 @@ import Data.Tuple (swap)
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Make (topSortModuleGraph)
 import GHC.Driver.Session (DynFlags)
-import GHC.Plugins
-  ( ModSummary,
-    Name,
-    localiseName,
-    showSDoc,
-  )
-import GHC.Types.Name.Reader
-  ( GlobalRdrElt (..),
-    GreName (..),
-    ImpDeclSpec (..),
-    ImportSpec (..),
-  )
-import GHC.Unit.Module.Graph
-  ( ModuleGraph,
-    ModuleGraphNode (..),
-    mgModSummaries,
-    mgModSummaries',
-  )
+import GHC.Plugins (
+  ModSummary,
+  Name,
+  localiseName,
+  showSDoc,
+ )
+import GHC.Types.Name.Reader (
+  GlobalRdrElt (..),
+  GreName (..),
+  ImpDeclSpec (..),
+  ImportSpec (..),
+ )
+import GHC.Unit.Module.Graph (
+  ModuleGraph,
+  ModuleGraphNode (..),
+  mgModSummaries,
+  mgModSummaries',
+ )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
@@ -50,6 +49,7 @@ import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import System.Directory (canonicalizePath)
+
 -- GHC-version-dependent imports
 #if MIN_VERSION_ghc(9, 4, 0)
 import GHC.Data.Bag (bagToList)

@@ -1,34 +1,33 @@
-module GHCSpecter.Driver.Session
-  ( -- * main session procedure
-    main,
-  )
-where
+module GHCSpecter.Driver.Session (
+  -- * main session procedure
+  main,
+) where
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM
-  ( atomically,
-    readTChan,
-    readTVar,
-    retry,
-    writeTChan,
-  )
+import Control.Concurrent.STM (
+  atomically,
+  readTChan,
+  readTVar,
+  retry,
+  writeTChan,
+ )
 import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Time.Clock (nominalDiffTimeToSeconds)
 import GHCSpecter.Control qualified as Control (main)
 import GHCSpecter.Control.Runner (stepControlUpToEvent)
-import GHCSpecter.Driver.Session.Types
-  ( ClientSession (..),
-    HasClientSession (..),
-    HasServerSession (..),
-    ServerSession (..),
-  )
+import GHCSpecter.Driver.Session.Types (
+  ClientSession (..),
+  HasClientSession (..),
+  HasServerSession (..),
+  ServerSession (..),
+ )
 import GHCSpecter.Server.Types (HasServerState (..))
 import GHCSpecter.UI.Constants (chanUpdateInterval)
-import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (MessageChanUpdated),
-  )
+import GHCSpecter.UI.Types.Event (
+  BackgroundEvent (MessageChanUpdated),
+ )
 
 main ::
   ServerSession ->

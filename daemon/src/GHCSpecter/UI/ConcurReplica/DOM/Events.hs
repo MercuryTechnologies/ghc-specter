@@ -1,9 +1,8 @@
-module GHCSpecter.UI.ConcurReplica.DOM.Events
-  ( onMouseMove,
-    onMouseDown,
-    onMouseUp,
-  )
-where
+module GHCSpecter.UI.ConcurReplica.DOM.Events (
+  onMouseMove,
+  onMouseDown,
+  onMouseUp,
+) where
 
 import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
 import Data.Aeson qualified as A

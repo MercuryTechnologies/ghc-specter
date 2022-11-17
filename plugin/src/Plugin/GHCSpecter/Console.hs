@@ -1,21 +1,20 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Plugin.GHCSpecter.Console
-  ( -- * entry point to console when paused
-    breakPoint,
-  )
-where
+module Plugin.GHCSpecter.Console (
+  -- * entry point to console when paused
+  breakPoint,
+) where
 
 import Control.Concurrent (forkIO, killThread)
-import Control.Concurrent.STM
-  ( TVar,
-    atomically,
-    modifyTVar',
-    newTVarIO,
-    readTVar,
-    retry,
-    writeTVar,
-  )
+import Control.Concurrent.STM (
+  TVar,
+  atomically,
+  modifyTVar',
+  newTVarIO,
+  readTVar,
+  retry,
+  writeTVar,
+ )
 import Control.Concurrent.STM qualified as STM
 import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
@@ -27,25 +26,25 @@ import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Channel.Inbound.Types
-  ( ConsoleRequest (..),
-  )
-import GHCSpecter.Channel.Outbound.Types
-  ( BreakpointLoc (..),
-    ChanMessage (..),
-    ConsoleReply (..),
-    SessionInfo (..),
-  )
+import GHCSpecter.Channel.Inbound.Types (
+  ConsoleRequest (..),
+ )
+import GHCSpecter.Channel.Outbound.Types (
+  BreakpointLoc (..),
+  ChanMessage (..),
+  ConsoleReply (..),
+  SessionInfo (..),
+ )
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Tasks (CommandSet (..))
-import Plugin.GHCSpecter.Types
-  ( ConsoleState (..),
-    MsgQueue (..),
-    PluginSession (..),
-    getModuleFromDriverId,
-    getMsgQueue,
-    sessionRef,
-  )
+import Plugin.GHCSpecter.Types (
+  ConsoleState (..),
+  MsgQueue (..),
+  PluginSession (..),
+  getModuleFromDriverId,
+  getMsgQueue,
+  sessionRef,
+ )
 
 consoleAction ::
   MonadIO m =>

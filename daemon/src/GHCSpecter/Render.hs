@@ -1,64 +1,63 @@
 {-# LANGUAGE LambdaCase #-}
 
-module GHCSpecter.Render
-  ( render,
-  )
-where
+module GHCSpecter.Render (
+  render,
+) where
 
 import Concur.Core (Widget (..))
-import Concur.Replica
-  ( classList,
-    height,
-    onClick,
-    src,
-    style,
-    textProp,
-    width,
-  )
+import Concur.Replica (
+  classList,
+  height,
+  onClick,
+  src,
+  style,
+  textProp,
+  width,
+ )
 import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Assets (HasAssets (..))
+import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
 import GHCSpecter.Render.Components.Console qualified as Console
 import GHCSpecter.Render.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Session qualified as Session
 import GHCSpecter.Render.SourceView qualified as SourceView
 import GHCSpecter.Render.Timing qualified as Timing
 import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState (..),
-  )
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    el,
-    img,
-    nav,
-    p,
-    progress,
-    section,
-    text,
-  )
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  ServerState (..),
+ )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  div,
+  el,
+  img,
+  nav,
+  p,
+  progress,
+  section,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Types
-  ( HasConsoleUI (..),
-    HasMainView (..),
-    HasUIModel (..),
-    HasUIState (..),
-    MainView,
-    UIModel (..),
-    UIState (..),
-    UIView (..),
-    consoleCommandList,
-  )
-import GHCSpecter.UI.Types.Event
-  ( ConsoleEvent (..),
-    Event (..),
-    Tab (..),
-  )
-import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
+import GHCSpecter.UI.Types (
+  HasConsoleUI (..),
+  HasMainView (..),
+  HasUIModel (..),
+  HasUIState (..),
+  MainView,
+  UIModel (..),
+  UIState (..),
+  UIView (..),
+  consoleCommandList,
+ )
+import GHCSpecter.UI.Types.Event (
+  ConsoleEvent (..),
+  Event (..),
+  Tab (..),
+ )
 import Prelude hiding (div, span)
 
 renderBanner :: Text -> Double -> Widget IHTML a

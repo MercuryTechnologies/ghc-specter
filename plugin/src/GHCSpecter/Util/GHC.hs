@@ -1,8 +1,7 @@
-module GHCSpecter.Util.GHC
-  ( showPpr,
-    printPpr,
-  )
-where
+module GHCSpecter.Util.GHC (
+  showPpr,
+  printPpr,
+) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import GHC.Driver.Session (DynFlags)

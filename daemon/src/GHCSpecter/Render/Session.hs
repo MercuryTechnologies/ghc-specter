@@ -1,14 +1,13 @@
-module GHCSpecter.Render.Session
-  ( render,
-  )
-where
+module GHCSpecter.Render.Session (
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    onClick,
-    style,
-  )
+import Concur.Replica (
+  classList,
+  onClick,
+  style,
+ )
 import Control.Lens (to, (^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
@@ -16,44 +15,44 @@ import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import GHC.RTS.Flags (RTSFlags)
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
-import GHCSpecter.Channel.Outbound.Types
-  ( BreakpointLoc,
-    ModuleGraphInfo (..),
-    ProcessInfo (..),
-    SessionInfo (..),
-    Timer,
-    getEnd,
-  )
-import GHCSpecter.Data.Map
-  ( BiKeyMap,
-    KeyMap,
-    forwardLookup,
-    keyMapToList,
-    lookupKey,
-  )
+import GHCSpecter.Channel.Common.Types (
+  DriverId (..),
+  type ModuleName,
+ )
+import GHCSpecter.Channel.Outbound.Types (
+  BreakpointLoc,
+  ModuleGraphInfo (..),
+  ProcessInfo (..),
+  SessionInfo (..),
+  Timer,
+  getEnd,
+ )
+import GHCSpecter.Data.Map (
+  BiKeyMap,
+  KeyMap,
+  forwardLookup,
+  keyMapToList,
+  lookupKey,
+ )
 import GHCSpecter.Render.Util (divClass, spanClass)
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    HasTimingState (..),
-    ServerState (..),
-  )
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( button,
-    div,
-    p,
-    pre,
-    text,
-  )
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState (..),
+ )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  button,
+  div,
+  p,
+  pre,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types.Event
-  ( Event (..),
-    SessionEvent (..),
-  )
+import GHCSpecter.UI.Types.Event (
+  Event (..),
+  SessionEvent (..),
+ )
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
@@ -164,64 +163,64 @@ renderRTSInfo rtsflags =
 -- | Top-level render function for the Session tab.
 render :: ServerState -> Widget IHTML Event
 render ss =
-      case sessionStartTime sessionInfo of
-        Nothing ->
-          pre [] [text "GHC Session has not been started"]
-        Just sessionStartTime -> do
-          let messageTime = "Session started at " <> T.pack (show sessionStartTime)
-              topPart =
-                [ divClass
-                    "session-section columns"
-                    []
-                    [ divClass "column is-one-quarter" [] [text messageTime]
-                    , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
-                    , divClass "column is-half" [] []
-                    ]
+  case sessionStartTime sessionInfo of
+    Nothing ->
+      pre [] [text "GHC Session has not been started"]
+    Just sessionStartTime -> do
+      let messageTime = "Session started at " <> T.pack (show sessionStartTime)
+          topPart =
+            [ divClass
+                "session-section columns"
+                []
+                [ divClass "column is-one-quarter" [] [text messageTime]
+                , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
+                , divClass "column is-half" [] []
                 ]
-              statusPart =
-                [ div
-                    []
-                    [ divClass "session-title" [] [text "Compilation Status"]
-                    , renderCompilationStatus (nDone, nInProg, nTot)
-                    ]
-                , renderModuleInProgress drvModMap pausedMap timingInProg
+            ]
+          statusPart =
+            [ div
+                []
+                [ divClass "session-title" [] [text "Compilation Status"]
+                , renderCompilationStatus (nDone, nInProg, nTot)
                 ]
-              infoPart =
-                flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
-                  [ div
-                      []
-                      [ divClass "session-title" [] [text "GHC Mode"]
-                      , renderGhcMode sessionInfo
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "Process Info"]
-                      , renderProcessInfo procinfo
-                      ]
-                  , div
-                      []
-                      [ divClass "session-title" [] [text "GHC RTS Info"]
-                      , renderRTSInfo (procRTSFlags procinfo)
-                      ]
+            , renderModuleInProgress drvModMap pausedMap timingInProg
+            ]
+          infoPart =
+            flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
+              [ div
+                  []
+                  [ divClass "session-title" [] [text "GHC Mode"]
+                  , renderGhcMode sessionInfo
                   ]
-           in divClass
-                "box"
-                [ style
-                    [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-                    , ("position", "relative")
-                    , ("overflow", "scroll")
-                    ]
+              , div
+                  []
+                  [ divClass "session-title" [] [text "Process Info"]
+                  , renderProcessInfo procinfo
+                  ]
+              , div
+                  []
+                  [ divClass "session-title" [] [text "GHC RTS Info"]
+                  , renderRTSInfo (procRTSFlags procinfo)
+                  ]
+              ]
+       in divClass
+            "box"
+            [ style
+                [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+                , ("position", "relative")
+                , ("overflow", "scroll")
                 ]
-                (topPart ++ statusPart ++ infoPart)
+            ]
+            (topPart ++ statusPart ++ infoPart)
   where
-      sessionInfo = ss ^. serverSessionInfo
-      mgi = sessionModuleGraph sessionInfo
-      timing = ss ^. serverTiming . tsTimingMap
-      drvModMap = ss ^. serverDriverModuleMap
-      pausedMap = ss ^. serverPaused
-      nTot = IM.size (mginfoModuleNameMap mgi)
-      timingList = keyMapToList timing
-      (timingDone, timingInProg) =
-        partition (\(_, t) -> isJust (getEnd t)) timingList
-      nDone = length timingDone
-      nInProg = length timingInProg
+    sessionInfo = ss ^. serverSessionInfo
+    mgi = sessionModuleGraph sessionInfo
+    timing = ss ^. serverTiming . tsTimingMap
+    drvModMap = ss ^. serverDriverModuleMap
+    pausedMap = ss ^. serverPaused
+    nTot = IM.size (mginfoModuleNameMap mgi)
+    timingList = keyMapToList timing
+    (timingDone, timingInProg) =
+      partition (\(_, t) -> isJust (getEnd t)) timingList
+    nDone = length timingDone
+    nInProg = length timingInProg

@@ -1,23 +1,22 @@
-module GHCSpecter.Render.Util
-  ( xmlns,
-    divClass,
-    spanClass,
-    cssLink,
-  )
-where
+module GHCSpecter.Render.Util (
+  xmlns,
+  divClass,
+  spanClass,
+  cssLink,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( Props,
-    classList,
-    textProp,
-  )
+import Concur.Replica (
+  Props,
+  classList,
+  textProp,
+ )
 import Data.Text (Text)
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    link,
-    span,
-  )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  div,
+  link,
+  span,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
 

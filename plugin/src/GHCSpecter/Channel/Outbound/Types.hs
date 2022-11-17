@@ -1,31 +1,30 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
-module GHCSpecter.Channel.Outbound.Types
-  ( -- * information types
-    BreakpointLoc (..),
-    TimerTag (..),
-    MemInfo (..),
-    Timer (..),
-    getStart,
-    getHscOut,
-    getAs,
-    getEnd,
-    ModuleGraphInfo (..),
-    emptyModuleGraphInfo,
-    ConsoleReply (..),
-    ProcessInfo (..),
-    GhcMode (..),
-    Backend (..),
-    SessionInfo (..),
-    emptySessionInfo,
+module GHCSpecter.Channel.Outbound.Types (
+  -- * information types
+  BreakpointLoc (..),
+  TimerTag (..),
+  MemInfo (..),
+  Timer (..),
+  getStart,
+  getHscOut,
+  getAs,
+  getEnd,
+  ModuleGraphInfo (..),
+  emptyModuleGraphInfo,
+  ConsoleReply (..),
+  ProcessInfo (..),
+  GhcMode (..),
+  Backend (..),
+  SessionInfo (..),
+  emptySessionInfo,
 
-    -- * channel
-    Channel (..),
-    ChanMessage (..),
-    ChanMessageBox (..),
-  )
-where
+  -- * channel
+  Channel (..),
+  ChanMessage (..),
+  ChanMessageBox (..),
+) where
 
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Binary (Binary (..))
@@ -41,10 +40,10 @@ import Data.Tree (Forest)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.RTS.Flags (RTSFlags)
-import GHCSpecter.Channel.Common.Types
-  ( DriverId (..),
-    type ModuleName,
-  )
+import GHCSpecter.Channel.Common.Types (
+  DriverId (..),
+  type ModuleName,
+ )
 import GHCSpecter.Data.GHC.Orphans ()
 
 data Channel
@@ -165,7 +164,7 @@ emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 -- | GHC process info, including process id, command line arguments.
 data ProcessInfo = ProcessInfo
   { procPID :: Int
-  , procExecPath  :: FilePath
+  , procExecPath :: FilePath
   , procCWD :: FilePath
   , procArguments :: [String]
   , procRTSFlags :: RTSFlags

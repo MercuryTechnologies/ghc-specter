@@ -1,7 +1,6 @@
-module GHCSpecter.GraphLayout.Sugiyama
-  ( layOutGraph,
-  )
-where
+module GHCSpecter.GraphLayout.Sugiyama (
+  layOutGraph,
+) where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
@@ -14,34 +13,34 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.GraphLayout.OGDF
-  ( appendText,
-    doSugiyamaLayout,
-    edgeGraphics,
-    getAllEdgeLayout,
-    getAllNodeLayout,
-    getCanvasDim,
-    newGraphNodeWithSize,
-    nodeGraphics,
-    nodeLabel,
-    nodeStyle,
-    runGraphLayouter,
-  )
-import GHCSpecter.GraphLayout.Types
-  ( EdgeLayout (..),
-    GraphVisInfo (..),
-    NodeLayout (..),
-    transposeGraphVis,
-  )
-import OGDF.Graph
-  ( Graph,
-    graph_newEdge,
-    newGraph,
-  )
-import OGDF.GraphAttributes
-  ( GraphAttributes,
-    newGraphAttributes,
-  )
+import GHCSpecter.GraphLayout.OGDF (
+  appendText,
+  doSugiyamaLayout,
+  edgeGraphics,
+  getAllEdgeLayout,
+  getAllNodeLayout,
+  getCanvasDim,
+  newGraphNodeWithSize,
+  nodeGraphics,
+  nodeLabel,
+  nodeStyle,
+  runGraphLayouter,
+ )
+import GHCSpecter.GraphLayout.Types (
+  EdgeLayout (..),
+  GraphVisInfo (..),
+  NodeLayout (..),
+  transposeGraphVis,
+ )
+import OGDF.Graph (
+  Graph,
+  graph_newEdge,
+  newGraph,
+ )
+import OGDF.GraphAttributes (
+  GraphAttributes,
+  newGraphAttributes,
+ )
 import OGDF.NodeElement (nodeElement_index)
 import STD.Deletable (delete)
 

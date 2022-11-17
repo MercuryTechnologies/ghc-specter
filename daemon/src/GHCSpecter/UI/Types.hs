@@ -1,34 +1,33 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.UI.Types
-  ( ModuleGraphUI (..),
-    HasModuleGraphUI (..),
-    emptyModuleGraphUI,
-    SourceViewUI (..),
-    HasSourceViewUI (..),
-    emptySourceViewUI,
-    TimingUI,
-    HasTimingUI (..),
-    emptyTimingUI,
-    ConsoleUI,
-    HasConsoleUI (..),
-    emptyConsoleUI,
-    MainView (..),
-    HasMainView (..),
-    emptyMainView,
-    UIModel (..),
-    HasUIModel (..),
-    emptyUIModel,
-    UIView (..),
-    HasUIView (..),
-    UIState (..),
-    HasUIState (..),
-    emptyUIState,
+module GHCSpecter.UI.Types (
+  ModuleGraphUI (..),
+  HasModuleGraphUI (..),
+  emptyModuleGraphUI,
+  SourceViewUI (..),
+  HasSourceViewUI (..),
+  emptySourceViewUI,
+  TimingUI,
+  HasTimingUI (..),
+  emptyTimingUI,
+  ConsoleUI,
+  HasConsoleUI (..),
+  emptyConsoleUI,
+  MainView (..),
+  HasMainView (..),
+  emptyMainView,
+  UIModel (..),
+  HasUIModel (..),
+  emptyUIModel,
+  UIView (..),
+  HasUIView (..),
+  UIState (..),
+  HasUIState (..),
+  emptyUIState,
 
-    -- * list of allowed console commands
-    consoleCommandList,
-  )
-where
+  -- * list of allowed console commands
+  consoleCommandList,
+) where
 
 import Control.Lens (makeClassy)
 import Data.Text (Text)

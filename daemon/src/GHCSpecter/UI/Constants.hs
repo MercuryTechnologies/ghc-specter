@@ -1,17 +1,16 @@
-module GHCSpecter.UI.Constants
-  ( -- * time interval
-    chanUpdateInterval,
-    uiUpdateInterval,
-    tickInterval,
+module GHCSpecter.UI.Constants (
+  -- * time interval
+  chanUpdateInterval,
+  uiUpdateInterval,
+  tickInterval,
 
-    -- * Timing view
-    timingMaxWidth,
-    timingWidth,
-    timingHeight,
-    timingBarHeight,
-    widgetHeight,
-  )
-where
+  -- * Timing view
+  timingMaxWidth,
+  timingWidth,
+  timingHeight,
+  timingBarHeight,
+  widgetHeight,
+) where
 
 import Data.Text (Text)
 import Data.Time.Clock (NominalDiffTime, secondsToNominalDiffTime)

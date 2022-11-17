@@ -1,18 +1,17 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Render.ModuleGraph
-  ( -- * Render HTML for the Module Graph tab
-    render,
-  )
-where
+module GHCSpecter.Render.ModuleGraph (
+  -- * Render HTML for the Module Graph tab
+  render,
+) where
 
 import Concur.Core (Widget)
-import Concur.Replica
-  ( classList,
-    onInput,
-    style,
-  )
+import Concur.Replica (
+  classList,
+  onInput,
+  style,
+ )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Control.Error.Util (note)
 import Control.Lens (to, (^.), _1)
@@ -22,41 +21,41 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId, type ModuleName)
-import GHCSpecter.Channel.Outbound.Types
-  ( ModuleGraphInfo (..),
-    SessionInfo (..),
-    Timer,
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  ModuleGraphInfo (..),
+  SessionInfo (..),
+  Timer,
+ )
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
-import GHCSpecter.Server.Types
-  ( HasModuleGraphState (..),
-    HasServerState (..),
-    HasTimingState (..),
-    ServerState (..),
-  )
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( div,
-    input,
-    label,
-    pre,
-    text,
-  )
+import GHCSpecter.Server.Types (
+  HasModuleGraphState (..),
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState (..),
+ )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  div,
+  input,
+  label,
+  pre,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types
-  ( HasModuleGraphUI (..),
-    HasUIModel (..),
-    ModuleGraphUI (..),
-    UIModel,
-  )
-import GHCSpecter.UI.Types.Event
-  ( DetailLevel (..),
-    Event (..),
-    SubModuleEvent (..),
-  )
+import GHCSpecter.UI.Types (
+  HasModuleGraphUI (..),
+  HasUIModel (..),
+  ModuleGraphUI (..),
+  UIModel,
+ )
+import GHCSpecter.UI.Types.Event (
+  DetailLevel (..),
+  Event (..),
+  SubModuleEvent (..),
+ )
 import Text.Printf (printf)
 import Prelude hiding (div)
 

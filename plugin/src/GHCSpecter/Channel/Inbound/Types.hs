@@ -1,12 +1,11 @@
-module GHCSpecter.Channel.Inbound.Types
-  ( -- * subrequests
-    SessionRequest (..),
-    ConsoleRequest (..),
+module GHCSpecter.Channel.Inbound.Types (
+  -- * subrequests
+  SessionRequest (..),
+  ConsoleRequest (..),
 
-    -- * top-level request
-    Request (..),
-  )
-where
+  -- * top-level request
+  Request (..),
+) where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))

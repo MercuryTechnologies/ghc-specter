@@ -1,32 +1,31 @@
-module GHCSpecter.Worker.Timing
-  ( timingWorker,
-    timingBlockerGraphWorker,
-  )
-where
+module GHCSpecter.Worker.Timing (
+  timingWorker,
+  timingBlockerGraphWorker,
+) where
 
-import Control.Concurrent.STM
-  ( TVar,
-    atomically,
-    modifyTVar',
-    readTVar,
-    writeTVar,
-  )
+import Control.Concurrent.STM (
+  TVar,
+  atomically,
+  modifyTVar',
+  readTVar,
+  writeTVar,
+ )
 import Control.Lens (to, (.~), (^.))
-import GHCSpecter.Channel.Outbound.Types
-  ( ModuleGraphInfo (..),
-    SessionInfo (..),
-  )
-import GHCSpecter.Data.Timing.Util
-  ( makeBlockerGraph,
-    makeTimingTable,
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  ModuleGraphInfo (..),
+  SessionInfo (..),
+ )
+import GHCSpecter.Data.Timing.Util (
+  makeBlockerGraph,
+  makeTimingTable,
+ )
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
-import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    HasTimingState (..),
-    ServerState,
-  )
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState,
+ )
 
 timingWorker :: TVar ServerState -> IO ()
 timingWorker ssRef = do

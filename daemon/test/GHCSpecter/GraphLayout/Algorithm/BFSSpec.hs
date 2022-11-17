@@ -2,17 +2,17 @@ module GHCSpecter.GraphLayout.Algorithm.BFSSpec (spec) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.IntMap qualified as IM
-import GHCSpecter.GraphLayout.Algorithm.BFS
-  ( runMultiseedStagedBFS,
-    runStagedBFS,
-  )
+import GHCSpecter.GraphLayout.Algorithm.BFS (
+  runMultiseedStagedBFS,
+  runStagedBFS,
+ )
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
-import Test.Hspec
-  ( Spec,
-    describe,
-    it,
-    shouldBe,
-  )
+import Test.Hspec (
+  Spec,
+  describe,
+  it,
+  shouldBe,
+ )
 
 testGraph :: [(Int, [Int])]
 testGraph =

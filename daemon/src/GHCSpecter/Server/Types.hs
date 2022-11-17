@@ -2,38 +2,37 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Server.Types
-  ( type ChanModule,
-    type Inbox,
+module GHCSpecter.Server.Types (
+  type ChanModule,
+  type Inbox,
 
-    -- * Timing state
-    TimingState (..),
-    HasTimingState (..),
-    emptyTimingState,
+  -- * Timing state
+  TimingState (..),
+  HasTimingState (..),
+  emptyTimingState,
 
-    -- * ModuleGraph state
-    ModuleGraphState (..),
-    HasModuleGraphState (..),
-    emptyModuleGraphState,
+  -- * ModuleGraph state
+  ModuleGraphState (..),
+  HasModuleGraphState (..),
+  emptyModuleGraphState,
 
-    -- * Hie state
-    HieState (..),
-    HasHieState (..),
-    emptyHieState,
+  -- * Hie state
+  HieState (..),
+  HasHieState (..),
+  emptyHieState,
 
-    -- * Supplementary view
-    SupplementaryView (..),
+  -- * Supplementary view
+  SupplementaryView (..),
 
-    -- * console
-    ConsoleItem (..),
+  -- * console
+  ConsoleItem (..),
 
-    -- * Server state
-    ServerState (..),
-    HasServerState (..),
-    emptyServerState,
-    incrementSN,
-  )
-where
+  -- * Server state
+  ServerState (..),
+  HasServerState (..),
+  emptyServerState,
+  incrementSN,
+) where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
@@ -43,19 +42,19 @@ import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest, Tree)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types
-  ( DriverId,
-    type ModuleName,
-  )
-import GHCSpecter.Channel.Outbound.Types
-  ( BreakpointLoc,
-    Channel,
-    SessionInfo (..),
-    Timer,
-    emptySessionInfo,
-  )
-import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
+import GHCSpecter.Channel.Common.Types (
+  DriverId,
+  type ModuleName,
+ )
+import GHCSpecter.Channel.Outbound.Types (
+  BreakpointLoc,
+  Channel,
+  SessionInfo (..),
+  Timer,
+  emptySessionInfo,
+ )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
+import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (DetailLevel)

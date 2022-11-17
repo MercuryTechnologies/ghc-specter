@@ -1,28 +1,27 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module GHCSpecter.GraphLayout.Algorithm.Cluster
-  ( ClusterState (..),
-    ClusterVertex (..),
-    GraphState (..),
-    ICVertex (..),
-    annotateLevel,
+module GHCSpecter.GraphLayout.Algorithm.Cluster (
+  ClusterState (..),
+  ClusterVertex (..),
+  GraphState (..),
+  ICVertex (..),
+  annotateLevel,
 
-    -- * invariant checks
-    degreeInvariant,
-    totalNumberInvariant,
+  -- * invariant checks
+  degreeInvariant,
+  totalNumberInvariant,
 
-    -- * reduction without clustering
-    reduceGraphByPath,
+  -- * reduction without clustering
+  reduceGraphByPath,
 
-    -- * reduction with clustering
-    diffCluster,
-    filterOutSmallNodes,
-    fullStep,
-    makeSeedState,
-    makeDivisionsInOrder,
-  )
-where
+  -- * reduction with clustering
+  diffCluster,
+  filterOutSmallNodes,
+  fullStep,
+  makeSeedState,
+  makeDivisionsInOrder,
+) where
 
 import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)

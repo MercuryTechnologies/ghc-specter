@@ -1,24 +1,23 @@
-module GHCSpecter.Data.Map
-  ( -- * IsKey class
-    IsKey (..),
+module GHCSpecter.Data.Map (
+  -- * IsKey class
+  IsKey (..),
 
-    -- * KeyMap
-    KeyMap,
-    emptyKeyMap,
-    keyMapToList,
-    lookupKey,
-    insertToKeyMap,
-    alterToKeyMap,
+  -- * KeyMap
+  KeyMap,
+  emptyKeyMap,
+  keyMapToList,
+  lookupKey,
+  insertToKeyMap,
+  alterToKeyMap,
 
-    -- * BiKeyMap
-    BiKeyMap,
-    emptyBiKeyMap,
-    biKeyMapToList,
-    forwardLookup,
-    backwardLookup,
-    insertToBiKeyMap,
-  )
-where
+  -- * BiKeyMap
+  BiKeyMap,
+  emptyBiKeyMap,
+  biKeyMapToList,
+  forwardLookup,
+  backwardLookup,
+  insertToBiKeyMap,
+) where
 
 import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
 import Data.Bifunctor (first)

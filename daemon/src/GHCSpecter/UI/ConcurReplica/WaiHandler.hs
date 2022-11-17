@@ -9,13 +9,12 @@
 -- | This module is originated from Network.Wai.Handler.Replica.
 -- When IHTML can be marked with the non-update (the Left case) directive,
 -- the DOM diff updating is bypassed.
-module GHCSpecter.UI.ConcurReplica.WaiHandler
-  ( Event (..),
-    Callback (..),
-    Context (..),
-    app,
-  )
-where
+module GHCSpecter.UI.ConcurReplica.WaiHandler (
+  Event (..),
+  Callback (..),
+  Context (..),
+  app,
+) where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar, retry, writeTVar)

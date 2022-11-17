@@ -1,48 +1,47 @@
-module GHCSpecter.Driver
-  ( webServer,
-  )
-where
+module GHCSpecter.Driver (
+  webServer,
+) where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
-import Control.Concurrent.STM
-  ( TChan,
-    atomically,
-    newTChanIO,
-    newTVarIO,
-    readTChan,
-    writeTChan,
-  )
+import Control.Concurrent.STM (
+  TChan,
+  atomically,
+  newTChanIO,
+  newTVarIO,
+  readTChan,
+  writeTChan,
+ )
 import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session qualified as Session
-import GHCSpecter.Driver.Session.Types
-  ( ClientSession (..),
-    ServerSession (..),
-    UIChannel (..),
-  )
+import GHCSpecter.Driver.Session.Types (
+  ClientSession (..),
+  ServerSession (..),
+  UIChannel (..),
+ )
 import GHCSpecter.Render (render)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.ConcurReplica.Run (runDefaultWithStyle)
-import GHCSpecter.UI.ConcurReplica.Types
-  ( IHTML,
-    blockDOMUpdate,
-    unblockDOMUpdate,
-  )
-import GHCSpecter.UI.Types
-  ( HasUIState (..),
-    UIState,
-    UIView (..),
-    emptyMainView,
-    emptyUIState,
-  )
-import GHCSpecter.UI.Types.Event
-  ( BackgroundEvent (RefreshUI),
-    Event (BkgEv),
-  )
+import GHCSpecter.UI.ConcurReplica.Types (
+  IHTML,
+  blockDOMUpdate,
+  unblockDOMUpdate,
+ )
+import GHCSpecter.UI.Types (
+  HasUIState (..),
+  UIState,
+  UIView (..),
+  emptyMainView,
+  emptyUIState,
+ )
+import GHCSpecter.UI.Types.Event (
+  BackgroundEvent (RefreshUI),
+  Event (BkgEv),
+ )
 
 -- NOTE:
 -- server state: shared across the session

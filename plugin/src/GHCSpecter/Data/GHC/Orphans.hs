@@ -6,23 +6,23 @@ module GHCSpecter.Data.GHC.Orphans () where
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Aeson qualified as A
 import Data.Binary (Binary (..))
-import GHC.RTS.Flags
-  ( CCFlags,
-    ConcFlags,
-    DebugFlags,
-    DoCostCentres,
-    DoHeapProfile,
-    DoTrace,
-    GCFlags,
-    GiveGCStats,
-    IoSubSystem (..),
-    MiscFlags,
-    ParFlags,
-    ProfFlags,
-    RTSFlags,
-    TickyFlags,
-    TraceFlags,
-  )
+import GHC.RTS.Flags (
+  CCFlags,
+  ConcFlags,
+  DebugFlags,
+  DoCostCentres,
+  DoHeapProfile,
+  DoTrace,
+  GCFlags,
+  GiveGCStats,
+  IoSubSystem (..),
+  MiscFlags,
+  ParFlags,
+  ProfFlags,
+  RTSFlags,
+  TickyFlags,
+  TraceFlags,
+ )
 import GHC.Stats (GCDetails, RTSStats)
 
 -- orphan instances
@@ -81,9 +81,10 @@ instance Binary IoSubSystem where
 instance FromJSON IoSubSystem where
   parseJSON =
     A.withText "IoSubSystem" $ \txt ->
-      if | txt == "IoPOSIX" -> pure IoPOSIX
-         | txt == "IoNative" -> pure IoNative
-         | otherwise -> fail "cannot parse IoSubSystem"
+      if
+          | txt == "IoPOSIX" -> pure IoPOSIX
+          | txt == "IoNative" -> pure IoNative
+          | otherwise -> fail "cannot parse IoSubSystem"
 
 instance ToJSON IoSubSystem where
   toJSON IoPOSIX = A.String "IoPOSIX"

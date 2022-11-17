@@ -1,9 +1,8 @@
-module GHCSpecter.GraphLayout.Algorithm.Builder
-  ( makeEdges,
-    makeRevDep,
-    makeBiDep,
-  )
-where
+module GHCSpecter.GraphLayout.Algorithm.Builder (
+  makeEdges,
+  makeRevDep,
+  makeBiDep,
+) where
 
 import Data.Discrimination (inner)
 import Data.Discrimination.Grouping (grouping)

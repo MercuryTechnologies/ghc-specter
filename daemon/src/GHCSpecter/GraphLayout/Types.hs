@@ -1,21 +1,20 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.GraphLayout.Types
-  ( -- * graph visualization information
-    Point (..),
-    HasPoint (..),
-    Dimension (..),
-    HasDimension (..),
-    NodeLayout (..),
-    HasNodeLayout (..),
-    EdgeLayout (..),
-    HasEdgeLayout (..),
-    GraphVisInfo (..),
-    HasGraphVisInfo (..),
-    transposeGraphVis,
-  )
-where
+module GHCSpecter.GraphLayout.Types (
+  -- * graph visualization information
+  Point (..),
+  HasPoint (..),
+  Dimension (..),
+  HasDimension (..),
+  NodeLayout (..),
+  HasNodeLayout (..),
+  EdgeLayout (..),
+  HasEdgeLayout (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
+  transposeGraphVis,
+) where
 
 import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)

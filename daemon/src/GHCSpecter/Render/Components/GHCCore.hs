@@ -1,25 +1,24 @@
-module GHCSpecter.Render.Components.GHCCore
-  ( renderTopBind,
-  )
-where
+module GHCSpecter.Render.Components.GHCCore (
+  renderTopBind,
+) where
 
 import Concur.Core (Widget)
 import Data.List qualified as L
 import Data.Text qualified as T
-import GHCSpecter.Data.GHC.Core
-  ( Alt (..),
-    AltCon (..),
-    Bind (..),
-    Expr (..),
-    Id (..),
-    Literal (..),
-  )
+import GHCSpecter.Data.GHC.Core (
+  Alt (..),
+  AltCon (..),
+  Bind (..),
+  Expr (..),
+  Id (..),
+  Literal (..),
+ )
 import GHCSpecter.Render.Util (divClass, spanClass)
-import GHCSpecter.UI.ConcurReplica.DOM
-  ( pre,
-    span,
-    text,
-  )
+import GHCSpecter.UI.ConcurReplica.DOM (
+  pre,
+  span,
+  text,
+ )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
 

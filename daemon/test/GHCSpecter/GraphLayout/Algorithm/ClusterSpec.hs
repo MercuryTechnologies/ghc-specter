@@ -4,21 +4,21 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
-import GHCSpecter.GraphLayout.Algorithm.Cluster
-  ( ClusterState (..),
-    ClusterVertex (..),
-    degreeInvariant,
-    filterOutSmallNodes,
-    fullStep,
-    makeSeedState,
-    totalNumberInvariant,
-  )
-import Test.Hspec
-  ( Spec,
-    describe,
-    it,
-    shouldBe,
-  )
+import GHCSpecter.GraphLayout.Algorithm.Cluster (
+  ClusterState (..),
+  ClusterVertex (..),
+  degreeInvariant,
+  filterOutSmallNodes,
+  fullStep,
+  makeSeedState,
+  totalNumberInvariant,
+ )
+import Test.Hspec (
+  Spec,
+  describe,
+  it,
+  shouldBe,
+ )
 
 testGraph :: [(Int, [Int])]
 testGraph =

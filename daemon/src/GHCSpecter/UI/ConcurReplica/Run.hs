@@ -1,10 +1,9 @@
 -- | This module is originated from Concur.Replica.Run. However, we use IHTML instead of HTML.
-module GHCSpecter.UI.ConcurReplica.Run
-  ( run,
-    runDefault,
-    runDefaultWithStyle,
-  )
-where
+module GHCSpecter.UI.ConcurReplica.Run (
+  run,
+  runDefault,
+  runDefaultWithStyle,
+) where
 
 import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Widget, step)
 import Control.Concurrent.STM (atomically)

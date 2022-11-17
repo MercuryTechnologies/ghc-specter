@@ -1,11 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.Assets
-  ( Assets (..),
-    HasAssets (..),
-    loadAssets,
-  )
-where
+module GHCSpecter.Data.Assets (
+  Assets (..),
+  HasAssets (..),
+  loadAssets,
+) where
 
 import Control.Lens (makeClassy)
 import Data.ByteString qualified as B

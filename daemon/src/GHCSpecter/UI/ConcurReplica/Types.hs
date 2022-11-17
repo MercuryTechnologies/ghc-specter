@@ -1,22 +1,21 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module GHCSpecter.UI.ConcurReplica.Types
-  ( -- * IHTML type
-    IHTML (..),
+module GHCSpecter.UI.ConcurReplica.Types (
+  -- * IHTML type
+  IHTML (..),
 
-    -- * project
-    project,
+  -- * project
+  project,
 
-    -- * block
-    blockDOMUpdate,
-    unblockDOMUpdate,
-  )
-where
+  -- * block
+  blockDOMUpdate,
+  unblockDOMUpdate,
+) where
 
-import Concur.Core
-  ( Widget,
-    mapView,
-  )
+import Concur.Core (
+  Widget,
+  mapView,
+ )
 import Replica.VDOM (HTML)
 
 -- | IHTML has additional tag about whether one wants to bypass DOM update.
