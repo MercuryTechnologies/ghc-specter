@@ -116,6 +116,18 @@ renderModuleInProgress drvModMap pausedMap timingInProg =
         ]
         (fmap (\x -> p [] [text x]) msgs)
 
+renderGhcMode :: SessionInfo -> Widget IHTML a
+renderGhcMode sinfo =
+  divClass
+    "session-section"
+    []
+    [ div [] [spanClass "box" [] [text "GHC Mode"], text ": ", text ghcMode]
+    , div [] [spanClass "box" [] [text "Backend"], text ": ", text backend]
+    ]
+  where
+    ghcMode = T.pack $ show $ sessionGhcMode sinfo
+    backend = T.pack $ show $ sessionBackend sinfo
+
 renderProcessInfo :: ProcessInfo -> Widget IHTML a
 renderProcessInfo procinfo =
   divClass
@@ -177,6 +189,11 @@ render ss =
               infoPart =
                 flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
                   [ div
+                      []
+                      [ divClass "session-title" [] [text "GHC Mode"]
+                      , renderGhcMode sessionInfo
+                      ]
+                  , div
                       []
                       [ divClass "session-title" [] [text "Process Info"]
                       , renderProcessInfo procinfo
