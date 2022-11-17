@@ -85,11 +85,11 @@
             (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { });
           "ghc-debug-client" = final.haskell.lib.doJailbreak
             (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
-          "ghc-debug-test" =
-            hself.callCabal2nix "ghc-debug-test" "${ghc-debug}/test" { };
-          "ghc-debug-dyepack-test" =
-            hself.callCabal2nix "ghc-debug-dyepack-test"
-            "${ghc-debug}/dyepack-test" { };
+          # ghc-debugger seems outdated.
+          #"ghc-debugger" =
+          #  hself.callCabal2nix "ghc-debugger" "${ghc-debug}/test" { };
+          "dyepack-test" =
+            hself.callCabal2nix "dyepack-test" "${ghc-debug}/dyepack-test" { };
           #"ghc-debug-brick" = hself.callCabal2nix "ghc-debug-brick" "${ghc-debug}/brick" { };
           "ghc-debug-convention" =
             hself.callCabal2nix "ghc-debug-convention" "${ghc-debug}/convention"
@@ -116,8 +116,9 @@
                 p.ghc-debug-common
                 p.ghc-debug-stub
                 p.ghc-debug-client
-                #p.ghc-debug-test
-                #p.ghc-debug-dyepack-test
+                # this seems outdated.
+                #p.ghc-debugger
+                p.dyepack-test
                 #p.ghc-debug-brick
                 p.ghc-debug-convention
                 p.hiedb
