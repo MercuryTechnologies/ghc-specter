@@ -73,13 +73,18 @@
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
-          # ghc-debug
+          # ghc-debug related deps
+          "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
+          "ghc-events" = final.haskell.lib.doJailbreak hsuper.ghc-events;
+          "monoidal-containers" =
+            final.haskell.lib.doJailbreak hsuper.monoidal-containers;
+          "eventlog2html" = final.haskell.lib.doJailbreak hsuper.eventlog2html;
           "ghc-debug-common" =
             hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
           "ghc-debug-stub" = final.haskell.lib.doJailbreak
             (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { });
-          "ghc-debug-client" =
-            hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { };
+          "ghc-debug-client" = final.haskell.lib.doJailbreak
+            (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
           "ghc-debug-test" =
             hself.callCabal2nix "ghc-debug-test" "${ghc-debug}/test" { };
           "ghc-debug-dyepack-test" =
@@ -110,7 +115,7 @@
                 p.extra
                 p.ghc-debug-common
                 p.ghc-debug-stub
-                #p.ghc-debug-client
+                p.ghc-debug-client
                 #p.ghc-debug-test
                 #p.ghc-debug-dyepack-test
                 #p.ghc-debug-brick
