@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Plugin.GHCSpecter.Console (
@@ -5,7 +6,7 @@ module Plugin.GHCSpecter.Console (
   breakPoint,
 ) where
 
-import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Concurrent.STM (
   TVar,
   atomically,
@@ -35,7 +36,7 @@ import GHCSpecter.Channel.Outbound.Types (
   ConsoleReply (..),
   SessionInfo (..),
  )
-import GHC.Debug.Stub qualified as Debug (pause, resume)
+import GHC.Debug.Stub qualified as Debug
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Tasks (CommandSet (..))
 import Plugin.GHCSpecter.Types (
@@ -46,6 +47,10 @@ import Plugin.GHCSpecter.Types (
   getMsgQueue,
   sessionRef,
  )
+
+-- import Foreign.C.String (CString)
+-- foreign import ccall safe "start"
+--     start_c :: CString -> IO ()
 
 consoleAction ::
   MonadIO m =>
@@ -106,9 +111,13 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
       PrintCore args ->
         doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
       DumpHeap -> do
-        putStrLn "DumpHeap"
-        Debug.pause
-        reply (ConsoleReplyText Nothing "DumpHeap")
+        putStrLn "Dump-Heap"
+        -- start_c undefined
+        Debug.withGhcDebug $ do
+          threadDelay 1_000_000_000
+          pure ()
+        -- Debug.pause
+        reply (ConsoleReplyText Nothing "Dump-Heap")
   where
     reply = queueMessage . CMConsole drvId
 
