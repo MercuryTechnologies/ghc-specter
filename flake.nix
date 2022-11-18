@@ -100,7 +100,8 @@
             "${microlens}/microlens-platform" { };
           "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
           "text-zipper" = hsuper.text-zipper_0_12;
-          "vty" = hself.callCabal2nix "vty" vty { };
+          "vty" =
+            final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
 
           # ghc-debug-*
           "ghc-debug-common" =
