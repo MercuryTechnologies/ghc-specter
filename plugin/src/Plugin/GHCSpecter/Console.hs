@@ -35,6 +35,7 @@ import GHCSpecter.Channel.Outbound.Types (
   ConsoleReply (..),
   SessionInfo (..),
  )
+import GHC.Debug.Stub qualified as Debug (pause, resume)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Tasks (CommandSet (..))
 import Plugin.GHCSpecter.Types (
@@ -106,6 +107,7 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
         doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
       DumpHeap -> do
         putStrLn "DumpHeap"
+        Debug.pause
         reply (ConsoleReplyText Nothing "DumpHeap")
   where
     reply = queueMessage . CMConsole drvId
