@@ -304,6 +304,9 @@ processConsoleCommand view model drvId msg
   | msg == ":dump-heap" = do
       sendRequest $ ConsoleReq drvId DumpHeap
       pure model
+  | msg == ":exit-ghc-debug" = do
+      sendRequest $ SessionReq ExitGhcDebug
+      pure model
   | otherwise = do
       sendRequest $ ConsoleReq drvId (Ping msg)
       pure model

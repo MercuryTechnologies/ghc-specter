@@ -17,6 +17,7 @@ data SessionRequest
   = Pause
   | Resume
   | SetModuleBreakpoints [ModuleName]
+  | ExitGhcDebug
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary SessionRequest
