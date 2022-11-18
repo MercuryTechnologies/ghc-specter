@@ -34,12 +34,29 @@
       url = "github:fourmolu/fourmolu/main";
       flake = false;
     };
+    ghc-debug = {
+      url =
+        "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
+      flake = false;
+    };
+    microlens = {
+      url = "github:stevenfontanella/microlens/master";
+      flake = false;
+    };
+    vty = {
+      url = "github:jtdaugherty/vty/5.37";
+      flake = false;
+    };
+
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, file-embed, fourmolu }:
+    , fficxx, hs-ogdf, file-embed, fourmolu, ghc-debug, microlens, vty }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowBroken = true;
+        };
 
         haskellOverlay = final: hself: hsuper: {
           "criterion" = final.haskell.lib.dontCheck hsuper.criterion;
@@ -65,6 +82,45 @@
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
+
+          # ghc-debug related deps
+          "bimap" = hsuper.bimap_0_5_0;
+          "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
+          "brick" = hsuper.brick_1_3;
+          "eventlog2html" = final.haskell.lib.doJailbreak hsuper.eventlog2html;
+          "ghc-events" = final.haskell.lib.doJailbreak hsuper.ghc-events;
+          "monoidal-containers" =
+            final.haskell.lib.doJailbreak hsuper.monoidal-containers;
+          "microlens" =
+            hself.callCabal2nix "microlens" "${microlens}/microlens" { };
+          "microlens-ghc" =
+            hself.callCabal2nix "microlens-ghc" "${microlens}/microlens-ghc"
+            { };
+          "microlens-platform" = hself.callCabal2nix "microlens-platform"
+            "${microlens}/microlens-platform" { };
+          "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
+          "text-zipper" = hsuper.text-zipper_0_12;
+          "vty" =
+            final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
+
+          # ghc-debug-*
+          "ghc-debug-common" =
+            hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
+          "ghc-debug-stub" = final.haskell.lib.doJailbreak
+            (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { });
+          "ghc-debug-client" = final.haskell.lib.doJailbreak
+            (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
+          # ghc-debugger seems outdated.
+          #"ghc-debugger" =
+          #  hself.callCabal2nix "ghc-debugger" "${ghc-debug}/test" { };
+          "dyepack-test" =
+            hself.callCabal2nix "dyepack-test" "${ghc-debug}/dyepack-test" { };
+          "ghc-debug-brick" =
+            hself.callCabal2nix "ghc-debug-brick" "${ghc-debug}/ghc-debug-brick"
+            { };
+          "ghc-debug-convention" =
+            hself.callCabal2nix "ghc-debug-convention" "${ghc-debug}/convention"
+            { };
         };
 
         hpkgsFor = compiler:
@@ -84,6 +140,14 @@
                 p.concur-replica
                 p.discrimination
                 p.extra
+                p.ghc-debug-common
+                p.ghc-debug-stub
+                p.ghc-debug-client
+                # this seems outdated.
+                # p.ghc-debugger
+                p.dyepack-test
+                p.ghc-debug-brick
+                p.ghc-debug-convention
                 p.hiedb
                 p.hpack
                 p.hspec

@@ -107,6 +107,23 @@
         "type": "github"
       }
     },
+    "ghc-debug": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1668721384,
+        "narHash": "sha256-lVp2XCjAc9mpOdCOExVGhSOk16XXf6YgdwOCgr4GyWA=",
+        "ref": "wavewave/ghc94",
+        "rev": "8800c82dd6ef60e117751d196b9cc49aa56494db",
+        "revCount": 493,
+        "type": "git",
+        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
+      },
+      "original": {
+        "ref": "wavewave/ghc94",
+        "type": "git",
+        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
+      }
+    },
     "hs-ogdf": {
       "inputs": {
         "fficxx": [
@@ -131,6 +148,23 @@
         "owner": "wavewave",
         "ref": "master",
         "repo": "hs-ogdf",
+        "type": "github"
+      }
+    },
+    "microlens": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1660843290,
+        "narHash": "sha256-3MmkZKNFDRlL63GDE2EObCzzL4UfEn5hx+2aQqiylp8=",
+        "owner": "stevenfontanella",
+        "repo": "microlens",
+        "rev": "e117e429bcfca033527c4393ebb522364a83e3c7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stevenfontanella",
+        "ref": "master",
+        "repo": "microlens",
         "type": "github"
       }
     },
@@ -175,9 +209,29 @@
         "file-embed": "file-embed",
         "flake-utils": "flake-utils",
         "fourmolu": "fourmolu",
+        "ghc-debug": "ghc-debug",
         "hs-ogdf": "hs-ogdf",
+        "microlens": "microlens",
         "nixpkgs": "nixpkgs",
-        "replica": "replica"
+        "replica": "replica",
+        "vty": "vty"
+      }
+    },
+    "vty": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1663380348,
+        "narHash": "sha256-lrqlKS+8EeImX73A9KHzkTph/o9vzQ2yHi5xfbHVZfs=",
+        "owner": "jtdaugherty",
+        "repo": "vty",
+        "rev": "db5f55caf3321d9e015fa99cc41908c12ef172a5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jtdaugherty",
+        "ref": "5.37",
+        "repo": "vty",
+        "type": "github"
       }
     }
   },
