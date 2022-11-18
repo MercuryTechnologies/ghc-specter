@@ -35,6 +35,7 @@ data ConsoleRequest
   | ShowUnqualifiedImports
   | ListCore
   | PrintCore [Text]
+  | DumpHeap
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest

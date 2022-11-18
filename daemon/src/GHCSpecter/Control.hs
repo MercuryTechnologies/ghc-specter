@@ -301,6 +301,9 @@ processConsoleCommand view model drvId msg
       branchTab TabSourceView (view, model')
       -- should not be reached.
       pure model'
+  | msg == ":dump-heap" = do
+      sendRequest $ ConsoleReq drvId DumpHeap
+      pure model
   | otherwise = do
       sendRequest $ ConsoleReq drvId (Ping msg)
       pure model

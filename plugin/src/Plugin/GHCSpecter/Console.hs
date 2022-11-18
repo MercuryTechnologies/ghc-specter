@@ -104,6 +104,9 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
         doCommand ":list-core" (\case Core2Core _ -> True; _ -> False) "list core" []
       PrintCore args ->
         doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
+      DumpHeap -> do
+        putStrLn "DumpHeap"
+        reply (ConsoleReplyText Nothing "DumpHeap")
   where
     reply = queueMessage . CMConsole drvId
 
