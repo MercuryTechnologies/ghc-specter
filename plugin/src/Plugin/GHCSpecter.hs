@@ -21,6 +21,7 @@ import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.Functor ((<&>))
+import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
@@ -54,6 +55,7 @@ import GHCSpecter.Channel.Outbound.Types
     BreakpointLoc (..),
     ChanMessage (..),
     GhcMode (..),
+    ModuleGraphInfo (..),
     ProcessInfo (..),
     SessionInfo (..),
   )
@@ -381,6 +383,19 @@ driver opts env0 = do
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
 #if MIN_VERSION_ghc(9, 4, 0)
+  sinfo0 <-
+    atomically $
+      psSessionInfo <$> readTVar sessionRef
+  let modGraphInfo0 = sessionModuleGraph sinfo0
+      modGraph1 = hsc_mod_graph env0
+      modGraphInfo1 = extractModuleGraphInfo modGraph1
+  when (IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)) $ do
+    let sinfo1 = sinfo0 {sessionModuleGraph = modGraphInfo1}
+    atomically $
+      modifyTVar'
+        sessionRef
+        (\s -> s {psSessionInfo = sinfo1})
+    queueMessage (CMSession sinfo1)
   let newPlugin =
         plugin
           { installCoreToDos = corePlugin
