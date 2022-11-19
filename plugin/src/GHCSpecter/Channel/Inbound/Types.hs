@@ -17,6 +17,7 @@ data SessionRequest
   = Pause
   | Resume
   | SetModuleBreakpoints [ModuleName]
+  | ExitGhcDebug
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary SessionRequest
@@ -35,6 +36,7 @@ data ConsoleRequest
   | ShowUnqualifiedImports
   | ListCore
   | PrintCore [Text]
+  | DumpHeap
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest

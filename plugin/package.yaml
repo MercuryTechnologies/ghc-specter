@@ -86,6 +86,7 @@ library:
     - discrimination
     - errors
     - extra
+    - ghc-debug-stub
     - hiedb
     - network
     - process

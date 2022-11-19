@@ -35,8 +35,7 @@
       flake = false;
     };
     ghc-debug = {
-      url =
-        "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
+      url = "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
       flake = false;
     };
     microlens = {
@@ -106,8 +105,12 @@
           # ghc-debug-*
           "ghc-debug-common" =
             hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
-          "ghc-debug-stub" = final.haskell.lib.doJailbreak
-            (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { });
+          "ghc-debug-stub" =
+            final.haskell.lib.overrideCabal
+              (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { }) (drv: {
+                jailbreak = true;
+                librarySystemDepends = [ ];
+              });
           "ghc-debug-client" = final.haskell.lib.doJailbreak
             (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
           # ghc-debugger seems outdated.

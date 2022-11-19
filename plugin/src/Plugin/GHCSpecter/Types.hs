@@ -78,6 +78,7 @@ data PluginSession = PluginSession
   , psNextDriverId :: DriverId
   , psConsoleState :: ConsoleState
   , psModuleBreakpoints :: [ModuleName]
+  , psIsInGhcDebug :: Bool
   }
 
 emptyPluginSession :: PluginSession
@@ -91,6 +92,7 @@ emptyPluginSession =
     , psNextDriverId = 1
     , psConsoleState = emptyConsoleState
     , psModuleBreakpoints = []
+    , psIsInGhcDebug = False
     }
 
 -- | Global variable shared across the session

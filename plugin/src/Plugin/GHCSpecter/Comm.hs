@@ -3,7 +3,7 @@ module Plugin.GHCSpecter.Comm (
   queueMessage,
 ) where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, forkOS)
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
@@ -16,6 +16,7 @@ import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
+import GHC.Debug.Stub qualified as Debug
 import GHCSpecter.Channel.Inbound.Types (
   Request (..),
   SessionRequest (..),
@@ -49,7 +50,7 @@ runMessageQueue cfg queue = do
     socketExists <- doesFileExist ipcfile
     when socketExists $
       runClient ipcfile $ \sock -> do
-        _ <- forkIO $ receiver sock
+        _ <- forkOS $ receiver sock
         sender sock
   where
     sender :: Socket -> IO ()
@@ -73,22 +74,29 @@ runMessageQueue cfg queue = do
         putStrLn "################"
         putStrLn $ "message received: " ++ show msg
         putStrLn "################"
-        atomically $
-          case msg of
-            SessionReq Pause ->
+        case msg of
+          SessionReq Pause ->
+            atomically $
               modifyTVar' sessionRef $ \s ->
                 let sinfo = psSessionInfo s
                     sinfo' = sinfo {sessionIsPaused = True}
                  in s {psSessionInfo = sinfo'}
-            SessionReq Resume ->
+          SessionReq Resume ->
+            atomically $
               modifyTVar' sessionRef $ \s ->
                 let sinfo = psSessionInfo s
                     sinfo' = sinfo {sessionIsPaused = False}
                  in s {psSessionInfo = sinfo'}
-            SessionReq (SetModuleBreakpoints mods) ->
+          SessionReq (SetModuleBreakpoints mods) ->
+            atomically $
               modifyTVar' sessionRef $ \s ->
                 s {psModuleBreakpoints = mods}
-            ConsoleReq drvId' creq ->
+          SessionReq ExitGhcDebug ->
+            atomically $
+              modifyTVar' sessionRef $ \s ->
+                s {psIsInGhcDebug = False}
+          ConsoleReq drvId' creq ->
+            atomically $
               writeTVar (msgReceiverQueue queue) (Just (drvId', creq))
 
 queueMessage :: ChanMessage a -> IO ()
