@@ -16,8 +16,8 @@ module Plugin.GHCSpecter.Hooks (
   runPhaseHook',
 ) where
 
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (ifM)
+import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -341,51 +341,28 @@ runPhaseHook' :: PhaseHook
 runPhaseHook' = PhaseHook $ \phase -> do
   let (_, mpenv, mname) = envFromTPhase phase
       phaseTxt = tphase2Text phase
-  (phase', mdrvId) <-
+  mdrvId <-
     case phase of
-      T_Hsc env modSummary -> do
-        mdrvId' <- Just <$> issueNewDriverId modSummary
-        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
-           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
-           provideContext (StaticPlugin pa) =
-             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
-              in StaticPlugin pa'
-           plugins = hsc_plugins env
-           splugins = staticPlugins plugins
-           splugins' = fmap provideContext splugins
-           plugins' = plugins {staticPlugins = splugins'}
-           env' = env {hsc_plugins = plugins'}
-           phase' = T_Hsc env' modSummary
-        pure (phase', mdrvId')
-      T_HscPostTc env modSummary fresult msgs mfp -> atomically $ do
-        s <- readTVar sessionRef
-        let mdrvId' =
-              (mname >>= \name -> backwardLookup name (psDrvIdModuleMap s))
-              <|> ( mpenv >>= \(PipeEnv {..}) ->
-                      backwardLookup src_filename (psDrvIdModuleFileMap s)
-                  )
-        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
-           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
-           provideContext (StaticPlugin pa) =
-             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
-              in StaticPlugin pa'
-           plugins = hsc_plugins env
-           splugins = staticPlugins plugins
-           splugins' = fmap provideContext splugins
-           plugins' = plugins {staticPlugins = splugins'}
-           env' = env {hsc_plugins = plugins'}
-           phase' = T_HscPostTc env' modSummary fresult msgs mfp
-        pure (phase', mdrvId')
+      T_Hsc _ modSummary -> Just <$> issueNewDriverId modSummary
       _ -> atomically $ do
         s <- readTVar sessionRef
-        let mdrvId' =
-              (mname >>= \name -> backwardLookup name (psDrvIdModuleMap s))
-              <|> ( mpenv >>= \(PipeEnv {..}) ->
-                      backwardLookup src_filename (psDrvIdModuleFileMap s)
-                  )
-        pure (phase, mdrvId')
-  liftIO $ putStrLn $ "*-*-*-*- " ++ show phaseTxt
-  liftIO $ print mdrvId
+        let lookupByModuleName =
+              mname >>= \name -> backwardLookup name (psDrvIdModuleMap s)
+            lookupBySourceFile =
+              mpenv >>= \(PipeEnv {..}) -> backwardLookup src_filename (psDrvIdModuleFileMap s)
+        pure (lookupByModuleName <|> lookupBySourceFile)
+  let updateEnvWithDrvId env =
+        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
+           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
+           provideContext (StaticPlugin pa) =
+             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId}
+              in StaticPlugin pa'
+           plugins = hsc_plugins env
+           splugins = staticPlugins plugins
+           splugins' = fmap provideContext splugins
+           plugins' = plugins {staticPlugins = splugins'}
+        in env {hsc_plugins = plugins'}
+      phase' = replaceEnvInTPhase updateEnvWithDrvId phase
   case mdrvId of
     Nothing -> runPhase phase'
     Just drvId -> do
@@ -398,7 +375,6 @@ runPhaseHook' = PhaseHook $ \phase -> do
       breakPoint drvId locPostPhase postPhaseCommands
       sendCompStateOnPhase drvId phase PhaseEnd
       pure result
-
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::
   DriverId ->
