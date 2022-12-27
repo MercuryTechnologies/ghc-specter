@@ -70,7 +70,8 @@ main = do
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
             nodeSizeLimit = configModuleClusterSize cfg
-        ssRef <- atomically $ newTVar (initServerState nodeSizeLimit)
+            blockerThreshold = configModuleBlockerThreshold cfg
+        ssRef <- atomically $ newTVar (initServerState nodeSizeLimit blockerThreshold)
         workQ <- newTQueueIO
         chanSignal <- newTChanIO
         let servSess = ServerSession ssRef chanSignal

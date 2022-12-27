@@ -160,8 +160,9 @@ data ServerState = ServerState
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
-  -- TODO: This configuration should be separated to an env in ReaderT.
+  -- TODO: These numbers from configuration should be separated to an env in ReaderT.
   , _serverModuleClusterSize :: Int
+  , _serverModuleBlockerThreshold :: Int
   }
   deriving (Show, Generic)
 
@@ -171,8 +172,8 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-initServerState :: Int -> ServerState
-initServerState nodeSizeLimit =
+initServerState :: Int -> Int -> ServerState
+initServerState nodeSizeLimit blockerThreshold =
   ServerState
     { _serverMessageSN = 0
     , _serverShouldUpdate = True
@@ -187,6 +188,7 @@ initServerState nodeSizeLimit =
     , _serverHieState = emptyHieState
     , _serverModuleBreakpoints = []
     , _serverModuleClusterSize = nodeSizeLimit
+    , _serverModuleBlockerThreshold = blockerThreshold
     }
 
 incrementSN :: ServerState -> ServerState

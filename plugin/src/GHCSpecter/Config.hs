@@ -25,11 +25,14 @@ data Config = Config
   , configWebPort :: Int
   , configStartWithBreakpoint :: Bool
   , configModuleClusterSize :: Int
+  , configModuleBlockerThreshold :: Int
   }
   deriving (Show, Generic)
 
+-- | default configuration
+-- NOTE: non-trivial default value: cluster size = 5, blocker threshold = 5
 emptyConfig :: Config
-emptyConfig = Config "" "" 0 False 150 -- cluster size = 150 for default value.
+emptyConfig = Config "" "" 0 False 150 5
 
 modifier :: String -> String
 modifier = camelTo2 '_' . drop 6

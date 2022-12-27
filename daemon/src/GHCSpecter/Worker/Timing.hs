@@ -45,9 +45,10 @@ timingBlockerGraphWorker ssRef = do
   ss' <-
     atomically $ do
       ss <- readTVar ssRef
-      let mgi = ss ^. serverSessionInfo . to sessionModuleGraph
+      let blockerThreshold = ss ^. serverModuleBlockerThreshold
+          mgi = ss ^. serverSessionInfo . to sessionModuleGraph
           ttable = ss ^. serverTiming . tsTimingTable
-          blockerGraph = makeBlockerGraph mgi ttable
+          blockerGraph = makeBlockerGraph blockerThreshold mgi ttable
           ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
       writeTVar ssRef ss'
       pure ss'
