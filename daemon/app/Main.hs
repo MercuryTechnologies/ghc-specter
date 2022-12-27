@@ -19,7 +19,7 @@ import GHCSpecter.Driver (webServer)
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
 import GHCSpecter.Driver.Worker qualified as Worker
-import GHCSpecter.Server.Types (emptyServerState)
+import GHCSpecter.Server.Types (initServerState)
 import Options.Applicative qualified as OA
 
 data CLIMode
@@ -69,7 +69,8 @@ main = do
     Online mconfigFile ->
       withConfig mconfigFile $ \cfg -> do
         let socketFile = configSocket cfg
-        ssRef <- atomically $ newTVar emptyServerState
+            nodeSizeLimit = configModuleClusterSize cfg
+        ssRef <- atomically $ newTVar (initServerState nodeSizeLimit)
         workQ <- newTQueueIO
         chanSignal <- newTChanIO
         let servSess = ServerSession ssRef chanSignal

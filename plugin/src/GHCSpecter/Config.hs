@@ -24,11 +24,12 @@ data Config = Config
   , configSessionFile :: FilePath
   , configWebPort :: Int
   , configStartWithBreakpoint :: Bool
+  , configModuleClusterSize :: Int
   }
   deriving (Show, Generic)
 
 emptyConfig :: Config
-emptyConfig = Config "" "" 0 False
+emptyConfig = Config "" "" 0 False 150 -- cluster size = 150 for default value.
 
 modifier :: String -> String
 modifier = camelTo2 '_' . drop 6
