@@ -57,9 +57,6 @@ import GHCSpecter.Worker.Hie (
  )
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 
-import Control.Lens (to, (^..))
-import GHCSpecter.Data.Map (keyMapToList)
-
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
 updateInbox chanMsg = incrementSN . updater
   where
@@ -169,15 +166,8 @@ listener socketFile ssess workQ = do
     receiver sock = forever $ do
       msgs :: [ChanMessageBox] <- receiveObject sock
       F.for_ msgs $ \msg -> do
-        ss <- atomically (readTVar ssRef)
-        let ks = ss ^.. serverPaused . to keyMapToList . traverse . to (unDriverId . fst)
-        putStrLn ("before: " ++ show ks)
         -- pure state update
         atomically . modifyTVar' ssRef . updateInbox $ msg
-
-        ss' <- atomically (readTVar ssRef)
-        let ks' = ss' ^.. serverPaused . to keyMapToList . traverse . to (unDriverId . fst)
-        putStrLn ("after: " ++ show ks')
 
         -- async IO update
         invokeWorker ssRef workQ msg

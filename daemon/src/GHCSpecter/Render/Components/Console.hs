@@ -37,9 +37,6 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
--- import Control.Monad.IO.Class (liftIO)
-import Concur.Core (unsafeBlockingIO)
-
 render ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
@@ -49,9 +46,7 @@ render ::
   Maybe k ->
   Text ->
   Widget IHTML (ConsoleEvent k)
-render tabs contents getHelp mfocus inputEntry = do
-    unsafeBlockingIO (putStrLn $ "Console.render" ++ show (fmap snd tabs))
-    div [] [consoleTabs, console]
+render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
   where
     navbarMenu = divClass "navbar-menu" []
     navbarStart = divClass "navbar-start" []
