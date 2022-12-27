@@ -227,6 +227,27 @@ envFromTPhase p =
     T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
     T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
 
+-- | All the TPhase cases have HscEnv. This function constructs a new TPhase with a modified HscEnv.
+modifyHscEnvInTPhase :: (HscEnv -> HscEnv) -> TPhase res -> TPhase res
+modifyHscEnvInTPhase update p =
+  case p of
+    T_Unlit penv env fp -> T_Unlit penv (update env) fp
+    T_FileArgs env fp -> T_FileArgs (update env) fp
+    T_Cpp penv env fp -> T_Cpp penv (update env) fp
+    T_HsPp penv env fp1 fp2 -> T_HsPp penv (update env) fp1 fp2
+    T_HscRecomp penv env fp src -> T_HscRecomp penv (update env) fp src
+    T_Hsc env modSummary -> T_Hsc (update env) modSummary
+    T_HscPostTc env modSummary fresult msg mfp -> T_HscPostTc (update env) modSummary fresult msg mfp
+    T_HscBackend penv env mname src loc baction -> T_HscBackend penv (update env) mname src loc baction
+    T_CmmCpp penv env fp -> T_CmmCpp penv (update env) fp
+    T_Cmm penv env fp -> T_Cmm penv (update env) fp
+    T_Cc ph penv env fp ->T_Cc ph penv (update env) fp
+    T_As b penv env mloc fp -> T_As b penv (update env) mloc fp
+    T_LlvmOpt penv env fp -> T_LlvmOpt penv (update env) fp
+    T_LlvmLlc penv env fp -> T_LlvmLlc penv (update env) fp
+    T_LlvmMangle penv env fp -> T_LlvmMangle penv (update env) fp
+    T_MergeForeign penv env fp fps -> T_MergeForeign penv (update env) fp fps
+
 issueNewDriverId :: ModSummary -> IO DriverId
 issueNewDriverId modSummary = do
   atomically $ do
@@ -320,30 +341,34 @@ runPhaseHook' :: PhaseHook
 runPhaseHook' = PhaseHook $ \phase -> do
   let (_, mpenv, mname) = envFromTPhase phase
       phaseTxt = tphase2Text phase
-  (phase', mdrvId) <-
+  mdrvId <-
     case phase of
-      T_Hsc env modSummary -> do
-        mdrvId' <- Just <$> issueNewDriverId modSummary
+      T_Hsc _ modSummary ->
+        -- T_Hsc is a point where the module name is first identified in the plugin though
+        -- GHC knows the module index when planning the build.
+        -- Therefore, we are only able to issue a new ID associated with a given module
+        -- at this point.
+        -- TODO: Work on the upstream GHC to provide the index as a part of API.
+        Just <$> issueNewDriverId modSummary
+      _ -> atomically $ do
+        s <- readTVar sessionRef
+        let lookupByModuleName =
+              mname >>= \name -> backwardLookup name (psDrvIdModuleMap s)
+            lookupBySourceFile =
+              mpenv >>= \(PipeEnv {..}) -> backwardLookup src_filename (psDrvIdModuleFileMap s)
+        pure (lookupByModuleName <|> lookupBySourceFile)
+  let updateEnvWithDrvId env =
         let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
            -- TODO: find way to update the plugin options only for ghc-specter-plugin.
            provideContext (StaticPlugin pa) =
-             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
+             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId}
               in StaticPlugin pa'
            plugins = hsc_plugins env
            splugins = staticPlugins plugins
            splugins' = fmap provideContext splugins
            plugins' = plugins {staticPlugins = splugins'}
-           env' = env {hsc_plugins = plugins'}
-           phase' = T_Hsc env' modSummary
-        pure (phase', mdrvId')
-      _ -> atomically $ do
-        s <- readTVar sessionRef
-        let mdrvId' =
-              (mname >>= \name -> backwardLookup name (psDrvIdModuleMap s))
-              <|> ( mpenv >>= \(PipeEnv {..}) ->
-                      backwardLookup src_filename (psDrvIdModuleFileMap s)
-                  )
-        pure (phase, mdrvId')
+        in env {hsc_plugins = plugins'}
+      phase' = modifyHscEnvInTPhase updateEnvWithDrvId phase
   case mdrvId of
     Nothing -> runPhase phase'
     Just drvId -> do
@@ -356,7 +381,6 @@ runPhaseHook' = PhaseHook $ \phase -> do
       breakPoint drvId locPostPhase postPhaseCommands
       sendCompStateOnPhase drvId phase PhaseEnd
       pure result
-
 #elif MIN_VERSION_ghc(9, 2, 0)
 sendCompStateOnPhase ::
   DriverId ->
