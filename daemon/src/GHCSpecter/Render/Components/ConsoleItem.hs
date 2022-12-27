@@ -59,11 +59,11 @@ render (ConsoleCore forest) =
     render1 tr =
       let
         -- for debug
-        -- txt = T.pack $ drawTree $ fmap show tr
+        txt = T.pack $ drawTree $ fmap show tr
         ebind = toBind tr
         rendered =
           case ebind of
-            Left err -> renderErr err
+            Left err -> renderErr (err <> "\n" <> txt)
             Right bind -> renderTopBind bind
        in
         div
