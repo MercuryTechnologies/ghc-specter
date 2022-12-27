@@ -225,10 +225,12 @@ parsedResultActionPlugin ::
   HsParsedModule ->
   Hsc HsParsedModule
 #endif
+#if MIN_VERSION_ghc(9, 4, 0)
+parsedResultActionPlugin opts _ parsed = do
+  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
+#elif MIN_VERSION_ghc(9, 2, 0)
 parsedResultActionPlugin opts modSummary parsed = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
     -- NOTE: on GHC 9.2, we send module name information here.
     let modName = getModuleName modSummary
         msrcFile = ml_hs_file $ ms_location modSummary

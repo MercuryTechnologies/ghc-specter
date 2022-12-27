@@ -89,10 +89,6 @@ updateInbox chanMsg = incrementSN . updater
          in (serverSessionInfo %~ updateSessionInfo)
               . (serverPaused %~ alterToKeyMap (const (Just loc)) drvId)
               . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
-      CMBox (CMResumed drvId) ->
-        let msg = ConsoleText "resume"
-         in (serverPaused %~ alterToKeyMap (const Nothing) drvId)
-              . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of
           ConsoleReplyText mtab txt ->
@@ -151,21 +147,6 @@ invokeWorker ssRef workQ (CMBox o) =
               <> modu
               <> ": "
               <> T.pack (show loc)
-    CMResumed drvId -> do
-      mmodu <-
-        atomically $ do
-          ss <- readTVar ssRef
-          let drvModMap = ss ^. serverDriverModuleMap
-          pure $ forwardLookup drvId drvModMap
-      case mmodu of
-        Nothing -> do
-          TIO.putStrLn $
-            "resumed GHC at driverId = "
-              <> T.pack (show (unDriverId drvId))
-        Just modu ->
-          TIO.putStrLn $
-            "resumed GHC at moduleName = "
-              <> modu
     CMConsole {} -> pure ()
 
 listener ::
