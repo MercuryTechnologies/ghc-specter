@@ -17,7 +17,6 @@ module Plugin.GHCSpecter.Hooks (
 ) where
 
 import Control.Monad.Extra (ifM)
-import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -228,8 +227,9 @@ envFromTPhase p =
     T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
     T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
 
-replaceEnvInTPhase :: (HscEnv -> HscEnv) -> TPhase res -> TPhase res
-replaceEnvInTPhase update p =
+-- | All the TPhase cases have HscEnv. This function constructs a new TPhase with a modified HscEnv.
+modifyHscEnvInTPhase :: (HscEnv -> HscEnv) -> TPhase res -> TPhase res
+modifyHscEnvInTPhase update p =
   case p of
     T_Unlit penv env fp -> T_Unlit penv (update env) fp
     T_FileArgs env fp -> T_FileArgs (update env) fp
@@ -343,7 +343,13 @@ runPhaseHook' = PhaseHook $ \phase -> do
       phaseTxt = tphase2Text phase
   mdrvId <-
     case phase of
-      T_Hsc _ modSummary -> Just <$> issueNewDriverId modSummary
+      T_Hsc _ modSummary ->
+        -- T_Hsc is a point where the module name is first identified in the plugin though
+        -- GHC knows the module index when planning the build.
+        -- Therefore, we are only able to issue a new ID associated with a given module
+        -- at this point.
+        -- TODO: Work on the upstream GHC to provide the index as a part of API.
+        Just <$> issueNewDriverId modSummary
       _ -> atomically $ do
         s <- readTVar sessionRef
         let lookupByModuleName =
@@ -362,7 +368,7 @@ runPhaseHook' = PhaseHook $ \phase -> do
            splugins' = fmap provideContext splugins
            plugins' = plugins {staticPlugins = splugins'}
         in env {hsc_plugins = plugins'}
-      phase' = replaceEnvInTPhase updateEnvWithDrvId phase
+      phase' = modifyHscEnvInTPhase updateEnvWithDrvId phase
   case mdrvId of
     Nothing -> runPhase phase'
     Just drvId -> do
