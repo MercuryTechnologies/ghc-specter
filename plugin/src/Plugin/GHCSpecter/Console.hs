@@ -6,7 +6,7 @@ module Plugin.GHCSpecter.Console (
   breakPoint,
 ) where
 
-import Control.Concurrent (forkIO, killThread, threadDelay)
+import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (
   TVar,
   atomically,
@@ -135,9 +135,10 @@ sessionInPause drvId loc cmds actionRef = do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
     -- proceed when the session is paused.
     STM.check isPaused
-  queueMessage (CMPaused drvId (Just loc))
+  queueMessage (CMPaused drvId loc)
+  -- TODO: This needs explanation.
   (forever $ consoleAction drvId loc cmds actionRef)
-    `catch` (\(_e :: AsyncException) -> queueMessage (CMPaused drvId Nothing))
+    `catch` (\(_e :: AsyncException) -> queueMessage (CMResumed drvId))
 
 breakPoint ::
   forall m.

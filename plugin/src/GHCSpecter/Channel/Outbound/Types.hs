@@ -53,6 +53,7 @@ data Channel
   | Session
   | HsHie
   | Paused
+  | Resumed
   | Console
   deriving (Enum, Eq, Ord, Show, Generic)
 
@@ -224,7 +225,10 @@ data ChanMessage (a :: Channel) where
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsHie :: DriverId -> FilePath -> ChanMessage 'HsHie
-  CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
+  -- | a module is paused at a breakpoint position.
+  CMPaused :: DriverId -> BreakpointLoc -> ChanMessage 'Paused
+  -- | a module is resumed from a paused state.
+  CMResumed :: DriverId -> ChanMessage 'Resumed
   CMConsole :: DriverId -> ConsoleReply -> ChanMessage 'Console
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)
@@ -236,6 +240,7 @@ instance Show ChanMessageBox where
   show (CMBox (CMSession {})) = "CMSession"
   show (CMBox (CMHsHie {})) = "CMHsHie"
   show (CMBox (CMPaused {})) = "CMPaused"
+  show (CMBox (CMResumed {})) = "CMResumed"
   show (CMBox (CMConsole {})) = "CMConsole"
 
 instance Binary ChanMessageBox where
@@ -257,6 +262,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMPaused i ml)) = do
     put (fromEnum Paused)
     put (i, ml)
+  put (CMBox (CMResumed i)) = do
+    put (fromEnum Resumed)
+    put i
   put (CMBox (CMConsole i t)) = do
     put (fromEnum Console)
     put (i, t)
@@ -270,4 +278,5 @@ instance Binary ChanMessageBox where
       Session -> CMBox . CMSession <$> get
       HsHie -> CMBox . uncurry CMHsHie <$> get
       Paused -> CMBox . uncurry CMPaused <$> get
+      Resumed -> CMBox . CMResumed <$> get
       Console -> CMBox . uncurry CMConsole <$> get
