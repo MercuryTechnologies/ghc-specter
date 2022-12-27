@@ -228,6 +228,26 @@ envFromTPhase p =
     T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
     T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
 
+replaceEnvInTPhase :: (HscEnv -> HscEnv) -> TPhase res -> TPhase res
+replaceEnvInTPhase update p =
+  case p of
+    T_Unlit penv env fp -> T_Unlit penv (update env) fp
+    T_FileArgs env fp -> T_FileArgs (update env) fp
+    T_Cpp penv env fp -> T_Cpp penv (update env) fp
+    T_HsPp penv env fp1 fp2 -> T_HsPp penv (update env) fp1 fp2
+    T_HscRecomp penv env fp src -> T_HscRecomp penv (update env) fp src
+    T_Hsc env modSummary -> T_Hsc (update env) modSummary
+    T_HscPostTc env modSummary fresult msg mfp -> T_HscPostTc (update env) modSummary fresult msg mfp
+    T_HscBackend penv env mname src loc baction -> T_HscBackend penv (update env) mname src loc baction
+    T_CmmCpp penv env fp -> T_CmmCpp penv (update env) fp
+    T_Cmm penv env fp -> T_Cmm penv (update env) fp
+    T_Cc ph penv env fp ->T_Cc ph penv (update env) fp
+    T_As b penv env mloc fp -> T_As b penv (update env) mloc fp
+    T_LlvmOpt penv env fp -> T_LlvmOpt penv (update env) fp
+    T_LlvmLlc penv env fp -> T_LlvmLlc penv (update env) fp
+    T_LlvmMangle penv env fp -> T_LlvmMangle penv (update env) fp
+    T_MergeForeign penv env fp fps -> T_MergeForeign penv (update env) fp fps
+
 issueNewDriverId :: ModSummary -> IO DriverId
 issueNewDriverId modSummary = do
   atomically $ do
