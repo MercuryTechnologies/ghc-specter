@@ -16,6 +16,7 @@ module Plugin.GHCSpecter.Hooks (
   runPhaseHook',
 ) where
 
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (ifM)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
@@ -336,6 +337,25 @@ runPhaseHook' = PhaseHook $ \phase -> do
            env' = env {hsc_plugins = plugins'}
            phase' = T_Hsc env' modSummary
         pure (phase', mdrvId')
+      T_HscPostTc env modSummary fresult msgs mfp -> atomically $ do
+        s <- readTVar sessionRef
+        let mdrvId' =
+              (mname >>= \name -> backwardLookup name (psDrvIdModuleMap s))
+              <|> ( mpenv >>= \(PipeEnv {..}) ->
+                      backwardLookup src_filename (psDrvIdModuleFileMap s)
+                  )
+        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
+           -- TODO: find way to update the plugin options only for ghc-specter-plugin.
+           provideContext (StaticPlugin pa) =
+             let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId'}
+              in StaticPlugin pa'
+           plugins = hsc_plugins env
+           splugins = staticPlugins plugins
+           splugins' = fmap provideContext splugins
+           plugins' = plugins {staticPlugins = splugins'}
+           env' = env {hsc_plugins = plugins'}
+           phase' = T_HscPostTc env' modSummary fresult msgs mfp
+        pure (phase', mdrvId')
       _ -> atomically $ do
         s <- readTVar sessionRef
         let mdrvId' =
@@ -344,6 +364,8 @@ runPhaseHook' = PhaseHook $ \phase -> do
                       backwardLookup src_filename (psDrvIdModuleFileMap s)
                   )
         pure (phase, mdrvId')
+  liftIO $ putStrLn $ "*-*-*-*- " ++ show phaseTxt
+  liftIO $ print mdrvId
   case mdrvId of
     Nothing -> runPhase phase'
     Just drvId -> do
