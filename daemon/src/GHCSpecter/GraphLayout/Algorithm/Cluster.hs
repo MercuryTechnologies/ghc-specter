@@ -184,16 +184,12 @@ fullStep (clustering, graphState) =
       clustering' = clusterStep graphState2 clustering
    in clustering' `seq` graphState2 `seq` (clustering', graphState2)
 
--- TODO: Place this to some common module for constants
-nodeSizeLimit :: Int
-nodeSizeLimit = 150
-
 -- | tree level annotation
 annotateLevel :: Int -> Tree a -> Tree (Int, a)
 annotateLevel root (Node x ys) = Node (root, x) (fmap (annotateLevel (root + 1)) ys)
 
-filterOutSmallNodes :: IntMap [Int] -> [Int]
-filterOutSmallNodes graph =
+filterOutSmallNodes :: Int -> IntMap [Int] -> [Int]
+filterOutSmallNodes nodeSizeLimit graph =
   IM.keys $
     IM.filter
       (\(js, ks) -> length js + length ks > nodeSizeLimit)

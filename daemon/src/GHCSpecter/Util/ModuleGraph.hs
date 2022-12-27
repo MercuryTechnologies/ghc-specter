@@ -18,8 +18,8 @@ import GHCSpecter.Channel.Outbound.Types (
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Algorithm.Cluster (filterOutSmallNodes)
 
-formatModuleGraphInfo :: ModuleGraphInfo -> Text
-formatModuleGraphInfo mgi =
+formatModuleGraphInfo :: Int -> ModuleGraphInfo -> Text
+formatModuleGraphInfo nodeSizeLimit mgi =
   let txt1 =
         T.intercalate "\n" . fmap (T.pack . show) $ IM.toList $ mginfoModuleNameMap mgi
       txt2 =
@@ -36,7 +36,7 @@ formatModuleGraphInfo mgi =
         <> "top sorted:\n"
         <> txt3
         <> "\n=================\n"
-        <> analyze mgi
+        <> analyze nodeSizeLimit mgi
         <> "\n=================\n"
         <> "# of vertices: "
         <> T.pack (show nVtx)
@@ -50,8 +50,8 @@ stat mgi =
       nEdg = F.sum $ fmap length $ mginfoModuleDep mgi
    in (nVtx, nEdg)
 
-analyze :: ModuleGraphInfo -> Text
-analyze graphInfo =
+analyze :: Int -> ModuleGraphInfo -> Text
+analyze nodeSizeLimit graphInfo =
   let modDep = mginfoModuleDep graphInfo
       modRevDep = makeRevDep modDep
       initials = IM.keys $ IM.filter (\js -> null js) modDep
@@ -65,7 +65,7 @@ analyze graphInfo =
               Nothing -> Right acc'
               Just j' -> Left (acc' ++ [j'], j')
       legs = fmap leg (initials L.\\ orphans)
-      larges = filterOutSmallNodes modDep
+      larges = filterOutSmallNodes nodeSizeLimit modDep
       largeNames = mapMaybe (\i -> IM.lookup i (mginfoModuleNameMap graphInfo)) larges
    in "intials: "
         <> (T.pack $ show initials)

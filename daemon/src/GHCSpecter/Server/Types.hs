@@ -30,7 +30,7 @@ module GHCSpecter.Server.Types (
   -- * Server state
   ServerState (..),
   HasServerState (..),
-  emptyServerState,
+  initServerState,
   incrementSN,
 ) where
 
@@ -160,6 +160,8 @@ data ServerState = ServerState
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
+  -- TODO: This configuration should be separated to an env in ReaderT.
+  , _serverModuleClusterSize :: Int
   }
   deriving (Show, Generic)
 
@@ -169,8 +171,8 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-emptyServerState :: ServerState
-emptyServerState =
+initServerState :: Int -> ServerState
+initServerState nodeSizeLimit =
   ServerState
     { _serverMessageSN = 0
     , _serverShouldUpdate = True
@@ -184,6 +186,7 @@ emptyServerState =
     , _serverModuleGraphState = emptyModuleGraphState
     , _serverHieState = emptyHieState
     , _serverModuleBreakpoints = []
+    , _serverModuleClusterSize = nodeSizeLimit
     }
 
 incrementSN :: ServerState -> ServerState

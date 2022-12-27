@@ -5,8 +5,8 @@ module GHCSpecter.Worker.ModuleGraph (
   moduleGraphWorker,
 ) where
 
-import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens ((.~))
+import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
+import Control.Lens ((.~), (^.))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -50,7 +50,40 @@ maxSubGraphSize UpTo300 = 300
 
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
+  nodeSizeLimit <-
+    (^. serverModuleClusterSize) <$> atomically (readTVar var)
   let forest = makeSourceTree mgi
+      modNameMap = mginfoModuleNameMap mgi
+      modDep = mginfoModuleDep mgi
+      modBiDep = makeBiDep modDep
+      nVtx = F.length $ mginfoModuleNameMap mgi
+      -- separate large/small nodes
+      largeNodes = filterOutSmallNodes nodeSizeLimit modDep
+      -- compute reduced graph
+      es = makeEdges modDep
+      g = buildG (1, nVtx) es
+      tordVtxs = reverse $ mginfoModuleTopSorted mgi
+      tordSeeds = filter (`elem` largeNodes) tordVtxs
+      reducedGraph = reduceGraphByPath g tordSeeds
+      reducedGraphReversed = makeRevDep reducedGraph
+      -- compute clustering
+      -- as we use modRevDep as the graph, the greediness has precedence towards upper dependencies.
+      divisions = makeDivisionsInOrder tordVtxs tordSeeds
+      seedsWithWhiteList = fmap (second Just) divisions
+      modUndirDep = fmap (\(outs, ins) -> outs ++ ins) $ modBiDep
+      bfsResult =
+        runIdentity $
+          runMultiseedStagedBFS
+            (\_ -> pure ())
+            modUndirDep
+            seedsWithWhiteList
+      clustering = mapMaybe convert bfsResult
+        where
+          convert (i, stages) = do
+            let js = concat stages
+            clusterName <- IM.lookup i modNameMap
+            let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
+            pure (clusterName, members)
   grVisInfo <- Sugiyama.layOutGraph modNameMap reducedGraphReversed
   atomically $
     modifyTVar' var $
@@ -68,38 +101,6 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $
       incrementSN . (serverModuleGraphState . mgsSubgraph .~ subgraphs)
-  where
-    modNameMap = mginfoModuleNameMap mgi
-    modDep = mginfoModuleDep mgi
-    modBiDep = makeBiDep modDep
-    nVtx = F.length $ mginfoModuleNameMap mgi
-    -- separate large/small nodes
-    largeNodes = filterOutSmallNodes modDep
-    -- compute reduced graph
-    es = makeEdges modDep
-    g = buildG (1, nVtx) es
-    tordVtxs = reverse $ mginfoModuleTopSorted mgi
-    tordSeeds = filter (`elem` largeNodes) tordVtxs
-    reducedGraph = reduceGraphByPath g tordSeeds
-    reducedGraphReversed = makeRevDep reducedGraph
-    -- compute clustering
-    -- as we use modRevDep as the graph, the greediness has precedence towards upper dependencies.
-    divisions = makeDivisionsInOrder tordVtxs tordSeeds
-    seedsWithWhiteList = fmap (second Just) divisions
-    modUndirDep = fmap (\(outs, ins) -> outs ++ ins) $ modBiDep
-    bfsResult =
-      runIdentity $
-        runMultiseedStagedBFS
-          (\_ -> pure ())
-          modUndirDep
-          seedsWithWhiteList
-    clustering = mapMaybe convert bfsResult
-      where
-        convert (i, stages) = do
-          let js = concat stages
-          clusterName <- IM.lookup i modNameMap
-          let members = mapMaybe (\j -> (j,) <$> IM.lookup j modNameMap) js
-          pure (clusterName, members)
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->
