@@ -42,6 +42,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasMainView (..),
@@ -51,7 +52,6 @@ import GHCSpecter.UI.Types (
   UIModel (..),
   UIState (..),
   UIView (..),
-  consoleCommandList,
  )
 import GHCSpecter.UI.Types.Event (
   ConsoleEvent (..),

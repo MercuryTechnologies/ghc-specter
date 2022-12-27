@@ -224,7 +224,8 @@ data ChanMessage (a :: Channel) where
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
   CMHsHie :: DriverId -> FilePath -> ChanMessage 'HsHie
-  CMPaused :: DriverId -> Maybe BreakpointLoc -> ChanMessage 'Paused
+  -- | a module is paused at a breakpoint position.
+  CMPaused :: DriverId -> BreakpointLoc -> ChanMessage 'Paused
   CMConsole :: DriverId -> ConsoleReply -> ChanMessage 'Console
 
 data ChanMessageBox = forall (a :: Channel). CMBox !(ChanMessage a)

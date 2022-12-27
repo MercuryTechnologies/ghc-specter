@@ -37,6 +37,7 @@ import GHCSpecter.Control.Types (
  )
 import GHCSpecter.Data.Map (
   alterToKeyMap,
+  emptyKeyMap,
   forwardLookup,
  )
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
@@ -144,6 +145,7 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           sinfo' = sinfo {sessionIsPaused = False}
           newSS =
             (serverSessionInfo .~ sinfo')
+              . (serverPaused .~ emptyKeyMap)
               . (serverShouldUpdate .~ True)
               $ oldSS
           newModel = (modelConsole . consoleFocus .~ Nothing) oldModel

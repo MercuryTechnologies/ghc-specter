@@ -6,7 +6,7 @@ module Plugin.GHCSpecter.Console (
   breakPoint,
 ) where
 
-import Control.Concurrent (forkIO, killThread, threadDelay)
+import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (
   TVar,
   atomically,
@@ -17,7 +17,6 @@ import Control.Concurrent.STM (
   writeTVar,
  )
 import Control.Concurrent.STM qualified as STM
-import Control.Exception (AsyncException, catch)
 import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (MonadIO (..))
@@ -135,9 +134,9 @@ sessionInPause drvId loc cmds actionRef = do
     isPaused <- sessionIsPaused . psSessionInfo <$> readTVar sessionRef
     -- proceed when the session is paused.
     STM.check isPaused
-  queueMessage (CMPaused drvId (Just loc))
-  (forever $ consoleAction drvId loc cmds actionRef)
-    `catch` (\(_e :: AsyncException) -> queueMessage (CMPaused drvId Nothing))
+  queueMessage (CMPaused drvId loc)
+  -- NOTE: the paused session is escaped by killThread.
+  forever $ consoleAction drvId loc cmds actionRef
 
 breakPoint ::
   forall m.
@@ -150,6 +149,7 @@ breakPoint drvId loc cmds = do
   actionRef <- liftIO $ newTVarIO Nothing
   tid <- liftIO $ forkIO $ sessionInPause drvId loc cmds actionRef
   loopM (go actionRef) (pure (), True)
+  -- NOTE: the paused session is escaped by killThread.
   liftIO $ killThread tid
   where
     go :: TVar (Maybe (m ())) -> (m (), Bool) -> m (Either (m (), Bool) ())

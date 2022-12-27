@@ -80,14 +80,12 @@ updateInbox chanMsg = incrementSN . updater
         (serverSessionInfo .~ s')
       CMBox (CMHsHie _ _) ->
         id
-      CMBox (CMPaused drvId mloc) ->
-        let formatMsg (Just loc) = ConsoleText ("paused at " <> T.pack (show loc))
-            formatMsg Nothing = ConsoleText "resume"
-            updateSessionInfo (Just _) = \sinfo -> sinfo {sessionIsPaused = True}
-            updateSessionInfo Nothing = id
-         in (serverSessionInfo %~ updateSessionInfo mloc)
-              . (serverPaused %~ alterToKeyMap (const mloc) drvId)
-              . (serverConsole %~ alterToKeyMap (appendConsoleMsg (formatMsg mloc)) drvId)
+      CMBox (CMPaused drvId loc) ->
+        let msg = ConsoleText ("paused at " <> T.pack (show loc))
+            updateSessionInfo sinfo = sinfo {sessionIsPaused = True}
+         in (serverSessionInfo %~ updateSessionInfo)
+              . (serverPaused %~ alterToKeyMap (const (Just loc)) drvId)
+              . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
       CMBox (CMConsole drvId creply) ->
         case creply of
           ConsoleReplyText mtab txt ->
@@ -170,5 +168,6 @@ listener socketFile ssess workQ = do
       F.for_ msgs $ \msg -> do
         -- pure state update
         atomically . modifyTVar' ssRef . updateInbox $ msg
+
         -- async IO update
         invokeWorker ssRef workQ msg
