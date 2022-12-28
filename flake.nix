@@ -26,14 +26,6 @@
       inputs.flake-utils.follows = "flake-utils";
       inputs.fficxx.follows = "fficxx";
     };
-    file-embed = {
-      url = "github:snoyberg/file-embed/file-embed-0.0.15.0";
-      flake = false;
-    };
-    fourmolu = {
-      url = "github:fourmolu/fourmolu/main";
-      flake = false;
-    };
     microlens = {
       url = "github:stevenfontanella/microlens/master";
       flake = false;
@@ -45,7 +37,7 @@
 
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, file-embed, fourmolu, microlens, vty }:
+    , fficxx, hs-ogdf, microlens, vty }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -68,11 +60,12 @@
 
           # TODO: check whether this will be fixed in GHC 9.4.3.
           "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
-          "file-embed" = hself.callCabal2nix "file-embed" file-embed { };
+          "file-embed" =
+            hself.callHackage "file-embed" "0.0.15.0" { };
           # fixity-th is disabled to avoid segfault during compilation.
-          "fourmolu_0_9_0_0" = final.haskell.lib.dontCheck
+          "fourmolu" = final.haskell.lib.dontCheck
             (final.haskell.lib.overrideCabal
-              (hself.callCabal2nix "fourmolu" fourmolu { }) (drv: {
+              (hself.callHackage "fourmolu" "0.10.1.0" { }) (drv: {
                 configureFlags = [ "-f-fixity-th" ];
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
@@ -129,10 +122,7 @@
                 p.extra
                 p.ghc-debug-common
                 p.ghc-debug-stub
-                #p.ghc-debug-client
-                # this seems outdated.
-                # p.ghc-debugger
-                #p.dyepack-test
+                p.ghc-debug-client
                 p.ghc-debug-brick
                 p.ghc-debug-convention
                 p.hiedb
@@ -146,10 +136,8 @@
                 p.socket
                 p.text
                 p.time
-              ] ++ (if compiler == "ghc942" then
-                [ p.fourmolu_0_9_0_0 ]
-              else
-                [ p.fourmolu ]));
+                p.fourmolu
+              ]);
           in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
 
         supportedCompilers = [ "ghc924" "ghc942" ];
