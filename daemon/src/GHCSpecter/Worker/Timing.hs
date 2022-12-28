@@ -26,6 +26,7 @@ import GHCSpecter.Server.Types (
   HasTimingState (..),
   ServerState,
  )
+import GHCSpecter.UI.Types.Event (blockerThreshold)
 
 timingWorker :: TVar ServerState -> IO ()
 timingWorker ssRef = do
@@ -45,10 +46,10 @@ timingBlockerGraphWorker ssRef = do
   ss' <-
     atomically $ do
       ss <- readTVar ssRef
-      let blockerThreshold = ss ^. serverModuleBlockerThreshold
+      let blThre = ss ^. serverTiming . tsBlockerDetailLevel . to blockerThreshold
           mgi = ss ^. serverSessionInfo . to sessionModuleGraph
           ttable = ss ^. serverTiming . tsTimingTable
-          blockerGraph = makeBlockerGraph blockerThreshold mgi ttable
+          blockerGraph = makeBlockerGraph blThre mgi ttable
           ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
       writeTVar ssRef ss'
       pure ss'

@@ -57,7 +57,7 @@ import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
-import GHCSpecter.UI.Types.Event (DetailLevel)
+import GHCSpecter.UI.Types.Event (BlockerDetailLevel (..), DetailLevel)
 
 type ChanModule = (Channel, Text)
 
@@ -71,6 +71,7 @@ data TimingState = TimingState
     _tsTimingTable :: TimingTable
   , _tsBlockerGraph :: IntMap [Int]
   , _tsBlockerGraphViz :: Maybe GraphVisInfo
+  , _tsBlockerDetailLevel :: BlockerDetailLevel
   }
   deriving (Show, Generic)
 
@@ -87,6 +88,7 @@ emptyTimingState =
     , _tsTimingTable = emptyTimingTable
     , _tsBlockerGraph = IM.empty
     , _tsBlockerGraphViz = Nothing
+    , _tsBlockerDetailLevel = Blocking5
     }
 
 data ModuleGraphState = ModuleGraphState
@@ -162,7 +164,6 @@ data ServerState = ServerState
   , _serverModuleBreakpoints :: [ModuleName]
   -- TODO: These numbers from configuration should be separated to an env in ReaderT.
   , _serverModuleClusterSize :: Int
-  , _serverModuleBlockerThreshold :: Int
   }
   deriving (Show, Generic)
 
@@ -172,8 +173,8 @@ instance FromJSON ServerState
 
 instance ToJSON ServerState
 
-initServerState :: Int -> Int -> ServerState
-initServerState nodeSizeLimit blockerThreshold =
+initServerState :: Int -> ServerState
+initServerState nodeSizeLimit =
   ServerState
     { _serverMessageSN = 0
     , _serverShouldUpdate = True
@@ -188,7 +189,6 @@ initServerState nodeSizeLimit blockerThreshold =
     , _serverHieState = emptyHieState
     , _serverModuleBreakpoints = []
     , _serverModuleClusterSize = nodeSizeLimit
-    , _serverModuleBlockerThreshold = blockerThreshold
     }
 
 incrementSN :: ServerState -> ServerState
