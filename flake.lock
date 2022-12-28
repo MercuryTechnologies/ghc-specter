@@ -37,18 +37,20 @@
     "fficxx": {
       "inputs": {
         "flake-utils": [
+          "hs-ogdf",
           "flake-utils"
         ],
         "nixpkgs": [
+          "hs-ogdf",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1666386261,
-        "narHash": "sha256-OAbetFHl6z4XKjdLWjSULbGVZsQ8xtKp/2ThVzFwVeE=",
+        "lastModified": 1671238981,
+        "narHash": "sha256-GcXhLFDw+KLMcirtpEyap9BjbXqbl5KgPChglq+zobs=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "df56f97154703504f9cf6cc97cf633b18d28b189",
+        "rev": "e926340dbffdd2271fecb6003a43c54f34adf8e9",
         "type": "github"
       },
       "original": {
@@ -75,9 +77,7 @@
     },
     "hs-ogdf": {
       "inputs": {
-        "fficxx": [
-          "fficxx"
-        ],
+        "fficxx": "fficxx",
         "flake-utils": [
           "flake-utils"
         ],
@@ -137,7 +137,6 @@
       "inputs": {
         "concur": "concur",
         "concur-replica": "concur-replica",
-        "fficxx": "fficxx",
         "flake-utils": "flake-utils",
         "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",

@@ -15,16 +15,10 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
-    fficxx = {
-      url = "github:wavewave/fficxx/master";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
     hs-ogdf = {
       url = "github:wavewave/hs-ogdf/master";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
-      inputs.fficxx.follows = "fficxx";
     };
     vty = {
       url = "github:jtdaugherty/vty/5.37";
@@ -32,8 +26,7 @@
     };
 
   };
-  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, vty }:
+  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica, hs-ogdf, vty }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -53,6 +46,16 @@
             final.haskell.lib.doJailbreak hsuper.newtype-generics;
           "replica" = hself.callCabal2nix "replica" replica { };
           "retry" = final.haskell.lib.dontCheck hsuper.retry;
+
+          # fficxx-related
+          "fficxx" =
+            hself.callHackage "fficxx" "0.7.0.0" { };
+          "fficxx-runtime" =
+            hself.callHackage "fficxx-runtime" "0.7.0.0" { };
+          "stdcxx" =
+            hself.callHackage "stdcxx" "0.7.0.0" { };
+          "template" =
+            final.haskell.lib.doJailbreak hsuper.template;
 
           # TODO: check whether this will be fixed in GHC 9.4.3.
           "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
@@ -100,8 +103,7 @@
 
         hpkgsFor = compiler:
           pkgs.haskell.packages.${compiler}.extend (hself: hsuper:
-            (fficxx.haskellOverlay.${system} pkgs hself hsuper)
-            // (hs-ogdf.haskellOverlay.${system} pkgs hself hsuper)
+            (hs-ogdf.haskellOverlay.${system} pkgs hself hsuper)
             // (haskellOverlay pkgs hself hsuper));
 
         mkShellFor = compiler:
