@@ -1,7 +1,7 @@
 name: "Build"
 on: [pull_request, push]
 jobs:
-  Build:
+  Develop:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,6 +24,18 @@ jobs:
     - name: enter-shell
       run: |
         nix develop .#${{ matrix.compilerName }}
+  Build:
+    runs-on: ubuntu-latest
+    needs: [Develop]
+    strategy:
+      matrix:
+        include:
+          - compilerName: ghc942
+            required: required
+          - compilerName: ghc924
+            required: required
+      fail-fast: false
+    steps:
     - name: build ghc-specter-plugin
       run: |
         nix build .#${{ matrix.compilerName }}.ghc-specter-plugin
@@ -33,3 +45,9 @@ jobs:
     - name: build ghc-build-analyzer
       run: |
         nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
+  Format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # fourmolu-0.10.1.0
+      - uses: fourmolu/fourmolu-action@v6
