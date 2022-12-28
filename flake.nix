@@ -144,7 +144,6 @@
                 p.socket
                 p.text
                 p.time
-                p.fourmolu
               ] ++ (if compiler == "ghc942" then
                 [ p.fourmolu ]
               else
