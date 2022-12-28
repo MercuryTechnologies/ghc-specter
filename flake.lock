@@ -100,23 +100,6 @@
         "type": "github"
       }
     },
-    "microlens": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1660843290,
-        "narHash": "sha256-3MmkZKNFDRlL63GDE2EObCzzL4UfEn5hx+2aQqiylp8=",
-        "owner": "stevenfontanella",
-        "repo": "microlens",
-        "rev": "e117e429bcfca033527c4393ebb522364a83e3c7",
-        "type": "github"
-      },
-      "original": {
-        "owner": "stevenfontanella",
-        "ref": "master",
-        "repo": "microlens",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1672195622,
@@ -157,7 +140,6 @@
         "fficxx": "fficxx",
         "flake-utils": "flake-utils",
         "hs-ogdf": "hs-ogdf",
-        "microlens": "microlens",
         "nixpkgs": "nixpkgs",
         "replica": "replica",
         "vty": "vty"

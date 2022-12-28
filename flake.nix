@@ -26,10 +26,6 @@
       inputs.flake-utils.follows = "flake-utils";
       inputs.fficxx.follows = "fficxx";
     };
-    microlens = {
-      url = "github:stevenfontanella/microlens/master";
-      flake = false;
-    };
     vty = {
       url = "github:jtdaugherty/vty/5.37";
       flake = false;
@@ -37,7 +33,7 @@
 
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, microlens, vty }:
+    , fficxx, hs-ogdf, vty }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -80,12 +76,11 @@
           "monoidal-containers" =
             final.haskell.lib.doJailbreak hsuper.monoidal-containers;
           "microlens" =
-            hself.callCabal2nix "microlens" "${microlens}/microlens" { };
+            hself.callHackage "microlens" "0.4.13.1" { };
           "microlens-ghc" =
-            hself.callCabal2nix "microlens-ghc" "${microlens}/microlens-ghc"
-            { };
-          "microlens-platform" = hself.callCabal2nix "microlens-platform"
-            "${microlens}/microlens-platform" { };
+            hself.callHackage "microlens-ghc" "0.4.14.1" { };
+          "microlens-platform" =
+            hself.callHackage "microlens-platform" "0.4.3.3" { };
           "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
           "vty" =
             final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
