@@ -46,8 +46,11 @@ jobs:
       run: |
         nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
   Format:
-    runs-on: ubuntu-latest
-    required: false
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ "ubuntu-latest" ]
     steps:
       - uses: actions/checkout@v3
       # fourmolu-0.10.1.0
