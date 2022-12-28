@@ -15,41 +15,13 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
-    fficxx = {
-      url = "github:wavewave/fficxx/master";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
     hs-ogdf = {
       url = "github:wavewave/hs-ogdf/master";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
-      inputs.fficxx.follows = "fficxx";
     };
-    file-embed = {
-      url = "github:snoyberg/file-embed/file-embed-0.0.15.0";
-      flake = false;
-    };
-    fourmolu = {
-      url = "github:fourmolu/fourmolu/main";
-      flake = false;
-    };
-    ghc-debug = {
-      url = "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
-      flake = false;
-    };
-    microlens = {
-      url = "github:stevenfontanella/microlens/master";
-      flake = false;
-    };
-    vty = {
-      url = "github:jtdaugherty/vty/5.37";
-      flake = false;
-    };
-
   };
-  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, file-embed, fourmolu, ghc-debug, microlens, vty }:
+  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica, hs-ogdf }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -70,66 +42,79 @@
           "replica" = hself.callCabal2nix "replica" replica { };
           "retry" = final.haskell.lib.dontCheck hsuper.retry;
 
+          # fficxx-related
+          "fficxx" =
+            hself.callHackage "fficxx" "0.7.0.0" { };
+          "fficxx-runtime" =
+            hself.callHackage "fficxx-runtime" "0.7.0.0" { };
+          "stdcxx" =
+            hself.callHackage "stdcxx" "0.7.0.0" { };
+          "template" =
+            final.haskell.lib.doJailbreak hsuper.template;
+
           # TODO: check whether this will be fixed in GHC 9.4.3.
           "conduit-extra" = final.haskell.lib.dontCheck hsuper.conduit-extra;
-          "file-embed" = hself.callCabal2nix "file-embed" file-embed { };
+          "file-embed" =
+            hself.callHackage "file-embed" "0.0.15.0" { };
+          # fixity-th is disabled to avoid segfault during compilation.
+          "fourmolu" = final.haskell.lib.dontCheck
+            (final.haskell.lib.overrideCabal
+              (hself.callHackage "fourmolu" "0.10.1.0" { }) (drv: {
+                configureFlags = [ "-f-fixity-th" ];
+                libraryHaskellDepends = drv.libraryHaskellDepends
+                  ++ [ hself.file-embed ];
+              }));
           # fixity-th is disabled to avoid segfault during compilation.
           "fourmolu_0_9_0_0" = final.haskell.lib.dontCheck
             (final.haskell.lib.overrideCabal
-              (hself.callCabal2nix "fourmolu" fourmolu { }) (drv: {
+              (hself.callHackage "fourmolu" "0.9.0.0" { }) (drv: {
                 configureFlags = [ "-f-fixity-th" ];
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
 
+
           # ghc-debug related deps
-          "bimap" = hsuper.bimap_0_5_0;
           "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
           "brick" = hsuper.brick_1_3;
-          "eventlog2html" = final.haskell.lib.doJailbreak hsuper.eventlog2html;
+          "eventlog2html" =
+            final.haskell.lib.doJailbreak (hself.callHackage "eventlog2html" "0.9.2" { });
           "ghc-events" = final.haskell.lib.doJailbreak hsuper.ghc-events;
           "monoidal-containers" =
             final.haskell.lib.doJailbreak hsuper.monoidal-containers;
           "microlens" =
-            hself.callCabal2nix "microlens" "${microlens}/microlens" { };
+            hself.callHackage "microlens" "0.4.13.1" { };
           "microlens-ghc" =
-            hself.callCabal2nix "microlens-ghc" "${microlens}/microlens-ghc"
-            { };
-          "microlens-platform" = hself.callCabal2nix "microlens-platform"
-            "${microlens}/microlens-platform" { };
+            hself.callHackage "microlens-ghc" "0.4.14.1" { };
+          "microlens-platform" =
+            hself.callHackage "microlens-platform" "0.4.3.3" { };
           "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
-          "text-zipper" = hsuper.text-zipper_0_12;
-          "vty" =
-            final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
+          "vty" = hself.callHackage "vty" "5.37" { };
 
           # ghc-debug-*
           "ghc-debug-common" =
-            hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
+            hself.callHackage "ghc-debug-common" "0.4.0.0" { };
           "ghc-debug-stub" =
-            final.haskell.lib.overrideCabal
-              (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { }) (drv: {
-                jailbreak = true;
-                librarySystemDepends = [ ];
-              });
-          "ghc-debug-client" = final.haskell.lib.doJailbreak
-            (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
-          # ghc-debugger seems outdated.
-          #"ghc-debugger" =
-          #  hself.callCabal2nix "ghc-debugger" "${ghc-debug}/test" { };
-          "dyepack-test" =
-            hself.callCabal2nix "dyepack-test" "${ghc-debug}/dyepack-test" { };
+            final.haskell.lib.doJailbreak (hself.callHackage "ghc-debug-stub" "0.4.0.0" { });
+          "ghc-debug-client" =
+            final.haskell.lib.doJailbreak (hself.callHackage "ghc-debug-client" "0.4.0.0" { });
           "ghc-debug-brick" =
-            hself.callCabal2nix "ghc-debug-brick" "${ghc-debug}/ghc-debug-brick"
-            { };
+            hself.callHackage "ghc-debug-brick" "0.4.0.0" { };
           "ghc-debug-convention" =
-            hself.callCabal2nix "ghc-debug-convention" "${ghc-debug}/convention"
-            { };
+            hself.callHackage "ghc-debug-convention" "0.4.0.0" { };
+
+          # ghc-specter-*
+          "ghc-specter-plugin" =
+            hself.callCabal2nix "ghc-specter-plugin" ./plugin { };
+          "ghc-specter-daemon" =
+            hself.callCabal2nix "ghc-specter-daemon" ./daemon { };
+          "ghc-build-analyzer" =
+            hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer { };
         };
 
         hpkgsFor = compiler:
           pkgs.haskell.packages.${compiler}.extend (hself: hsuper:
-            (fficxx.haskellOverlay.${system} pkgs hself hsuper)
-            // (hs-ogdf.haskellOverlay.${system} pkgs hself hsuper)
+            (hs-ogdf.haskellOverlay.${system} pkgs hself hsuper)
             // (haskellOverlay pkgs hself hsuper));
 
         mkShellFor = compiler:
@@ -146,9 +131,6 @@
                 p.ghc-debug-common
                 p.ghc-debug-stub
                 p.ghc-debug-client
-                # this seems outdated.
-                # p.ghc-debugger
-                p.dyepack-test
                 p.ghc-debug-brick
                 p.ghc-debug-convention
                 p.hiedb
@@ -163,14 +145,17 @@
                 p.text
                 p.time
               ] ++ (if compiler == "ghc942" then
-                [ p.fourmolu_0_9_0_0 ]
+                [ p.fourmolu ]
               else
-                [ p.fourmolu ]));
+                [ p.fourmolu_0_9_0_0 ]));
           in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
-
+        mkPackagesFor = compiler: {
+          inherit (hpkgsFor compiler) ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
+        };
         supportedCompilers = [ "ghc924" "ghc942" ];
       in {
         inherit haskellOverlay;
         devShells = pkgs.lib.genAttrs supportedCompilers mkShellFor;
+        packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
       });
 }

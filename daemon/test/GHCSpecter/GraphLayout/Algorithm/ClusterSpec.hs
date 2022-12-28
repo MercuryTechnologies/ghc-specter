@@ -54,6 +54,9 @@ testGraphInfo =
     , mginfoModuleTopSorted = []
     }
 
+nodeSizeLimit :: Int
+nodeSizeLimit = 150
+
 spec :: Spec
 spec =
   describe "GHCSpecter.Util.Graph greedy downward clustering" $ do
@@ -61,7 +64,7 @@ spec =
         bgr = makeBiDep modDep
         allNodes = IM.keys $ mginfoModuleNameMap testGraphInfo
         nNodes = length allNodes
-        largeNodes = filterOutSmallNodes modDep
+        largeNodes = filterOutSmallNodes nodeSizeLimit modDep
         smallNodes = allNodes L.\\ largeNodes
         seeds =
           ClusterState

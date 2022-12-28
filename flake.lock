@@ -37,41 +37,26 @@
     "fficxx": {
       "inputs": {
         "flake-utils": [
+          "hs-ogdf",
           "flake-utils"
         ],
         "nixpkgs": [
+          "hs-ogdf",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1666386261,
-        "narHash": "sha256-OAbetFHl6z4XKjdLWjSULbGVZsQ8xtKp/2ThVzFwVeE=",
+        "lastModified": 1671238981,
+        "narHash": "sha256-GcXhLFDw+KLMcirtpEyap9BjbXqbl5KgPChglq+zobs=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "df56f97154703504f9cf6cc97cf633b18d28b189",
+        "rev": "e926340dbffdd2271fecb6003a43c54f34adf8e9",
         "type": "github"
       },
       "original": {
         "owner": "wavewave",
         "ref": "master",
         "repo": "fficxx",
-        "type": "github"
-      }
-    },
-    "file-embed": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1630235415,
-        "narHash": "sha256-TKXWIzOPleEWSHzfWWMuF5nBc8nPJIVYZrOc0PE+Sqk=",
-        "owner": "snoyberg",
-        "repo": "file-embed",
-        "rev": "548430d2a79bb6f4cb4256768761071f59909aa5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "snoyberg",
-        "ref": "file-embed-0.0.15.0",
-        "repo": "file-embed",
         "type": "github"
       }
     },
@@ -90,45 +75,9 @@
         "type": "github"
       }
     },
-    "fourmolu": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1668486098,
-        "narHash": "sha256-MPFWDMc9nSpTtCjAIHmjLyENkektm72tCWaKnkAQfuk=",
-        "owner": "fourmolu",
-        "repo": "fourmolu",
-        "rev": "47017e0f7c333676f3fd588695c1b3d16f2075cc",
-        "type": "github"
-      },
-      "original": {
-        "owner": "fourmolu",
-        "ref": "main",
-        "repo": "fourmolu",
-        "type": "github"
-      }
-    },
-    "ghc-debug": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1668721384,
-        "narHash": "sha256-lVp2XCjAc9mpOdCOExVGhSOk16XXf6YgdwOCgr4GyWA=",
-        "ref": "wavewave/ghc94",
-        "rev": "8800c82dd6ef60e117751d196b9cc49aa56494db",
-        "revCount": 493,
-        "type": "git",
-        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
-      },
-      "original": {
-        "ref": "wavewave/ghc94",
-        "type": "git",
-        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
-      }
-    },
     "hs-ogdf": {
       "inputs": {
-        "fficxx": [
-          "fficxx"
-        ],
+        "fficxx": "fficxx",
         "flake-utils": [
           "flake-utils"
         ],
@@ -151,30 +100,13 @@
         "type": "github"
       }
     },
-    "microlens": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1660843290,
-        "narHash": "sha256-3MmkZKNFDRlL63GDE2EObCzzL4UfEn5hx+2aQqiylp8=",
-        "owner": "stevenfontanella",
-        "repo": "microlens",
-        "rev": "e117e429bcfca033527c4393ebb522364a83e3c7",
-        "type": "github"
-      },
-      "original": {
-        "owner": "stevenfontanella",
-        "ref": "master",
-        "repo": "microlens",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1666371646,
-        "narHash": "sha256-gLaVWLbbig3MjLbb2NzVzWe4XK8w/Qw7iJdD0u1dzDY=",
+        "lastModified": 1672195622,
+        "narHash": "sha256-Z03+maRn7EC6XzCV1+gf9JuuvSnNduy0v5RJngf+4FA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "71c5816834f93840dd301ec384c9d7947e97c27d",
+        "rev": "9a2e72335c6651d5fb16e6901aa4b5c790c243db",
         "type": "github"
       },
       "original": {
@@ -205,33 +137,10 @@
       "inputs": {
         "concur": "concur",
         "concur-replica": "concur-replica",
-        "fficxx": "fficxx",
-        "file-embed": "file-embed",
         "flake-utils": "flake-utils",
-        "fourmolu": "fourmolu",
-        "ghc-debug": "ghc-debug",
         "hs-ogdf": "hs-ogdf",
-        "microlens": "microlens",
         "nixpkgs": "nixpkgs",
-        "replica": "replica",
-        "vty": "vty"
-      }
-    },
-    "vty": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1663380348,
-        "narHash": "sha256-lrqlKS+8EeImX73A9KHzkTph/o9vzQ2yHi5xfbHVZfs=",
-        "owner": "jtdaugherty",
-        "repo": "vty",
-        "rev": "db5f55caf3321d9e015fa99cc41908c12ef172a5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jtdaugherty",
-        "ref": "5.37",
-        "repo": "vty",
-        "type": "github"
+        "replica": "replica"
       }
     }
   },

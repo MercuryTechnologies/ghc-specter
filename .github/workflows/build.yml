@@ -1,0 +1,44 @@
+name: "Build"
+on: [pull_request, push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - compilerName: ghc942
+            required: true
+          - compilerName: ghc924
+            required: true
+      fail-fast: false
+    steps:
+    - name: Checkout repository code
+      uses: actions/checkout@v3
+    - name: List files in the repository
+      run: |
+        ls ${{ github.workspace }}
+    - name: Install nix
+      uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+    - name: enter-shell
+      run: |
+        nix develop .#${{ matrix.compilerName }}
+    - name: build ghc-specter-plugin
+      run: |
+        nix build .#${{ matrix.compilerName }}.ghc-specter-plugin
+    - name: build ghc-specter-daemon
+      run: |
+        nix build .#${{ matrix.compilerName }}.ghc-specter-daemon
+    - name: build ghc-build-analyzer
+      run: |
+        nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
+  check-format:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v3
+      # fourmolu-0.10.1.0
+      - uses: fourmolu/fourmolu-action@v6
+        with:
+          extra-args: "--no-cabal -o -XGHC2021"
