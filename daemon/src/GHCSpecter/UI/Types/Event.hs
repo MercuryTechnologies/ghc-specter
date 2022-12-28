@@ -11,6 +11,7 @@ module GHCSpecter.UI.Types.Event (
   SubModuleEvent (..),
   ModuleGraphEvent (..),
   SessionEvent (..),
+  BlockerModuleGraphEvent (..),
   TimingEvent (..),
   MouseEvent (..),
   ConsoleEvent (..),
@@ -74,6 +75,11 @@ data SessionEvent
   | PauseSessionEv
   deriving (Show, Eq)
 
+data BlockerModuleGraphEvent
+  = BMGGraph ModuleGraphEvent
+  | BMGUpdateLevel BlockerDetailLevel
+  deriving (Show, Eq)
+
 data TimingEvent
   = ToCurrentTime
   | -- | is thawed (i.e. flowing) = True, is frozen = False
@@ -84,7 +90,7 @@ data TimingEvent
   | HoverOffModule ModuleName
   | ShowBlockerGraph
   | CloseBlockerGraph
-  | BlockerModuleGraphEv ModuleGraphEvent
+  | BlockerModuleGraphEv BlockerModuleGraphEvent
   deriving (Show, Eq)
 
 data MouseEvent

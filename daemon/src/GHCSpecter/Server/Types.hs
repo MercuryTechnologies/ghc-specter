@@ -162,8 +162,8 @@ data ServerState = ServerState
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
-  -- TODO: These numbers from configuration should be separated to an env in ReaderT.
-  , _serverModuleClusterSize :: Int
+  , -- TODO: These numbers from configuration should be separated to an env in ReaderT.
+    _serverModuleClusterSize :: Int
   }
   deriving (Show, Generic)
 

@@ -8,6 +8,7 @@ import Concur.Replica (
   height,
   onChange,
   onClick,
+  onInput,
   style,
   width,
  )
@@ -58,6 +59,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BlockerDetailLevel (..),
+  BlockerModuleGraphEvent (..),
   Event (..),
   TimingEvent (..),
  )
@@ -182,7 +184,7 @@ renderBlockerGraph ss =
                   i <- backwardLookup name drvModMap
                   t <- L.lookup i (ttable ^. ttableTimingInfos)
                   pure $ realToFrac ((t ^. plEnd . _1 - t ^. plStart . _1) / maxTime)
-           in [ TimingEv . BlockerModuleGraphEv
+           in [ TimingEv . BlockerModuleGraphEv . BMGGraph
                   <$> GraphView.renderModuleGraph
                     nameMap
                     valueFor
@@ -190,23 +192,22 @@ renderBlockerGraph ss =
                     (Nothing, Nothing)
               ]
 
-
 -- | show blocker detail level radio button
 -- blocker detail level, # of blocked modules >=2, >=3, >=4, >=5
 renderBlockerDetailLevel :: TimingState -> Widget IHTML Event
 renderBlockerDetailLevel timing =
-  TimingEv . BlockerModuleGraphEv
-    <$> div
-      [ classList [("control", True)]
-      -- , style [("position", "absolute"), ("top", "0"), ("right", "0")]
-      ]
-      details
+  TimingEv . BlockerModuleGraphEv <$> div [classList [("control", True)]] details
   where
     currLevel = timing ^. tsBlockerDetailLevel
-    mkRadioItem (txt, lvl) = -- isChecked =
+    mkRadioItem (txt, lvl) =
       label
         [classList [("radio", True)]]
-        [ input [DP.type_ "radio", DP.name "detail", DP.checked (lvl == currLevel)] -- DP.checked isChecked, ev <$ onInput]
+        [ input
+            [ DP.type_ "radio"
+            , DP.name "detail"
+            , DP.checked (lvl == currLevel)
+            , BMGUpdateLevel lvl <$ onInput
+            ]
         , text txt
         ]
     details = fmap mkRadioItem [(">=2", Blocking2), (">=3", Blocking3), (">=4", Blocking4), (">=5", Blocking5)]
