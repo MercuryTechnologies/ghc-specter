@@ -64,6 +64,15 @@
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
+          # fixity-th is disabled to avoid segfault during compilation.
+          "fourmolu_0_9_0_0" = final.haskell.lib.dontCheck
+            (final.haskell.lib.overrideCabal
+              (hself.callHackage "fourmolu" "0.9.0.0" { }) (drv: {
+                configureFlags = [ "-f-fixity-th" ];
+                libraryHaskellDepends = drv.libraryHaskellDepends
+                  ++ [ hself.file-embed ];
+              }));
+
 
           # ghc-debug related deps
           "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
@@ -136,7 +145,10 @@
                 p.text
                 p.time
                 p.fourmolu
-              ]);
+              ] ++ (if compiler == "ghc942" then
+                [ p.fourmolu ]
+              else
+                [ p.fourmolu_0_9_0_0 ]));
           in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
         mkPackagesFor = compiler: {
           inherit (hpkgsFor compiler) ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
