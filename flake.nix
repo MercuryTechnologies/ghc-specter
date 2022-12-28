@@ -81,7 +81,8 @@
           # ghc-debug related deps
           "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
           "brick" = hsuper.brick_1_3;
-          "eventlog2html" = final.haskell.lib.doJailbreak hsuper.eventlog2html;
+          "eventlog2html" =
+            final.haskell.lib.doJailbreak (hself.callHackage "eventlog2html" "0.9.2" { });
           "ghc-events" = final.haskell.lib.doJailbreak hsuper.ghc-events;
           "monoidal-containers" =
             final.haskell.lib.doJailbreak hsuper.monoidal-containers;
