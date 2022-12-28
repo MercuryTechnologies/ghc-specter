@@ -115,9 +115,7 @@ hieWorker ssRef workQ hiefile = do
           . (modHieDefs .~ fmap convertDefRow defs)
           . (modHieSource .~ src)
           $ emptyModuleHieInfo
-
-  let callGraphWork = CallGraph.worker ssRef modName modHie
-
+      callGraphWork = CallGraph.worker ssRef modName modHie
   atomically $ do
     modifyTVar' ssRef $
       serverHieState . hieModuleMap

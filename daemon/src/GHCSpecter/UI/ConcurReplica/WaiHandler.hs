@@ -56,14 +56,20 @@ instance A.FromJSON Event where
     case (t :: T.Text) of
       "event" ->
         Event
-          <$> o .: "eventType"
-          <*> o .: "event"
-          <*> o .: "path"
-          <*> o .: "clientFrame"
+          <$> o
+          .: "eventType"
+          <*> o
+          .: "event"
+          <*> o
+          .: "path"
+          <*> o
+          .: "clientFrame"
       "call" ->
         CallCallback
-          <$> o .: "arg"
-          <*> o .: "id"
+          <$> o
+          .: "arg"
+          <*> o
+          .: "id"
       _ -> fail "Expected \"type\" == \"event\" | \"call\""
   parseJSON _ = fail "Expected object"
 
