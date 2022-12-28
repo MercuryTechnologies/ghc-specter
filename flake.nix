@@ -20,13 +20,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
-    vty = {
-      url = "github:jtdaugherty/vty/5.37";
-      flake = false;
-    };
-
   };
-  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica, hs-ogdf, vty }:
+  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica, hs-ogdf }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -85,8 +80,7 @@
           "microlens-platform" =
             hself.callHackage "microlens-platform" "0.4.3.3" { };
           "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
-          "vty" =
-            final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
+          "vty" = hself.callHackage "vty" "5.37" { };
 
           # ghc-debug-*
           "ghc-debug-common" =

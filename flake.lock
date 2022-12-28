@@ -140,25 +140,7 @@
         "flake-utils": "flake-utils",
         "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",
-        "replica": "replica",
-        "vty": "vty"
-      }
-    },
-    "vty": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1663380348,
-        "narHash": "sha256-lrqlKS+8EeImX73A9KHzkTph/o9vzQ2yHi5xfbHVZfs=",
-        "owner": "jtdaugherty",
-        "repo": "vty",
-        "rev": "db5f55caf3321d9e015fa99cc41908c12ef172a5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jtdaugherty",
-        "ref": "5.37",
-        "repo": "vty",
-        "type": "github"
+        "replica": "replica"
       }
     }
   },
