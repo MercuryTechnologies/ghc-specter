@@ -1,3 +1,4 @@
+{- FOURMOLU_DISABLE -}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 
