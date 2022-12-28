@@ -53,4 +53,4 @@ jobs:
       # fourmolu-0.10.1.0
       - uses: fourmolu/fourmolu-action@v6
         with:
-          extra-args: "-o GHC2021"
+          extra-args: "-o -XGHC2021"
