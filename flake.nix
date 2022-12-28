@@ -93,6 +93,14 @@
             hself.callHackage "ghc-debug-brick" "0.4.0.0" { };
           "ghc-debug-convention" =
             hself.callHackage "ghc-debug-convention" "0.4.0.0" { };
+
+          # ghc-specter-*
+          "ghc-specter-plugin" =
+            hself.callCabal2nix "ghc-specter-plugin" ./plugin { };
+          "ghc-specter-daemon" =
+            hself.callCabal2nix "ghc-specter-daemon" ./daemon { };
+          "ghc-build-analyzer" =
+            hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer { };
         };
 
         hpkgsFor = compiler:
@@ -130,10 +138,13 @@
                 p.fourmolu
               ]);
           in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
-
+        mkPackagesFor = compiler: {
+          inherit (hpkgsFor compiler) ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
+        };
         supportedCompilers = [ "ghc924" "ghc942" ];
       in {
         inherit haskellOverlay;
         devShells = pkgs.lib.genAttrs supportedCompilers mkShellFor;
+        packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
       });
 }
