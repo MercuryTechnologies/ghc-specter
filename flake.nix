@@ -15,19 +15,24 @@
       url = "github:wavewave/replica/ghc-9.2";
       flake = false;
     };
-    hs-ogdf = {
-      url = "github:wavewave/hs-ogdf/master";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
+    # This is needed to build the C++ library.
+    # TODO: replace the C++ library with ogdf in nixpkgs when the new version of
+    # ogdf (2022.02) is availabe in the upstream nixpkgs.
+    nixpkgs-ogdf.url = "github:wavewave/nixpkgs/wavewave/ogdf";
+    # Hackage version of OGDF
+    OGDF = {
+      url = "https://hackage.haskell.org/package/OGDF-1.0.0.0/OGDF-1.0.0.0.tar.gz";
+      flake = false;
     };
   };
-  outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica, hs-ogdf }:
+  outputs = inputs@{ self, nixpkgs, flake-utils, concur, concur-replica, replica, nixpkgs-ogdf, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
           config.allowBroken = true;
         };
+        ogdfLib = (import nixpkgs-ogdf { inherit system; }).ogdf;
 
         haskellOverlay = final: hself: hsuper: {
           "criterion" = final.haskell.lib.dontCheck hsuper.criterion;
@@ -49,6 +54,7 @@
             hself.callHackage "fficxx-runtime" "0.7.0.0" { };
           "stdcxx" =
             hself.callHackage "stdcxx" "0.7.0.0" { };
+          "OGDF" = hself.callCabal2nix "OGDF" inputs.OGDF { COIN = null; OGDF = ogdfLib; };
           "template" =
             final.haskell.lib.doJailbreak hsuper.template;
 
@@ -72,7 +78,6 @@
                 libraryHaskellDepends = drv.libraryHaskellDepends
                   ++ [ hself.file-embed ];
               }));
-
 
           # ghc-debug related deps
           "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
@@ -113,9 +118,7 @@
         };
 
         hpkgsFor = compiler:
-          pkgs.haskell.packages.${compiler}.extend (hself: hsuper:
-            (hs-ogdf.haskellOverlay.${system} pkgs hself hsuper)
-            // (haskellOverlay pkgs hself hsuper));
+          pkgs.haskell.packages.${compiler}.extend (hself: hsuper: haskellOverlay pkgs hself hsuper);
 
         mkShellFor = compiler:
           let
@@ -153,9 +156,11 @@
           inherit (hpkgsFor compiler) ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
         };
         supportedCompilers = [ "ghc924" "ghc942" ];
+
       in {
         inherit haskellOverlay;
         devShells = pkgs.lib.genAttrs supportedCompilers mkShellFor;
         packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
       });
+
 }

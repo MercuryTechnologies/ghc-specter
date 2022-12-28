@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "OGDF": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-IHjGsLO9EtwVwSs5z9Bgd8o7jIApCmFTESgVHwdxr6k=",
+        "type": "tarball",
+        "url": "https://hackage.haskell.org/package/OGDF-1.0.0.0/OGDF-1.0.0.0.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://hackage.haskell.org/package/OGDF-1.0.0.0/OGDF-1.0.0.0.tar.gz"
+      }
+    },
     "concur": {
       "flake": false,
       "locked": {
@@ -34,32 +46,6 @@
         "type": "github"
       }
     },
-    "fficxx": {
-      "inputs": {
-        "flake-utils": [
-          "hs-ogdf",
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "hs-ogdf",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1671238981,
-        "narHash": "sha256-GcXhLFDw+KLMcirtpEyap9BjbXqbl5KgPChglq+zobs=",
-        "owner": "wavewave",
-        "repo": "fficxx",
-        "rev": "e926340dbffdd2271fecb6003a43c54f34adf8e9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "master",
-        "repo": "fficxx",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "locked": {
         "lastModified": 1656928814,
@@ -75,31 +61,6 @@
         "type": "github"
       }
     },
-    "hs-ogdf": {
-      "inputs": {
-        "fficxx": "fficxx",
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1666387879,
-        "narHash": "sha256-bCZ73EHXTBB5EGQ4hd/EBIVSi7ep8mSK5CrHSxwc7+0=",
-        "owner": "wavewave",
-        "repo": "hs-ogdf",
-        "rev": "0c41e45929a2ae951384b1b414e20c6c6a855108",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "master",
-        "repo": "hs-ogdf",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1672195622,
@@ -112,6 +73,22 @@
       "original": {
         "owner": "NixOS",
         "ref": "master",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-ogdf": {
+      "locked": {
+        "lastModified": 1670523482,
+        "narHash": "sha256-1ZWE1CalCCBYvDXsvFMi7ic7wj3FTBu/x/DbWRWJ/zY=",
+        "owner": "wavewave",
+        "repo": "nixpkgs",
+        "rev": "7d0e9079f6c339d23f416da5a29b3d460d220b30",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wavewave",
+        "ref": "wavewave/ogdf",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -135,11 +112,12 @@
     },
     "root": {
       "inputs": {
+        "OGDF": "OGDF",
         "concur": "concur",
         "concur-replica": "concur-replica",
         "flake-utils": "flake-utils",
-        "hs-ogdf": "hs-ogdf",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-ogdf": "nixpkgs-ogdf",
         "replica": "replica"
       }
     }
