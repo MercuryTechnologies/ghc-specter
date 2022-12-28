@@ -57,7 +57,7 @@ import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
-import GHCSpecter.UI.Types.Event (DetailLevel)
+import GHCSpecter.UI.Types.Event (BlockerDetailLevel (..), DetailLevel)
 
 type ChanModule = (Channel, Text)
 
@@ -71,6 +71,7 @@ data TimingState = TimingState
     _tsTimingTable :: TimingTable
   , _tsBlockerGraph :: IntMap [Int]
   , _tsBlockerGraphViz :: Maybe GraphVisInfo
+  , _tsBlockerDetailLevel :: BlockerDetailLevel
   }
   deriving (Show, Generic)
 
@@ -87,6 +88,7 @@ emptyTimingState =
     , _tsTimingTable = emptyTimingTable
     , _tsBlockerGraph = IM.empty
     , _tsBlockerGraphViz = Nothing
+    , _tsBlockerDetailLevel = Blocking5
     }
 
 data ModuleGraphState = ModuleGraphState
@@ -160,8 +162,8 @@ data ServerState = ServerState
   , _serverModuleGraphState :: ModuleGraphState
   , _serverHieState :: HieState
   , _serverModuleBreakpoints :: [ModuleName]
-  -- TODO: This configuration should be separated to an env in ReaderT.
-  , _serverModuleClusterSize :: Int
+  , -- TODO: These numbers from configuration should be separated to an env in ReaderT.
+    _serverModuleClusterSize :: Int
   }
   deriving (Show, Generic)
 

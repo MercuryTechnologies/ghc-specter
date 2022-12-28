@@ -70,6 +70,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (..),
+  BlockerModuleGraphEvent (..),
   ComponentTag (..),
   ConsoleEvent (..),
   Event (..),
@@ -204,9 +205,14 @@ defaultUpdateModel topEv (oldModel, oldSS) =
       printMsg "close blocker graph is pressed"
       let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
       pure (newModel, oldSS)
-    TimingEv (BlockerModuleGraphEv e) -> do
+    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
       printMsg ("blocker module graph event: " <> T.pack (show e))
       pure (oldModel, oldSS)
+    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
+      printMsg ("blocker module graph update: " <> T.pack (show lvl))
+      let newSS = (serverTiming . tsBlockerDetailLevel .~ lvl) oldSS
+      asyncWork timingBlockerGraphWorker
+      pure (oldModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker

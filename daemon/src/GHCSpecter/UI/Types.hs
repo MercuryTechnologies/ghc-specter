@@ -24,14 +24,12 @@ module GHCSpecter.UI.Types (
   UIState (..),
   HasUIState (..),
   emptyUIState,
-
 ) where
 
 import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Channel.Outbound.Types (BreakpointLoc (..))
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))

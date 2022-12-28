@@ -2,6 +2,8 @@ module GHCSpecter.UI.Types.Event (
   -- * Enums
   Tab (..),
   DetailLevel (..),
+  BlockerDetailLevel (..),
+  blockerThreshold,
   ComponentTag (..),
 
   -- * Event types
@@ -9,6 +11,7 @@ module GHCSpecter.UI.Types.Event (
   SubModuleEvent (..),
   ModuleGraphEvent (..),
   SessionEvent (..),
+  BlockerModuleGraphEvent (..),
   TimingEvent (..),
   MouseEvent (..),
   ConsoleEvent (..),
@@ -30,6 +33,19 @@ data DetailLevel = UpTo30 | UpTo100 | UpTo300
 instance FromJSON DetailLevel
 
 instance ToJSON DetailLevel
+
+data BlockerDetailLevel = Blocking2 | Blocking3 | Blocking4 | Blocking5
+  deriving (Show, Eq, Ord, Generic)
+
+instance FromJSON BlockerDetailLevel
+
+instance ToJSON BlockerDetailLevel
+
+blockerThreshold :: BlockerDetailLevel -> Int
+blockerThreshold Blocking2 = 2
+blockerThreshold Blocking3 = 3
+blockerThreshold Blocking4 = 4
+blockerThreshold Blocking5 = 5
 
 data ComponentTag
   = TimingView
@@ -59,6 +75,11 @@ data SessionEvent
   | PauseSessionEv
   deriving (Show, Eq)
 
+data BlockerModuleGraphEvent
+  = BMGGraph ModuleGraphEvent
+  | BMGUpdateLevel BlockerDetailLevel
+  deriving (Show, Eq)
+
 data TimingEvent
   = ToCurrentTime
   | -- | is thawed (i.e. flowing) = True, is frozen = False
@@ -69,7 +90,7 @@ data TimingEvent
   | HoverOffModule ModuleName
   | ShowBlockerGraph
   | CloseBlockerGraph
-  | BlockerModuleGraphEv ModuleGraphEvent
+  | BlockerModuleGraphEv BlockerModuleGraphEvent
   deriving (Show, Eq)
 
 data MouseEvent

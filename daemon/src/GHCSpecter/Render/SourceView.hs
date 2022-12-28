@@ -1,5 +1,6 @@
 module GHCSpecter.Render.SourceView (
   render,
+  renderUnqualifiedImports,
 ) where
 
 import Concur.Core (Widget)
