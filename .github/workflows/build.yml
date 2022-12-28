@@ -7,9 +7,9 @@ jobs:
       matrix:
         include:
           - compilerName: ghc942
-            required: required
+            required: true
           - compilerName: ghc924
-            required: required
+            required: true
       fail-fast: false
     steps:
     - name: Checkout repository code
@@ -47,6 +47,7 @@ jobs:
         nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
   Format:
     runs-on: ubuntu-latest
+    required: false
     steps:
       - uses: actions/checkout@v3
       # fourmolu-0.10.1.0
