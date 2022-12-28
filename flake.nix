@@ -34,10 +34,6 @@
       url = "github:fourmolu/fourmolu/main";
       flake = false;
     };
-    ghc-debug = {
-      url = "git+https://gitlab.haskell.org/wavewave/ghc-debug.git?ref=wavewave/ghc94";
-      flake = false;
-    };
     microlens = {
       url = "github:stevenfontanella/microlens/master";
       flake = false;
@@ -49,7 +45,7 @@
 
   };
   outputs = { self, nixpkgs, flake-utils, concur, concur-replica, replica
-    , fficxx, hs-ogdf, file-embed, fourmolu, ghc-debug, microlens, vty }:
+    , fficxx, hs-ogdf, file-embed, fourmolu, microlens, vty }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -83,7 +79,6 @@
               }));
 
           # ghc-debug related deps
-          "bimap" = hsuper.bimap_0_5_0;
           "bitwise" = final.haskell.lib.doJailbreak hsuper.bitwise;
           "brick" = hsuper.brick_1_3;
           "eventlog2html" = final.haskell.lib.doJailbreak hsuper.eventlog2html;
@@ -98,32 +93,20 @@
           "microlens-platform" = hself.callCabal2nix "microlens-platform"
             "${microlens}/microlens-platform" { };
           "string-qq" = final.haskell.lib.doJailbreak hsuper.string-qq;
-          "text-zipper" = hsuper.text-zipper_0_12;
           "vty" =
             final.haskell.lib.dontCheck (hself.callCabal2nix "vty" vty { });
 
           # ghc-debug-*
           "ghc-debug-common" =
-            hself.callCabal2nix "ghc-debug-common" "${ghc-debug}/common" { };
+            hself.callHackage "ghc-debug-common" "0.4.0.0" { };
           "ghc-debug-stub" =
-            final.haskell.lib.overrideCabal
-              (hself.callCabal2nix "ghc-debug-stub" "${ghc-debug}/stub" { }) (drv: {
-                jailbreak = true;
-                librarySystemDepends = [ ];
-              });
-          "ghc-debug-client" = final.haskell.lib.doJailbreak
-            (hself.callCabal2nix "ghc-debug-client" "${ghc-debug}/client" { });
-          # ghc-debugger seems outdated.
-          #"ghc-debugger" =
-          #  hself.callCabal2nix "ghc-debugger" "${ghc-debug}/test" { };
-          "dyepack-test" =
-            hself.callCabal2nix "dyepack-test" "${ghc-debug}/dyepack-test" { };
+            final.haskell.lib.doJailbreak (hself.callHackage "ghc-debug-stub" "0.4.0.0" { });
+          "ghc-debug-client" =
+            final.haskell.lib.doJailbreak (hself.callHackage "ghc-debug-client" "0.4.0.0" { });
           "ghc-debug-brick" =
-            hself.callCabal2nix "ghc-debug-brick" "${ghc-debug}/ghc-debug-brick"
-            { };
+            hself.callHackage "ghc-debug-brick" "0.4.0.0" { };
           "ghc-debug-convention" =
-            hself.callCabal2nix "ghc-debug-convention" "${ghc-debug}/convention"
-            { };
+            hself.callHackage "ghc-debug-convention" "0.4.0.0" { };
         };
 
         hpkgsFor = compiler:
@@ -145,10 +128,10 @@
                 p.extra
                 p.ghc-debug-common
                 p.ghc-debug-stub
-                p.ghc-debug-client
+                #p.ghc-debug-client
                 # this seems outdated.
                 # p.ghc-debugger
-                p.dyepack-test
+                #p.dyepack-test
                 p.ghc-debug-brick
                 p.ghc-debug-convention
                 p.hiedb

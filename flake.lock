@@ -107,23 +107,6 @@
         "type": "github"
       }
     },
-    "ghc-debug": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1668721384,
-        "narHash": "sha256-lVp2XCjAc9mpOdCOExVGhSOk16XXf6YgdwOCgr4GyWA=",
-        "ref": "wavewave/ghc94",
-        "rev": "8800c82dd6ef60e117751d196b9cc49aa56494db",
-        "revCount": 493,
-        "type": "git",
-        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
-      },
-      "original": {
-        "ref": "wavewave/ghc94",
-        "type": "git",
-        "url": "https://gitlab.haskell.org/wavewave/ghc-debug.git"
-      }
-    },
     "hs-ogdf": {
       "inputs": {
         "fficxx": [
@@ -170,11 +153,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1666371646,
-        "narHash": "sha256-gLaVWLbbig3MjLbb2NzVzWe4XK8w/Qw7iJdD0u1dzDY=",
+        "lastModified": 1672195622,
+        "narHash": "sha256-Z03+maRn7EC6XzCV1+gf9JuuvSnNduy0v5RJngf+4FA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "71c5816834f93840dd301ec384c9d7947e97c27d",
+        "rev": "9a2e72335c6651d5fb16e6901aa4b5c790c243db",
         "type": "github"
       },
       "original": {
@@ -209,7 +192,6 @@
         "file-embed": "file-embed",
         "flake-utils": "flake-utils",
         "fourmolu": "fourmolu",
-        "ghc-debug": "ghc-debug",
         "hs-ogdf": "hs-ogdf",
         "microlens": "microlens",
         "nixpkgs": "nixpkgs",
