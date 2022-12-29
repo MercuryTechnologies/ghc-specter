@@ -89,6 +89,7 @@ library:
     - ghc-debug-stub
     - hiedb
     - network
+    - pretty-simple
     - process
     - safe
     - stm
