@@ -1,17 +1,16 @@
 name: "Build"
 on: [pull_request, push]
 jobs:
-  build:
+  build-x86_64-linux:
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-12]
         include:
           - compilerName: ghc942
             required: true
           - compilerName: ghc924
             required: true
       fail-fast: false
-    runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v3
@@ -24,16 +23,48 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: enter-shell
       run: |
-        nix develop ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}
+        nix develop .#${{ matrix.compilerName }}
     - name: build ghc-specter-plugin
       run: |
-        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-plugin
+        nix build .#${{ matrix.compilerName }}.ghc-specter-plugin
     - name: build ghc-specter-daemon
       run: |
-        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-daemon
+        nix build .#${{ matrix.compilerName }}.ghc-specter-daemon
     - name: build ghc-build-analyzer
       run: |
-        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-build-analyzer
+        nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
+  build-aarch64-darwin:
+    runs-on: macos-12
+    strategy:
+      matrix:
+        include:
+          - compilerName: ghc942
+            required: true
+          - compilerName: ghc924
+            required: true
+      fail-fast: false
+    steps:
+    - name: Checkout repository code
+      uses: actions/checkout@v3
+    - name: List files in the repository
+      run: |
+        ls ${{ github.workspace }}
+    - name: Install nix
+      uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+    - name: enter-shell
+      run: |
+        nix develop --system aarch64-darwin .#${{ matrix.compilerName }}
+    - name: build ghc-specter-plugin
+      run: |
+        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-specter-plugin
+    - name: build ghc-specter-daemon
+      run: |
+        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-specter-daemon
+    - name: build ghc-build-analyzer
+      run: |
+        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-build-analyzer
   check-format:
     runs-on: ubuntu-latest
     continue-on-error: true
