@@ -2,15 +2,16 @@ name: "Build"
 on: [pull_request, push]
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         include:
           - compilerName: ghc942
             required: true
           - compilerName: ghc924
             required: true
       fail-fast: false
+    runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v3
