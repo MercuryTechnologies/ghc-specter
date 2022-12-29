@@ -24,16 +24,16 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: enter-shell
       run: |
-        nix develop ${{ matrix.os == "macos-12" && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}
+        nix develop ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}
     - name: build ghc-specter-plugin
       run: |
-        nix build ${{ matrix.os == "macos-12" && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-plugin
+        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-plugin
     - name: build ghc-specter-daemon
       run: |
-        nix build ${{ matrix.os == "macos-12" && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-daemon
+        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-specter-daemon
     - name: build ghc-build-analyzer
       run: |
-        nix build ${{ matrix.os == "macos-12" && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-build-analyzer
+        nix build ${{ contains(matrix.os, 'macos') && '--system aarch64-darwin'}} .#${{ matrix.compilerName }}.ghc-build-analyzer
   check-format:
     runs-on: ubuntu-latest
     continue-on-error: true
