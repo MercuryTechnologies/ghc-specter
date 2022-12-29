@@ -79,11 +79,11 @@
     },
     "nixpkgs-ogdf": {
       "locked": {
-        "lastModified": 1670523482,
-        "narHash": "sha256-1ZWE1CalCCBYvDXsvFMi7ic7wj3FTBu/x/DbWRWJ/zY=",
+        "lastModified": 1672271863,
+        "narHash": "sha256-QEbEM6/b05CJnPoyVXtP1Au3RsdUlxHypX6qgUwNf98=",
         "owner": "wavewave",
         "repo": "nixpkgs",
-        "rev": "7d0e9079f6c339d23f416da5a29b3d460d220b30",
+        "rev": "749f28676dcbdeba05295ab21db1e4362a875e40",
         "type": "github"
       },
       "original": {
