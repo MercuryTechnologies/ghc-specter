@@ -6,11 +6,6 @@ jobs:
       matrix:
         os: [ ubuntu-22.04, macos-12 ]
         ghc: [ "ghc942", "ghc924" ]
-        #include:
-        #  - compilerName: ghc942
-        #    required: true
-        #  - compilerName: ghc924
-        #    required: true
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
