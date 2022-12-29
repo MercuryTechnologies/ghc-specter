@@ -23,16 +23,16 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: enter-shell
       run: |
-        nix develop .#${{ matrix.compilerName }}
+        nix develop --print-build-logs .#${{ matrix.compilerName }}
     - name: build ghc-specter-plugin
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-specter-plugin
+        nix build --print-build-logs .#${{ matrix.compilerName }}.ghc-specter-plugin
     - name: build ghc-specter-daemon
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-specter-daemon
+        nix build --print-build-logs .#${{ matrix.compilerName }}.ghc-specter-daemon
     - name: build ghc-build-analyzer
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
+        nix build --print-build-logs .#${{ matrix.compilerName }}.ghc-build-analyzer
   build-aarch64-darwin:
     runs-on: macos-12
     strategy:
@@ -55,16 +55,16 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: enter-shell
       run: |
-        nix develop --system aarch64-darwin .#${{ matrix.compilerName }}
+        nix develop --system aarch64-darwin --print-build-logs .#${{ matrix.compilerName }}
     - name: build ghc-specter-plugin
       run: |
-        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-specter-plugin
+        nix build --system aarch64-darwin --print-build-logs .#${{ matrix.compilerName }}.ghc-specter-plugin
     - name: build ghc-specter-daemon
       run: |
-        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-specter-daemon
+        nix build --system aarch64-darwin --print-build-logs .#${{ matrix.compilerName }}.ghc-specter-daemon
     - name: build ghc-build-analyzer
       run: |
-        nix build --system aarch64-darwin .#${{ matrix.compilerName }}.ghc-build-analyzer
+        nix build --system aarch64-darwin --print-build-logs .#${{ matrix.compilerName }}.ghc-build-analyzer
   check-format:
     runs-on: ubuntu-latest
     continue-on-error: true
