@@ -66,7 +66,11 @@ import GHCSpecter.Config
     emptyConfig,
     loadConfig,
   )
-import GHCSpecter.Util.GHC (showPpr)
+import GHCSpecter.Util.GHC
+  ( extractModuleGraphInfo,
+    extractModuleSources,
+    showPpr,
+  )
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
@@ -88,10 +92,6 @@ import Plugin.GHCSpecter.Types
   ( PluginSession (..),
     initMsgQueue,
     sessionRef,
-  )
-import Plugin.GHCSpecter.Util
-  ( extractModuleGraphInfo,
-    extractModuleSources,
   )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath, getCurrentDirectory)
