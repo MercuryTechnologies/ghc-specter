@@ -2,15 +2,12 @@ name: "Build"
 on: [pull_request, push]
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - compilerName: ghc942
-            required: true
-          - compilerName: ghc924
-            required: true
+        os: [ ubuntu-22.04, macos-12 ]
+        ghc: [ "ghc942", "ghc924" ]
       fail-fast: false
+    runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v3
@@ -23,16 +20,16 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: enter-shell
       run: |
-        nix develop .#${{ matrix.compilerName }}
+        nix develop --print-build-logs .#${{ matrix.ghc }}
     - name: build ghc-specter-plugin
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-specter-plugin
+        nix build --print-build-logs .#${{ matrix.ghc }}.ghc-specter-plugin
     - name: build ghc-specter-daemon
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-specter-daemon
+        nix build --print-build-logs .#${{ matrix.ghc }}.ghc-specter-daemon
     - name: build ghc-build-analyzer
       run: |
-        nix build .#${{ matrix.compilerName }}.ghc-build-analyzer
+        nix build --print-build-logs .#${{ matrix.ghc }}.ghc-build-analyzer
   check-format:
     runs-on: ubuntu-latest
     continue-on-error: true
