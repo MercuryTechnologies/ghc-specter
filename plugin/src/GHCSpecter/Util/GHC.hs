@@ -67,9 +67,6 @@ import GHC.Driver.Make (moduleGraphNodes)
 import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
 #endif
 
-
-import Debug.Trace
-
 --
 -- pretty print
 --
@@ -84,11 +81,14 @@ printPpr dflags = liftIO . putStrLn . showPpr dflags
 -- module name
 --
 
+-- | Extract module name from ModSummary.
+-- For hs-boot and hsig, we rely on stringy suffix ".hs-boot" and ".hsig".
+
+-- TODO: Use HscSource directly (i.e. (ModuleName, HscSource)) to index a module.
 getModuleName :: ModSummary -> ModuleName
 getModuleName s =
-  let mod = ms_mod s
-      sig = ms_hsc_src s
-      name = T.pack . moduleNameString . moduleName $ mod
+  let sig = ms_hsc_src s
+      name = T.pack . moduleNameString . moduleName . ms_mod $ s
    in case sig of
         HsSrcFile -> name
         HsBootFile -> name <> ".hs-boot"
@@ -144,19 +144,13 @@ gnode2ModSummary LinkNode {} = Nothing
 gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
 #endif
 
--- temporary function. ignore hs-boot cycles and InstantiatedUnit for now.
-getTopSortedModules :: ModuleGraph -> ([ModuleName], [[ModuleName]])
+getTopSortedModules :: ModuleGraph -> [ModuleName]
 getTopSortedModules modGraph =
   let sccs' = topSortModuleGraph False modGraph Nothing
-      sccs = topSortModuleGraph True modGraph Nothing
-      aMods = mapMaybe (\case G.AcyclicSCC v -> Just v; _ -> Nothing) sccs
-      cMods = mapMaybe (\case G.CyclicSCC vs -> Just vs; _ -> Nothing) sccs
       allMods = concatMap G.flattenSCC sccs'
       maybeModNameFromModSummary = fmap getModuleName . gnode2ModSummary
       allModNames = mapMaybe maybeModNameFromModSummary allMods
-      cyclicModNames = fmap (mapMaybe maybeModNameFromModSummary) cMods
-   in trace (show (length aMods, length cMods, length allMods)) $ (allModNames, cyclicModNames)
-    -- . flip (topSortModuleGraph False) Nothing
+   in allModNames
 
 extractModuleSources :: ModuleGraph -> IO (Map ModuleName FilePath)
 extractModuleSources modGraph = do
@@ -167,7 +161,7 @@ extractModuleSources modGraph = do
       msrcFile' <- traverse canonicalizePath msrcFile
       pure $ fmap (getModuleName ms,) msrcFile'
 
-extractModuleGraphInfo :: ModuleGraph -> (ModuleGraphInfo, [ModuleName], [[ModuleName]])
+extractModuleGraphInfo :: ModuleGraph -> ModuleGraphInfo
 extractModuleGraphInfo modGraph = do
   let (graph, _) = moduleGraphNodes False (mgModSummaries' modGraph)
       vtxs = G.verticesG graph
@@ -184,11 +178,6 @@ extractModuleGraphInfo modGraph = do
       topSorted =
         mapMaybe
           (\n -> M.lookup n modNameRevMap)
-          $ fst (getTopSortedModules modGraph)
+          $ getTopSortedModules modGraph
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
-      (allMods, nonTrivialSccs) =
-        let topMods = getTopSortedModules modGraph
-            cyclicModNames = snd topMods
-         in (fst topMods, cyclicModNames)
-
-   in (ModuleGraphInfo modNameMap modDeps topSorted, allMods, nonTrivialSccs)
+   in ModuleGraphInfo modNameMap modDeps topSorted

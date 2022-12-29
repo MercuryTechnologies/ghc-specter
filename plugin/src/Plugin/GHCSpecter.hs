@@ -119,8 +119,6 @@ import Plugin.GHCSpecter.Util (getModuleName)
 import System.Mem (setAllocationCounter)
 #endif
 
-import qualified Text.Pretty.Simple
-
 -- TODO: Make the initialization work with GHCi.
 
 -- | GHC session-wide initialization
@@ -143,7 +141,7 @@ initGhcSession env = do
   let cfg = either (const emptyConfig) id ecfg
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
-  (isNewStart, queue, allMods, nonTrivialSccs) <-
+  (isNewStart, queue) <-
     atomically $ do
       ps <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo ps
@@ -151,7 +149,7 @@ initGhcSession env = do
             (,) <$> sessionStartTime ghcSessionInfo <*> psMessageQueue ps
       case mtimeQueue of
         -- session has started already.
-        Just (_, queue) -> pure (False, queue, [], [])
+        Just (_, queue) -> pure (False, queue)
         -- session start
         Nothing -> do
           let ghcMode =
@@ -167,7 +165,7 @@ initGhcSession env = do
                   GHC.Interpreter -> Interpreter
                   GHC.NoBackend -> NoBackend
               modGraph = hsc_mod_graph env
-              (modGraphInfo, allMods, nonTrivialSccs) = extractModuleGraphInfo modGraph
+              modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
@@ -187,11 +185,7 @@ initGhcSession env = do
                   , psMessageQueue = Just queue_
                   }
             )
-          pure (True, queue_, allMods, nonTrivialSccs)
-  putStrLn "I'M HERE"
-  Text.Pretty.Simple.pPrint nonTrivialSccs
-  Text.Pretty.Simple.pPrint allMods
-
+          pure (True, queue_)
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg queue
     let modGraph = hsc_mod_graph env
@@ -397,7 +391,7 @@ driver opts env0 = do
       psSessionInfo <$> readTVar sessionRef
   let modGraphInfo0 = sessionModuleGraph sinfo0
       modGraph1 = hsc_mod_graph env0
-      (modGraphInfo1, _, _) = extractModuleGraphInfo modGraph1
+      modGraphInfo1 = extractModuleGraphInfo modGraph1
   when (IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)) $ do
     let sinfo1 = sinfo0 {sessionModuleGraph = modGraphInfo1}
     atomically $
