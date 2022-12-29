@@ -105,6 +105,7 @@ import GHC.Types.Unique.FM (emptyUFM)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
+import GHCSpecter.Util.GHC (getModuleName)
 import Plugin.GHCSpecter.Hooks
   ( getMemInfo,
     sendModuleName,
@@ -115,7 +116,6 @@ import Plugin.GHCSpecter.Types
   ( assignModuleToDriverId,
     assignModuleFileToDriverId,
   )
-import Plugin.GHCSpecter.Util (getModuleName)
 import System.Mem (setAllocationCounter)
 #endif
 
