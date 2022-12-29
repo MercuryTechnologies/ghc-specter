@@ -25,7 +25,7 @@
       flake = false;
     };
   };
-  outputs = inputs@{ self, nixpkgs, flake-utils, concur, concur-replica, replica, nixpkgs-ogdf, ... }:
+  outputs = inputs@{ self, nixpkgs, flake-utils, nixpkgs-ogdf, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -37,14 +37,14 @@
         haskellOverlay = final: hself: hsuper: {
           "criterion" = final.haskell.lib.dontCheck hsuper.criterion;
           "concur-core" =
-            hself.callCabal2nix "concur-core" (concur + "/concur-core") { };
+            hself.callCabal2nix "concur-core" "${inputs.concur}/concur-core" { };
           "concur-replica" =
-            hself.callCabal2nix "concur-replica" concur-replica { };
+            hself.callCabal2nix "concur-replica" inputs.concur-replica { };
           "discrimination" = hself.callHackage "discrimination" "0.5" { };
           "http2" = final.haskell.lib.dontCheck hsuper.http2;
           "newtype-generics" =
             final.haskell.lib.doJailbreak hsuper.newtype-generics;
-          "replica" = hself.callCabal2nix "replica" replica { };
+          "replica" = hself.callCabal2nix "replica" inputs.replica { };
           "retry" = final.haskell.lib.dontCheck hsuper.retry;
 
           # fficxx-related
@@ -54,6 +54,7 @@
             hself.callHackage "fficxx-runtime" "0.7.0.0" { };
           "stdcxx" =
             hself.callHackage "stdcxx" "0.7.0.0" { };
+          # libOGDF is bundled with libCOIN, so remove COIN dependency.
           "OGDF" = hself.callCabal2nix "OGDF" inputs.OGDF { COIN = null; OGDF = ogdfLib; };
           "template" =
             final.haskell.lib.doJailbreak hsuper.template;
