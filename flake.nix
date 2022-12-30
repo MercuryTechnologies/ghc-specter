@@ -152,7 +152,9 @@
                 [ p.fourmolu ]
               else
                 [ p.fourmolu_0_9_0_0 ]));
-          in pkgs.mkShell { packages = [ hsenv pkgs.nixfmt ]; };
+              pyenv = pkgs.python3.withPackages
+                (p: [ p.sphinx p.sphinx_rtd_theme p.myst-parser ]);
+          in pkgs.mkShell { packages = [ hsenv pyenv pkgs.nixfmt ]; };
         mkPackagesFor = compiler: {
           inherit (hpkgsFor compiler) ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
         };
