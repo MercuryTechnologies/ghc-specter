@@ -24,14 +24,14 @@ import GHCSpecter.Channel.Common.Types (
   type ModuleName,
  )
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (showPpr)
-import Language.Haskell.Syntax.Decls (HsGroup)
-import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
-import Plugin.GHCSpecter.Util (
+import GHCSpecter.Util.GHC (
   formatImportedNames,
   formatName,
   mkModuleNameMap,
+  showPpr,
  )
+import Language.Haskell.Syntax.Decls (HsGroup)
+import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
 
 fetchUnqualifiedImports :: TcGblEnv -> TcM ConsoleReply
 fetchUnqualifiedImports tc = do

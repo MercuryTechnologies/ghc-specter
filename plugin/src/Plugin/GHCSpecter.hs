@@ -66,7 +66,11 @@ import GHCSpecter.Config
     emptyConfig,
     loadConfig,
   )
-import GHCSpecter.Util.GHC (showPpr)
+import GHCSpecter.Util.GHC
+  ( extractModuleGraphInfo,
+    extractModuleSources,
+    showPpr,
+  )
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
@@ -89,10 +93,6 @@ import Plugin.GHCSpecter.Types
     initMsgQueue,
     sessionRef,
   )
-import Plugin.GHCSpecter.Util
-  ( extractModuleGraphInfo,
-    extractModuleSources,
-  )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath, getCurrentDirectory)
 import System.Environment (getArgs, getExecutablePath)
@@ -105,6 +105,7 @@ import GHC.Types.Unique.FM (emptyUFM)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
+import GHCSpecter.Util.GHC (getModuleName)
 import Plugin.GHCSpecter.Hooks
   ( getMemInfo,
     sendModuleName,
@@ -115,7 +116,6 @@ import Plugin.GHCSpecter.Types
   ( assignModuleToDriverId,
     assignModuleFileToDriverId,
   )
-import Plugin.GHCSpecter.Util (getModuleName)
 import System.Mem (setAllocationCounter)
 #endif
 

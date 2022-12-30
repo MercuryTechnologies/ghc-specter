@@ -78,13 +78,13 @@ import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name qualified as GHC
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
+import GHCSpecter.Util.GHC (getModuleName)
 import Plugin.GHCSpecter.Types
   ( PluginSession (..),
     getModuleFromDriverId,
     getModuleFileFromDriverId,
     sessionRef,
   )
-import Plugin.GHCSpecter.Util (getModuleName)
 import System.Directory (canonicalizePath)
 import System.Mem (setAllocationCounter)
 #elif MIN_VERSION_ghc(9, 2, 0)
