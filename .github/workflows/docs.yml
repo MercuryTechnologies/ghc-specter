@@ -1,9 +1,9 @@
 name: docs_pages_workflow
 
-on: [push]
-#  push:
-#    branches:
-#      - master
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build_docs_job:
