@@ -1,15 +1,14 @@
-
-Welcome to ghc-specter's documentation
-======================================
-
-Inspecting tool for the GHC pipeline through GHC plugin
-
+``ghc-specter`` User's guide
+============================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   getting_started
+   what-is-it
+   how-it-works
+   getting-started
+   features
 
 Indices and tables
 ==================
