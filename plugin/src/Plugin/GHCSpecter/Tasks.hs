@@ -34,7 +34,11 @@ import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Utils.Outputable (Outputable (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Language.Haskell.Syntax.Decls (HsGroup)
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Expr (HsUntypedSplice, LHsExpr)
+#else
 import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
+#endif
 import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
 import Plugin.GHCSpecter.Tasks.Typecheck (
   fetchUnqualifiedImports,
@@ -66,7 +70,11 @@ renamedResultActionCommands :: HsGroup GhcRn -> CommandSet TcM
 renamedResultActionCommands grp =
   CommandSet [(":show-renamed", \_ -> showRenamed grp)]
 
+#if MIN_VERSION_ghc(9, 6, 0)
+rnSpliceCommands :: HsUntypedSplice GhcRn -> CommandSet RnM
+#else
 rnSpliceCommands :: HsSplice GhcRn -> CommandSet RnM
+#endif
 rnSpliceCommands splice =
   CommandSet [(":show-splice", \_ -> showRnSplice splice)]
 
