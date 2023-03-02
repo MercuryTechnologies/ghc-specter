@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Plugin.GHCSpecter.Tasks.Typecheck (
   fetchUnqualifiedImports,
   showRenamed,
@@ -15,6 +17,10 @@ import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
 import GHC.Driver.Session (DynFlags, getDynFlags)
+#if MIN_VERSION_ghc(9, 6, 0)
+import GHC.Driver.Ppr (showSDoc)
+import GHC.Hs.Expr (pprUntypedSplice)
+#endif
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
@@ -31,7 +37,11 @@ import GHCSpecter.Util.GHC (
   showPpr,
  )
 import Language.Haskell.Syntax.Decls (HsGroup)
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Expr (HsUntypedSplice, LHsExpr)
+#else
 import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
+#endif
 
 fetchUnqualifiedImports :: TcGblEnv -> TcM ConsoleReply
 fetchUnqualifiedImports tc = do
@@ -54,10 +64,18 @@ showRenamed grp = do
   let txt = T.pack (showPpr dflags grp)
   pure (ConsoleReplyText (Just "renamed") txt)
 
+#if MIN_VERSION_ghc(9, 6, 0)
+showRnSplice :: HsUntypedSplice GhcRn -> RnM ConsoleReply
+#else
 showRnSplice :: HsSplice GhcRn -> RnM ConsoleReply
+#endif
 showRnSplice splice = do
   dflags <- getDynFlags
+#if MIN_VERSION_ghc(9, 6, 0)
+  let txt = T.pack (showSDoc dflags (pprUntypedSplice True Nothing splice))
+#else
   let txt = T.pack (showPpr dflags splice)
+#endif
   pure (ConsoleReplyText (Just "splice") txt)
 
 showSpliceExpr :: LHsExpr GhcTc -> TcM ConsoleReply

@@ -53,7 +53,11 @@ import GHC.Unit.Module.Graph (
  )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Module.Name (moduleNameString)
+#else
 import GHC.Unit.Module.Name (moduleNameString)
+#endif
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)

@@ -87,7 +87,6 @@ library:
     - errors
     - extra
     - ghc-debug-stub
-    - hiedb
     - network
     - process
     - safe
@@ -96,6 +95,9 @@ library:
     - transformers
     - yaml
   when:
+    - condition: impl (ghc >= 9.5)
+      dependencies:
+        - ghc
     - condition: impl (ghc >= 9.4) && impl (ghc < 9.5)
       dependencies:
         - ghc == 9.4.*
