@@ -174,7 +174,7 @@
         shellGHCHEAD = {
           "ghcHEAD" = (import ./nix/ghcHEAD/shell.nix {
             inherit (inputs) ghc_nix;
-            inherit system pkgs;
+            inherit system pkgs ogdfLib;
           }).ghcNixShell;
         };
 

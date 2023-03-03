@@ -95,7 +95,6 @@ library:
     - free
     - ghc
     - ghc-specter-plugin
-    - hiedb
     - http-types
     - lens
     - optparse-applicative
@@ -112,6 +111,10 @@ library:
     - wai-websockets
     - warp
     - websockets
+  when:
+    - condition: impl (ghc < 9.5)
+      dependencies:
+        - hiedb
 
 executables:
   ghc-specter-daemon:

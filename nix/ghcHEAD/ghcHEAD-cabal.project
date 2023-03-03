@@ -1,5 +1,5 @@
 packages:
-  -- ./daemon
+  ./daemon
   ./plugin
   ./ghc-build-analyzer
 
@@ -12,6 +12,29 @@ repository head.hackage.ghc.haskell.org
        7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
        f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
 
+-- concur-core branch:ghc-9.2
+source-repository-package
+        type: git
+        location: https://github.com/wavewave/concur.git
+        tag: 7718678e6e4907fb53bfd9248eda8fc175626f05
+        subdir: concur-core
+
+-- concur-replica branch:ghc-9.2
+source-repository-package
+        type: git
+        location: https://github.com/wavewave/concur-replica.git
+        tag: e15785b3b09e97790ae23c8ae8671c191d039a2c
+
+-- replica branch:ghc-9.2
+source-repository-package
+        type: git
+        location: https://github.com/wavewave/replica.git
+        tag: 30e41c7982047d782db5080c17b76d4756291e0c
+
+package OGDF
+  -- by default, ghc finds g++ and that is linked to /usr/bin/g++ on macos.
+  ghc-options: -pgmcxx c++
+
 allow-newer:
   Cabal,
   base,
@@ -21,6 +44,7 @@ allow-newer:
   ghc-bignum,
   ghc-prim,
   integer-gmp,
+  mtl,
   primitive,
   template-haskell,
   text,
@@ -94,6 +118,7 @@ constraints:
   singletons-th ==3.1,
   siphash ==1.0.3,
   streaming ==0.2.3.1,
+  template ==0.2.0.10,
   true-name ==0.1.0.3,
   typelits-printf ==0.2.0.0,
   unix-compat ==0.6,
