@@ -1,3 +1,4 @@
+{- FOURMOLU_DISABLE -}
 {-# LANGUAGE CPP #-}
 
 module Plugin.GHCSpecter.Tasks.Typecheck (
