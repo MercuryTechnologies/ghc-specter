@@ -1,6 +1,7 @@
 {- FOURMOLU_DISABLE -}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
 module Plugin.GHCSpecter
@@ -26,8 +27,14 @@ import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
+#if MIN_VERSION_ghc(9, 6, 0)
+import GHC.Core.Opt.Monad (CoreM, getDynFlags)
+import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
+import GHC.Driver.Backend (backendDescription)
+#else
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Backend qualified as GHC (Backend (..))
+#endif
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
@@ -158,12 +165,23 @@ initGhcSession env = do
                   GHC.OneShot -> OneShot
                   GHC.MkDepend -> MkDepend
               backend =
+#if MIN_VERSION_ghc(9, 6, 0)
+                let desc = backendDescription (GHC.backend (hsc_dflags env))
+                 in if
+                       | desc == "native code generator" -> NCG
+                       | desc == "LLVM" -> LLVM
+                       | desc == "compiling via C" -> ViaC
+                       --  | desc == "compiling to JavaScript" -> Javascript
+                       | desc == "byte-code interpreter" -> Interpreter
+                       | otherwise -> NoBackend
+#else
                 case (GHC.backend (hsc_dflags env)) of
                   GHC.NCG -> NCG
                   GHC.LLVM -> LLVM
                   GHC.ViaC -> ViaC
                   GHC.Interpreter -> Interpreter
                   GHC.NoBackend -> NoBackend
+#endif
               modGraph = hsc_mod_graph env
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =

@@ -46,6 +46,22 @@
         "type": "github"
       }
     },
+    "flake-compat": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1668681692,
+        "narHash": "sha256-Ht91NGdewz8IQLtWZ9LCeNXMSXHUss+9COoqu6JLmXU=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "009399224d5e398d03b22badca40a37ac85412a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "locked": {
         "lastModified": 1656928814,
@@ -59,6 +75,46 @@
         "owner": "numtide",
         "repo": "flake-utils",
         "type": "github"
+      }
+    },
+    "ghc_nix": {
+      "inputs": {
+        "all-cabal-hashes": [
+          "hackage-index"
+        ],
+        "flake-compat": "flake-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "nixpkgs-unstable": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1677005603,
+        "narHash": "sha256-0E6Cn7WZP7sCbcI6nsoEVLlWGfmLhuypHAfxioepy6Q=",
+        "owner": "wavewave",
+        "repo": "ghc.nix",
+        "rev": "9e2907537899555d6da52d6369d89f1f9fc37bd4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wavewave",
+        "ref": "fix-hash-again",
+        "repo": "ghc.nix",
+        "type": "github"
+      }
+    },
+    "hackage-index": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-q/xdYkEwjNKOP189sETVAnnCwA7mhXUM8kXCq29eiRE=",
+        "type": "file",
+        "url": "https://api.github.com/repos/commercialhaskell/all-cabal-hashes/tarball/13a91ab76cfac2098eff2780f3d3b6224352a7a2"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://api.github.com/repos/commercialhaskell/all-cabal-hashes/tarball/13a91ab76cfac2098eff2780f3d3b6224352a7a2"
       }
     },
     "nixpkgs": {
@@ -116,6 +172,8 @@
         "concur": "concur",
         "concur-replica": "concur-replica",
         "flake-utils": "flake-utils",
+        "ghc_nix": "ghc_nix",
+        "hackage-index": "hackage-index",
         "nixpkgs": "nixpkgs",
         "nixpkgs-ogdf": "nixpkgs-ogdf",
         "replica": "replica"

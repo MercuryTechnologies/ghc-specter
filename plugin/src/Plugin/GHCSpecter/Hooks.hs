@@ -48,7 +48,11 @@ import GHCSpecter.Channel.Outbound.Types (
   Timer (..),
   TimerTag (..),
  )
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Expr (HsUntypedSplice)
+#else
 import Language.Haskell.Syntax.Expr (HsSplice)
+#endif
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Tasks (
@@ -76,7 +80,11 @@ import GHC.Driver.Pipeline.Phases
 import GHC.Driver.Plugins (staticPlugins)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-import GHC.Unit.Module.Name qualified as GHC
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Module.Name (moduleNameString)
+#else
+import GHC.Unit.Module.Name (moduleNameString)
+#endif
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
 import GHCSpecter.Util.GHC (getModuleName)
 import Plugin.GHCSpecter.Types
@@ -139,7 +147,11 @@ sendModuleName ::
 sendModuleName drvId modName msrcfile =
   queueMessage (CMModuleInfo drvId modName msrcfile)
 
+#if MIN_VERSION_ghc(9, 6, 0)
+runRnSpliceHook' :: HsUntypedSplice GhcRn -> RnM (HsUntypedSplice GhcRn)
+#else
 runRnSpliceHook' :: HsSplice GhcRn -> RnM (HsSplice GhcRn)
+#endif
 runRnSpliceHook' splice = do
   mdrvId <- getDriverIdFromHscEnv . env_top <$> getEnv
   case mdrvId of
@@ -217,10 +229,14 @@ envFromTPhase p =
     T_HscRecomp penv env _ _ -> (env, Just penv, Nothing)
     T_Hsc env modSummary -> (env, Nothing, Just (getModuleName modSummary))
     T_HscPostTc env modSummary _ _ _ -> (env, Nothing, Just (getModuleName modSummary))
-    T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just (T.pack (GHC.moduleNameString mname)))
+    T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just (T.pack (moduleNameString mname)))
     T_CmmCpp penv env _ -> (env, Just penv, Nothing)
     T_Cmm penv env _ -> (env, Just penv, Nothing)
+#if MIN_VERSION_ghc(9, 6, 0)
+    T_Cc _ penv env _ _ -> (env, Just penv, Nothing)
+#else
     T_Cc _ penv env _ -> (env, Just penv, Nothing)
+#endif
     T_As _ penv env _ _ -> (env, Just penv, Nothing)
     T_LlvmOpt penv env _ -> (env, Just penv, Nothing)
     T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
@@ -241,7 +257,11 @@ modifyHscEnvInTPhase update p =
     T_HscBackend penv env mname src loc baction -> T_HscBackend penv (update env) mname src loc baction
     T_CmmCpp penv env fp -> T_CmmCpp penv (update env) fp
     T_Cmm penv env fp -> T_Cmm penv (update env) fp
+#if MIN_VERSION_ghc(9, 6, 0)
+    T_Cc ph penv env mloc fp ->T_Cc ph penv (update env) mloc fp
+#else
     T_Cc ph penv env fp ->T_Cc ph penv (update env) fp
+#endif
     T_As b penv env mloc fp -> T_As b penv (update env) mloc fp
     T_LlvmOpt penv env fp -> T_LlvmOpt penv (update env) fp
     T_LlvmLlc penv env fp -> T_LlvmLlc penv (update env) fp

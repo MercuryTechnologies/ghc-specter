@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Plugin.GHCSpecter.Tasks.Core2Core (
   listCore,
   printCore,
@@ -30,7 +32,11 @@ import GHC.Types.Name.Occurrence (occNameString)
 import GHC.Types.SrcLoc (RealSrcSpan, SrcSpan)
 import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Module.Name (ModuleName, moduleNameString)
+#else
 import GHC.Unit.Module.Name (ModuleName, moduleNameString)
+#endif
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import GHCSpecter.Util.GHC (printPpr, showPpr)
