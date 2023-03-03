@@ -43,6 +43,7 @@ import GHCSpecter.Server.Types
     ServerState (..),
   )
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
+#if !MIN_VERSION_ghc(9, 6, 0)
 import HieDb.Compat
   ( moduleName,
     moduleNameString,
@@ -50,12 +51,14 @@ import HieDb.Compat
   )
 import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import HieDb.Utils (genDefRow, genRefsAndDecls)
+#endif
 #if MIN_VERSION_ghc(9, 4, 0)
 #elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Iface.Ext.Binary (NameCacheUpdater (NCU))
 import HieDb.Compat (mkSplitUniqSupply)
 #endif
 
+#if !MIN_VERSION_ghc(9, 6, 0)
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
   RefRow'
@@ -91,9 +94,14 @@ convertDefRow DefRow {..} =
     , _def'ELine = defELine
     , _def'ECol = defECol
     }
+#endif
 
 hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
 hieWorker ssRef workQ hiefile = do
+#if MIN_VERSION_ghc(9, 6, 0)
+  pure ()
+#else
+
 #if MIN_VERSION_ghc(9, 4, 0)
   nc <- initNameCache 'z' []
   hieResult <- readHieFile nc hiefile
@@ -122,6 +130,7 @@ hieWorker ssRef workQ hiefile = do
       serverHieState . hieModuleMap
         %~ M.insert modName modHie
     writeTQueue workQ callGraphWork
+#endif
 
 moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do

@@ -35,6 +35,10 @@ package OGDF
   -- by default, ghc finds g++ and that is linked to /usr/bin/g++ on macos.
   ghc-options: -pgmcxx c++
 
+package ghc-specter-daemon
+  -- by default, ghc finds g++ and that is linked to /usr/bin/g++ on macos.
+  ghc-options: -pgmcxx c++
+
 allow-newer:
   Cabal,
   base,
