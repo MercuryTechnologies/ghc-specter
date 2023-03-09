@@ -1,0 +1,42 @@
+Name:		ghc-specter-logcat
+Version:	1.0
+Synopsis:	logging
+Description: 	logging
+Homepage:       http://MercuryTechnologies.github.io/ghc-specter
+License: 	MIT
+License-file:	LICENSE
+Author:		Ian-Woo Kim
+Maintainer: 	Ian-Woo Kim <ianwookim@gmail.com>
+Category:       Application
+Tested-with:    GHC == 9.6
+Build-Type: 	Simple
+Cabal-Version:  2.0
+data-files:     CHANGES
+Source-repository head
+  type: git
+  location: git://github.com/MercuryTechnologies/ghc-specter.git
+
+Executable logcat
+  Main-is:        Main.hs
+  other-modules:  Render
+                  Types
+                  Util.Event
+                  Util.Histo
+  hs-source-dirs: app/logcat
+  ghc-options: -j -Wall -Werror -threaded -rtsopts
+  Build-Depends:
+                  base == 4.*,
+                  bytestring,
+                  containers,
+                  gi-cairo,
+                  gi-cairo-connector >= 0.1.1,
+                  gi-cairo-render >= 0.1.2,
+                  gi-gdk,
+                  gi-gtk,
+                  gi-gtk-hs,
+                  ghc-events,
+                  haskell-gi-base,
+                  lens > 5,
+                  network,
+                  pretty-simple,
+                  stm
