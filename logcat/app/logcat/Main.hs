@@ -7,56 +7,56 @@ module Main where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO, readTVar)
-import qualified Control.Exception as E
+import Control.Exception qualified as E
 import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BL
 import Data.Fixed (Fixed (MkFixed))
 import Data.Foldable (toList)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
-import qualified Data.List as L (foldl')
+import Data.List qualified as L (foldl')
 import Data.Maybe (fromMaybe)
 import Data.Sequence ((|>))
-import qualified Data.Sequence as Seq (empty)
+import Data.Sequence qualified as Seq (empty)
 import GHC.RTS.Events (Event (..))
-import GHC.RTS.Events.Incremental
-  ( Decoder (..),
-    decodeEvents,
-    readHeader,
-  )
-import qualified GI.Cairo.Render as R
+import GHC.RTS.Events.Incremental (
+  Decoder (..),
+  decodeEvents,
+  readHeader,
+ )
+import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector (renderWithContext)
-import qualified GI.Gtk as Gtk
-import Network.Socket
-  ( Family (AF_UNIX),
-    SockAddr (SockAddrUnix),
-    Socket,
-    SocketType (Stream),
-    close,
-    connect,
-    socket,
-    withSocketsDo,
-  )
+import GI.Gtk qualified as Gtk
+import Network.Socket (
+  Family (AF_UNIX),
+  SockAddr (SockAddrUnix),
+  Socket,
+  SocketType (Stream),
+  close,
+  connect,
+  socket,
+  withSocketsDo,
+ )
 import Network.Socket.ByteString (recv)
-import Render
-  ( canvasHeight,
-    canvasWidth,
-    drawLogcatState,
-    flushDoubleBuffer,
-    pixelToSec,
-    secToPixel,
-    timelineMargin,
-  )
+import Render (
+  canvasHeight,
+  canvasWidth,
+  drawLogcatState,
+  flushDoubleBuffer,
+  pixelToSec,
+  secToPixel,
+  timelineMargin,
+ )
 import System.IO (hFlush, stdout)
 import Text.Pretty.Simple (pPrint)
-import Types
-  ( HasLogcatState (..),
-    HasViewState (..),
-    LogcatState,
-    emptyLogcatState,
-  )
+import Types (
+  HasLogcatState (..),
+  HasViewState (..),
+  LogcatState,
+  emptyLogcatState,
+ )
 import Util.Event (eventInfoToString)
 import Util.Histo (aggregateCount, histoAdd)
 
@@ -77,9 +77,9 @@ recordEvent sref ev =
 adjustTimelineOrigin :: LogcatState -> LogcatState
 adjustTimelineOrigin s
   | ltimePos > canvasWidth - timelineMargin =
-    let currCenterTime = pixelToSec origin (canvasWidth * 0.5)
-        deltaTime = ltime - currCenterTime
-     in (logcatViewState . viewTimeOrigin %~ (\x -> x + deltaTime)) s
+      let currCenterTime = pixelToSec origin (canvasWidth * 0.5)
+          deltaTime = ltime - currCenterTime
+       in (logcatViewState . viewTimeOrigin %~ (\x -> x + deltaTime)) s
   | otherwise = s
   where
     origin = s ^. logcatViewState . viewTimeOrigin
@@ -157,8 +157,10 @@ main = do
   sfc <- R.createImageSurface R.FormatARGB32 (floor canvasWidth) (floor canvasHeight)
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   drawingArea <- new Gtk.DrawingArea []
-  _ <- drawingArea `on` #draw $
-    renderWithContext $ do
+  _ <- drawingArea
+    `on` #draw
+    $ renderWithContext
+    $ do
       flushDoubleBuffer sfc
       pure True
   layout <- do

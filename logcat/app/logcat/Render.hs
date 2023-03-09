@@ -1,42 +1,41 @@
-module Render
-  ( -- * GUI parameters
-    canvasWidth,
-    canvasHeight,
-    timelineMargin,
+module Render (
+  -- * GUI parameters
+  canvasWidth,
+  canvasHeight,
+  timelineMargin,
 
-    -- * conversion function
-    secToPixel,
-    pixelToSec,
+  -- * conversion function
+  secToPixel,
+  pixelToSec,
 
-    -- * draw functions
-    drawEventMark,
-    drawTimeGrid,
-    drawTimeline,
-    drawHistBar,
-    drawLogcatState,
+  -- * draw functions
+  drawEventMark,
+  drawTimeGrid,
+  drawTimeline,
+  drawHistBar,
+  drawLogcatState,
 
-    -- * flush double buffer
-    flushDoubleBuffer,
-  )
-where
+  -- * flush double buffer
+  flushDoubleBuffer,
+) where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Fixed (MkFixed), Nano)
 import Data.Foldable (for_)
-import qualified Data.List as L
-import qualified Data.Map as Map
+import Data.List qualified as L
+import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
 import GHC.RTS.Events (Event (..))
-import qualified GI.Cairo.Render as R
-import Types
-  ( HasLogcatState (..),
-    HasViewState (..),
-    LogcatState,
-    ViewState,
-  )
+import GI.Cairo.Render qualified as R
+import Types (
+  HasLogcatState (..),
+  HasViewState (..),
+  LogcatState,
+  ViewState,
+ )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
 
 canvasWidth :: Double

@@ -1,14 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Util.Histo
-  ( aggregateCount,
-    histoAdd,
-  )
-where
+module Util.Histo (
+  aggregateCount,
+  histoAdd,
+) where
 
 import Data.List (group, sort)
 import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Maybe (mapMaybe)
 
 aggregateCount :: [String] -> [(String, Int)]
