@@ -7,6 +7,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception qualified as E
+import Control.Lens ((&), (.~))
 import Control.Monad (forever, replicateM_)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -19,6 +20,7 @@ import GI.Cairo.Render.Connector (renderWithContext)
 import GI.Cairo.Render.Internal qualified as RI
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
+import Log (dumpLog, flushEventQueue)
 import Network.Socket (
   Family (AF_UNIX),
   SockAddr (SockAddrUnix),
@@ -32,13 +34,16 @@ import Render (
   canvasHeight,
   canvasWidth,
   flushDoubleBuffer,
+  xoffset,
+  yoffset,
  )
 import Types (
+  HasLogcatState (..),
+  HasViewState (..),
   LogcatState,
   emptyLogcatState,
  )
-import Log (dumpLog, flushEventQueue)
-
+import View (computeLabelPositions)
 
 tickTock :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> IO ()
 tickTock drawingArea sfc sref = forever $ do
@@ -55,7 +60,10 @@ waitGUIEvent lock = takeMVar lock
 
 main :: IO ()
 main = do
-  sref <- newTVarIO emptyLogcatState
+  let initState =
+        emptyLogcatState
+          & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
+  sref <- newTVarIO initState
   lock :: MVar () <- newEmptyMVar
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]

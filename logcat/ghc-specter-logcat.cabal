@@ -24,6 +24,7 @@ Executable logcat
                   Types
                   Util.Event
                   Util.Histo
+                  View
   hs-source-dirs: app/logcat
   ghc-options:    -j -Wall -Werror -threaded -rtsopts
   extensions:     GHC2021

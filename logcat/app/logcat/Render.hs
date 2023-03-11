@@ -3,6 +3,8 @@ module Render (
   canvasWidth,
   canvasHeight,
   timelineMargin,
+  xoffset,
+  yoffset,
 
   -- * conversion function
   secToPixel,
@@ -20,7 +22,7 @@ module Render (
 ) where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar)
-import Control.Lens ((^.))
+import Control.Lens (at, (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Fixed (MkFixed), Nano)
 import Data.Foldable (for_)
@@ -34,6 +36,7 @@ import Types (
   HasLogcatState (..),
   HasViewState (..),
   LogcatState,
+  Rectangle (..),
   ViewState,
  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
@@ -49,6 +52,12 @@ timelineMargin = 300
 
 timelineScale :: Double
 timelineScale = 50
+
+xoffset :: Double
+xoffset = 10
+
+yoffset :: Double
+yoffset = 100
 
 secToPixel :: Nano -> Nano -> Double
 secToPixel origin sec =
@@ -102,22 +111,21 @@ drawTimeline vs evs = do
   for_ evs $ \ev ->
     drawEventMark vs ev
 
-drawHistBar :: (Double, Double) -> (String, Int) -> R.Render ()
-drawHistBar (xoffset, yoffset) (ev, value) = do
-  let tag = fromMaybe 0 (L.lookup ev eventInfoEnumMap)
-  R.setSourceRGBA 0.16 0.18 0.19 1.0
-  R.setLineWidth 1.0
-  let y = yoffset + 10.0 * fromIntegral tag
-      w = fromIntegral value / 100.0
-  R.moveTo xoffset (y + 10.0)
-  R.setFontSize 8.0
-  R.textPath ev
-  R.fill
-  R.rectangle (xoffset + 100) (y + 2) w 8
-  R.fill
-  R.moveTo (xoffset + 104 + w) (y + 10.0)
-  R.textPath (show value)
-  R.fill
+drawHistBar :: ViewState -> (String, Int) -> R.Render ()
+drawHistBar vs (ev, value) =
+  for_ (vs ^. viewLabelPositions . at ev) $ \(Rectangle x y _ _) -> do
+    R.setSourceRGBA 0.16 0.18 0.19 1.0
+    R.setLineWidth 1.0
+    let w = fromIntegral value / 100.0
+    R.moveTo x (y + 10.0)
+    R.setFontSize 8.0
+    R.textPath ev
+    R.fill
+    R.rectangle (x + 100) (y + 2) w 8
+    R.fill
+    R.moveTo (x + 104 + w) (y + 10.0)
+    R.textPath (show value)
+    R.fill
 
 drawLogcatState :: TVar LogcatState -> R.Render ()
 drawLogcatState sref = do
@@ -128,8 +136,6 @@ drawLogcatState sref = do
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
-  let xoffset = 10
-      yoffset = 100
   drawTimeline vs evs
   R.setSourceRGBA 0 0 1 0.8
   R.setLineWidth 1
@@ -137,7 +143,7 @@ drawLogcatState sref = do
   R.lineTo canvasWidth 150
   R.stroke
   for_ (Map.toAscList hist) $ \(ev, value) ->
-    drawHistBar (xoffset, yoffset) (ev, value)
+    drawHistBar vs (ev, value)
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do

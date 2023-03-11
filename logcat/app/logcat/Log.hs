@@ -1,10 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Log
-  ( dumpLog,
-    flushEventQueue,
-  )
-where
+module Log (
+  dumpLog,
+  flushEventQueue,
+) where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
 import Control.Lens ((%~), (.~), (^.))
