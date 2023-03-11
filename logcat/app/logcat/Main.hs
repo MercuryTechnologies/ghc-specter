@@ -27,8 +27,8 @@ import GHC.RTS.Events.Incremental (
   readHeader,
  )
 import GI.Cairo.Render qualified as R
-import GI.Cairo.Render.Internal qualified as RI
 import GI.Cairo.Render.Connector (renderWithContext)
+import GI.Cairo.Render.Internal qualified as RI
 import GI.Gtk qualified as Gtk
 import Network.Socket (
   Family (AF_UNIX),
