@@ -141,6 +141,7 @@ drawLogcatState sref = do
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do
+  R.setAntialias R.AntialiasNone
   R.setSourceSurface sfc 0 0
   R.setOperator R.OperatorSource
   R.paint

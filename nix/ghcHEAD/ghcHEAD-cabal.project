@@ -61,13 +61,19 @@ source-repository-package
 source-repository-package
         type: git
         location: https://github.com/wavewave/haskell-gi.git
-        tag: 63e1aa2694213f77c7d1ca50af899497205905ef
+        tag: 80909ce97656bc3351a38a679020eb14822b55cc
         subdir: base
 
 source-repository-package
         type: git
         location: https://github.com/wavewave/haskell-gi.git
-        tag: 63e1aa2694213f77c7d1ca50af899497205905ef
+        tag: 80909ce97656bc3351a38a679020eb14822b55cc
+
+source-repository-package
+        type: git
+        location: https://github.com/wavewave/haskell-gi.git
+        tag: 80909ce97656bc3351a38a679020eb14822b55cc
+        subdir: cairo/gi-cairo-render
 
 -- concur-core branch:ghc-9.2
 source-repository-package

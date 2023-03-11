@@ -27,6 +27,7 @@ import GHC.RTS.Events.Incremental (
   readHeader,
  )
 import GI.Cairo.Render qualified as R
+import GI.Cairo.Render.Internal qualified as RI
 import GI.Cairo.Render.Connector (renderWithContext)
 import GI.Gtk qualified as Gtk
 import Network.Socket (
@@ -153,10 +154,12 @@ main :: IO ()
 main = do
   sref <- newTVarIO emptyLogcatState
   _ <- Gtk.init Nothing
-  -- NOTE: this should be closed with surfaceDestroy
-  sfc <- R.createImageSurface R.FormatARGB32 (floor canvasWidth) (floor canvasHeight)
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   drawingArea <- new Gtk.DrawingArea []
+  sF :: Double <- fromIntegral <$> #getScaleFactor drawingArea
+  -- NOTE: this should be closed with surfaceFinish
+  sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
+  RI.surfaceSetDeviceScale sfc sF sF
   _ <- drawingArea
     `on` #draw
     $ renderWithContext
