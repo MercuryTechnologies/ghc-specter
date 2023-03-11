@@ -2,13 +2,13 @@
 
 module Main where
 
-import Control (Control, modifyState, nextEvent, stepControl)
+import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -53,17 +53,21 @@ tickTock drawingArea sfc sref = forever $ do
   postGUIASync $
     #queueDraw drawingArea
 
-hoverHighlight :: (Double, Double) -> LogcatState -> LogcatState
+hoverHighlight :: (Double, Double) -> LogcatState -> (Bool, LogcatState)
 hoverHighlight (x, y) s =
   let vs = s ^. logcatViewState
       posMap = vs ^. viewLabelPositions
-   in (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
+      hitted = hitTest (x, y) posMap
+      shouldUpdate = hitted /= vs ^. viewHitted
+      s' = (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
+   in (shouldUpdate, s')
 
 controlLoop :: Control ()
 controlLoop =
   forever $ do
     MotionNotify (x, y) <- nextEvent
-    modifyState (hoverHighlight (x, y))
+    shouldUpdate <- updateState (hoverHighlight (x, y))
+    when shouldUpdate updateView
 
 waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
@@ -83,6 +87,11 @@ main = do
   -- NOTE: this should be closed with surfaceFinish
   sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
   RI.surfaceSetDeviceScale sfc sF sF
+  let updater = do
+        R.renderWith sfc $ do
+          drawLogcatState sref
+        postGUIASync $
+          #queueDraw drawingArea
   _ <- drawingArea
     `on` #draw
     $ renderWithContext
@@ -93,10 +102,6 @@ main = do
     x <- get mtn #x
     y <- get mtn #y
     putMVar lock (MotionNotify (x, y))
-    R.renderWith sfc $ do
-      drawLogcatState sref
-    postGUIASync $
-      #queueDraw drawingArea
     -- hoverHighlight drawingArea sfc sref (x, y)
     pure True
   #addEvents
@@ -117,7 +122,7 @@ main = do
   _ <- forkIO $ receiver sref
   _ <-
     forkIO $
-      flip runReaderT (lock, sref) $
+      flip runReaderT (lock, sref, updater) $
         loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
   R.surfaceFinish sfc

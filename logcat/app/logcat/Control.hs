@@ -1,41 +1,57 @@
 module Control (
   ControlF (..),
   Control,
-  modifyState,
+  updateState,
+  updateView,
   nextEvent,
   stepControl,
 ) where
 
 import Control.Concurrent.MVar (MVar, takeMVar)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
 import Control.Monad.Free (Free (..), liftF)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Types (CEvent (..), LogcatState)
 
 data ControlF r
-  = ModifyState (LogcatState -> LogcatState) r
+  = UpdateState (LogcatState -> (Bool, LogcatState)) (Bool -> r)
+  | UpdateView r
   | NextEvent (CEvent -> r)
   deriving (Functor)
 
 type Control = Free ControlF
 
-modifyState :: (LogcatState -> LogcatState) -> Control ()
-modifyState upd = liftF (ModifyState upd ())
+-- | update state and notify if it needs GUI update
+updateState :: (LogcatState -> (Bool, LogcatState)) -> Control Bool
+updateState upd = liftF (UpdateState upd id)
+
+updateView :: Control ()
+updateView = liftF (UpdateView ())
 
 nextEvent :: Control CEvent
 nextEvent = liftF (NextEvent id)
 
-stepControl :: Control r -> ReaderT (MVar CEvent, TVar LogcatState) IO (Either (Control r) r)
+stepControl :: Control r -> ReaderT (MVar CEvent, TVar LogcatState, IO ()) IO (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
-stepControl (Free (ModifyState upd next)) = do
-  liftIO $ putStrLn "modifyState"
-  (_, ref) <- ask
-  liftIO $ atomically $ modifyTVar' ref upd
+stepControl (Free (UpdateState upd cont)) = do
+  liftIO $ putStrLn "updateState"
+  (_, ref, _) <- ask
+  shouldUpdate <-
+    liftIO $ atomically $ do
+      s <- readTVar ref
+      let (shouldUpdate, s') = upd s
+      s' `seq` writeTVar ref s'
+      pure shouldUpdate
+  pure (Left (cont shouldUpdate))
+stepControl (Free (UpdateView next)) = do
+  liftIO $ putStrLn "updateView"
+  (_, _, updater) <- ask
+  liftIO updater
   pure (Left next)
 stepControl (Free (NextEvent cont)) = do
   liftIO $ putStrLn "nextEvent"
-  (lock, _) <- ask
+  (lock, _, _) <- ask
   ev <- liftIO $ takeMVar lock
   liftIO $ print ev
   pure (Left (cont ev))
