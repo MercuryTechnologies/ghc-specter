@@ -75,6 +75,9 @@ drawEventMark vs ev = do
       evname = eventInfoToString (evSpec ev)
       tag = fromMaybe 0 (L.lookup evname eventInfoEnumMap)
       y = fromIntegral tag * 3.0
+  if Just evname == vs ^. viewHitted
+    then R.setSourceRGBA 1 0 0 1.0
+    else R.setSourceRGBA 0.16 0.18 0.19 1.0
   R.moveTo x y
   R.lineTo x (y + 2)
   R.stroke
@@ -104,7 +107,6 @@ drawTimeGrid vs = do
 drawTimeline :: ViewState -> Seq Event -> R.Render ()
 drawTimeline vs evs = do
   drawTimeGrid vs
-  R.setSourceRGBA 0.16 0.18 0.19 1.0
   R.setLineWidth 0.3
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
@@ -114,7 +116,9 @@ drawTimeline vs evs = do
 drawHistBar :: ViewState -> (String, Int) -> R.Render ()
 drawHistBar vs (ev, value) =
   for_ (vs ^. viewLabelPositions . at ev) $ \(Rectangle x y _ _) -> do
-    R.setSourceRGBA 0.16 0.18 0.19 1.0
+    if Just ev == vs ^. viewHitted
+      then R.setSourceRGBA 1 0 0 1.0
+      else R.setSourceRGBA 0.16 0.18 0.19 1.0
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     R.moveTo x (y + 10.0)

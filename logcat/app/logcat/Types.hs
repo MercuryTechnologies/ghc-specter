@@ -38,12 +38,13 @@ data ViewState = ViewState
   -- ^ start point of the timeline view
   , _viewLabelPositions :: Map String Rectangle
   -- ^ each event log type label positions
+  , _viewHitted :: Maybe String
   }
 
 makeClassy ''ViewState
 
 emptyViewState :: ViewState
-emptyViewState = ViewState 0 Map.empty
+emptyViewState = ViewState 0 Map.empty Nothing
 
 data LogcatState = LogcatState
   { _logcatEventStore :: Seq Event

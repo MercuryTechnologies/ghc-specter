@@ -1,19 +1,17 @@
 {-# LANGUAGE OverloadedLabels #-}
-{-# OPTIONS_GHC -w #-}
 
 module Main where
 
 import Control (Control, nextEvent, stepControl)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar)
+import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever, replicateM_)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Cairo.Render qualified as R
@@ -34,6 +32,7 @@ import Network.Socket (
 import Render (
   canvasHeight,
   canvasWidth,
+  drawLogcatState,
   flushDoubleBuffer,
   xoffset,
   yoffset,
@@ -59,6 +58,17 @@ controlLoop = replicateM_ 100 nextEvent
 waitGUIEvent :: MVar () -> IO ()
 waitGUIEvent lock = takeMVar lock
 
+hoverHighlight :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> (Double, Double) -> IO ()
+hoverHighlight drawingArea sfc sref (x, y) = do
+  atomically $ modifyTVar' sref $ \s ->
+    let vs = s ^. logcatViewState
+        posMap = vs ^. viewLabelPositions
+     in (logcatViewState . viewHitted  .~ hitTest (x, y) posMap) s
+  R.renderWith sfc $ do
+    drawLogcatState sref
+  postGUIASync $
+    #queueDraw drawingArea
+
 main :: IO ()
 main = do
   let initState =
@@ -68,10 +78,7 @@ main = do
   lock :: MVar () <- newEmptyMVar
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
-  _ <-
-    mainWindow `on` #destroy $ do
-      liftIO $ putStrLn "I am quitting"
-      Gtk.mainQuit
+  _ <- mainWindow `on` #destroy $ Gtk.mainQuit
   drawingArea <- new Gtk.DrawingArea []
   sF :: Double <- fromIntegral <$> #getScaleFactor drawingArea
   -- NOTE: this should be closed with surfaceFinish
@@ -83,33 +90,15 @@ main = do
     $ do
       flushDoubleBuffer sfc
       pure True
-  _ <- drawingArea `on` #buttonPressEvent $ \btn -> do
+  _ <- drawingArea `on` #buttonPressEvent $ \_btn -> do
     putMVar lock ()
-    putStrLn "----------"
-    putStrLn "button pressed"
-    btnNum <- get btn #button
-    print btnNum
     pure True
-  _ <- drawingArea `on` #buttonReleaseEvent $ \btn -> do
-    putStrLn "------------"
-    putStrLn "button released"
-    btnNum <- get btn #button
-    print btnNum
+  _ <- drawingArea `on` #buttonReleaseEvent $ \_btn -> do
     pure True
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
-    putStrLn "--------------"
-    putStrLn "motion event"
-    mDev <- get mtn #device
-    for_ mDev $ \dev -> do
-      txt <- #getName dev
-      print txt
     x <- get mtn #x
     y <- get mtn #y
-    posMap <-
-      atomically $
-        (^. logcatViewState . viewLabelPositions) <$> readTVar sref
-    print (x, y)
-    print $ hitTest (x, y) posMap
+    hoverHighlight drawingArea sfc sref (x, y)
     pure True
   #addEvents
     drawingArea

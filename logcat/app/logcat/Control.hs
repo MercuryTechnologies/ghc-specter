@@ -33,15 +33,15 @@ nextEvent = liftF (NextEvent ())
 stepControl :: Control r -> ReaderT (TVar LogcatState) IO (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
 stepControl (Free (GetState cont)) = do
-  liftIO $ putStrLn "getState"
+  -- liftIO $ putStrLn "getState"
   ref <- ask
   s <- liftIO $ atomically $ readTVar ref
   pure (Left (cont s))
 stepControl (Free (PutState s next)) = do
-  liftIO $ putStrLn "putState"
+  -- liftIO $ putStrLn "putState"
   ref <- ask
   liftIO $ atomically $ writeTVar ref s
   pure (Left next)
 stepControl (Free (NextEvent next)) = do
-  liftIO $ putStrLn "nextEvent"
+  -- liftIO $ putStrLn "nextEvent"
   pure (Left next)
