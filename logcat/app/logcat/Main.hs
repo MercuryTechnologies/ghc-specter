@@ -2,10 +2,10 @@
 
 module Main where
 
-import Control (Control, nextEvent, stepControl)
+import Control (Control, modifyState, nextEvent, stepControl)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
+import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever)
@@ -53,23 +53,20 @@ tickTock drawingArea sfc sref = forever $ do
   postGUIASync $
     #queueDraw drawingArea
 
+hoverHighlight :: (Double, Double) -> LogcatState -> LogcatState
+hoverHighlight (x, y) s =
+  let vs = s ^. logcatViewState
+      posMap = vs ^. viewLabelPositions
+   in (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
+
 controlLoop :: Control ()
 controlLoop =
-  forever nextEvent
+  forever $ do
+    MotionNotify (x, y) <- nextEvent
+    modifyState (hoverHighlight (x, y))
 
 waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
-
-hoverHighlight :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> (Double, Double) -> IO ()
-hoverHighlight drawingArea sfc sref (x, y) = do
-  atomically $ modifyTVar' sref $ \s ->
-    let vs = s ^. logcatViewState
-        posMap = vs ^. viewLabelPositions
-     in (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
-  R.renderWith sfc $ do
-    drawLogcatState sref
-  postGUIASync $
-    #queueDraw drawingArea
 
 main :: IO ()
 main = do
@@ -96,7 +93,11 @@ main = do
     x <- get mtn #x
     y <- get mtn #y
     putMVar lock (MotionNotify (x, y))
-    hoverHighlight drawingArea sfc sref (x, y)
+    R.renderWith sfc $ do
+      drawLogcatState sref
+    postGUIASync $
+      #queueDraw drawingArea
+    -- hoverHighlight drawingArea sfc sref (x, y)
     pure True
   #addEvents
     drawingArea
