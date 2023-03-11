@@ -24,7 +24,8 @@ Executable logcat
                   Util.Event
                   Util.Histo
   hs-source-dirs: app/logcat
-  ghc-options: -j -Wall -Werror -threaded -rtsopts -XGHC2021
+  ghc-options:    -j -Wall -Werror -threaded -rtsopts
+  extensions:     GHC2021
   Build-Depends:
                   base == 4.*,
                   bytestring,

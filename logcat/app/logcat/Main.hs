@@ -1,9 +1,5 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
