@@ -18,12 +18,15 @@ Source-repository head
 
 Executable logcat
   Main-is:        Main.hs
-  other-modules:  Render
+  other-modules:  Log
+                  Render
                   Types
                   Util.Event
                   Util.Histo
+                  View
   hs-source-dirs: app/logcat
-  ghc-options: -j -Wall -Werror -threaded -rtsopts -XGHC2021
+  ghc-options:    -j -Wall -Werror -threaded -rtsopts
+  extensions:     GHC2021
   Build-Depends:
                   base == 4.*,
                   bytestring,
@@ -39,4 +42,5 @@ Executable logcat
                   lens > 5,
                   network,
                   pretty-simple,
-                  stm
+                  stm,
+                  transformers

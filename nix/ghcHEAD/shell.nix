@@ -25,6 +25,7 @@
         echo "ghc.nix shell hook"
         ${attrs.shellHook}
         echo "now entering into ghcHEAD shell. Please set PATH to have your target GHC bin directory."
+        export PS1="\n[ghc-specter:ghcHEAD:\w]$ \0"
       '';
     });
 }

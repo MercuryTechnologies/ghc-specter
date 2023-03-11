@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 module Util.Histo (
   aggregateCount,
   histoAdd,

@@ -1,6 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Types (
+  -- * rectangle
+  Rectangle (..),
+  HasRectangle (..),
+
   -- * view state
   ViewState (..),
   HasViewState (..),
@@ -20,15 +24,27 @@ import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq (empty)
 import GHC.RTS.Events (Event (..))
 
+data Rectangle = Rectangle
+  { _rectX :: Double
+  , _rectY :: Double
+  , _rectW :: Double
+  , _rectH :: Double
+  }
+
+makeClassy ''Rectangle
+
 data ViewState = ViewState
   { _viewTimeOrigin :: Nano
   -- ^ start point of the timeline view
+  , _viewLabelPositions :: Map String Rectangle
+  -- ^ each event log type label positions
+  , _viewHitted :: Maybe String
   }
 
 makeClassy ''ViewState
 
 emptyViewState :: ViewState
-emptyViewState = ViewState 0
+emptyViewState = ViewState 0 Map.empty Nothing
 
 data LogcatState = LogcatState
   { _logcatEventStore :: Seq Event
