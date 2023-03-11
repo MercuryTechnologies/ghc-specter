@@ -63,7 +63,7 @@ hoverHighlight drawingArea sfc sref (x, y) = do
   atomically $ modifyTVar' sref $ \s ->
     let vs = s ^. logcatViewState
         posMap = vs ^. viewLabelPositions
-     in (logcatViewState . viewHitted  .~ hitTest (x, y) posMap) s
+     in (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
   R.renderWith sfc $ do
     drawLogcatState sref
   postGUIASync $
