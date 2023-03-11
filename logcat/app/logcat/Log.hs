@@ -6,7 +6,7 @@ module Log (
 ) where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
-import Control.Lens ((%~), (.~), (^.))
+import Control.Lens ((%~), (.~), (^.), (&))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
 import Data.Fixed (Fixed (MkFixed))
@@ -21,12 +21,10 @@ import GHC.RTS.Events.Incremental (
   decodeEvents,
   readHeader,
  )
-import GI.Cairo.Render qualified as R
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv)
 import Render (
   canvasWidth,
-  drawLogcatState,
   pixelToSec,
   secToPixel,
   timelineMargin,
@@ -67,21 +65,18 @@ recordEvent sref ev =
             else id
     modifyTVar' sref ((logcatEventQueue %~ (|> ev)) . updateLastEventTime)
 
-flushEventQueue :: R.Surface -> TVar LogcatState -> IO ()
-flushEventQueue sfc sref = do
-  atomically $ do
-    s <- readTVar sref
-    let queue = s ^. logcatEventQueue
-        hist = s ^. logcatEventHisto
-        diff = aggregateCount $ fmap (eventInfoToString . evSpec) $ toList queue
-        hist' = L.foldl' histoAdd hist diff
-    modifyTVar' sref $
-      (logcatEventStore %~ (<> queue))
-        . (logcatEventQueue .~ Seq.empty)
-        . (logcatEventHisto .~ hist')
-        . adjustTimelineOrigin
-  R.renderWith sfc $ do
-    drawLogcatState sref
+flushEventQueue :: LogcatState -> (Bool, LogcatState)
+flushEventQueue s =
+  let queue = s ^. logcatEventQueue
+      hist = s ^. logcatEventHisto
+      diff = aggregateCount $ fmap (eventInfoToString . evSpec) $ toList queue
+      hist' = L.foldl' histoAdd hist diff
+      s' = s &
+               (logcatEventStore %~ (<> queue))
+             . (logcatEventQueue .~ Seq.empty)
+             . (logcatEventHisto .~ hist')
+             . adjustTimelineOrigin
+  in (True, s')
 
 dumpLog :: TVar LogcatState -> Socket -> IO ()
 dumpLog sref sock = goHeader ""

@@ -70,5 +70,7 @@ emptyLogcatState =
     , _logcatViewState = emptyViewState
     }
 
-data CEvent = MotionNotify (Double, Double)
+data CEvent
+  = MotionNotify (Double, Double)
+  | FlushEventQueue
   deriving (Show)

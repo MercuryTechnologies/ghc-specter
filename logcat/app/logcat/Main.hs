@@ -46,12 +46,10 @@ import Types (
  )
 import View (computeLabelPositions, hitTest)
 
-tickTock :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> IO ()
-tickTock drawingArea sfc sref = forever $ do
+tickTock :: MVar CEvent -> IO ()
+tickTock lock = forever $ do
   threadDelay 1_000_000
-  flushEventQueue sfc sref
-  postGUIASync $
-    #queueDraw drawingArea
+  putMVar lock FlushEventQueue
 
 hoverHighlight :: (Double, Double) -> LogcatState -> (Bool, LogcatState)
 hoverHighlight (x, y) s =
@@ -65,9 +63,14 @@ hoverHighlight (x, y) s =
 controlLoop :: Control ()
 controlLoop =
   forever $ do
-    MotionNotify (x, y) <- nextEvent
-    shouldUpdate <- updateState (hoverHighlight (x, y))
-    when shouldUpdate updateView
+    ev <- nextEvent
+    case ev of
+      MotionNotify (x, y) -> do
+        shouldUpdate <- updateState (hoverHighlight (x, y))
+        when shouldUpdate updateView
+      FlushEventQueue -> do
+        shouldUpdate <- updateState flushEventQueue
+        when shouldUpdate updateView
 
 waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
@@ -117,7 +120,7 @@ main = do
   #setDefaultSize mainWindow (floor canvasWidth) (floor canvasHeight)
   #showAll mainWindow
 
-  _ <- forkIO $ tickTock drawingArea sfc sref
+  _ <- forkIO $ tickTock lock
   _ <- forkIO $ receiver sref
   _ <-
     forkIO $
