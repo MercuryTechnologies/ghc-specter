@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -w #-}
 
 module Log (
+  recordEvent,
   dumpLog,
   flushEventQueue,
 ) where
@@ -54,16 +56,16 @@ adjustTimelineOrigin s
     ltime = s ^. logcatLastEventTime
     ltimePos = secToPixel origin ltime
 
-recordEvent :: TVar LogcatState -> Event -> IO ()
-recordEvent sref ev =
-  atomically $ do
-    ltime <- (^. logcatLastEventTime) <$> readTVar sref
-    let sec = MkFixed (fromIntegral (evTime ev))
-        updateLastEventTime =
-          if sec > ltime
-            then logcatLastEventTime .~ sec
-            else id
-    modifyTVar' sref ((logcatEventQueue %~ (|> ev)) . updateLastEventTime)
+recordEvent :: Event -> LogcatState -> LogcatState
+recordEvent ev s =
+  let ltime = s ^. logcatLastEventTime
+      sec = MkFixed (fromIntegral (evTime ev))
+      updateLastEventTime =
+        if sec > ltime
+          then logcatLastEventTime .~ sec
+          else id
+      s' = s & ((logcatEventQueue %~ (|> ev)) . updateLastEventTime)
+   in s'
 
 flushEventQueue :: LogcatState -> (Bool, LogcatState)
 flushEventQueue s =
@@ -79,8 +81,8 @@ flushEventQueue s =
             . adjustTimelineOrigin
    in (True, s')
 
-dumpLog :: TVar LogcatState -> Socket -> IO ()
-dumpLog sref sock = goHeader ""
+dumpLog :: (Event -> IO ()) -> Socket -> IO ()
+dumpLog action sock = goHeader ""
   where
     goHeader bs0 = do
       bs1 <- recv sock 1024
@@ -98,7 +100,7 @@ dumpLog sref sock = goHeader ""
     go dec !bytes = do
       case dec of
         Produce ev dec' -> do
-          recordEvent sref ev
+          action ev
           hFlush stdout
           go dec' bytes
         Consume k ->

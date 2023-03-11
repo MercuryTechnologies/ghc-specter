@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# OPTIONS_GHC -w #-}
 
 module Main where
 
 import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TVar, newTVarIO)
+import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever, when)
@@ -19,7 +20,7 @@ import GI.Cairo.Render.Connector (renderWithContext)
 import GI.Cairo.Render.Internal qualified as RI
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
-import Log (dumpLog, flushEventQueue)
+import Log (dumpLog, flushEventQueue, recordEvent)
 import Network.Socket (
   Family (AF_UNIX),
   SockAddr (SockAddrUnix),
@@ -46,6 +47,19 @@ import Types (
  )
 import View (computeLabelPositions, hitTest)
 
+receiver :: MVar CEvent -> TVar LogcatState -> IO ()
+receiver lock sref =
+  withSocketsDo $ do
+    let file = "/tmp/eventlog.sock"
+        open = do
+          sock <- socket AF_UNIX Stream 0
+          connect sock (SockAddrUnix file)
+          pure sock
+        action ev =
+          atomically $ modifyTVar' sref (recordEvent ev)
+    E.bracket open close (dumpLog action)
+    pure ()
+
 tickTock :: MVar CEvent -> IO ()
 tickTock lock = forever $ do
   threadDelay 1_000_000
@@ -60,6 +74,9 @@ hoverHighlight (x, y) s =
       s' = (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
    in (shouldUpdate, s')
 
+waitGUIEvent :: MVar CEvent -> IO CEvent
+waitGUIEvent lock = takeMVar lock
+
 controlLoop :: Control ()
 controlLoop =
   forever $ do
@@ -71,9 +88,6 @@ controlLoop =
       FlushEventQueue -> do
         shouldUpdate <- updateState flushEventQueue
         when shouldUpdate updateView
-
-waitGUIEvent :: MVar CEvent -> IO CEvent
-waitGUIEvent lock = takeMVar lock
 
 main :: IO ()
 main = do
@@ -121,21 +135,10 @@ main = do
   #showAll mainWindow
 
   _ <- forkIO $ tickTock lock
-  _ <- forkIO $ receiver sref
+  _ <- forkIO $ receiver lock sref
   _ <-
     forkIO $
       flip runReaderT (lock, sref, updater) $
         loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
   R.surfaceFinish sfc
-
-receiver :: TVar LogcatState -> IO ()
-receiver sref =
-  withSocketsDo $ do
-    let file = "/tmp/eventlog.sock"
-        open = do
-          sock <- socket AF_UNIX Stream 0
-          connect sock (SockAddrUnix file)
-          pure sock
-    E.bracket open close (dumpLog sref)
-    pure ()
