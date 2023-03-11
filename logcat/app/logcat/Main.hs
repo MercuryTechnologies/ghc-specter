@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# OPTIONS_GHC -w #-}
 
 module Main where
 
 import Control (Control, nextEvent, stepControl)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TVar, newTVarIO)
+import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar)
 import Control.Exception qualified as E
-import Control.Lens ((&), (.~))
+import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever, replicateM_)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -43,7 +44,7 @@ import Types (
   LogcatState,
   emptyLogcatState,
  )
-import View (computeLabelPositions)
+import View (computeLabelPositions, hitTest)
 
 tickTock :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> IO ()
 tickTock drawingArea sfc sref = forever $ do
@@ -102,6 +103,13 @@ main = do
     for_ mDev $ \dev -> do
       txt <- #getName dev
       print txt
+    x <- get mtn #x
+    y <- get mtn #y
+    posMap <-
+      atomically $
+        (^. logcatViewState . viewLabelPositions) <$> readTVar sref
+    print (x, y)
+    print $ hitTest (x, y) posMap
     pure True
   #addEvents
     drawingArea
