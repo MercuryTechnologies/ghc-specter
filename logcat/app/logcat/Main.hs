@@ -2,11 +2,16 @@
 
 module Main where
 
+import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent.STM (newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (forever)
+import Control.Monad (forever, void, when)
+import Control.Monad.Extra (loopM)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Cairo.Render qualified as R
@@ -14,7 +19,7 @@ import GI.Cairo.Render.Connector (renderWithContext)
 import GI.Cairo.Render.Internal qualified as RI
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
-import Log (dumpLog, flushEventQueue)
+import Log (dumpLog, flushEventQueue, recordEvent)
 import Network.Socket (
   Family (AF_UNIX),
   SockAddr (SockAddrUnix),
@@ -33,6 +38,7 @@ import Render (
   yoffset,
  )
 import Types (
+  CEvent (..),
   HasLogcatState (..),
   HasViewState (..),
   LogcatState,
@@ -40,23 +46,48 @@ import Types (
  )
 import View (computeLabelPositions, hitTest)
 
-tickTock :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> IO ()
-tickTock drawingArea sfc sref = forever $ do
-  threadDelay 1_000_000
-  flushEventQueue sfc sref
-  postGUIASync $
-    #queueDraw drawingArea
+receiver :: MVar CEvent -> IO ()
+receiver lock =
+  withSocketsDo $ do
+    let file = "/tmp/eventlog.sock"
+        open = do
+          sock <- socket AF_UNIX Stream 0
+          connect sock (SockAddrUnix file)
+          pure sock
+    E.bracket open close (dumpLog (putMVar lock . RecordEvent))
+    pure ()
 
-hoverHighlight :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> (Double, Double) -> IO ()
-hoverHighlight drawingArea sfc sref (x, y) = do
-  atomically $ modifyTVar' sref $ \s ->
-    let vs = s ^. logcatViewState
-        posMap = vs ^. viewLabelPositions
-     in (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
-  R.renderWith sfc $ do
-    drawLogcatState sref
-  postGUIASync $
-    #queueDraw drawingArea
+tickTock :: MVar CEvent -> IO ()
+tickTock lock = forever $ do
+  threadDelay 1_000_000
+  putMVar lock FlushEventQueue
+
+hoverHighlight :: (Double, Double) -> LogcatState -> (Bool, LogcatState)
+hoverHighlight (x, y) s =
+  let vs = s ^. logcatViewState
+      posMap = vs ^. viewLabelPositions
+      hitted = hitTest (x, y) posMap
+      shouldUpdate = hitted /= vs ^. viewHitted
+      s' = (logcatViewState . viewHitted .~ hitTest (x, y) posMap) s
+   in (shouldUpdate, s')
+
+waitGUIEvent :: MVar CEvent -> IO CEvent
+waitGUIEvent lock = takeMVar lock
+
+controlLoop :: Control ()
+controlLoop =
+  forever $ do
+    ev <- nextEvent
+    case ev of
+      MotionNotify (x, y) -> do
+        shouldUpdate <- updateState (hoverHighlight (x, y))
+        when shouldUpdate updateView
+      FlushEventQueue -> do
+        shouldUpdate <- updateState flushEventQueue
+        when shouldUpdate updateView
+      RecordEvent e -> do
+        let upd s = (False, recordEvent e s)
+        void $ updateState upd
 
 main :: IO ()
 main = do
@@ -64,6 +95,7 @@ main = do
         emptyLogcatState
           & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
   sref <- newTVarIO initState
+  lock <- newEmptyMVar
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -72,6 +104,11 @@ main = do
   -- NOTE: this should be closed with surfaceFinish
   sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
   RI.surfaceSetDeviceScale sfc sF sF
+  let updater = do
+        R.renderWith sfc $ do
+          drawLogcatState sref
+        postGUIASync $
+          #queueDraw drawingArea
   _ <- drawingArea
     `on` #draw
     $ renderWithContext
@@ -81,7 +118,7 @@ main = do
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
     x <- get mtn #x
     y <- get mtn #y
-    hoverHighlight drawingArea sfc sref (x, y)
+    putMVar lock (MotionNotify (x, y))
     pure True
   #addEvents
     drawingArea
@@ -97,18 +134,11 @@ main = do
   #setDefaultSize mainWindow (floor canvasWidth) (floor canvasHeight)
   #showAll mainWindow
 
-  _ <- forkIO $ tickTock drawingArea sfc sref
-  _ <- forkIO $ receiver sref
+  _ <- forkIO $ tickTock lock
+  _ <- forkIO $ receiver lock
+  _ <-
+    forkIO $
+      flip runReaderT (lock, sref, updater) $
+        loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
   R.surfaceFinish sfc
-
-receiver :: TVar LogcatState -> IO ()
-receiver sref =
-  withSocketsDo $ do
-    let file = "/tmp/eventlog.sock"
-        open = do
-          sock <- socket AF_UNIX Stream 0
-          connect sock (SockAddrUnix file)
-          pure sock
-    E.bracket open close (dumpLog sref)
-    pure ()
