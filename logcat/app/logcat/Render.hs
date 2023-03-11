@@ -90,7 +90,7 @@ drawTimeGrid vs = do
   for_ lblTs $ \t -> do
     R.moveTo (secToPixel origin t) 10
     R.textPath (show (floor t :: Int) <> " s")
-    R.stroke
+    R.fill
 
 drawTimeline :: ViewState -> Seq Event -> R.Render ()
 drawTimeline vs evs = do
