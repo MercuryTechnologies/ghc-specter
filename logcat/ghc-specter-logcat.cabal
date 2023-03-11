@@ -19,6 +19,7 @@ Source-repository head
 Executable logcat
   Main-is:        Main.hs
   other-modules:  Control
+                  Log
                   Render
                   Types
                   Util.Event
