@@ -6,7 +6,7 @@ module Log (
 ) where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
-import Control.Lens ((%~), (.~), (^.), (&))
+import Control.Lens ((%~), (&), (.~), (^.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
 import Data.Fixed (Fixed (MkFixed))
@@ -71,12 +71,13 @@ flushEventQueue s =
       hist = s ^. logcatEventHisto
       diff = aggregateCount $ fmap (eventInfoToString . evSpec) $ toList queue
       hist' = L.foldl' histoAdd hist diff
-      s' = s &
-               (logcatEventStore %~ (<> queue))
-             . (logcatEventQueue .~ Seq.empty)
-             . (logcatEventHisto .~ hist')
-             . adjustTimelineOrigin
-  in (True, s')
+      s' =
+        s
+          & (logcatEventStore %~ (<> queue))
+            . (logcatEventQueue .~ Seq.empty)
+            . (logcatEventHisto .~ hist')
+            . adjustTimelineOrigin
+   in (True, s')
 
 dumpLog :: TVar LogcatState -> Socket -> IO ()
 dumpLog sref sock = goHeader ""
