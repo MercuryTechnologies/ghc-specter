@@ -102,7 +102,6 @@ main = do
     x <- get mtn #x
     y <- get mtn #y
     putMVar lock (MotionNotify (x, y))
-    -- hoverHighlight drawingArea sfc sref (x, y)
     pure True
   #addEvents
     drawingArea
