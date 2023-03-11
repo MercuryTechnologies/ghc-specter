@@ -7,16 +7,17 @@ module Control (
   stepControl,
 ) where
 
+import Control.Concurrent.MVar (MVar, takeMVar)
 import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
 import Control.Monad.Free (Free (..), liftF)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
-import Types (LogcatState)
+import Types (CEvent (..), LogcatState)
 
 data ControlF r
   = GetState (LogcatState -> r)
   | PutState LogcatState r
-  | NextEvent r
+  | NextEvent (CEvent -> r)
   deriving (Functor)
 
 type Control = Free ControlF
@@ -27,21 +28,24 @@ getState = liftF (GetState id)
 putState :: LogcatState -> Control ()
 putState s = liftF (PutState s ())
 
-nextEvent :: Control ()
-nextEvent = liftF (NextEvent ())
+nextEvent :: Control CEvent
+nextEvent = liftF (NextEvent id)
 
-stepControl :: Control r -> ReaderT (TVar LogcatState) IO (Either (Control r) r)
+stepControl :: Control r -> ReaderT (MVar CEvent, TVar LogcatState) IO (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
 stepControl (Free (GetState cont)) = do
-  -- liftIO $ putStrLn "getState"
-  ref <- ask
+  liftIO $ putStrLn "getState"
+  (_, ref) <- ask
   s <- liftIO $ atomically $ readTVar ref
   pure (Left (cont s))
 stepControl (Free (PutState s next)) = do
-  -- liftIO $ putStrLn "putState"
-  ref <- ask
+  liftIO $ putStrLn "putState"
+  (_, ref) <- ask
   liftIO $ atomically $ writeTVar ref s
   pure (Left next)
-stepControl (Free (NextEvent next)) = do
+stepControl (Free (NextEvent cont)) = do
   liftIO $ putStrLn "nextEvent"
-  pure (Left next)
+  (lock, _) <- ask
+  ev <- liftIO $ takeMVar lock
+  liftIO $ print ev
+  pure (Left (cont ev))

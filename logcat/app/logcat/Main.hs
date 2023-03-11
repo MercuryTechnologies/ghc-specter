@@ -38,6 +38,7 @@ import Render (
   yoffset,
  )
 import Types (
+  CEvent (..),
   HasLogcatState (..),
   HasViewState (..),
   LogcatState,
@@ -56,7 +57,7 @@ controlLoop :: Control ()
 controlLoop =
   forever nextEvent
 
-waitGUIEvent :: MVar () -> IO ()
+waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
 
 hoverHighlight :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> (Double, Double) -> IO ()
@@ -76,7 +77,7 @@ main = do
         emptyLogcatState
           & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
   sref <- newTVarIO initState
-  lock :: MVar () <- newEmptyMVar
+  lock <- newEmptyMVar
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -92,9 +93,9 @@ main = do
       flushDoubleBuffer sfc
       pure True
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
-    putMVar lock ()
     x <- get mtn #x
     y <- get mtn #y
+    putMVar lock (MotionNotify (x, y))
     hoverHighlight drawingArea sfc sref (x, y)
     pure True
   #addEvents
@@ -115,7 +116,7 @@ main = do
   _ <- forkIO $ receiver sref
   _ <-
     forkIO $
-      flip runReaderT sref $
+      flip runReaderT (lock, sref) $
         loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
   R.surfaceFinish sfc

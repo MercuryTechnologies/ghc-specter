@@ -14,6 +14,9 @@ module Types (
   LogcatState (..),
   HasLogcatState (..),
   emptyLogcatState,
+
+  -- * Control Event
+  CEvent (..),
 ) where
 
 import Control.Lens (makeClassy)
@@ -66,3 +69,6 @@ emptyLogcatState =
     , _logcatLastEventTime = 0
     , _logcatViewState = emptyViewState
     }
+
+data CEvent = MotionNotify (Double, Double)
+  deriving (Show)
