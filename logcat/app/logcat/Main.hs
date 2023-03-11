@@ -1,15 +1,14 @@
 {-# LANGUAGE OverloadedLabels #-}
-{-# OPTIONS_GHC -w #-}
 
 module Main where
 
 import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
+import Control.Concurrent.STM (newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (forever, when)
+import Control.Monad (forever, void, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -47,17 +46,15 @@ import Types (
  )
 import View (computeLabelPositions, hitTest)
 
-receiver :: MVar CEvent -> TVar LogcatState -> IO ()
-receiver lock sref =
+receiver :: MVar CEvent -> IO ()
+receiver lock =
   withSocketsDo $ do
     let file = "/tmp/eventlog.sock"
         open = do
           sock <- socket AF_UNIX Stream 0
           connect sock (SockAddrUnix file)
           pure sock
-        action ev =
-          atomically $ modifyTVar' sref (recordEvent ev)
-    E.bracket open close (dumpLog action)
+    E.bracket open close (dumpLog (putMVar lock . RecordEvent))
     pure ()
 
 tickTock :: MVar CEvent -> IO ()
@@ -88,6 +85,9 @@ controlLoop =
       FlushEventQueue -> do
         shouldUpdate <- updateState flushEventQueue
         when shouldUpdate updateView
+      RecordEvent e -> do
+        let upd s = (False, recordEvent e s)
+        void $ updateState upd
 
 main :: IO ()
 main = do
@@ -135,7 +135,7 @@ main = do
   #showAll mainWindow
 
   _ <- forkIO $ tickTock lock
-  _ <- forkIO $ receiver lock sref
+  _ <- forkIO $ receiver lock
   _ <-
     forkIO $
       flip runReaderT (lock, sref, updater) $

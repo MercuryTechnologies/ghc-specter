@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module Log (
   recordEvent,
@@ -7,7 +6,6 @@ module Log (
   flushEventQueue,
 ) where
 
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
 import Control.Lens ((%~), (&), (.~), (^.))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL

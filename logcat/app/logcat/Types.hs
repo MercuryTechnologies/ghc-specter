@@ -73,4 +73,5 @@ emptyLogcatState =
 data CEvent
   = MotionNotify (Double, Double)
   | FlushEventQueue
+  | RecordEvent Event
   deriving (Show)
