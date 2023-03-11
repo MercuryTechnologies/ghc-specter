@@ -2,11 +2,16 @@
 
 module Main where
 
+import Control (Control, nextEvent, stepControl)
 import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever)
+import Control.Monad.Extra (loopM)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import GI.Cairo.Render qualified as R
@@ -47,6 +52,13 @@ tickTock drawingArea sfc sref = forever $ do
   postGUIASync $
     #queueDraw drawingArea
 
+controlLoop :: Control ()
+controlLoop =
+  forever nextEvent
+
+waitGUIEvent :: MVar () -> IO ()
+waitGUIEvent lock = takeMVar lock
+
 hoverHighlight :: Gtk.DrawingArea -> R.Surface -> TVar LogcatState -> (Double, Double) -> IO ()
 hoverHighlight drawingArea sfc sref (x, y) = do
   atomically $ modifyTVar' sref $ \s ->
@@ -64,6 +76,7 @@ main = do
         emptyLogcatState
           & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
   sref <- newTVarIO initState
+  lock :: MVar () <- newEmptyMVar
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -79,6 +92,7 @@ main = do
       flushDoubleBuffer sfc
       pure True
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
+    putMVar lock ()
     x <- get mtn #x
     y <- get mtn #y
     hoverHighlight drawingArea sfc sref (x, y)
@@ -99,6 +113,10 @@ main = do
 
   _ <- forkIO $ tickTock drawingArea sfc sref
   _ <- forkIO $ receiver sref
+  _ <-
+    forkIO $
+      flip runReaderT sref $
+        loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
   R.surfaceFinish sfc
 
