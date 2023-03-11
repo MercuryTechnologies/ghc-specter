@@ -1,3 +1,5 @@
+{-# LANGUAGE ImportQualifiedPost #-}
+
 module Render (
   -- * GUI parameters
   canvasWidth,
