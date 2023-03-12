@@ -82,7 +82,7 @@ drawEventMark vs ev = do
   R.lineTo x (y + 2)
   R.stroke
 
-drawHighlighter :: ViewState ->R.Render ()
+drawHighlighter :: ViewState -> R.Render ()
 drawHighlighter vs = do
   let mhitted = vs ^. viewHitted
   for_ mhitted $ \hitted -> do

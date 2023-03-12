@@ -5,7 +5,7 @@ module Main where
 import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (newTVarIO)
+import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever, void, when)
@@ -40,9 +40,12 @@ import Render (
 import Types (
   CEvent (..),
   HasLogcatState (..),
+  HasLogcatView (..),
   HasViewState (..),
   LogcatState,
+  LogcatView,
   emptyLogcatState,
+  initLogcatView,
  )
 import View (computeLabelPositions, hitTest)
 
@@ -89,16 +92,8 @@ controlLoop =
         let upd s = (False, recordEvent e s)
         void $ updateState upd
 
-main :: IO ()
-main = do
-  let initState =
-        emptyLogcatState
-          & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
-  sref <- newTVarIO initState
-  lock <- newEmptyMVar
-  _ <- Gtk.init Nothing
-  mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
-  _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+initDrawingAreaAndView :: TVar LogcatState -> IO (Gtk.DrawingArea, LogcatView)
+initDrawingAreaAndView sref = do
   drawingArea <- new Gtk.DrawingArea []
   sF :: Double <- fromIntegral <$> #getScaleFactor drawingArea
   -- NOTE: this should be closed with surfaceFinish
@@ -109,11 +104,25 @@ main = do
           drawLogcatState sref
         postGUIASync $
           #queueDraw drawingArea
+  let view = initLogcatView sfc updater
+  pure (drawingArea, view)
+
+main :: IO ()
+main = do
+  let initState =
+        emptyLogcatState
+          & (logcatViewState . viewLabelPositions .~ computeLabelPositions (xoffset, yoffset))
+  sref <- newTVarIO initState
+  lock <- newEmptyMVar
+  _ <- Gtk.init Nothing
+  mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
+  _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+  (drawingArea, lcView) <- initDrawingAreaAndView sref
   _ <- drawingArea
     `on` #draw
     $ renderWithContext
     $ do
-      flushDoubleBuffer sfc
+      flushDoubleBuffer (lcView ^. logcatViewSurface)
       pure True
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
     x <- get mtn #x
@@ -138,7 +147,7 @@ main = do
   _ <- forkIO $ receiver lock
   _ <-
     forkIO $
-      flip runReaderT (lock, sref, updater) $
+      flip runReaderT (lock, sref, lcView) $
         loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
-  R.surfaceFinish sfc
+  R.surfaceFinish (lcView ^. logcatViewSurface)
