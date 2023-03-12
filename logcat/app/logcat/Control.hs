@@ -35,7 +35,7 @@ nextEvent = liftF (NextEvent id)
 stepControl :: Control r -> ReaderT (MVar CEvent, TVar LogcatState, IO ()) IO (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
 stepControl (Free (UpdateState upd cont)) = do
-  liftIO $ putStrLn "updateState"
+  -- liftIO $ putStrLn "updateState"
   (_, ref, _) <- ask
   shouldUpdate <-
     liftIO $ atomically $ do
@@ -45,13 +45,12 @@ stepControl (Free (UpdateState upd cont)) = do
       pure shouldUpdate
   pure (Left (cont shouldUpdate))
 stepControl (Free (UpdateView next)) = do
-  liftIO $ putStrLn "updateView"
+  -- liftIO $ putStrLn "updateView"
   (_, _, updater) <- ask
   liftIO updater
   pure (Left next)
 stepControl (Free (NextEvent cont)) = do
-  liftIO $ putStrLn "nextEvent"
+  -- liftIO $ putStrLn "nextEvent"
   (lock, _, _) <- ask
   ev <- liftIO $ takeMVar lock
-  liftIO $ print ev
   pure (Left (cont ev))

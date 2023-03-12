@@ -82,6 +82,18 @@ drawEventMark vs ev = do
   R.lineTo x (y + 2)
   R.stroke
 
+drawHighlighter :: ViewState ->R.Render ()
+drawHighlighter vs = do
+  let mhitted = vs ^. viewHitted
+  for_ mhitted $ \hitted -> do
+    let tag = fromMaybe 0 (L.lookup hitted eventInfoEnumMap)
+        y = fromIntegral tag * 3.0
+    R.setSourceRGBA 0 0 0 0.1
+    R.setLineWidth 2.0
+    R.moveTo 0 y
+    R.lineTo canvasWidth y
+    R.stroke
+
 drawTimeGrid :: ViewState -> R.Render ()
 drawTimeGrid vs = do
   let origin = vs ^. viewTimeOrigin
@@ -106,8 +118,12 @@ drawTimeGrid vs = do
 
 drawTimeline :: ViewState -> Seq Event -> R.Render ()
 drawTimeline vs evs = do
+  -- time grid
   drawTimeGrid vs
-  R.setLineWidth 0.3
+  -- highlight hitted event row
+  drawHighlighter vs
+  -- draw actual events
+  R.setLineWidth 1.0
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
   for_ evs $ \ev ->

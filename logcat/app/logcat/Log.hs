@@ -99,7 +99,7 @@ dumpLog action sock = goHeader ""
       case dec of
         Produce ev dec' -> do
           action ev
-          hFlush stdout
+          -- hFlush stdout
           go dec' bytes
         Consume k ->
           if BS.null bytes
