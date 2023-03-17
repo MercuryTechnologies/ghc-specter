@@ -4,9 +4,6 @@ clean:
 
 .PHONY: build
 build:
-	cd plugin && hpack && cd ..;             \
-	cd daemon && hpack && cd ..;             \
-	cd ghc-build-analyzer && hpack && cd ..; \
 	cabal build ghc-build-analyzer;          \
 	cabal build ghc-specter-plugin;          \
 	cabal build ghc-specter-daemon;          \

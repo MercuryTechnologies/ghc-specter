@@ -148,7 +148,6 @@
                 p.ghc-debug-brick
                 p.ghc-debug-convention
                 p.hiedb
-                p.hpack
                 p.hspec
                 p.lens
                 p.pretty-simple
