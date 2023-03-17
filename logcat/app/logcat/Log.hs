@@ -116,7 +116,7 @@ dumpLog action sock = goHeader ""
           pure (Nothing, "")
 
     goEvents :: Header -> Decoder Event -> Int -> BS.ByteString -> IO ()
-    goEvents hdr dec nBytes !bytes = do
+    goEvents hdr dec !nBytes !bytes = do
       (mdec', bytes') <- go dec bytes
       let dec' = fromMaybe (decodeEvents hdr) mdec'
       bytes'' <- recv sock 1024

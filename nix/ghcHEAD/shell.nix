@@ -19,6 +19,8 @@
         pkgs.xorg.libXtst
         pkgs.pkgconfig
         ogdfLib
+
+        pkgs.socat
       ]
       ++ pkgs.lib.optional pkgs.stdenv.isLinux [pkgs.libselinux.dev pkgs.libsepol.dev pkgs.util-linux.dev];
       shellHook = ''
