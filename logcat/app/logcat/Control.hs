@@ -43,7 +43,6 @@ stepControl ::
   ReaderT (MVar CEvent, TVar LogcatState, LogcatView) IO (Either (Control r) r)
 stepControl (Pure r) = pure (Right r)
 stepControl (Free (UpdateState upd cont)) = do
-  -- liftIO $ putStrLn "updateState"
   (_, ref, _) <- ask
   shouldUpdate <-
     liftIO $ atomically $ do
@@ -53,12 +52,10 @@ stepControl (Free (UpdateState upd cont)) = do
       pure shouldUpdate
   pure (Left (cont shouldUpdate))
 stepControl (Free (UpdateView next)) = do
-  -- liftIO $ putStrLn "updateView"
   (_, _, view) <- ask
   liftIO (view ^. logcatViewUpdater)
   pure (Left next)
 stepControl (Free (NextEvent cont)) = do
-  -- liftIO $ putStrLn "nextEvent"
   (lock, _, _) <- ask
   ev <- liftIO $ takeMVar lock
   pure (Left (cont ev))
