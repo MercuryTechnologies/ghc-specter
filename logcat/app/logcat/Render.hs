@@ -67,6 +67,27 @@ pixelToSec :: Nano -> Double -> Nano
 pixelToSec origin px =
   realToFrac ((px - 10.0) / timelineScale) + origin
 
+black :: (Double, Double, Double, Double)
+black = (0, 0, 0, 1)
+
+white :: (Double, Double, Double, Double)
+white = (1, 1, 1, 1)
+
+blue :: (Double, Double, Double, Double)
+blue = (0, 0, 1, 1)
+
+red :: (Double, Double, Double, Double)
+red = (1, 0, 0, 1)
+
+gray :: (Double, Double, Double, Double)
+gray = (0.5, 0.5, 0.5, 1)
+
+transparentize :: (Double, Double, Double, Double) -> (Double, Double, Double, Double)
+transparentize (r, g, b, _) = (r, g, b, 0.5)
+
+setColor :: (Double, Double, Double, Double) -> R.Render ()
+setColor (r, g, b, a) = R.setSourceRGBA r g b a
+
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
   let origin = vs ^. viewTimeOrigin
@@ -76,11 +97,23 @@ drawEventMark vs ev = do
       tag = fromMaybe 0 (L.lookup evname eventInfoEnumMap)
       y = fromIntegral tag * 3.0
   if Just evname == vs ^. viewHitted
-    then R.setSourceRGBA 1 0 0 1.0
-    else R.setSourceRGBA 0.16 0.18 0.19 1.0
+    then setColor red
+    else setColor white
   R.moveTo x y
   R.lineTo x (y + 2)
   R.stroke
+
+drawHighlighter :: ViewState -> R.Render ()
+drawHighlighter vs = do
+  let mhitted = vs ^. viewHitted
+  for_ mhitted $ \hitted -> do
+    let tag = fromMaybe 0 (L.lookup hitted eventInfoEnumMap)
+        y = fromIntegral tag * 3.0
+    setColor (transparentize white)
+    R.setLineWidth 2.0
+    R.moveTo 0 y
+    R.lineTo canvasWidth y
+    R.stroke
 
 drawTimeGrid :: ViewState -> R.Render ()
 drawTimeGrid vs = do
@@ -88,8 +121,8 @@ drawTimeGrid vs = do
       tmax = pixelToSec origin canvasWidth
       ts = [0, 1 .. tmax]
       lblTs = [0, 10 .. tmax]
-  R.setSourceRGBA 0 0 1 0.5
-  R.setLineWidth 0.1
+  setColor (transparentize gray)
+  R.setLineWidth 0.5
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
   for_ ts $ \t -> do
@@ -97,7 +130,7 @@ drawTimeGrid vs = do
     R.moveTo x 0
     R.lineTo x 150
     R.stroke
-  R.setSourceRGBA 0 0 1 0.8
+  setColor blue
   R.setFontSize 8
   for_ lblTs $ \t -> do
     R.moveTo (secToPixel origin t) 10
@@ -106,8 +139,12 @@ drawTimeGrid vs = do
 
 drawTimeline :: ViewState -> Seq Event -> R.Render ()
 drawTimeline vs evs = do
+  -- time grid
   drawTimeGrid vs
-  R.setLineWidth 0.3
+  -- highlight hitted event row
+  drawHighlighter vs
+  -- draw actual events
+  R.setLineWidth 1.0
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
   for_ evs $ \ev ->
@@ -117,8 +154,8 @@ drawHistBar :: ViewState -> (String, Int) -> R.Render ()
 drawHistBar vs (ev, value) =
   for_ (vs ^. viewLabelPositions . at ev) $ \(Rectangle x y _ _) -> do
     if Just ev == vs ^. viewHitted
-      then R.setSourceRGBA 1 0 0 1.0
-      else R.setSourceRGBA 0.16 0.18 0.19 1.0
+      then setColor red
+      else setColor gray
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     R.moveTo x (y + 10.0)
@@ -131,23 +168,50 @@ drawHistBar vs (ev, value) =
     R.textPath (show value)
     R.fill
 
-drawLogcatState :: TVar LogcatState -> R.Render ()
-drawLogcatState sref = do
-  R.setSourceRGB 1 1 1
+drawSeparator :: Double -> R.Render ()
+drawSeparator y = do
+  setColor gray
+  R.setLineWidth 1
+  R.moveTo 0 150
+  R.lineTo canvasWidth y
+  R.stroke
+
+clear :: R.Render ()
+clear = do
+  setColor black
   R.rectangle 0 0 canvasWidth canvasHeight
   R.fill
+
+drawStats :: Int -> R.Render ()
+drawStats nBytes = do
+  let ulx = canvasWidth - w - 10
+      uly = canvasHeight - h - 10
+      w = 150
+      h = 80
+  setColor black
+  R.rectangle ulx uly w h
+  R.fill
+  setColor white
+  R.rectangle ulx uly w h
+  R.stroke
+  R.setFontSize 8
+  R.moveTo (ulx + 10) (uly + 10)
+  R.textPath $ "Received bytes: " ++ show nBytes
+  R.fill
+
+drawLogcatState :: TVar LogcatState -> R.Render ()
+drawLogcatState sref = do
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
+      nBytes = s ^. logcatEventlogBytes
+  clear
   drawTimeline vs evs
-  R.setSourceRGBA 0 0 1 0.8
-  R.setLineWidth 1
-  R.moveTo 0 150
-  R.lineTo canvasWidth 150
-  R.stroke
+  drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
     drawHistBar vs (ev, value)
+  drawStats nBytes
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do

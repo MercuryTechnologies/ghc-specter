@@ -5,7 +5,7 @@ module Main where
 import Control (Control, nextEvent, stepControl, updateState, updateView)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (newTVarIO)
+import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forever, void, when)
@@ -40,9 +40,12 @@ import Render (
 import Types (
   CEvent (..),
   HasLogcatState (..),
+  HasLogcatView (..),
   HasViewState (..),
   LogcatState,
+  LogcatView,
   emptyLogcatState,
+  initLogcatView,
  )
 import View (computeLabelPositions, hitTest)
 
@@ -54,7 +57,7 @@ receiver lock =
           sock <- socket AF_UNIX Stream 0
           connect sock (SockAddrUnix file)
           pure sock
-    E.bracket open close (dumpLog (putMVar lock . RecordEvent))
+    E.bracket open close (dumpLog (putMVar lock . RecordEvent) (putMVar lock . UpdateBytes))
     pure ()
 
 tickTock :: MVar CEvent -> IO ()
@@ -88,6 +91,26 @@ controlLoop =
       RecordEvent e -> do
         let upd s = (False, recordEvent e s)
         void $ updateState upd
+      UpdateBytes nBytes -> do
+        let upd s =
+              let s' = s & (logcatEventlogBytes .~ nBytes)
+               in (False, s')
+        void $ updateState upd
+
+initDrawingAreaAndView :: TVar LogcatState -> IO (Gtk.DrawingArea, LogcatView)
+initDrawingAreaAndView sref = do
+  drawingArea <- new Gtk.DrawingArea []
+  sF :: Double <- fromIntegral <$> #getScaleFactor drawingArea
+  -- NOTE: this should be closed with surfaceFinish
+  sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
+  RI.surfaceSetDeviceScale sfc sF sF
+  let updater = do
+        R.renderWith sfc $ do
+          drawLogcatState sref
+        postGUIASync $
+          #queueDraw drawingArea
+  let view = initLogcatView sfc updater
+  pure (drawingArea, view)
 
 main :: IO ()
 main = do
@@ -99,21 +122,12 @@ main = do
   _ <- Gtk.init Nothing
   mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
   _ <- mainWindow `on` #destroy $ Gtk.mainQuit
-  drawingArea <- new Gtk.DrawingArea []
-  sF :: Double <- fromIntegral <$> #getScaleFactor drawingArea
-  -- NOTE: this should be closed with surfaceFinish
-  sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
-  RI.surfaceSetDeviceScale sfc sF sF
-  let updater = do
-        R.renderWith sfc $ do
-          drawLogcatState sref
-        postGUIASync $
-          #queueDraw drawingArea
+  (drawingArea, lcView) <- initDrawingAreaAndView sref
   _ <- drawingArea
     `on` #draw
     $ renderWithContext
     $ do
-      flushDoubleBuffer sfc
+      flushDoubleBuffer (lcView ^. logcatViewSurface)
       pure True
   _ <- drawingArea `on` #motionNotifyEvent $ \mtn -> do
     x <- get mtn #x
@@ -138,7 +152,7 @@ main = do
   _ <- forkIO $ receiver lock
   _ <-
     forkIO $
-      flip runReaderT (lock, sref, updater) $
+      flip runReaderT (lock, sref, lcView) $
         loopM (\c -> liftIO (waitGUIEvent lock) >> stepControl c) controlLoop
   Gtk.main
-  R.surfaceFinish sfc
+  R.surfaceFinish (lcView ^. logcatViewSurface)

@@ -15,7 +15,7 @@ import Data.List qualified as L (foldl')
 import Data.Maybe (fromMaybe)
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq (empty)
-import GHC.RTS.Events (Event (..))
+import GHC.RTS.Events (Event (..), Header)
 import GHC.RTS.Events.Incremental (
   Decoder (..),
   decodeEvents,
@@ -79,8 +79,8 @@ flushEventQueue s =
             . adjustTimelineOrigin
    in (True, s')
 
-dumpLog :: (Event -> IO ()) -> Socket -> IO ()
-dumpLog action sock = goHeader ""
+dumpLog :: (Event -> IO ()) -> (Int -> IO ()) -> Socket -> IO ()
+dumpLog postEventAction postReceiveAction sock = goHeader ""
   where
     goHeader bs0 = do
       bs1 <- recv sock 1024
@@ -92,14 +92,15 @@ dumpLog action sock = goHeader ""
         Right (hdr, lbs') -> do
           pPrint hdr
           let dec0 = decodeEvents hdr
-          goEvents hdr dec0 (BL.toStrict lbs')
+              bs' = BL.toStrict lbs'
+              nBytes0 = BS.length bs'
+          goEvents hdr dec0 nBytes0 (BL.toStrict lbs')
 
     go :: Decoder Event -> BS.ByteString -> IO (Maybe (Decoder Event), BS.ByteString)
     go dec !bytes = do
       case dec of
         Produce ev dec' -> do
-          action ev
-          hFlush stdout
+          postEventAction ev
           go dec' bytes
         Consume k ->
           if BS.null bytes
@@ -113,8 +114,11 @@ dumpLog action sock = goHeader ""
           -- reset if error happens.
           pure (Nothing, "")
 
-    goEvents hdr dec !bytes = do
+    goEvents :: Header -> Decoder Event -> Int -> BS.ByteString -> IO ()
+    goEvents hdr dec !nBytes !bytes = do
       (mdec', bytes') <- go dec bytes
       let dec' = fromMaybe (decodeEvents hdr) mdec'
       bytes'' <- recv sock 1024
-      goEvents hdr dec' (bytes' <> bytes'')
+      let nBytes' = nBytes + BS.length bytes''
+      postReceiveAction nBytes'
+      goEvents hdr dec' nBytes' (bytes' <> bytes'')
