@@ -168,21 +168,29 @@ drawHistBar vs (ev, value) =
     R.textPath (show value)
     R.fill
 
-drawLogcatState :: TVar LogcatState -> R.Render ()
-drawLogcatState sref = do
+drawSeparator :: Double -> R.Render ()
+drawSeparator y = do
+  setColor gray
+  R.setLineWidth 1
+  R.moveTo 0 150
+  R.lineTo canvasWidth y
+  R.stroke
+
+clear :: R.Render ()
+clear = do
   setColor black
   R.rectangle 0 0 canvasWidth canvasHeight
   R.fill
+
+drawLogcatState :: TVar LogcatState -> R.Render ()
+drawLogcatState sref = do
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
+  clear
   drawTimeline vs evs
-  setColor blue
-  R.setLineWidth 1
-  R.moveTo 0 150
-  R.lineTo canvasWidth 150
-  R.stroke
+  drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
     drawHistBar vs (ev, value)
 
