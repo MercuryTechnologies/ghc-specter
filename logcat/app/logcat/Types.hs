@@ -60,6 +60,7 @@ data LogcatState = LogcatState
   , -- TODO: Queue should be a local state, not a global state, considering STM overhead.
     _logcatEventQueue :: Seq Event
   , _logcatEventHisto :: Map String Int
+  , _logcatEventlogBytes :: Int
   , _logcatLastEventTime :: Nano
   , _logcatViewState :: ViewState
   }
@@ -72,6 +73,7 @@ emptyLogcatState =
     { _logcatEventStore = Seq.empty
     , _logcatEventQueue = Seq.empty
     , _logcatEventHisto = Map.empty
+    , _logcatEventlogBytes = 0
     , _logcatLastEventTime = 0
     , _logcatViewState = emptyViewState
     }
@@ -91,4 +93,5 @@ data CEvent
   = MotionNotify (Double, Double)
   | FlushEventQueue
   | RecordEvent Event
+  | UpdateBytes Int
   deriving (Show)

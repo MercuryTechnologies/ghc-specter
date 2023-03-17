@@ -79,8 +79,8 @@ flushEventQueue s =
             . adjustTimelineOrigin
    in (True, s')
 
-dumpLog :: (Event -> IO ()) -> Socket -> IO ()
-dumpLog action sock = goHeader ""
+dumpLog :: (Event -> IO ()) -> (Int -> IO ()) -> Socket -> IO ()
+dumpLog postEventAction postReceiveAction sock = goHeader ""
   where
     goHeader bs0 = do
       bs1 <- recv sock 1024
@@ -100,7 +100,7 @@ dumpLog action sock = goHeader ""
     go dec !bytes = do
       case dec of
         Produce ev dec' -> do
-          action ev
+          postEventAction ev
           go dec' bytes
         Consume k ->
           if BS.null bytes
@@ -120,5 +120,5 @@ dumpLog action sock = goHeader ""
       let dec' = fromMaybe (decodeEvents hdr) mdec'
       bytes'' <- recv sock 1024
       let nBytes' = nBytes + BS.length bytes''
-      print nBytes'
+      postReceiveAction nBytes'
       goEvents hdr dec' nBytes' (bytes' <> bytes'')

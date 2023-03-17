@@ -182,17 +182,36 @@ clear = do
   R.rectangle 0 0 canvasWidth canvasHeight
   R.fill
 
+drawStats :: Int -> R.Render ()
+drawStats nBytes = do
+  let ulx = canvasWidth - w - 10
+      uly = canvasHeight - h - 10
+      w = 150
+      h = 80
+  setColor black
+  R.rectangle ulx uly w h
+  R.fill
+  setColor white
+  R.rectangle ulx uly w h
+  R.stroke
+  R.setFontSize 8
+  R.moveTo (ulx + 10) (uly + 10)
+  R.textPath $ "Received bytes: " ++ show nBytes
+  R.fill
+
 drawLogcatState :: TVar LogcatState -> R.Render ()
 drawLogcatState sref = do
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
+      nBytes = s ^. logcatEventlogBytes
   clear
   drawTimeline vs evs
   drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
     drawHistBar vs (ev, value)
+  drawStats nBytes
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do

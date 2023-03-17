@@ -57,7 +57,7 @@ receiver lock =
           sock <- socket AF_UNIX Stream 0
           connect sock (SockAddrUnix file)
           pure sock
-    E.bracket open close (dumpLog (putMVar lock . RecordEvent))
+    E.bracket open close (dumpLog (putMVar lock . RecordEvent) (putMVar lock . UpdateBytes))
     pure ()
 
 tickTock :: MVar CEvent -> IO ()
@@ -90,6 +90,11 @@ controlLoop =
         when shouldUpdate updateView
       RecordEvent e -> do
         let upd s = (False, recordEvent e s)
+        void $ updateState upd
+      UpdateBytes nBytes -> do
+        let upd s =
+              let s' = s & (logcatEventlogBytes .~ nBytes)
+               in (False, s')
         void $ updateState upd
 
 initDrawingAreaAndView :: TVar LogcatState -> IO (Gtk.DrawingArea, LogcatView)
