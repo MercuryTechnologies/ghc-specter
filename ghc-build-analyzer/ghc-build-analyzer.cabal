@@ -1,0 +1,152 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.7.
+--
+-- see: https://github.com/sol/hpack
+
+name:           ghc-build-analyzer
+version:        0.1.0.0
+synopsis:       Extract build timing data from GHC output
+description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-build-analyzer#readme>
+category:       Development
+homepage:       https://github.com/MercuryTechnologies/ghc-build-analyzer#readme
+bug-reports:    https://github.com/MercuryTechnologies/ghc-build-analyzer/issues
+author:         Rebecca Turner <rebeccat@mercury.com>,
+                Ian-Woo Kim <iank@mercury.com>
+maintainer:     Rebecca Turner <rebeccat@mercury.com>,
+                Ian-Woo Kim <iank@mercury.com>
+copyright:      © 2022 Mercury Inc. All rights reserved.
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/MercuryTechnologies/ghc-build-analyzer
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_ghc_build_analyzer
+  hs-source-dirs:
+      src
+  default-extensions:
+      BangPatterns
+      BinaryLiterals
+      ConstrainedClassMethods
+      ConstraintKinds
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DoAndIfThenElse
+      EmptyCase
+      EmptyDataDecls
+      EmptyDataDeriving
+      ExistentialQuantification
+      ExplicitForAll
+      FlexibleContexts
+      FlexibleInstances
+      ForeignFunctionInterface
+      GADTSyntax
+      GeneralisedNewtypeDeriving
+      HexFloatLiterals
+      ImplicitPrelude
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      MonomorphismRestriction
+      MultiParamTypeClasses
+      NamedFieldPuns
+      NamedWildCards
+      NumericUnderscores
+      PatternGuards
+      PolyKinds
+      PostfixOperators
+      RankNTypes
+      RelaxedPolyRec
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      StarIsType
+      TraditionalRecordSyntax
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeSynonymInstances
+      OverloadedStrings
+      BlockArguments
+  ghc-options: -Wall
+  build-depends:
+      aeson
+    , base >=4.15 && <5
+    , bytestring
+    , text
+  default-language: Haskell2010
+
+executable ghc-build-analyzer-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_ghc_build_analyzer
+  hs-source-dirs:
+      app
+  default-extensions:
+      BangPatterns
+      BinaryLiterals
+      ConstrainedClassMethods
+      ConstraintKinds
+      DeriveDataTypeable
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveLift
+      DeriveTraversable
+      DoAndIfThenElse
+      EmptyCase
+      EmptyDataDecls
+      EmptyDataDeriving
+      ExistentialQuantification
+      ExplicitForAll
+      FlexibleContexts
+      FlexibleInstances
+      ForeignFunctionInterface
+      GADTSyntax
+      GeneralisedNewtypeDeriving
+      HexFloatLiterals
+      ImplicitPrelude
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      MonomorphismRestriction
+      MultiParamTypeClasses
+      NamedFieldPuns
+      NamedWildCards
+      NumericUnderscores
+      PatternGuards
+      PolyKinds
+      PostfixOperators
+      RankNTypes
+      RelaxedPolyRec
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      StarIsType
+      TraditionalRecordSyntax
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeSynonymInstances
+      OverloadedStrings
+      BlockArguments
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.15 && <5
+    , bytestring
+    , ghc-build-analyzer
+    , optparse-applicative
+    , text
+  default-language: Haskell2010
