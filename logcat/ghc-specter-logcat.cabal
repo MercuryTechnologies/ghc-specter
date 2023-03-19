@@ -39,7 +39,10 @@ Executable logcat
                   gi-cairo-render >= 0.1.2,
                   gi-gdk,
                   gi-gtk,
+                  -- needed for Data.GI.Gtk.Threading
                   gi-gtk-hs,
+                  gi-pango,
+                  gi-pangocairo,                  
                   ghc-events,
                   haskell-gi-base,
                   lens > 5,

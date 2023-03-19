@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLabels #-}
+
 module Render (
   -- * GUI parameters
   canvasWidth,
@@ -40,6 +42,8 @@ import Types (
   ViewState,
  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
+--
+import GI.PangoCairo qualified as PC
 
 canvasWidth :: Double
 canvasWidth = 1440
@@ -131,6 +135,7 @@ drawTimeGrid vs = do
     R.lineTo x 150
     R.stroke
   setColor blue
+  R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
   R.setFontSize 8
   for_ lblTs $ \t -> do
     R.moveTo (secToPixel origin t) 10
@@ -159,6 +164,7 @@ drawHistBar vs (ev, value) =
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     R.moveTo x (y + 10.0)
+    R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
     R.setFontSize 8.0
     R.textPath ev
     R.fill
@@ -201,6 +207,12 @@ drawStats nBytes = do
 
 drawLogcatState :: TVar LogcatState -> R.Render ()
 drawLogcatState sref = do
+  fontMap :: PC.FontMap <- PC.fontMapGetDefault
+  fontFamilies <- #listFamilies fontMap
+  for_ fontFamilies $ \family -> do
+    name <- #getName family
+    liftIO $ print name
+
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
