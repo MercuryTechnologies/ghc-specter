@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Render (
   -- * GUI parameters
@@ -43,6 +44,8 @@ import Types (
  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
 --
+import GI.Cairo.Render.Connector qualified as RC
+import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 
 canvasWidth :: Double
@@ -135,7 +138,7 @@ drawTimeGrid vs = do
     R.lineTo x 150
     R.stroke
   setColor blue
-  R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
+  -- R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
   R.setFontSize 8
   for_ lblTs $ \t -> do
     R.moveTo (secToPixel origin t) 10
@@ -164,7 +167,7 @@ drawHistBar vs (ev, value) =
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     R.moveTo x (y + 10.0)
-    R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
+    -- R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
     R.setFontSize 8.0
     R.textPath ev
     R.fill
@@ -207,18 +210,31 @@ drawStats nBytes = do
 
 drawLogcatState :: TVar LogcatState -> R.Render ()
 drawLogcatState sref = do
+  clear
+
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
-  fontFamilies <- #listFamilies fontMap
-  for_ fontFamilies $ \family -> do
-    name <- #getName family
+  pangoCtxt <- #createContext fontMap
+  family <- #getFamily fontMap "FreeMono"
+  mface <- #getFace family Nothing
+  for_ mface $ \face -> do
+    name <- #getFaceName face
+    liftIO $ putStrLn "here i am"
     liftIO $ print name
+    desc <- #describe face
+    layout :: P.Layout <- P.layoutNew pangoCtxt
+    #setFontDescription layout (Just desc)
+    #setText layout "Hello" (-1)
+    setColor white
+    R.moveTo 100 100
+    ctxt <- RC.getContext
+    PC.showLayout ctxt layout
+    pure ()
 
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
       nBytes = s ^. logcatEventlogBytes
-  clear
   drawTimeline vs evs
   drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
