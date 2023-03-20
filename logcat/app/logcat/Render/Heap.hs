@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -w #-}
 
 module Render.Heap (
   drawHeapView,
@@ -34,9 +33,6 @@ import Types (
 
 scale :: Double
 scale = 1
-
-sz_scale :: Double
-sz_scale = 80.0 / 10_000_000
 
 -- | seconds to pixels in heap view frame
 secToPixel :: Nano -> Nano -> Double
@@ -89,6 +85,11 @@ drawProfile vw (Rectangle ulx uly w h) profile = do
         mapMaybe (\case (t, BlocksSize sz) -> Just (t, sz); _ -> Nothing) profile
       heapLives =
         mapMaybe (\case (t, HeapLive sz) -> Just (t, sz); _ -> Nothing) profile
+      maxSize =
+        case heapSizes of
+          [] -> 10_000_000 -- 10 MB
+          _ -> maximum (fmap snd heapSizes)
+      sz_scale = h / (fromIntegral maxSize * 1.2)
   R.setLineWidth 1
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
