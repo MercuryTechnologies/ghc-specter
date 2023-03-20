@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Render (
   -- * GUI parameters
   canvasWidth,
@@ -9,6 +12,18 @@ module Render (
   -- * conversion function
   secToPixel,
   pixelToSec,
+
+  -- * colors
+  black,
+  white,
+  blue,
+  lightBlue,
+  red,
+  gray,
+
+  -- * color util
+  transparentize,
+  setColor,
 
   -- * draw functions
   drawEventMark,
@@ -26,16 +41,24 @@ import Control.Lens (at, (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Fixed (MkFixed), Nano)
 import Data.Foldable (for_)
+import Data.Int (Int32)
 import Data.List qualified as L
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
+import Data.Text (Text)
+import Data.Text qualified as T
 import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
+import GI.Cairo.Render.Connector qualified as RC
+import GI.Pango qualified as P
+import GI.PangoCairo qualified as PC
 import Types (
   HasLogcatState (..),
+  HasLogcatView (..),
   HasViewState (..),
   LogcatState,
+  LogcatView,
   Rectangle (..),
   ViewState,
  )
@@ -59,6 +82,9 @@ xoffset = 10
 yoffset :: Double
 yoffset = 100
 
+fontSize :: Int32
+fontSize = 8
+
 secToPixel :: Nano -> Nano -> Double
 secToPixel origin sec =
   realToFrac (sec - origin) * timelineScale + 10.0
@@ -76,6 +102,9 @@ white = (1, 1, 1, 1)
 blue :: (Double, Double, Double, Double)
 blue = (0, 0, 1, 1)
 
+lightBlue :: (Double, Double, Double, Double)
+lightBlue = (0.678, 0.847, 0.902, 1)
+
 red :: (Double, Double, Double, Double)
 red = (1, 0, 0, 1)
 
@@ -87,6 +116,18 @@ transparentize (r, g, b, _) = (r, g, b, 0.5)
 
 setColor :: (Double, Double, Double, Double) -> R.Render ()
 setColor (r, g, b, a) = R.setSourceRGBA r g b a
+
+drawText :: LogcatView -> Int32 -> (Double, Double) -> Text -> R.Render ()
+drawText vw sz (x, y) msg = do
+  let pangoCtxt = vw ^. logcatViewPangoContext
+      desc = vw ^. logcatViewFontDesc
+  layout :: P.Layout <- P.layoutNew pangoCtxt
+  #setSize desc (sz * P.SCALE)
+  #setFontDescription layout (Just desc)
+  #setText layout msg (-1)
+  R.moveTo x y
+  ctxt <- RC.getContext
+  PC.showLayout ctxt layout
 
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
@@ -115,8 +156,8 @@ drawHighlighter vs = do
     R.lineTo canvasWidth y
     R.stroke
 
-drawTimeGrid :: ViewState -> R.Render ()
-drawTimeGrid vs = do
+drawTimeGrid :: LogcatView -> ViewState -> R.Render ()
+drawTimeGrid vw vs = do
   let origin = vs ^. viewTimeOrigin
       tmax = pixelToSec origin canvasWidth
       ts = [0, 1 .. tmax]
@@ -130,17 +171,15 @@ drawTimeGrid vs = do
     R.moveTo x 0
     R.lineTo x 150
     R.stroke
-  setColor blue
-  R.setFontSize 8
+  setColor lightBlue
   for_ lblTs $ \t -> do
-    R.moveTo (secToPixel origin t) 10
-    R.textPath (show (floor t :: Int) <> " s")
-    R.fill
+    let msg = T.pack (show (floor t :: Int) <> " s")
+    drawText vw fontSize (secToPixel origin t + 4, 0) msg
 
-drawTimeline :: ViewState -> Seq Event -> R.Render ()
-drawTimeline vs evs = do
+drawTimeline :: LogcatView -> ViewState -> Seq Event -> R.Render ()
+drawTimeline vw vs evs = do
   -- time grid
-  drawTimeGrid vs
+  drawTimeGrid vw vs
   -- highlight hitted event row
   drawHighlighter vs
   -- draw actual events
@@ -150,23 +189,18 @@ drawTimeline vs evs = do
   for_ evs $ \ev ->
     drawEventMark vs ev
 
-drawHistBar :: ViewState -> (String, Int) -> R.Render ()
-drawHistBar vs (ev, value) =
+drawHistBar :: LogcatView -> ViewState -> (String, Int) -> R.Render ()
+drawHistBar vw vs (ev, value) =
   for_ (vs ^. viewLabelPositions . at ev) $ \(Rectangle x y _ _) -> do
     if Just ev == vs ^. viewHitted
       then setColor red
       else setColor gray
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
-    R.moveTo x (y + 10.0)
-    R.setFontSize 8.0
-    R.textPath ev
+    drawText vw fontSize (x, y) (T.pack ev)
+    R.rectangle (x + 100) (y + 2) w (fromIntegral fontSize)
     R.fill
-    R.rectangle (x + 100) (y + 2) w 8
-    R.fill
-    R.moveTo (x + 104 + w) (y + 10.0)
-    R.textPath (show value)
-    R.fill
+    drawText vw fontSize (x + 104 + w, y) (T.pack (show value))
 
 drawSeparator :: Double -> R.Render ()
 drawSeparator y = do
@@ -182,8 +216,8 @@ clear = do
   R.rectangle 0 0 canvasWidth canvasHeight
   R.fill
 
-drawStats :: Int -> R.Render ()
-drawStats nBytes = do
+drawStats :: LogcatView -> Int -> R.Render ()
+drawStats vw nBytes = do
   let ulx = canvasWidth - w - 10
       uly = canvasHeight - h - 10
       w = 150
@@ -194,24 +228,24 @@ drawStats nBytes = do
   setColor white
   R.rectangle ulx uly w h
   R.stroke
-  R.setFontSize 8
-  R.moveTo (ulx + 10) (uly + 10)
-  R.textPath $ "Received bytes: " ++ show nBytes
-  R.fill
 
-drawLogcatState :: TVar LogcatState -> R.Render ()
-drawLogcatState sref = do
+  let msg = T.pack $ "Received bytes: " ++ show nBytes
+  setColor white
+  drawText vw fontSize (ulx + 5, uly + 5) msg
+
+drawLogcatState :: LogcatView -> TVar LogcatState -> R.Render ()
+drawLogcatState vw sref = do
+  clear
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
       nBytes = s ^. logcatEventlogBytes
-  clear
-  drawTimeline vs evs
+  drawTimeline vw vs evs
   drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
-    drawHistBar vs (ev, value)
-  drawStats nBytes
+    drawHistBar vw vs (ev, value)
+  drawStats vw nBytes
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do

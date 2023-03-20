@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -14,11 +15,14 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.Traversable (for)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector (renderWithContext)
 import GI.Cairo.Render.Internal qualified as RI
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
+import GI.Pango qualified as P
+import GI.PangoCairo qualified as PC
 import Log (dumpLog, flushEventQueue, recordEvent)
 import Network.Socket (
   Family (AF_UNIX),
@@ -37,15 +41,15 @@ import Render (
   xoffset,
   yoffset,
  )
+import System.Exit (exitFailure)
 import Types (
   CEvent (..),
   HasLogcatState (..),
   HasLogcatView (..),
   HasViewState (..),
   LogcatState,
-  LogcatView,
+  LogcatView (..),
   emptyLogcatState,
-  initLogcatView,
  )
 import View (computeLabelPositions, hitTest)
 
@@ -97,6 +101,16 @@ controlLoop =
                in (False, s')
         void $ updateState upd
 
+initPangoContextAndFontDesc :: IO (Maybe (P.Context, P.FontDescription))
+initPangoContextAndFontDesc = do
+  fontMap :: PC.FontMap <- PC.fontMapGetDefault
+  pangoCtxt <- #createContext fontMap
+  family <- #getFamily fontMap "FreeSans"
+  mface <- #getFace family Nothing
+  for mface $ \face -> do
+    desc <- #describe face
+    pure (pangoCtxt, desc)
+
 initDrawingAreaAndView :: TVar LogcatState -> IO (Gtk.DrawingArea, LogcatView)
 initDrawingAreaAndView sref = do
   drawingArea <- new Gtk.DrawingArea []
@@ -104,13 +118,23 @@ initDrawingAreaAndView sref = do
   -- NOTE: this should be closed with surfaceFinish
   sfc <- R.createImageSurface R.FormatARGB32 (floor (canvasWidth * sF)) (floor (canvasHeight * sF))
   RI.surfaceSetDeviceScale sfc sF sF
-  let updater = do
+  let updater view = do
         R.renderWith sfc $ do
-          drawLogcatState sref
+          drawLogcatState view sref
         postGUIASync $
           #queueDraw drawingArea
-  let view = initLogcatView sfc updater
-  pure (drawingArea, view)
+  mpctxtDesc <- initPangoContextAndFontDesc
+  case mpctxtDesc of
+    Nothing -> exitFailure
+    Just (pctxt, desc) -> do
+      let view =
+            LogcatView
+              { _logcatViewSurface = sfc
+              , _logcatViewPangoContext = pctxt
+              , _logcatViewFontDesc = desc
+              , _logcatViewUpdater = updater
+              }
+      pure (drawingArea, view)
 
 main :: IO ()
 main = do

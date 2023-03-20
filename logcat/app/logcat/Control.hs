@@ -53,7 +53,7 @@ stepControl (Free (UpdateState upd cont)) = do
   pure (Left (cont shouldUpdate))
 stepControl (Free (UpdateView next)) = do
   (_, _, view) <- ask
-  liftIO (view ^. logcatViewUpdater)
+  liftIO $ (view ^. logcatViewUpdater) view
   pure (Left next)
 stepControl (Free (NextEvent cont)) = do
   (lock, _, _) <- ask
