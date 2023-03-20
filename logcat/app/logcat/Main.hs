@@ -127,12 +127,13 @@ initDrawingAreaAndView sref = do
   case mpctxtDesc of
     Nothing -> exitFailure
     Just (pctxt, desc) -> do
-      let view = LogcatView
-            { _logcatViewSurface = sfc
-            , _logcatViewPangoContext = pctxt
-            , _logcatViewFontDesc = desc
-            , _logcatViewUpdater = updater
-            }
+      let view =
+            LogcatView
+              { _logcatViewSurface = sfc
+              , _logcatViewPangoContext = pctxt
+              , _logcatViewFontDesc = desc
+              , _logcatViewUpdater = updater
+              }
       pure (drawingArea, view)
 
 main :: IO ()

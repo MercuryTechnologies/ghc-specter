@@ -38,6 +38,9 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
+import GI.Cairo.Render.Connector qualified as RC
+import GI.Pango qualified as P
+import GI.PangoCairo qualified as PC
 import Types (
   HasLogcatState (..),
   HasLogcatView (..),
@@ -48,10 +51,6 @@ import Types (
   ViewState,
  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
---
-import GI.Cairo.Render.Connector qualified as RC
-import GI.Pango qualified as P
-import GI.PangoCairo qualified as PC
 
 canvasWidth :: Double
 canvasWidth = 1440
