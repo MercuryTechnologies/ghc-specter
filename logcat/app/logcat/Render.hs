@@ -112,7 +112,6 @@ drawText vw sz (x, y) msg = do
   ctxt <- RC.getContext
   PC.showLayout ctxt layout
 
-
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
   let origin = vs ^. viewTimeOrigin
@@ -140,8 +139,8 @@ drawHighlighter vs = do
     R.lineTo canvasWidth y
     R.stroke
 
-drawTimeGrid :: ViewState -> R.Render ()
-drawTimeGrid vs = do
+drawTimeGrid :: LogcatView -> ViewState -> R.Render ()
+drawTimeGrid vw vs = do
   let origin = vs ^. viewTimeOrigin
       tmax = pixelToSec origin canvasWidth
       ts = [0, 1 .. tmax]
@@ -156,16 +155,14 @@ drawTimeGrid vs = do
     R.lineTo x 150
     R.stroke
   setColor blue
-  R.setFontSize 8
   for_ lblTs $ \t -> do
-    R.moveTo (secToPixel origin t) 10
-    R.textPath (show (floor t :: Int) <> " s")
-    R.fill
+    let msg = T.pack (show (floor t :: Int) <> " s")
+    drawText vw 6 (secToPixel origin t + 4, 0) msg
 
-drawTimeline :: ViewState -> Seq Event -> R.Render ()
-drawTimeline vs evs = do
+drawTimeline :: LogcatView -> ViewState -> Seq Event -> R.Render ()
+drawTimeline vw vs evs = do
   -- time grid
-  drawTimeGrid vs
+  drawTimeGrid vw vs
   -- highlight hitted event row
   drawHighlighter vs
   -- draw actual events
@@ -175,23 +172,18 @@ drawTimeline vs evs = do
   for_ evs $ \ev ->
     drawEventMark vs ev
 
-drawHistBar :: ViewState -> (String, Int) -> R.Render ()
-drawHistBar vs (ev, value) =
+drawHistBar :: LogcatView -> ViewState -> (String, Int) -> R.Render ()
+drawHistBar vw vs (ev, value) =
   for_ (vs ^. viewLabelPositions . at ev) $ \(Rectangle x y _ _) -> do
     if Just ev == vs ^. viewHitted
       then setColor red
       else setColor gray
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
-    R.moveTo x (y + 10.0)
-    R.setFontSize 8.0
-    R.textPath ev
+    drawText vw 6 (x, y) (T.pack ev)
+    R.rectangle (x + 100) (y + 2) w 6
     R.fill
-    R.rectangle (x + 100) (y + 2) w 8
-    R.fill
-    R.moveTo (x + 104 + w) (y + 10.0)
-    R.textPath (show value)
-    R.fill
+    drawText vw 6 (x + 104 + w, y) (T.pack (show value))
 
 drawSeparator :: Double -> R.Render ()
 drawSeparator y = do
@@ -232,10 +224,10 @@ drawLogcatState vw sref = do
       hist = s ^. logcatEventHisto
       vs = s ^. logcatViewState
       nBytes = s ^. logcatEventlogBytes
-  drawTimeline vs evs
+  drawTimeline vw vs evs
   drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
-    drawHistBar vs (ev, value)
+    drawHistBar vw vs (ev, value)
   drawStats vw nBytes
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
