@@ -19,11 +19,11 @@ import Render.Util (
   gray,
   green,
   lightBlue,
+  red,
   separatorPosY,
   setColor,
   transparentize,
   white,
-  red,
  )
 import Types (
   HeapSizeItem (..),

@@ -24,7 +24,6 @@ module Types (
 
   -- * heap size item
   HeapSizeItem (..),
-
 ) where
 
 import Control.Lens (makeClassy)
