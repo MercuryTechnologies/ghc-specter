@@ -105,7 +105,7 @@ initPangoContextAndFontDesc :: IO (Maybe (P.Context, P.FontDescription))
 initPangoContextAndFontDesc = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
-  family <- #getFamily fontMap "FreeMono"
+  family <- #getFamily fontMap "FreeSans"
   mface <- #getFace family Nothing
   for mface $ \face -> do
     desc <- #describe face

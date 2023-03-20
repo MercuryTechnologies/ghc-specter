@@ -29,10 +29,13 @@ import Control.Lens (at, (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Fixed (MkFixed), Nano)
 import Data.Foldable (for_)
+import Data.Int (Int32)
 import Data.List qualified as L
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
+import Data.Text (Text)
+import Data.Text qualified as T
 import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
 import Types (
@@ -96,6 +99,19 @@ transparentize (r, g, b, _) = (r, g, b, 0.5)
 
 setColor :: (Double, Double, Double, Double) -> R.Render ()
 setColor (r, g, b, a) = R.setSourceRGBA r g b a
+
+drawText :: LogcatView -> Int32 -> (Double, Double) -> Text -> R.Render ()
+drawText vw sz (x, y) msg = do
+  let pangoCtxt = vw ^. logcatViewPangoContext
+      desc = vw ^. logcatViewFontDesc
+  layout :: P.Layout <- P.layoutNew pangoCtxt
+  #setSize desc (sz * P.SCALE)
+  #setFontDescription layout (Just desc)
+  #setText layout msg (-1)
+  R.moveTo x y
+  ctxt <- RC.getContext
+  PC.showLayout ctxt layout
+
 
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
@@ -191,8 +207,8 @@ clear = do
   R.rectangle 0 0 canvasWidth canvasHeight
   R.fill
 
-drawStats :: Int -> R.Render ()
-drawStats nBytes = do
+drawStats :: LogcatView -> Int -> R.Render ()
+drawStats vw nBytes = do
   let ulx = canvasWidth - w - 10
       uly = canvasHeight - h - 10
       w = 150
@@ -203,36 +219,14 @@ drawStats nBytes = do
   setColor white
   R.rectangle ulx uly w h
   R.stroke
-  R.setFontSize 8
-  R.moveTo (ulx + 10) (uly + 10)
-  R.textPath $ "Received bytes: " ++ show nBytes
-  R.fill
+
+  let msg = T.pack $ "Received bytes: " ++ show nBytes
+  setColor white
+  drawText vw 6 (ulx + 5, uly + 5) msg
 
 drawLogcatState :: LogcatView -> TVar LogcatState -> R.Render ()
 drawLogcatState vw sref = do
   clear
-
-  let pangoCtxt = vw ^. logcatViewPangoContext
-      desc = vw ^. logcatViewFontDesc
-{-
-  fontMap :: PC.FontMap <- PC.fontMapGetDefault
-  pangoCtxt <- #createContext fontMap
-  family <- #getFamily fontMap "FreeMono"
-  mface <- #getFace family Nothing
-  for_ mface $ \face -> do
-    name <- #getFaceName face
-    liftIO $ putStrLn "here i am"
-    liftIO $ print name
-    desc <- #describe face -}
-  layout :: P.Layout <- P.layoutNew pangoCtxt
-  #setFontDescription layout (Just desc)
-  #setText layout "Hello" (-1)
-  setColor white
-  R.moveTo 100 100
-  ctxt <- RC.getContext
-  PC.showLayout ctxt layout
-  pure ()
-
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
       hist = s ^. logcatEventHisto
@@ -242,7 +236,7 @@ drawLogcatState vw sref = do
   drawSeparator 150
   for_ (Map.toAscList hist) $ \(ev, value) ->
     drawHistBar vs (ev, value)
-  drawStats nBytes
+  drawStats vw nBytes
 
 flushDoubleBuffer :: R.Surface -> R.Render ()
 flushDoubleBuffer sfc = do

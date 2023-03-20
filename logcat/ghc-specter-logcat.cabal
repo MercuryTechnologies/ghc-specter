@@ -49,4 +49,5 @@ Executable logcat
                   network,
                   pretty-simple,
                   stm,
+                  text,
                   transformers
