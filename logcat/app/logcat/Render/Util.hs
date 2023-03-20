@@ -15,6 +15,7 @@ module Render.Util (
   blue,
   lightBlue,
   red,
+  green,
   gray,
 
   -- * color util
@@ -71,6 +72,9 @@ lightBlue = (0.678, 0.847, 0.902, 1)
 
 red :: (Double, Double, Double, Double)
 red = (1, 0, 0, 1)
+
+green :: (Double, Double, Double, Double)
+green = (0, 1, 0, 1)
 
 gray :: (Double, Double, Double, Double)
 gray = (0.5, 0.5, 0.5, 1)

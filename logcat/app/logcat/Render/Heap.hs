@@ -1,11 +1,14 @@
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -w #-}
 
 module Render.Heap (
   drawHeapView,
 ) where
 
+import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Nano)
 import Data.Foldable (for_)
+import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
 import Render.Util (
@@ -15,17 +18,25 @@ import Render.Util (
   drawText,
   fontSize,
   gray,
+  green,
   lightBlue,
-  -- secToPixel,
   separatorPosY,
   setColor,
   transparentize,
   white,
   red,
  )
-import Types (LogcatView, Rectangle (..))
+import Types (
+  HeapSizeItem (..),
+  LogcatView,
+  Rectangle (..),
+ )
 
+scale :: Double
 scale = 1
+
+sz_scale :: Double
+sz_scale = 80.0 / 10_000_000
 
 -- | seconds to pixels in heap view frame
 secToPixel :: Nano -> Nano -> Double
@@ -43,7 +54,6 @@ drawGrid vw (Rectangle ulx uly w h) = do
       tmax = 1000
       ts = [0, 10 .. tmax]
       lblTs = [0, 60 .. tmax]
-
   R.setLineWidth 0.5
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
@@ -70,8 +80,34 @@ drawGrid vw (Rectangle ulx uly w h) = do
     drawText vw 6 (secToPixel origin t + 2, 0) msg
   R.restore
 
-drawHeapView :: LogcatView -> R.Render ()
-drawHeapView vw = do
+drawProfile :: LogcatView -> Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
+drawProfile vw (Rectangle ulx uly w h) profile = do
+  let origin = 0
+  let heapSizes =
+        mapMaybe (\case (t, HeapSize sz) -> Just (t, sz); _ -> Nothing) profile
+      blocksSizes =
+        mapMaybe (\case (t, BlocksSize sz) -> Just (t, sz); _ -> Nothing) profile
+      heapLives =
+        mapMaybe (\case (t, HeapLive sz) -> Just (t, sz); _ -> Nothing) profile
+  R.setLineWidth 1
+  R.setLineCap R.LineCapRound
+  R.setLineJoin R.LineJoinRound
+  R.save
+  R.translate ulx uly
+  let showLine color dat = do
+        setColor color
+        R.moveTo 0 h
+        for_ dat $ \(t, sz) -> do
+          let x = secToPixel origin t
+          R.lineTo (realToFrac t) (h - fromIntegral sz * sz_scale)
+        R.stroke
+  showLine red heapSizes
+  showLine green blocksSizes
+  showLine lightBlue heapLives
+  R.restore
+
+drawHeapView :: LogcatView -> [(Nano, HeapSizeItem)] -> R.Render ()
+drawHeapView vw profile = do
   let ulx = canvasWidth - w - 10
       uly = separatorPosY + 10
       w = 800
@@ -84,3 +120,4 @@ drawHeapView vw = do
   R.stroke
   let rect = Rectangle ulx uly w h
   drawGrid vw rect
+  drawProfile vw rect profile

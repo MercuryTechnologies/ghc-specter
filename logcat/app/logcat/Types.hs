@@ -21,6 +21,10 @@ module Types (
 
   -- * Control Event
   CEvent (..),
+
+  -- * heap size item
+  HeapSizeItem (..),
+
 ) where
 
 import Control.Lens (makeClassy)
@@ -93,4 +97,10 @@ data CEvent
   | FlushEventQueue
   | RecordEvent Event
   | UpdateBytes Int
+  deriving (Show)
+
+data HeapSizeItem
+  = HeapLive Int
+  | BlocksSize Int
+  | HeapSize Int
   deriving (Show)
