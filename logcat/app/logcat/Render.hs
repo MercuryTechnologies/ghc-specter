@@ -13,6 +13,18 @@ module Render (
   secToPixel,
   pixelToSec,
 
+  -- * colors
+  black,
+  white,
+  blue,
+  lightBlue,
+  red,
+  gray,
+
+  -- * color util
+  transparentize,
+  setColor,
+
   -- * draw functions
   drawEventMark,
   drawTimeGrid,
@@ -71,7 +83,7 @@ yoffset :: Double
 yoffset = 100
 
 fontSize :: Int32
-fontSize = 6
+fontSize = 8
 
 secToPixel :: Nano -> Nano -> Double
 secToPixel origin sec =
@@ -89,6 +101,9 @@ white = (1, 1, 1, 1)
 
 blue :: (Double, Double, Double, Double)
 blue = (0, 0, 1, 1)
+
+lightBlue :: (Double, Double, Double, Double)
+lightBlue = (0.678, 0.847, 0.902, 1)
 
 red :: (Double, Double, Double, Double)
 red = (1, 0, 0, 1)
@@ -156,7 +171,7 @@ drawTimeGrid vw vs = do
     R.moveTo x 0
     R.lineTo x 150
     R.stroke
-  setColor blue
+  setColor lightBlue
   for_ lblTs $ \t -> do
     let msg = T.pack (show (floor t :: Int) <> " s")
     drawText vw fontSize (secToPixel origin t + 4, 0) msg
@@ -183,7 +198,7 @@ drawHistBar vw vs (ev, value) =
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     drawText vw fontSize (x, y) (T.pack ev)
-    R.rectangle (x + 100) (y + 2) w 6
+    R.rectangle (x + 100) (y + 2) w (fromIntegral fontSize)
     R.fill
     drawText vw fontSize (x + 104 + w, y) (T.pack (show value))
 

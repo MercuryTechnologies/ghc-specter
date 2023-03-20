@@ -14,8 +14,8 @@ computeLabelPositions (xoffset, yoffset) = Map.fromList $ fmap calc eventInfoEnu
   where
     calc (tag, tagEnum) =
       let x = xoffset
-          y = yoffset + 10.0 * fromIntegral tagEnum
-       in (tag, Rectangle x y 50 10)
+          y = yoffset + 12.0 * fromIntegral tagEnum
+       in (tag, Rectangle x y 50 12)
 
 hitTest :: (Double, Double) -> Map String Rectangle -> Maybe String
 hitTest (x, y) posMap =
