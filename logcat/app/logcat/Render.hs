@@ -13,12 +13,14 @@ import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import GI.Cairo.Render qualified as R
+import Render.Heap (drawHeapView)
 import Render.Hist (drawHisto)
 import Render.Stat (drawStats)
 import Render.Timeline (drawTimeline)
 import Render.Util (
   clear,
   drawSeparator,
+  separatorPosY,
  )
 import Types (
   HasLogcatState (..),
@@ -38,7 +40,8 @@ drawLogcatState vw sref = do
       hitted = vs ^. viewHitted
       nBytes = s ^. logcatEventlogBytes
   drawTimeline vw vs evs
-  drawSeparator 150
+  drawSeparator separatorPosY
+  drawHeapView vw
   drawHisto vw labelPos hitted hist
   drawStats vw nBytes
 

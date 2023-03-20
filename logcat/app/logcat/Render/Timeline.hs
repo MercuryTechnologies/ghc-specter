@@ -1,4 +1,10 @@
 module Render.Timeline (
+  -- * conversion function
+  timelineMargin,
+  secToPixel,
+  pixelToSec,
+
+  -- * draw time line view
   drawTimeline,
 ) where
 
@@ -17,9 +23,7 @@ import Render.Util (
   fontSize,
   gray,
   lightBlue,
-  pixelToSec,
   red,
-  secToPixel,
   setColor,
   transparentize,
   white,
@@ -30,6 +34,20 @@ import Types (
   ViewState,
  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
+
+timelineMargin :: Double
+timelineMargin = 300
+
+timelineScale :: Double
+timelineScale = 50
+
+secToPixel :: Nano -> Nano -> Double
+secToPixel origin sec =
+  realToFrac (sec - origin) * timelineScale + 10.0
+
+pixelToSec :: Nano -> Double -> Nano
+pixelToSec origin px =
+  realToFrac ((px - 10.0) / timelineScale) + origin
 
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
@@ -75,7 +93,7 @@ drawTimeGrid vw vs = do
     R.stroke
   setColor lightBlue
   for_ lblTs $ \t -> do
-    let msg = T.pack (show (floor t :: Int) <> " s")
+    let msg = T.pack (show (floor t :: Int) <> "s")
     drawText vw fontSize (secToPixel origin t + 4, 0) msg
 
 drawTimeline :: LogcatView -> ViewState -> Seq Event -> R.Render ()
