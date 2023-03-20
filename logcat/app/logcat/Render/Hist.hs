@@ -1,5 +1,5 @@
 module Render.Hist (
-  drawHisto
+  drawHisto,
 ) where
 
 import Control.Lens (at, (^.))
