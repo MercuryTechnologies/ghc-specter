@@ -18,7 +18,6 @@ module Types (
   -- * top-level view system state
   LogcatView (..),
   HasLogcatView (..),
-  initLogcatView,
 
   -- * Control Event
   CEvent (..),
@@ -32,6 +31,7 @@ import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq (empty)
 import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
+import GI.Pango qualified as P
 
 data Rectangle = Rectangle
   { _rectX :: Double
@@ -81,13 +81,12 @@ emptyLogcatState =
 -- | This holds all system-level view state such as cairo surfaces
 data LogcatView = LogcatView
   { _logcatViewSurface :: R.Surface
-  , _logcatViewUpdater :: IO ()
+  , _logcatViewPangoContext :: P.Context
+  , _logcatViewFontDesc :: P.FontDescription
+  , _logcatViewUpdater :: LogcatView -> IO ()
   }
 
 makeClassy ''LogcatView
-
-initLogcatView :: R.Surface -> IO () -> LogcatView
-initLogcatView sfc updater = LogcatView sfc updater
 
 data CEvent
   = MotionNotify (Double, Double)

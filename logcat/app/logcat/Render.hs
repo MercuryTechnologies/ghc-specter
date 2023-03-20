@@ -37,8 +37,10 @@ import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
 import Types (
   HasLogcatState (..),
+  HasLogcatView (..),
   HasViewState (..),
   LogcatState,
+  LogcatView,
   Rectangle (..),
   ViewState,
  )
@@ -138,7 +140,6 @@ drawTimeGrid vs = do
     R.lineTo x 150
     R.stroke
   setColor blue
-  -- R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
   R.setFontSize 8
   for_ lblTs $ \t -> do
     R.moveTo (secToPixel origin t) 10
@@ -167,7 +168,6 @@ drawHistBar vs (ev, value) =
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
     R.moveTo x (y + 10.0)
-    -- R.selectFontFace "Noto Sans" R.FontSlantNormal R.FontWeightNormal
     R.setFontSize 8.0
     R.textPath ev
     R.fill
@@ -208,10 +208,13 @@ drawStats nBytes = do
   R.textPath $ "Received bytes: " ++ show nBytes
   R.fill
 
-drawLogcatState :: TVar LogcatState -> R.Render ()
-drawLogcatState sref = do
+drawLogcatState :: LogcatView -> TVar LogcatState -> R.Render ()
+drawLogcatState vw sref = do
   clear
 
+  let pangoCtxt = vw ^. logcatViewPangoContext
+      desc = vw ^. logcatViewFontDesc
+{-
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
   family <- #getFamily fontMap "FreeMono"
@@ -220,15 +223,15 @@ drawLogcatState sref = do
     name <- #getFaceName face
     liftIO $ putStrLn "here i am"
     liftIO $ print name
-    desc <- #describe face
-    layout :: P.Layout <- P.layoutNew pangoCtxt
-    #setFontDescription layout (Just desc)
-    #setText layout "Hello" (-1)
-    setColor white
-    R.moveTo 100 100
-    ctxt <- RC.getContext
-    PC.showLayout ctxt layout
-    pure ()
+    desc <- #describe face -}
+  layout :: P.Layout <- P.layoutNew pangoCtxt
+  #setFontDescription layout (Just desc)
+  #setText layout "Hello" (-1)
+  setColor white
+  R.moveTo 100 100
+  ctxt <- RC.getContext
+  PC.showLayout ctxt layout
+  pure ()
 
   s <- liftIO $ atomically $ readTVar sref
   let evs = s ^. logcatEventStore
