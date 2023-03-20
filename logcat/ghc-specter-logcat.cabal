@@ -21,6 +21,9 @@ Executable logcat
   other-modules:  Control
                   Log
                   Render
+                  Render.Stat
+                  Render.Timeline
+                  Render.Util
                   Types
                   Util.Event
                   Util.Histo

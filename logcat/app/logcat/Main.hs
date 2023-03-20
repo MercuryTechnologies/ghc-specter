@@ -34,10 +34,12 @@ import Network.Socket (
   withSocketsDo,
  )
 import Render (
-  canvasHeight,
-  canvasWidth,
   drawLogcatState,
   flushDoubleBuffer,
+ )
+import Render.Util (
+  canvasHeight,
+  canvasWidth,
   xoffset,
   yoffset,
  )
