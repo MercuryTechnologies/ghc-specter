@@ -34,10 +34,12 @@ import Network.Socket (
   withSocketsDo,
  )
 import Render (
-  canvasHeight,
-  canvasWidth,
   drawLogcatState,
   flushDoubleBuffer,
+ )
+import Render.Util (
+  canvasHeight,
+  canvasWidth,
   xoffset,
   yoffset,
  )
@@ -82,7 +84,8 @@ waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
 
 controlLoop :: Control ()
-controlLoop =
+controlLoop = do
+  updateView
   forever $ do
     ev <- nextEvent
     case ev of

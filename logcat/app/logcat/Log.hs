@@ -23,7 +23,7 @@ import GHC.RTS.Events.Incremental (
  )
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv)
-import Render (
+import Render.Util (
   canvasWidth,
   pixelToSec,
   secToPixel,
