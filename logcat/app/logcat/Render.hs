@@ -2,12 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render (
-  -- * draw functions
-
-  -- drawEventMark,
-  -- drawTimeGrid,
-  -- drawTimeline,
-  -- drawHistBar,
+  -- * draw all
   drawLogcatState,
 
   -- * flush double buffer
