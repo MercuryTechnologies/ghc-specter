@@ -82,7 +82,8 @@ waitGUIEvent :: MVar CEvent -> IO CEvent
 waitGUIEvent lock = takeMVar lock
 
 controlLoop :: Control ()
-controlLoop =
+controlLoop = do
+  updateView
   forever $ do
     ev <- nextEvent
     case ev of
