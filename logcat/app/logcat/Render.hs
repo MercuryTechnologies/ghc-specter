@@ -70,6 +70,9 @@ xoffset = 10
 yoffset :: Double
 yoffset = 100
 
+fontSize :: Int32
+fontSize = 6
+
 secToPixel :: Nano -> Nano -> Double
 secToPixel origin sec =
   realToFrac (sec - origin) * timelineScale + 10.0
@@ -156,7 +159,7 @@ drawTimeGrid vw vs = do
   setColor blue
   for_ lblTs $ \t -> do
     let msg = T.pack (show (floor t :: Int) <> " s")
-    drawText vw 6 (secToPixel origin t + 4, 0) msg
+    drawText vw fontSize (secToPixel origin t + 4, 0) msg
 
 drawTimeline :: LogcatView -> ViewState -> Seq Event -> R.Render ()
 drawTimeline vw vs evs = do
@@ -179,10 +182,10 @@ drawHistBar vw vs (ev, value) =
       else setColor gray
     R.setLineWidth 1.0
     let w = fromIntegral value / 100.0
-    drawText vw 6 (x, y) (T.pack ev)
+    drawText vw fontSize (x, y) (T.pack ev)
     R.rectangle (x + 100) (y + 2) w 6
     R.fill
-    drawText vw 6 (x + 104 + w, y) (T.pack (show value))
+    drawText vw fontSize (x + 104 + w, y) (T.pack (show value))
 
 drawSeparator :: Double -> R.Render ()
 drawSeparator y = do
@@ -213,7 +216,7 @@ drawStats vw nBytes = do
 
   let msg = T.pack $ "Received bytes: " ++ show nBytes
   setColor white
-  drawText vw 6 (ulx + 5, uly + 5) msg
+  drawText vw fontSize (ulx + 5, uly + 5) msg
 
 drawLogcatState :: LogcatView -> TVar LogcatState -> R.Render ()
 drawLogcatState vw sref = do
