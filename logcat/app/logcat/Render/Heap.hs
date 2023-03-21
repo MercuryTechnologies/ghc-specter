@@ -1,10 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Render.Heap (
+  secToPixel,
+  pixelToSec,
   drawHeapView,
 ) where
 
-import Control.Monad.IO.Class (liftIO)
 import Data.Fixed (Nano)
 import Data.Foldable (for_)
 import Data.Maybe (mapMaybe)
@@ -12,10 +13,8 @@ import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
 import Render.Util (
   black,
-  canvasHeight,
   canvasWidth,
   drawText,
-  fontSize,
   gray,
   green,
   lightBlue,
@@ -45,7 +44,7 @@ pixelToSec origin px =
   realToFrac (px / scale) + origin
 
 drawGrid :: LogcatView -> Rectangle -> R.Render ()
-drawGrid vw (Rectangle ulx uly w h) = do
+drawGrid vw (Rectangle ulx uly _w h) = do
   let origin = 0
       tmax = 1000
       ts = [0, 10 .. tmax]
@@ -76,8 +75,8 @@ drawGrid vw (Rectangle ulx uly w h) = do
     drawText vw 6 (secToPixel origin t + 2, 0) msg
   R.restore
 
-drawProfile :: LogcatView -> Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
-drawProfile vw (Rectangle ulx uly w h) profile = do
+drawProfile :: Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
+drawProfile (Rectangle ulx uly _w h) profile = do
   let origin = 0
   let heapSizes =
         mapMaybe (\case (t, HeapSize sz) -> Just (t, sz); _ -> Nothing) profile
@@ -100,7 +99,7 @@ drawProfile vw (Rectangle ulx uly w h) profile = do
         R.moveTo 0 h
         for_ dat $ \(t, sz) -> do
           let x = secToPixel origin t
-          R.lineTo (realToFrac t) (h - fromIntegral sz * sz_scale)
+          R.lineTo x (h - fromIntegral sz * sz_scale)
         R.stroke
   showLine red heapSizes
   showLine green blocksSizes
@@ -121,4 +120,4 @@ drawHeapView vw profile = do
   R.stroke
   let rect = Rectangle ulx uly w h
   drawGrid vw rect
-  drawProfile vw rect profile
+  drawProfile rect profile
