@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Render.Heap (
+  heapViewWidth,
   secToPixel,
   pixelToSec,
   drawHeapView,
@@ -8,7 +9,9 @@ module Render.Heap (
 
 import Control.Lens ((^.))
 import Data.Fixed (Nano)
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
+import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
@@ -35,6 +38,9 @@ import Types (
 
 scale :: Double
 scale = 20
+
+heapViewWidth :: Double
+heapViewWidth = 800
 
 -- | seconds to pixels in heap view frame
 secToPixel :: Nano -> Nano -> Double
@@ -81,39 +87,42 @@ drawGrid vw vs (Rectangle ulx uly _w h) = do
 drawProfile :: ViewState -> Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
 drawProfile vs (Rectangle ulx uly _w h) profile = do
   let origin = vs ^. viewHeapOrigin
-  let heapSizes =
-        mapMaybe (\case (t, HeapSize sz) -> Just (t, sz); _ -> Nothing) profile
-      blocksSizes =
-        mapMaybe (\case (t, BlocksSize sz) -> Just (t, sz); _ -> Nothing) profile
-      heapLives =
-        mapMaybe (\case (t, HeapLive sz) -> Just (t, sz); _ -> Nothing) profile
+  let mheapSizes =
+        NE.nonEmpty $
+          mapMaybe (\case (t, HeapSize sz) -> Just (t, sz); _ -> Nothing) profile
+      mblocksSizes =
+        NE.nonEmpty $
+          mapMaybe (\case (t, BlocksSize sz) -> Just (t, sz); _ -> Nothing) profile
+      mheapLives =
+        NE.nonEmpty $
+          mapMaybe (\case (t, HeapLive sz) -> Just (t, sz); _ -> Nothing) profile
       maxSize =
-        case heapSizes of
-          [] -> 10_000_000 -- 10 MB
-          _ -> maximum (fmap snd heapSizes)
+        case mheapSizes of
+          Nothing -> 10_000_000 -- 10 MB
+          Just xs -> maximum (fmap snd xs)
       sz_scale = h / (fromIntegral maxSize * 1.2)
   R.setLineWidth 1
   R.setLineCap R.LineCapRound
   R.setLineJoin R.LineJoinRound
   R.save
   R.translate ulx uly
-  let showLine color dat = do
+  let showLine color ((t0, sz0) :| xs) = do
         setColor color
-        R.moveTo 0 h
-        for_ dat $ \(t, sz) -> do
+        R.moveTo (secToPixel origin t0) (h - fromIntegral sz0 * sz_scale)
+        for_ xs $ \(t, sz) -> do
           let x = secToPixel origin t
           R.lineTo x (h - fromIntegral sz * sz_scale)
         R.stroke
-  showLine red heapSizes
-  showLine green blocksSizes
-  showLine lightBlue heapLives
+  traverse_ (showLine red) mheapSizes
+  traverse_ (showLine green) mblocksSizes
+  traverse_ (showLine lightBlue) mheapLives
   R.restore
 
 drawHeapView :: LogcatView -> ViewState -> [(Nano, HeapSizeItem)] -> R.Render ()
 drawHeapView vw vs profile = do
   let ulx = canvasWidth - w - 10
       uly = separatorPosY + 10
-      w = 800
+      w = heapViewWidth
       h = 80
   setColor black
   R.rectangle ulx uly w h
