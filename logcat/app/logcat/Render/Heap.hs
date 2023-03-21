@@ -37,7 +37,7 @@ import Types (
  )
 
 scale :: Double
-scale = 20
+scale = 1
 
 heapViewWidth :: Double
 heapViewWidth = 800
@@ -124,6 +124,9 @@ drawHeapView vw vs profile = do
       uly = separatorPosY + 10
       w = heapViewWidth
       h = 80
+  R.save
+  R.rectangle ulx uly w h
+  R.clip
   setColor black
   R.rectangle ulx uly w h
   R.fill
@@ -133,3 +136,4 @@ drawHeapView vw vs profile = do
   let rect = Rectangle ulx uly w h
   drawGrid vw vs rect
   drawProfile vs rect profile
+  R.restore
