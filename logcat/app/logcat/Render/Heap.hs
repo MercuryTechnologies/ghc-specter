@@ -6,6 +6,7 @@ module Render.Heap (
   drawHeapView,
 ) where
 
+import Control.Lens ((^.))
 import Data.Fixed (Nano)
 import Data.Foldable (for_)
 import Data.Maybe (mapMaybe)
@@ -25,13 +26,15 @@ import Render.Util (
   white,
  )
 import Types (
+  HasViewState (..),
   HeapSizeItem (..),
   LogcatView,
   Rectangle (..),
+  ViewState,
  )
 
 scale :: Double
-scale = 1
+scale = 20
 
 -- | seconds to pixels in heap view frame
 secToPixel :: Nano -> Nano -> Double
@@ -43,9 +46,9 @@ pixelToSec :: Nano -> Double -> Nano
 pixelToSec origin px =
   realToFrac (px / scale) + origin
 
-drawGrid :: LogcatView -> Rectangle -> R.Render ()
-drawGrid vw (Rectangle ulx uly _w h) = do
-  let origin = 0
+drawGrid :: LogcatView -> ViewState -> Rectangle -> R.Render ()
+drawGrid vw vs (Rectangle ulx uly _w h) = do
+  let origin = vs ^. viewHeapOrigin
       tmax = 1000
       ts = [0, 10 .. tmax]
       lblTs = [0, 60 .. tmax]
@@ -75,9 +78,9 @@ drawGrid vw (Rectangle ulx uly _w h) = do
     drawText vw 6 (secToPixel origin t + 2, 0) msg
   R.restore
 
-drawProfile :: Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
-drawProfile (Rectangle ulx uly _w h) profile = do
-  let origin = 0
+drawProfile :: ViewState -> Rectangle -> [(Nano, HeapSizeItem)] -> R.Render ()
+drawProfile vs (Rectangle ulx uly _w h) profile = do
+  let origin = vs ^. viewHeapOrigin
   let heapSizes =
         mapMaybe (\case (t, HeapSize sz) -> Just (t, sz); _ -> Nothing) profile
       blocksSizes =
@@ -106,8 +109,8 @@ drawProfile (Rectangle ulx uly _w h) profile = do
   showLine lightBlue heapLives
   R.restore
 
-drawHeapView :: LogcatView -> [(Nano, HeapSizeItem)] -> R.Render ()
-drawHeapView vw profile = do
+drawHeapView :: LogcatView -> ViewState -> [(Nano, HeapSizeItem)] -> R.Render ()
+drawHeapView vw vs profile = do
   let ulx = canvasWidth - w - 10
       uly = separatorPosY + 10
       w = 800
@@ -119,5 +122,5 @@ drawHeapView vw profile = do
   R.rectangle ulx uly w h
   R.stroke
   let rect = Rectangle ulx uly w h
-  drawGrid vw rect
-  drawProfile rect profile
+  drawGrid vw vs rect
+  drawProfile vs rect profile

@@ -46,8 +46,10 @@ data Rectangle = Rectangle
 makeClassy ''Rectangle
 
 data ViewState = ViewState
-  { _viewTimeOrigin :: Nano
+  { _viewTimelineOrigin :: Nano
   -- ^ start point of the timeline view
+  , _viewHeapOrigin :: Nano
+  -- ^ start point of the heap view
   , _viewLabelPositions :: Map String Rectangle
   -- ^ each event log type label positions
   , _viewHitted :: Maybe String
@@ -56,7 +58,7 @@ data ViewState = ViewState
 makeClassy ''ViewState
 
 emptyViewState :: ViewState
-emptyViewState = ViewState 0 Map.empty Nothing
+emptyViewState = ViewState 0 0 Map.empty Nothing
 
 data LogcatState = LogcatState
   { _logcatEventStore :: Seq Event

@@ -51,7 +51,7 @@ pixelToSec origin px =
 
 drawEventMark :: ViewState -> Event -> R.Render ()
 drawEventMark vs ev = do
-  let origin = vs ^. viewTimeOrigin
+  let origin = vs ^. viewTimelineOrigin
       sec = MkFixed (fromIntegral (evTime ev)) :: Nano
       x = secToPixel origin sec
       evname = eventInfoToString (evSpec ev)
@@ -78,7 +78,7 @@ drawHighlighter vs = do
 
 drawTimeGrid :: LogcatView -> ViewState -> R.Render ()
 drawTimeGrid vw vs = do
-  let origin = vs ^. viewTimeOrigin
+  let origin = vs ^. viewTimelineOrigin
       tmax = pixelToSec origin canvasWidth
       ts = [0, 1 .. tmax]
       lblTs = [0, 10 .. tmax]

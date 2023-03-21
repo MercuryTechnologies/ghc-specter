@@ -45,10 +45,10 @@ adjustTimelineOrigin s
   | ltimePos > canvasWidth - Timeline.timelineMargin =
       let currCenterTime = Timeline.pixelToSec origin (canvasWidth * 0.5)
           deltaTime = ltime - currCenterTime
-       in (logcatViewState . viewTimeOrigin %~ (\x -> x + deltaTime)) s
+       in (logcatViewState . viewTimelineOrigin %~ (\x -> x + deltaTime)) s
   | otherwise = s
   where
-    origin = s ^. logcatViewState . viewTimeOrigin
+    origin = s ^. logcatViewState . viewTimelineOrigin
     ltime = s ^. logcatLastEventTime
     ltimePos = Timeline.secToPixel origin ltime
 

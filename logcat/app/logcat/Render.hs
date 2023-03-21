@@ -55,7 +55,7 @@ drawLogcatState vw sref = do
       evs' = mapMaybe (\ev -> (,) (MkFixed (fromIntegral (RTS.evTime ev))) <$> filterHeapSize ev) (toList evs)
   drawTimeline vw vs evs
   drawSeparator separatorPosY
-  drawHeapView vw evs'
+  drawHeapView vw vs evs'
   drawHisto vw labelPos hitted hist
   drawStats vw nBytes
 
