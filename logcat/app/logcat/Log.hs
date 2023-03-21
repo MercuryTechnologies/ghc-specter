@@ -23,11 +23,10 @@ import GHC.RTS.Events.Incremental (
  )
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv)
+import Render.Heap qualified as Heap
+import Render.Timeline qualified as Timeline
 import Render.Util (
   canvasWidth,
-  pixelToSec,
-  secToPixel,
-  timelineMargin,
  )
 import System.IO (hFlush, stdout)
 import Text.Pretty.Simple (pPrint)
@@ -44,15 +43,22 @@ import Util.Histo (aggregateCount, histoAdd)
 -- move the plot origin to make the last event at the center of the timeline.
 adjustTimelineOrigin :: LogcatState -> LogcatState
 adjustTimelineOrigin s
-  | ltimePos > canvasWidth - timelineMargin =
-      let currCenterTime = pixelToSec origin (canvasWidth * 0.5)
+  | ltimePos > canvasWidth - Timeline.timelineMargin =
+      let currCenterTime = Timeline.pixelToSec origin (canvasWidth * 0.5)
           deltaTime = ltime - currCenterTime
-       in (logcatViewState . viewTimeOrigin %~ (\x -> x + deltaTime)) s
+          tmax' = tmax + deltaTime
+          deltaTimeHeap = tmax' - heapTMax
+       in s
+            & (logcatViewState . viewTimelineOrigin %~ (+ deltaTime))
+              . (logcatViewState . viewHeapOrigin %~ (+ deltaTimeHeap))
   | otherwise = s
   where
-    origin = s ^. logcatViewState . viewTimeOrigin
+    origin = s ^. logcatViewState . viewTimelineOrigin
     ltime = s ^. logcatLastEventTime
-    ltimePos = secToPixel origin ltime
+    ltimePos = Timeline.secToPixel origin ltime
+    tmax = Timeline.pixelToSec origin canvasWidth
+    heapOrigin = s ^. logcatViewState . viewHeapOrigin
+    heapTMax = Heap.pixelToSec heapOrigin Heap.heapViewWidth
 
 recordEvent :: Event -> LogcatState -> LogcatState
 recordEvent ev s =

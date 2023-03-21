@@ -4,14 +4,10 @@ module Render.Util (
   -- * GUI parameters
   canvasWidth,
   canvasHeight,
-  timelineMargin,
   xoffset,
   yoffset,
   fontSize,
-
-  -- * conversion function
-  secToPixel,
-  pixelToSec,
+  separatorPosY,
 
   -- * colors
   black,
@@ -19,6 +15,7 @@ module Render.Util (
   blue,
   lightBlue,
   red,
+  green,
   gray,
 
   -- * color util
@@ -32,7 +29,6 @@ module Render.Util (
 ) where
 
 import Control.Lens ((^.))
-import Data.Fixed (Nano)
 import Data.Int (Int32)
 import Data.Text (Text)
 import GI.Cairo.Render qualified as R
@@ -50,12 +46,6 @@ canvasWidth = 1440
 canvasHeight :: Double
 canvasHeight = 768
 
-timelineMargin :: Double
-timelineMargin = 300
-
-timelineScale :: Double
-timelineScale = 50
-
 xoffset :: Double
 xoffset = 10
 
@@ -65,13 +55,8 @@ yoffset = 100
 fontSize :: Int32
 fontSize = 8
 
-secToPixel :: Nano -> Nano -> Double
-secToPixel origin sec =
-  realToFrac (sec - origin) * timelineScale + 10.0
-
-pixelToSec :: Nano -> Double -> Nano
-pixelToSec origin px =
-  realToFrac ((px - 10.0) / timelineScale) + origin
+separatorPosY :: Double
+separatorPosY = 150
 
 black :: (Double, Double, Double, Double)
 black = (0, 0, 0, 1)
@@ -87,6 +72,9 @@ lightBlue = (0.678, 0.847, 0.902, 1)
 
 red :: (Double, Double, Double, Double)
 red = (1, 0, 0, 1)
+
+green :: (Double, Double, Double, Double)
+green = (0, 1, 0, 1)
 
 gray :: (Double, Double, Double, Double)
 gray = (0.5, 0.5, 0.5, 1)
