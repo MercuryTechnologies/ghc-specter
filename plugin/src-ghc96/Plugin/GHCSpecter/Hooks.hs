@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -47,7 +48,11 @@ import GHCSpecter.Channel.Outbound.Types (
   Timer (..),
   TimerTag (..),
  )
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Expr (HsUntypedSplice)
+#else
 import Language.Haskell.Syntax.Expr (HsSplice)
+#endif
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Tasks (
@@ -60,6 +65,9 @@ import Plugin.GHCSpecter.Tasks (
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Mem (getAllocationCounter)
+
+-- GHC version dependent imports
+#if MIN_VERSION_ghc(9, 4, 0)
 import Control.Applicative ((<|>))
 import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Data.Foldable (for_)
@@ -72,7 +80,11 @@ import GHC.Driver.Pipeline.Phases
 import GHC.Driver.Plugins (staticPlugins)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
+#if MIN_VERSION_ghc(9, 6, 0)
+import Language.Haskell.Syntax.Module.Name (moduleNameString)
+#else
 import GHC.Unit.Module.Name (moduleNameString)
+#endif
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
 import GHCSpecter.Util.GHC (getModuleName)
 import Plugin.GHCSpecter.Types
@@ -83,15 +95,31 @@ import Plugin.GHCSpecter.Types
   )
 import System.Directory (canonicalizePath)
 import System.Mem (setAllocationCounter)
+#elif MIN_VERSION_ghc(9, 2, 0)
+import Control.Monad.IO.Class (liftIO)
+import GHC.Driver.Phases (Phase (As, StopLn))
+import GHC.Driver.Pipeline.Monad
+  ( CompPipeline,
+    PhasePlus (HscOut, RealPhase),
+    getPipeSession,
+  )
+import GHCSpecter.Util.GHC (showPpr)
+#endif
 
 data PhasePoint = PhaseStart | PhaseEnd
 
 -- NOTE: always assume a single static plugin, the first arg = drvId
 getDriverIdFromHscEnv :: HscEnv -> Maybe DriverId
 getDriverIdFromHscEnv hscenv = do
+#if MIN_VERSION_ghc(9, 4, 0)
   sp <- listToMaybe (staticPlugins (hsc_plugins hscenv))
   arg1 <- listToMaybe (paArguments (spPlugin sp))
   DriverId <$> readMay arg1
+#elif MIN_VERSION_ghc(9, 2, 0)
+  sp <- listToMaybe (hsc_static_plugins hscenv)
+  arg1 <- listToMaybe (paArguments (spPlugin sp))
+  DriverId <$> readMay arg1
+#endif
 
 getMemInfo :: IO (Maybe MemInfo)
 getMemInfo = ifM getRTSStatsEnabled getInfo (pure Nothing)
@@ -119,7 +147,11 @@ sendModuleName ::
 sendModuleName drvId modName msrcfile =
   queueMessage (CMModuleInfo drvId modName msrcfile)
 
+#if MIN_VERSION_ghc(9, 6, 0)
+runRnSpliceHook' :: HsUntypedSplice GhcRn -> RnM (HsUntypedSplice GhcRn)
+#else
 runRnSpliceHook' :: HsSplice GhcRn -> RnM (HsSplice GhcRn)
+#endif
 runRnSpliceHook' splice = do
   mdrvId <- getDriverIdFromHscEnv . env_top <$> getEnv
   case mdrvId of
@@ -166,6 +198,7 @@ runMetaHook' metaReq expr = do
               MetaAW r -> MetaAW (wrapMeta r drvId dflags)
       defaultRunMeta metaReq' expr
 
+#if MIN_VERSION_ghc(9, 4, 0)
 tphase2Text :: TPhase res -> Text
 tphase2Text p =
   case p of
@@ -199,7 +232,11 @@ envFromTPhase p =
     T_HscBackend penv env mname _ _ _ -> (env, Just penv, Just (T.pack (moduleNameString mname)))
     T_CmmCpp penv env _ -> (env, Just penv, Nothing)
     T_Cmm penv env _ -> (env, Just penv, Nothing)
+#if MIN_VERSION_ghc(9, 6, 0)
+    T_Cc _ penv env _ _ -> (env, Just penv, Nothing)
+#else
     T_Cc _ penv env _ -> (env, Just penv, Nothing)
+#endif
     T_As _ penv env _ _ -> (env, Just penv, Nothing)
     T_LlvmOpt penv env _ -> (env, Just penv, Nothing)
     T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
@@ -220,7 +257,11 @@ modifyHscEnvInTPhase update p =
     T_HscBackend penv env mname src loc baction -> T_HscBackend penv (update env) mname src loc baction
     T_CmmCpp penv env fp -> T_CmmCpp penv (update env) fp
     T_Cmm penv env fp -> T_Cmm penv (update env) fp
+#if MIN_VERSION_ghc(9, 6, 0)
+    T_Cc ph penv env mloc fp ->T_Cc ph penv (update env) mloc fp
+#else
     T_Cc ph penv env fp ->T_Cc ph penv (update env) fp
+#endif
     T_As b penv env mloc fp -> T_As b penv (update env) mloc fp
     T_LlvmOpt penv env fp -> T_LlvmOpt penv (update env) fp
     T_LlvmLlc penv env fp -> T_LlvmLlc penv (update env) fp
@@ -360,3 +401,59 @@ runPhaseHook' = PhaseHook $ \phase -> do
       breakPoint drvId locPostPhase postPhaseCommands
       sendCompStateOnPhase drvId phase PhaseEnd
       pure result
+#elif MIN_VERSION_ghc(9, 2, 0)
+sendCompStateOnPhase ::
+  DriverId ->
+  PhasePlus ->
+  PhasePoint ->
+  CompPipeline ()
+sendCompStateOnPhase drvId phase pt = do
+  case phase of
+    RealPhase StopLn -> liftIO do
+      -- send timing information
+      endTime <- getCurrentTime
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
+      queueMessage (CMTiming drvId timer)
+    RealPhase (As _) ->
+      case pt of
+        PhaseStart -> liftIO $ do
+          -- send timing information
+          startTime <- getCurrentTime
+          mmeminfo <- getMemInfo
+          let timer = Timer [(TimerAs, (startTime, mmeminfo))]
+          queueMessage (CMTiming drvId timer)
+        _ -> pure ()
+    HscOut _ _ _ -> liftIO $ do
+      -- send timing information
+      hscOutTime <- getCurrentTime
+      mmeminfo <- getMemInfo
+      let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
+      queueMessage (CMTiming drvId timer)
+    _ -> pure ()
+
+runPhaseHook' ::
+  PhasePlus ->
+  FilePath ->
+  CompPipeline (PhasePlus, FilePath)
+runPhaseHook' phase fp = do
+  hscenv <- getPipeSession
+  let mdrvId = getDriverIdFromHscEnv hscenv
+  case mdrvId of
+    Nothing -> runPhase phase fp
+    Just drvId -> do
+      dflags <- getDynFlags
+      -- pre phase timing
+      let phaseTxt = T.pack (showPpr dflags phase)
+          locPrePhase = PreRunPhase phaseTxt
+      breakPoint drvId locPrePhase prePhaseCommands
+      sendCompStateOnPhase drvId phase PhaseStart
+      -- actual runPhase
+      (phase', fp') <- runPhase phase fp
+      -- post phase timing
+      let phase'Txt = T.pack (showPpr dflags phase')
+          locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
+      breakPoint drvId locPostPhase postPhaseCommands
+      sendCompStateOnPhase drvId phase' PhaseEnd
+      pure (phase', fp')
+#endif
