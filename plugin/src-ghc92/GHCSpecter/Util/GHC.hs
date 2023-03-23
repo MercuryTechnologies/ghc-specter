@@ -1,5 +1,3 @@
-{- FOURMOLU_DISABLE -}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 
 module GHCSpecter.Util.GHC (
@@ -53,24 +51,14 @@ import GHC.Unit.Module.Graph (
  )
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-#if MIN_VERSION_ghc(9, 6, 0)
-import Language.Haskell.Syntax.Module.Name (moduleNameString)
-#else
 import GHC.Unit.Module.Name (moduleNameString)
-#endif
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import System.Directory (canonicalizePath)
--- GHC-version-dependent imports
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Data.Bag (bagToList)
-import GHC.Unit.Module.Graph (moduleGraphNodes)
-#elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Driver.Make (moduleGraphNodes)
 import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
-#endif
 
 --
 -- pretty print
@@ -124,11 +112,7 @@ formatImportedNames names =
 
 mkModuleNameMap :: GlobalRdrElt -> [(ModuleName, Name)]
 mkModuleNameMap gre = do
-#if MIN_VERSION_ghc(9, 4, 0)
-  spec <- bagToList (gre_imp gre)
-#elif MIN_VERSION_ghc(9, 2, 0)
   spec <- gre_imp gre
-#endif
   case gre_name gre of
     NormalGreName name -> do
       let modName = T.pack . moduleNameString . is_mod . is_decl $ spec
@@ -142,12 +126,7 @@ mkModuleNameMap gre = do
 
 gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
 gnode2ModSummary InstantiationNode {} = Nothing
-#if MIN_VERSION_ghc(9, 4, 0)
-gnode2ModSummary (ModuleNode _ modSummary) = Just modSummary
-gnode2ModSummary LinkNode {} = Nothing
-#else
 gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
-#endif
 
 getTopSortedModules :: ModuleGraph -> [ModuleName]
 getTopSortedModules modGraph =

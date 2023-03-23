@@ -1,6 +1,4 @@
-{- FOURMOLU_DISABLE -}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
@@ -23,18 +21,11 @@ import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.Functor ((<&>))
-import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
-#if MIN_VERSION_ghc(9, 6, 0)
-import GHC.Core.Opt.Monad (CoreM, getDynFlags)
-import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
-import GHC.Driver.Backend (backendDescription)
-#else
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Backend qualified as GHC (Backend (..))
-#endif
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
@@ -63,7 +54,6 @@ import GHCSpecter.Channel.Outbound.Types
     BreakpointLoc (..),
     ChanMessage (..),
     GhcMode (..),
-    ModuleGraphInfo (..),
     ProcessInfo (..),
     SessionInfo (..),
   )
@@ -104,12 +94,6 @@ import Safe (headMay, readMay)
 import System.Directory (canonicalizePath, getCurrentDirectory)
 import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
--- GHC-version-dependent imports
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Driver.Plugins (ParsedResult, staticPlugins)
-import GHC.Tc.Types (TcPluginSolveResult(TcPluginOk))
-import GHC.Types.Unique.FM (emptyUFM)
-#elif MIN_VERSION_ghc(9, 2, 0)
 import GHC.Hs (HsParsedModule)
 import GHC.Tc.Types (TcPluginResult (TcPluginOk))
 import GHCSpecter.Util.GHC (getModuleName)
@@ -124,7 +108,6 @@ import Plugin.GHCSpecter.Types
     assignModuleFileToDriverId,
   )
 import System.Mem (setAllocationCounter)
-#endif
 
 -- TODO: Make the initialization work with GHCi.
 
@@ -165,23 +148,12 @@ initGhcSession env = do
                   GHC.OneShot -> OneShot
                   GHC.MkDepend -> MkDepend
               backend =
-#if MIN_VERSION_ghc(9, 6, 0)
-                let desc = backendDescription (GHC.backend (hsc_dflags env))
-                 in if
-                       | desc == "native code generator" -> NCG
-                       | desc == "LLVM" -> LLVM
-                       | desc == "compiling via C" -> ViaC
-                       --  | desc == "compiling to JavaScript" -> Javascript
-                       | desc == "byte-code interpreter" -> Interpreter
-                       | otherwise -> NoBackend
-#else
                 case (GHC.backend (hsc_dflags env)) of
                   GHC.NCG -> NCG
                   GHC.LLVM -> LLVM
                   GHC.ViaC -> ViaC
                   GHC.Interpreter -> Interpreter
                   GHC.NoBackend -> NoBackend
-#endif
               modGraph = hsc_mod_graph env
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
@@ -218,8 +190,6 @@ initGhcSession env = do
     queueMessage (CMSession sinfo)
 
 -- | Driver session-wide initialization
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
 initDriverSession :: IO DriverId
 initDriverSession = do
   newDrvId <-
@@ -228,7 +198,6 @@ initDriverSession = do
       modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId' + 1})
       pure drvId'
   pure newDrvId
-#endif
 
 --
 -- parsedResultAction plugin
@@ -237,17 +206,8 @@ initDriverSession = do
 parsedResultActionPlugin ::
   [CommandLineOption] ->
   ModSummary ->
-#if MIN_VERSION_ghc(9, 4, 0)
-  ParsedResult ->
-  Hsc ParsedResult
-#elif MIN_VERSION_ghc(9, 2, 0)
   HsParsedModule ->
   Hsc HsParsedModule
-#endif
-#if MIN_VERSION_ghc(9, 4, 0)
-parsedResultActionPlugin opts _ parsed = do
-  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
-#elif MIN_VERSION_ghc(9, 2, 0)
 parsedResultActionPlugin opts modSummary parsed = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
     -- NOTE: on GHC 9.2, we send module name information here.
@@ -259,7 +219,6 @@ parsedResultActionPlugin opts modSummary parsed = do
       for_ msrcFile $ \srcFile ->
         atomically $ assignModuleFileToDriverId drvId srcFile
       sendModuleName drvId modName msrcFile'
-#endif
     breakPoint drvId ParsedResultAction parsedResultActionCommands
   pure parsed
 
@@ -320,10 +279,6 @@ typecheckPlugin opts =
               TypecheckSolve
               emptyCommandSet
             pure (TcPluginOk [] [])
-#if MIN_VERSION_ghc(9, 4, 0)
-      , tcPluginRewrite = \_ -> emptyUFM
-#elif MIN_VERSION_ghc(9, 2, 0)
-#endif
       , tcPluginStop = \_ ->
           unsafeTcPluginTcM $ do
             breakPoint
@@ -391,7 +346,7 @@ corePlugin opts todos = do
 -- | First argument in -fplugin-opt is interpreted as the socket file path.
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
-driver opts env0 = do
+driver _opts env0 = do
   initGhcSession env0
   -- Note: Here we try to detect the start of the compilation of each module
   -- and assign driver id per the instance.
@@ -403,32 +358,6 @@ driver opts env0 = do
   -- NOTE2: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-#if MIN_VERSION_ghc(9, 4, 0)
-  sinfo0 <-
-    atomically $
-      psSessionInfo <$> readTVar sessionRef
-  let modGraphInfo0 = sessionModuleGraph sinfo0
-      modGraph1 = hsc_mod_graph env0
-      modGraphInfo1 = extractModuleGraphInfo modGraph1
-  when (IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)) $ do
-    let sinfo1 = sinfo0 {sessionModuleGraph = modGraphInfo1}
-    atomically $
-      modifyTVar'
-        sessionRef
-        (\s -> s {psSessionInfo = sinfo1})
-    queueMessage (CMSession sinfo1)
-  let newPlugin =
-        plugin
-          { installCoreToDos = corePlugin
-          , parsedResultAction = parsedResultActionPlugin
-          , renamedResultAction = renamedResultActionPlugin
-          , spliceRunAction = spliceRunActionPlugin
-          , tcPlugin = typecheckPlugin
-          , typeCheckResultAction = typeCheckResultActionPlugin
-          }
-      splugin = StaticPlugin (PluginWithArgs newPlugin opts)
-      env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
-#elif MIN_VERSION_ghc(9, 2, 0)
   drvId <- initDriverSession
   let opts' = [show (unDriverId drvId)] -- ignore opts
       newPlugin =
@@ -448,7 +377,6 @@ driver opts env0 = do
   mmeminfo <- getMemInfo
   sendModuleStart drvId startTime mmeminfo
   breakPoint drvId StartDriver driverCommands
-#endif
   let hooks = hsc_hooks env
       hooks' =
         hooks
