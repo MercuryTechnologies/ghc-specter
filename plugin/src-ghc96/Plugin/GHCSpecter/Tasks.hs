@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 module Plugin.GHCSpecter.Tasks (
   -- * command set
   type CommandArg,
@@ -23,10 +21,6 @@ module Plugin.GHCSpecter.Tasks (
 import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Driver.Pipeline (CompPipeline)
-#endif
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
@@ -34,11 +28,7 @@ import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Utils.Outputable (Outputable (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Language.Haskell.Syntax.Decls (HsGroup)
-#if MIN_VERSION_ghc(9, 6, 0)
 import Language.Haskell.Syntax.Expr (HsUntypedSplice, LHsExpr)
-#else
-import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
-#endif
 import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
 import Plugin.GHCSpecter.Tasks.Typecheck (
   fetchUnqualifiedImports,
@@ -70,11 +60,7 @@ renamedResultActionCommands :: HsGroup GhcRn -> CommandSet TcM
 renamedResultActionCommands grp =
   CommandSet [(":show-renamed", \_ -> showRenamed grp)]
 
-#if MIN_VERSION_ghc(9, 6, 0)
 rnSpliceCommands :: HsUntypedSplice GhcRn -> CommandSet RnM
-#else
-rnSpliceCommands :: HsSplice GhcRn -> CommandSet RnM
-#endif
 rnSpliceCommands splice =
   CommandSet [(":show-splice", \_ -> showRnSplice splice)]
 
@@ -101,16 +87,8 @@ core2coreCommands guts =
     , (":print-core", printCore guts)
     ]
 
-#if MIN_VERSION_ghc(9, 4, 0)
 prePhaseCommands :: CommandSet IO
-#elif MIN_VERSION_ghc(9, 2, 0)
-prePhaseCommands :: CommandSet CompPipeline
-#endif
 prePhaseCommands = emptyCommandSet
 
-#if MIN_VERSION_ghc(9, 4, 0)
 postPhaseCommands :: CommandSet IO
-#elif MIN_VERSION_ghc(9, 2, 0)
-postPhaseCommands :: CommandSet CompPipeline
-#endif
 postPhaseCommands = emptyCommandSet
