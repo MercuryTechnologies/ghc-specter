@@ -46,8 +46,6 @@ library
       Paths_ghc_specter_plugin
   hs-source-dirs:
       src
-  default-extensions:
-      GHC2021
   ghc-options: -Wall
   build-depends:
       aeson
@@ -69,7 +67,7 @@ library
     , time
     , transformers
     , yaml
-  default-language: Haskell2010
+  default-language: GHC2021
   if impl (ghc >= 9.7)
     build-depends:
         ghc
