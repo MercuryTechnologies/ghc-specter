@@ -1,5 +1,3 @@
-{- FOURMOLU_DISABLE -}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 
 module GHCSpecter.Data.GHC.Core (
@@ -89,11 +87,7 @@ toVar (Node (typ, val) xs)
 
 toBind :: Tree (Text, Text) -> Either Text Bind
 toBind (Node (typ, val) xs)
-#if MIN_VERSION_ghc(9, 4, 0)
-  | typ == "GHC.Core.Bind" =
-#else
   | typ == "Bind" =
-#endif
       if
           | val == "NonRec" ->
               case xs of
@@ -119,11 +113,7 @@ toBind (Node (typ, val) xs)
 
 toLiteral :: Tree (Text, Text) -> Either Text Literal
 toLiteral x@(Node (typ, val) xs)
-#if MIN_VERSION_ghc(9, 4, 0)
-  | typ == "GHC.Types.Literal.Literal" =
-#else
   | typ == "Literal" =
-#endif
       if
           | val == "LitString" ->
               case xs of
@@ -143,11 +133,7 @@ toLiteral x@(Node (typ, val) xs)
 
 toAltCon :: Tree (Text, Text) -> Either Text AltCon
 toAltCon (Node (typ, val) xs)
-#if MIN_VERSION_ghc(9, 4, 0)
-  | typ == "GHC.Core.AltCon" =
-#else
   | typ == "AltCon" =
-#endif
       if
           | val == "DataAlt" ->
               case xs of
@@ -163,11 +149,7 @@ toAltCon (Node (typ, val) xs)
 
 toAlt :: Tree (Text, Text) -> Either Text Alt
 toAlt (Node (typ, _val) xs)
-#if MIN_VERSION_ghc(9, 4, 0)
-  | typ == "GHC.Core.Alt" =
-#else
   | typ == "Alt" =
-#endif
       case xs of
         a : is : e : [] ->
           Alt
@@ -179,11 +161,7 @@ toAlt (Node (typ, _val) xs)
 
 toExpr :: Tree (Text, Text) -> Either Text Expr
 toExpr (Node (typ, val) xs)
-#if MIN_VERSION_ghc(9, 4, 0)
-  | typ == "GHC.Core.Expr" =
-#else
   | typ == "Expr" =
-#endif
       if
           | val == "Var" ->
               case xs of
