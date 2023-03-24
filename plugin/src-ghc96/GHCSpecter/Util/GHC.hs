@@ -6,6 +6,8 @@ module GHCSpecter.Util.GHC (
   printPpr,
 
   -- * module name
+  Haskell.ModuleName,
+  moduleNameString,
   getModuleName,
   mkModuleNameMap,
   formatName,
@@ -52,6 +54,7 @@ import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import Language.Haskell.Syntax.Module.Name (moduleNameString)
+import Language.Haskell.Syntax.Module.Name qualified as Haskell (ModuleName)
 import System.Directory (canonicalizePath)
 
 --

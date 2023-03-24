@@ -32,8 +32,12 @@ import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (printPpr, showPpr)
-import Language.Haskell.Syntax.Module.Name (ModuleName, moduleNameString)
+import GHCSpecter.Util.GHC (
+  ModuleName,
+  moduleNameString,
+  printPpr,
+  showPpr,
+ )
 
 getOccNameDynamically ::
   forall t a.

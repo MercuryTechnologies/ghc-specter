@@ -6,6 +6,8 @@ module GHCSpecter.Util.GHC (
   printPpr,
 
   -- * module name
+  GHC.ModuleName,
+  moduleNameString,
   getModuleName,
   mkModuleNameMap,
   formatName,
@@ -52,6 +54,7 @@ import GHC.Unit.Module.Graph (
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ExtendedModSummary (..), ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
+import GHC.Unit.Module.Name qualified as GHC (ModuleName)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
