@@ -17,6 +17,15 @@ module GHCSpecter.Util.GHC (
   getTopSortedModules,
   extractModuleSources,
   extractModuleGraphInfo,
+
+  -- * Core compat
+
+  -- TODO: These should be moved into a Compat module.
+  coreTypeBind,
+  coreTypeLiteral,
+  coreTypeAltCon,
+  coreTypeAlt,
+  coreTypeExpr,
 ) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -27,6 +36,7 @@ import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (catMaybes, mapMaybe)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHC.Data.Graph.Directed qualified as G
@@ -166,3 +176,18 @@ extractModuleGraphInfo modGraph = do
           $ getTopSortedModules modGraph
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
+
+coreTypeBind :: Text
+coreTypeBind = "Bind"
+
+coreTypeLiteral :: Text
+coreTypeLiteral = "Literal"
+
+coreTypeAltCon :: Text
+coreTypeAltCon = "AltCon"
+
+coreTypeAlt :: Text
+coreTypeAlt = "Alt"
+
+coreTypeExpr :: Text
+coreTypeExpr = "Expr"
