@@ -1,5 +1,3 @@
-{- FOURMOLU_DISABLE -}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 
 module GHCSpecter.Util.GHC (
@@ -8,6 +6,8 @@ module GHCSpecter.Util.GHC (
   printPpr,
 
   -- * module name
+  GHC.ModuleName,
+  moduleNameString,
   getModuleName,
   mkModuleNameMap,
   formatName,
@@ -17,6 +17,15 @@ module GHCSpecter.Util.GHC (
   getTopSortedModules,
   extractModuleSources,
   extractModuleGraphInfo,
+
+  -- * Core compat
+
+  -- TODO: These should be moved into a Compat module.
+  coreTypeBind,
+  coreTypeLiteral,
+  coreTypeAltCon,
+  coreTypeAlt,
+  coreTypeExpr,
 ) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -27,8 +36,10 @@ import Data.List qualified as L
 import Data.Map (Map)
 import Data.Map qualified as M
 import Data.Maybe (catMaybes, mapMaybe)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
+import GHC.Data.Bag (bagToList)
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Make (topSortModuleGraph)
 import GHC.Driver.Session (DynFlags)
@@ -45,32 +56,16 @@ import GHC.Types.Name.Reader (
   ImportSpec (..),
  )
 import GHC.Types.SourceFile (HscSource (..))
-import GHC.Unit.Module.Graph (
-  ModuleGraph,
-  ModuleGraphNode (..),
-  mgModSummaries,
-  mgModSummaries',
- )
+import GHC.Unit.Module.Graph (ModuleGraph, ModuleGraphNode (..), mgModSummaries, mgModSummaries', moduleGraphNodes)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
-#if MIN_VERSION_ghc(9, 6, 0)
-import Language.Haskell.Syntax.Module.Name (moduleNameString)
-#else
 import GHC.Unit.Module.Name (moduleNameString)
-#endif
+import GHC.Unit.Module.Name qualified as GHC (ModuleName)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import System.Directory (canonicalizePath)
--- GHC-version-dependent imports
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Data.Bag (bagToList)
-import GHC.Unit.Module.Graph (moduleGraphNodes)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Driver.Make (moduleGraphNodes)
-import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
-#endif
 
 --
 -- pretty print
@@ -124,11 +119,7 @@ formatImportedNames names =
 
 mkModuleNameMap :: GlobalRdrElt -> [(ModuleName, Name)]
 mkModuleNameMap gre = do
-#if MIN_VERSION_ghc(9, 4, 0)
   spec <- bagToList (gre_imp gre)
-#elif MIN_VERSION_ghc(9, 2, 0)
-  spec <- gre_imp gre
-#endif
   case gre_name gre of
     NormalGreName name -> do
       let modName = T.pack . moduleNameString . is_mod . is_decl $ spec
@@ -142,12 +133,8 @@ mkModuleNameMap gre = do
 
 gnode2ModSummary :: ModuleGraphNode -> Maybe ModSummary
 gnode2ModSummary InstantiationNode {} = Nothing
-#if MIN_VERSION_ghc(9, 4, 0)
 gnode2ModSummary (ModuleNode _ modSummary) = Just modSummary
 gnode2ModSummary LinkNode {} = Nothing
-#else
-gnode2ModSummary (ModuleNode emod) = Just (emsModSummary emod)
-#endif
 
 getTopSortedModules :: ModuleGraph -> [ModuleName]
 getTopSortedModules modGraph =
@@ -186,3 +173,18 @@ extractModuleGraphInfo modGraph = do
           $ getTopSortedModules modGraph
       modDeps = IM.fromList $ fmap (\v -> (G.node_key v, G.node_dependencies v)) vtxs
    in ModuleGraphInfo modNameMap modDeps topSorted
+
+coreTypeBind :: Text
+coreTypeBind = "GHC.Core.Bind"
+
+coreTypeLiteral :: Text
+coreTypeLiteral = "GHC.Types.Literal.Literal"
+
+coreTypeAltCon :: Text
+coreTypeAltCon = "GHC.Core.AltCon"
+
+coreTypeAlt :: Text
+coreTypeAlt = "GHC.Core.Alt"
+
+coreTypeExpr :: Text
+coreTypeExpr = "GHC.Core.Expr"

@@ -1,20 +1,17 @@
-{- FOURMOLU_DISABLE -}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module GHCSpecter.Worker.Hie
-  ( hieWorker,
-    moduleSourceWorker,
-  )
-where
+module GHCSpecter.Worker.Hie (
+  hieWorker,
+  moduleSourceWorker,
+) where
 
-import Control.Concurrent.STM
-  ( TQueue,
-    TVar,
-    atomically,
-    modifyTVar',
-    writeTQueue,
-  )
+import Control.Concurrent.STM (
+  TQueue,
+  TVar,
+  atomically,
+  modifyTVar',
+  writeTQueue,
+ )
 import Control.Lens ((%~), (.~))
 import Data.Foldable (for_)
 import Data.Map.Strict (Map)
@@ -22,43 +19,35 @@ import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.IO qualified as TIO
-import GHC.Iface.Ext.Binary
-  ( HieFileResult (..),
-    readHieFile,
-  )
+import GHC.Iface.Ext.Binary (
+  HieFileResult (..),
+  readHieFile,
+ )
 import GHC.Iface.Ext.Types (HieFile (..), getAsts)
 import GHC.Iface.Ext.Utils (generateReferencesMap)
 import GHC.Types.Name.Cache (initNameCache)
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Data.GHC.Hie
-  ( DeclRow' (..),
-    DefRow' (..),
-    HasModuleHieInfo (..),
-    RefRow' (..),
-    emptyModuleHieInfo,
-  )
-import GHCSpecter.Server.Types
-  ( HasHieState (..),
-    HasServerState (..),
-    ServerState (..),
-  )
+import GHCSpecter.Data.GHC.Hie (
+  DeclRow' (..),
+  DefRow' (..),
+  HasModuleHieInfo (..),
+  RefRow' (..),
+  emptyModuleHieInfo,
+ )
+import GHCSpecter.Server.Types (
+  HasHieState (..),
+  HasServerState (..),
+  ServerState (..),
+ )
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
-#if !MIN_VERSION_ghc(9, 6, 0)
-import HieDb.Compat
-  ( moduleName,
-    moduleNameString,
-    occNameString,
-  )
+import HieDb.Compat (
+  moduleName,
+  moduleNameString,
+  occNameString,
+ )
 import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
 import HieDb.Utils (genDefRow, genRefsAndDecls)
-#endif
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Iface.Ext.Binary (NameCacheUpdater (NCU))
-import HieDb.Compat (mkSplitUniqSupply)
-#endif
 
-#if !MIN_VERSION_ghc(9, 6, 0)
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
   RefRow'
@@ -94,22 +83,11 @@ convertDefRow DefRow {..} =
     , _def'ELine = defELine
     , _def'ECol = defECol
     }
-#endif
 
 hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
 hieWorker ssRef workQ hiefile = do
-#if MIN_VERSION_ghc(9, 6, 0)
-  pure ()
-#else
-
-#if MIN_VERSION_ghc(9, 4, 0)
   nc <- initNameCache 'z' []
   hieResult <- readHieFile nc hiefile
-#elif MIN_VERSION_ghc(9, 2, 0)
-  uniq_supply <- mkSplitUniqSupply 'z'
-  let nc = initNameCache uniq_supply []
-  hieResult <- readHieFile (NCU (\f -> pure $ snd $ f nc)) hiefile
-#endif
   let hf = hie_file_result hieResult
       src = decodeUtf8With (\_ _ -> Just ' ') $ hie_hs_src hf
       modu = hie_module hf
@@ -130,7 +108,6 @@ hieWorker ssRef workQ hiefile = do
       serverHieState . hieModuleMap
         %~ M.insert modName modHie
     writeTQueue workQ callGraphWork
-#endif
 
 moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do

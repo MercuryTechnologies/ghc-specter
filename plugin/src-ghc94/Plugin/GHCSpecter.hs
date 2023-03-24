@@ -1,24 +1,21 @@
-{- FOURMOLU_DISABLE -}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
-module Plugin.GHCSpecter
-  ( -- * main plugin entry point
+module Plugin.GHCSpecter (
+  -- * main plugin entry point
 
-    -- NOTE: The name "plugin" should be used as a GHC plugin.
-    plugin,
-  )
-where
+  -- NOTE: The name "plugin" should be used as a GHC plugin.
+  plugin,
+) where
 
 import Control.Concurrent (forkOS)
-import Control.Concurrent.STM
-  ( atomically,
-    modifyTVar',
-    readTVar,
-    stateTVar,
-  )
+import Control.Concurrent.STM (
+  atomically,
+  modifyTVar',
+  readTVar,
+  stateTVar,
+ )
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -27,104 +24,67 @@ import Data.IntMap qualified as IM
 import Data.Map.Strict qualified as M
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
-#if MIN_VERSION_ghc(9, 6, 0)
-import GHC.Core.Opt.Monad (CoreM, getDynFlags)
-import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
-import GHC.Driver.Backend (backendDescription)
-#else
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Backend qualified as GHC (Backend (..))
-#endif
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
-import GHC.Driver.Plugins
-  ( Plugin (..),
-    PluginWithArgs (..),
-    StaticPlugin (..),
-    defaultPlugin,
-    type CommandLineOption,
-  )
+import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
 import GHC.Driver.Session (gopt)
 import GHC.Driver.Session qualified as GHC (DynFlags (..), GhcMode (..))
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.RTS.Flags (getRTSFlags)
-import GHC.Tc.Types
-  ( TcGblEnv (..),
-    TcM,
-    TcPlugin (..),
-    unsafeTcPluginTcM,
-  )
+import GHC.Tc.Types (TcGblEnv (..), TcM, TcPlugin (..), TcPluginSolveResult (TcPluginOk), unsafeTcPluginTcM)
+import GHC.Types.Unique.FM (emptyUFM)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types
-  ( Backend (..),
-    BreakpointLoc (..),
-    ChanMessage (..),
-    GhcMode (..),
-    ModuleGraphInfo (..),
-    ProcessInfo (..),
-    SessionInfo (..),
-  )
-import GHCSpecter.Config
-  ( Config (..),
-    defaultGhcSpecterConfigFile,
-    emptyConfig,
-    loadConfig,
-  )
-import GHCSpecter.Util.GHC
-  ( extractModuleGraphInfo,
-    extractModuleSources,
-    showPpr,
-  )
+import GHCSpecter.Channel.Outbound.Types (
+  Backend (..),
+  BreakpointLoc (..),
+  ChanMessage (..),
+  GhcMode (..),
+  ModuleGraphInfo (..),
+  ProcessInfo (..),
+  SessionInfo (..),
+ )
+import GHCSpecter.Config (
+  Config (..),
+  defaultGhcSpecterConfigFile,
+  emptyConfig,
+  loadConfig,
+ )
+import GHCSpecter.Util.GHC (
+  extractModuleGraphInfo,
+  extractModuleSources,
+  showPpr,
+ )
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Hooks
-  ( runMetaHook',
-    runPhaseHook',
-    runRnSpliceHook',
-  )
-import Plugin.GHCSpecter.Tasks
-  ( core2coreCommands,
-    emptyCommandSet,
-    parsedResultActionCommands,
-    renamedResultActionCommands,
-    spliceRunActionCommands,
-    typecheckResultActionCommands,
-  )
-import Plugin.GHCSpecter.Types
-  ( PluginSession (..),
-    initMsgQueue,
-    sessionRef,
-  )
+import Plugin.GHCSpecter.Hooks (
+  runMetaHook',
+  runPhaseHook',
+  runRnSpliceHook',
+ )
+import Plugin.GHCSpecter.Tasks (
+  core2coreCommands,
+  emptyCommandSet,
+  parsedResultActionCommands,
+  renamedResultActionCommands,
+  spliceRunActionCommands,
+  typecheckResultActionCommands,
+ )
+import Plugin.GHCSpecter.Types (
+  PluginSession (..),
+  initMsgQueue,
+  sessionRef,
+ )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath, getCurrentDirectory)
 import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
--- GHC-version-dependent imports
-#if MIN_VERSION_ghc(9, 4, 0)
-import GHC.Driver.Plugins (ParsedResult, staticPlugins)
-import GHC.Tc.Types (TcPluginSolveResult(TcPluginOk))
-import GHC.Types.Unique.FM (emptyUFM)
-#elif MIN_VERSION_ghc(9, 2, 0)
-import GHC.Hs (HsParsedModule)
-import GHC.Tc.Types (TcPluginResult (TcPluginOk))
-import GHCSpecter.Util.GHC (getModuleName)
-import Plugin.GHCSpecter.Hooks
-  ( getMemInfo,
-    sendModuleName,
-    sendModuleStart,
-  )
-import Plugin.GHCSpecter.Tasks (driverCommands)
-import Plugin.GHCSpecter.Types
-  ( assignModuleToDriverId,
-    assignModuleFileToDriverId,
-  )
-import System.Mem (setAllocationCounter)
-#endif
 
 -- TODO: Make the initialization work with GHCi.
 
@@ -165,23 +125,12 @@ initGhcSession env = do
                   GHC.OneShot -> OneShot
                   GHC.MkDepend -> MkDepend
               backend =
-#if MIN_VERSION_ghc(9, 6, 0)
-                let desc = backendDescription (GHC.backend (hsc_dflags env))
-                 in if
-                       | desc == "native code generator" -> NCG
-                       | desc == "LLVM" -> LLVM
-                       | desc == "compiling via C" -> ViaC
-                       --  | desc == "compiling to JavaScript" -> Javascript
-                       | desc == "byte-code interpreter" -> Interpreter
-                       | otherwise -> NoBackend
-#else
                 case (GHC.backend (hsc_dflags env)) of
                   GHC.NCG -> NCG
                   GHC.LLVM -> LLVM
                   GHC.ViaC -> ViaC
                   GHC.Interpreter -> Interpreter
                   GHC.NoBackend -> NoBackend
-#endif
               modGraph = hsc_mod_graph env
               modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
@@ -217,19 +166,6 @@ initGhcSession env = do
            in (sinfo, ps')
     queueMessage (CMSession sinfo)
 
--- | Driver session-wide initialization
-#if MIN_VERSION_ghc(9, 4, 0)
-#elif MIN_VERSION_ghc(9, 2, 0)
-initDriverSession :: IO DriverId
-initDriverSession = do
-  newDrvId <-
-    atomically $ do
-      drvId' <- psNextDriverId <$> readTVar sessionRef
-      modifyTVar' sessionRef (\s -> s {psNextDriverId = drvId' + 1})
-      pure drvId'
-  pure newDrvId
-#endif
-
 --
 -- parsedResultAction plugin
 --
@@ -237,29 +173,10 @@ initDriverSession = do
 parsedResultActionPlugin ::
   [CommandLineOption] ->
   ModSummary ->
-#if MIN_VERSION_ghc(9, 4, 0)
   ParsedResult ->
   Hsc ParsedResult
-#elif MIN_VERSION_ghc(9, 2, 0)
-  HsParsedModule ->
-  Hsc HsParsedModule
-#endif
-#if MIN_VERSION_ghc(9, 4, 0)
 parsedResultActionPlugin opts _ parsed = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
-#elif MIN_VERSION_ghc(9, 2, 0)
-parsedResultActionPlugin opts modSummary parsed = do
-  for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
-    -- NOTE: on GHC 9.2, we send module name information here.
-    let modName = getModuleName modSummary
-        msrcFile = ml_hs_file $ ms_location modSummary
-    liftIO $ do
-      msrcFile' <- traverse canonicalizePath msrcFile
-      atomically $ assignModuleToDriverId drvId modName
-      for_ msrcFile $ \srcFile ->
-        atomically $ assignModuleFileToDriverId drvId srcFile
-      sendModuleName drvId modName msrcFile'
-#endif
     breakPoint drvId ParsedResultAction parsedResultActionCommands
   pure parsed
 
@@ -320,10 +237,7 @@ typecheckPlugin opts =
               TypecheckSolve
               emptyCommandSet
             pure (TcPluginOk [] [])
-#if MIN_VERSION_ghc(9, 4, 0)
       , tcPluginRewrite = \_ -> emptyUFM
-#elif MIN_VERSION_ghc(9, 2, 0)
-#endif
       , tcPluginStop = \_ ->
           unsafeTcPluginTcM $ do
             breakPoint
@@ -403,7 +317,6 @@ driver opts env0 = do
   -- NOTE2: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-#if MIN_VERSION_ghc(9, 4, 0)
   sinfo0 <-
     atomically $
       psSessionInfo <$> readTVar sessionRef
@@ -428,27 +341,6 @@ driver opts env0 = do
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
       env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
-#elif MIN_VERSION_ghc(9, 2, 0)
-  drvId <- initDriverSession
-  let opts' = [show (unDriverId drvId)] -- ignore opts
-      newPlugin =
-        plugin
-          { installCoreToDos = corePlugin
-          , parsedResultAction = parsedResultActionPlugin
-          , renamedResultAction = renamedResultActionPlugin
-          , spliceRunAction = spliceRunActionPlugin
-          , tcPlugin = typecheckPlugin
-          , typeCheckResultAction = typeCheckResultActionPlugin
-          }
-      splugin = StaticPlugin (PluginWithArgs newPlugin opts')
-      env = env0 {hsc_static_plugins = [splugin]}
-  -- send module start signal here on GHC 9.2
-  startTime <- getCurrentTime
-  setAllocationCounter 0
-  mmeminfo <- getMemInfo
-  sendModuleStart drvId startTime mmeminfo
-  breakPoint drvId StartDriver driverCommands
-#endif
   let hooks = hsc_hooks env
       hooks' =
         hooks
@@ -458,7 +350,6 @@ driver opts env0 = do
           }
       env' = env {hsc_hooks = hooks'}
   pure env'
-
 
 --
 -- Main entry point
