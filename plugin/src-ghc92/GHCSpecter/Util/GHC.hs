@@ -28,7 +28,7 @@ import Data.Maybe (catMaybes, mapMaybe)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHC.Data.Graph.Directed qualified as G
-import GHC.Driver.Make (topSortModuleGraph)
+import GHC.Driver.Make (moduleGraphNodes, topSortModuleGraph)
 import GHC.Driver.Session (DynFlags)
 import GHC.Plugins (
   ModSummary,
@@ -50,15 +50,13 @@ import GHC.Unit.Module.Graph (
   mgModSummaries',
  )
 import GHC.Unit.Module.Location (ModLocation (..))
-import GHC.Unit.Module.ModSummary (ModSummary (..))
+import GHC.Unit.Module.ModSummary (ExtendedModSummary (..), ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Unit.Types (GenModule (moduleName))
 import GHC.Utils.Outputable (Outputable (ppr))
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import System.Directory (canonicalizePath)
-import GHC.Driver.Make (moduleGraphNodes)
-import GHC.Unit.Module.ModSummary (ExtendedModSummary (..))
 
 --
 -- pretty print

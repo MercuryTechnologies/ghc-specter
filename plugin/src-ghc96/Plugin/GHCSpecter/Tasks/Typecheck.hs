@@ -14,8 +14,8 @@ import Data.Map qualified as M
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text qualified as T
-import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Driver.Ppr (showSDoc)
+import GHC.Driver.Session (DynFlags, getDynFlags)
 import GHC.Hs.Expr (pprUntypedSplice)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Plugins (Name)

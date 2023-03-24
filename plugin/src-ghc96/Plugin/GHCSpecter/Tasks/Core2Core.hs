@@ -30,10 +30,10 @@ import GHC.Types.Name.Occurrence (occNameString)
 import GHC.Types.SrcLoc (RealSrcSpan, SrcSpan)
 import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
-import Language.Haskell.Syntax.Module.Name (ModuleName, moduleNameString)
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import GHCSpecter.Util.GHC (printPpr, showPpr)
+import Language.Haskell.Syntax.Module.Name (ModuleName, moduleNameString)
 
 getOccNameDynamically ::
   forall t a.

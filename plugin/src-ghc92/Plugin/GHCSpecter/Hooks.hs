@@ -16,13 +16,20 @@ module Plugin.GHCSpecter.Hooks (
 ) where
 
 import Control.Monad.Extra (ifM)
+import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
+import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
+import GHC.Driver.Pipeline.Monad (
+  CompPipeline,
+  PhasePlus (HscOut, RealPhase),
+  getPipeSession,
+ )
 import GHC.Driver.Plugins (
   PluginWithArgs (..),
   StaticPlugin (..),
@@ -47,6 +54,7 @@ import GHCSpecter.Channel.Outbound.Types (
   Timer (..),
   TimerTag (..),
  )
+import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Expr (HsSplice)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
@@ -60,15 +68,6 @@ import Plugin.GHCSpecter.Tasks (
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Mem (getAllocationCounter)
-
-import Control.Monad.IO.Class (liftIO)
-import GHC.Driver.Phases (Phase (As, StopLn))
-import GHC.Driver.Pipeline.Monad
-  ( CompPipeline,
-    PhasePlus (HscOut, RealPhase),
-    getPipeSession,
-  )
-import GHCSpecter.Util.GHC (showPpr)
 
 data PhasePoint = PhaseStart | PhaseEnd
 
