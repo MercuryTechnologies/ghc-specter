@@ -1,3 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Plugin.GHCSpecter.Tasks (
   -- * command set
   type CommandArg,

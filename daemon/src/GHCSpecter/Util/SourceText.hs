@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Util.SourceText (
   -- * Line-Column utility
   splitLineColumn,

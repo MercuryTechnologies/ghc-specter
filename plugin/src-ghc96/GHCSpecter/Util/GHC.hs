@@ -1,4 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Util.GHC (
   -- * pretty print

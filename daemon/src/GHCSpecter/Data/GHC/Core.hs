@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Data.GHC.Core (
   -- * Simplified GHC Core data type

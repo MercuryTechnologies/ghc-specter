@@ -1,3 +1,5 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+
 module GHCSpecter.Channel.Common.Types (
   type ModuleName,
   DriverId (..),

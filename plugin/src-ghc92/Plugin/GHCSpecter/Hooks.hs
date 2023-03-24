@@ -1,5 +1,5 @@
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Plugin.GHCSpecter.Hooks (
   -- * utility
@@ -158,7 +158,7 @@ sendCompStateOnPhase ::
   CompPipeline ()
 sendCompStateOnPhase drvId phase pt = do
   case phase of
-    RealPhase StopLn -> liftIO do
+    RealPhase StopLn -> liftIO $ do
       -- send timing information
       endTime <- getCurrentTime
       mmeminfo <- getMemInfo

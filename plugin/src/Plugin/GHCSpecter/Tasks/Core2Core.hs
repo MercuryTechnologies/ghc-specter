@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Plugin.GHCSpecter.Tasks.Core2Core (
   listCore,
   printCore,

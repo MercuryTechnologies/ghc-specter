@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Util.ModuleGraph (
   -- * show textual info:
   formatModuleGraphInfo,

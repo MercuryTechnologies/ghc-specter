@@ -1,3 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Util.SourceTree (
   makeSourceTree,
   markLeaf,
