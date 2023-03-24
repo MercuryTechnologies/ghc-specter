@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.

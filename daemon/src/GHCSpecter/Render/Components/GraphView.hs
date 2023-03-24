@@ -1,4 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.GraphView (
   renderModuleGraph,

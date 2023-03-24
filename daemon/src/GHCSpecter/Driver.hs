@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Driver (
   webServer,
 ) where

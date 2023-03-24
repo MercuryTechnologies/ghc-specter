@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.GraphLayout.Algorithm.ClusterSpec (spec) where
 
 import Data.IntMap qualified as IM

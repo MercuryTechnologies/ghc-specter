@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Render.Components.Console (
   render,
 ) where

@@ -1,3 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.Control.Runner (
   type Runner,
   stepControl,

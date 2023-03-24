@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module GHCSpecter.UI.Help (
   -- * list of allowed console commands
   consoleCommandList,

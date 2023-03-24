@@ -1,3 +1,6 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Plugin.GHCSpecter.Tasks.Typecheck (
   fetchUnqualifiedImports,
   showRenamed,

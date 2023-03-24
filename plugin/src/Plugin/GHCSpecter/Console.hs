@@ -1,5 +1,5 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Plugin.GHCSpecter.Console (
   -- * entry point to console when paused

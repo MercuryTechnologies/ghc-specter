@@ -1,3 +1,5 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+
 module Plugin.GHCSpecter.Types (
   -- * Message Queue
   MsgQueue (..),
