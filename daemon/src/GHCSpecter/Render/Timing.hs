@@ -169,7 +169,6 @@ renderBlockerGraph ss =
     ]
     contents
   where
-    sessionInfo = ss ^. serverSessionInfo
     drvModMap = ss ^. serverDriverModuleMap
     nameMap = ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
     ttable = ss ^. serverTiming . tsTimingTable

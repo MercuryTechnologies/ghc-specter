@@ -12,13 +12,11 @@ module Plugin.GHCSpecter (
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
-  readTVar,
  )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.Functor ((<&>))
-import Data.IntMap qualified as IM
 import Data.Text qualified as T
 import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
@@ -35,11 +33,10 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (
   BreakpointLoc (..),
   ChanMessage (..),
-  ModuleGraphInfo (..),
-  SessionInfo (..),
  )
 import GHCSpecter.Util.GHC (
   extractModuleGraphInfo,
+  extractModuleSources,
   showPpr,
  )
 import Language.Haskell.Syntax.Decls (HsGroup)
@@ -218,7 +215,7 @@ driver opts env0 = do
   -- NOTE2: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-  sinfo0 <-
+  {- sinfo0 <-
     atomically $
       psSessionInfo <$> readTVar sessionRef
   let modGraphInfo0 = sessionModuleGraph sinfo0
@@ -229,8 +226,14 @@ driver opts env0 = do
     atomically $
       modifyTVar'
         sessionRef
-        (\s -> s {psSessionInfo = sinfo1})
-    queueMessage (CMSession sinfo1)
+        (\s -> s {psSessionInfo = sinfo1}) -}
+  let modGraph = hsc_mod_graph env0
+      modGraphInfo = extractModuleGraphInfo modGraph
+  modSources <- extractModuleSources modGraph
+  atomically $
+    modifyTVar' sessionRef $ \ps ->
+      ps {psModuleGraph = (modGraphInfo, modSources)}
+  queueMessage (CMModuleGraph modGraphInfo modSources)
   let newPlugin =
         plugin
           { installCoreToDos = corePlugin
