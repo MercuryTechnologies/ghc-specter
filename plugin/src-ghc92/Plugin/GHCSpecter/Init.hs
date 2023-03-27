@@ -13,7 +13,6 @@ import Control.Concurrent.STM (
   stateTVar,
  )
 import Control.Monad (void, when)
-import Data.Map.Strict qualified as M
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Backend qualified as GHC (Backend (..))
 import GHC.Driver.Env (HscEnv (..))
@@ -87,15 +86,12 @@ initGhcSession env = do
                   GHC.ViaC -> ViaC
                   GHC.Interpreter -> Interpreter
                   GHC.NoBackend -> NoBackend
-              modGraph = hsc_mod_graph env
-              modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
                   , sessionGhcMode = ghcMode
                   , sessionBackend = backend
                   , sessionStartTime = Just startTime
-                  , sessionModuleSources = M.empty
                   , sessionIsPaused = configStartWithBreakpoint cfg
                   }
           modifyTVar'
@@ -104,7 +100,6 @@ initGhcSession env = do
                 s
                   { psSessionConfig = cfg
                   , psSessionInfo = newGhcSessionInfo
-                  , psModuleGraphInfo = modGraphInfo
                   , psMessageQueue = Just queue_
                   }
             )
@@ -112,14 +107,12 @@ initGhcSession env = do
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg queue
     let modGraph = hsc_mod_graph env
+        modGraphInfo = extractModuleGraphInfo modGraph
     modSources <- extractModuleSources modGraph
-    (sinfo, mgi) <-
-      atomically $
-        stateTVar sessionRef $ \ps ->
-          let sinfo0 = psSessionInfo ps
-              sinfo = sinfo0 {sessionModuleSources = modSources}
-              mgi = psModuleGraphInfo ps
-              ps' = ps {psSessionInfo = sinfo}
-           in ((sinfo, mgi), ps')
+    sinfo <- atomically $
+      stateTVar sessionRef $ \ps ->
+        let sinfo = psSessionInfo ps
+            ps' = ps {psModuleGraph = (modGraphInfo, modSources)}
+         in (sinfo, ps')
     queueMessage (CMSession sinfo)
-    queueMessage (CMModuleGraph mgi)
+    queueMessage (CMModuleGraph modGraphInfo modSources)

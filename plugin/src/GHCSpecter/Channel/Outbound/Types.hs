@@ -34,7 +34,6 @@ import Data.Int (Int64)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Map.Strict (Map)
-import Data.Map.Strict qualified as M
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import Data.Tree (Forest)
@@ -204,8 +203,6 @@ data SessionInfo = SessionInfo
   , sessionGhcMode :: GhcMode
   , sessionBackend :: Backend
   , sessionStartTime :: Maybe UTCTime
-  , -- , sessionModuleGraph :: ModuleGraphInfo
-    sessionModuleSources :: Map ModuleName FilePath
   , sessionIsPaused :: Bool
   }
   deriving (Show, Generic)
@@ -218,16 +215,20 @@ instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
-  SessionInfo Nothing CompManager NCG Nothing M.empty True
-
--- emptyModuleGraphInfo
+  SessionInfo
+    { sessionProcess = Nothing
+    , sessionGhcMode = CompManager
+    , sessionBackend = NCG
+    , sessionStartTime = Nothing
+    , sessionIsPaused = True
+    }
 
 data ChanMessage (a :: Channel) where
   CMCheckImports :: ModuleName -> Text -> ChanMessage 'CheckImports
   CMModuleInfo :: DriverId -> ModuleName -> Maybe FilePath -> ChanMessage 'ModuleInfo
   CMTiming :: DriverId -> Timer -> ChanMessage 'Timing
   CMSession :: SessionInfo -> ChanMessage 'Session
-  CMModuleGraph :: ModuleGraphInfo -> ChanMessage 'ModuleGraph
+  CMModuleGraph :: ModuleGraphInfo -> Map ModuleName FilePath -> ChanMessage 'ModuleGraph
   CMHsHie :: DriverId -> FilePath -> ChanMessage 'HsHie
   -- | a module is paused at a breakpoint position.
   CMPaused :: DriverId -> BreakpointLoc -> ChanMessage 'Paused
@@ -258,9 +259,9 @@ instance Binary ChanMessageBox where
   put (CMBox (CMSession s)) = do
     put (fromEnum Session)
     put s
-  put (CMBox (CMModuleGraph mgi)) = do
+  put (CMBox (CMModuleGraph mgi srcs)) = do
     put (fromEnum ModuleGraph)
-    put mgi
+    put (mgi, srcs)
   put (CMBox (CMHsHie i h)) = do
     put (fromEnum HsHie)
     put (i, h)
@@ -278,7 +279,7 @@ instance Binary ChanMessageBox where
       ModuleInfo -> CMBox . (\(i, m, mf) -> CMModuleInfo i m mf) <$> get
       Timing -> CMBox . uncurry CMTiming <$> get
       Session -> CMBox . CMSession <$> get
-      ModuleGraph -> CMBox . CMModuleGraph <$> get
+      ModuleGraph -> CMBox . uncurry CMModuleGraph <$> get
       HsHie -> CMBox . uncurry CMHsHie <$> get
       Paused -> CMBox . uncurry CMPaused <$> get
       Console -> CMBox . uncurry CMConsole <$> get

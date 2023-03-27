@@ -80,7 +80,7 @@ updateInbox chanMsg = incrementSN . updater
          in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
-      CMBox (CMModuleGraph mgi) ->
+      CMBox (CMModuleGraph mgi _msrcs) ->
         (serverModuleGraphState . mgsModuleGraphInfo .~ mgi)
       CMBox (CMHsHie _ _) ->
         id
@@ -122,10 +122,9 @@ invokeWorker ssRef workQ (CMBox o) =
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
     CMTiming {} -> pure ()
-    CMSession s' -> do
-      let modSrcs = sessionModuleSources s'
+    CMSession {} -> pure ()
+    CMModuleGraph mgi modSrcs -> do
       void $ forkIO (moduleSourceWorker ssRef modSrcs)
-    CMModuleGraph mgi ->
       void $ forkIO (moduleGraphWorker ssRef mgi)
     CMHsHie _drvId hiefile ->
       void $ forkIO (hieWorker ssRef workQ hiefile)
