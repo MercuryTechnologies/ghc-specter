@@ -28,13 +28,13 @@ import GHC.Driver.Hooks (Hooks (..))
 import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
 import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Types
-  ( TcGblEnv (..),
-    TcM,
-    TcPlugin (..),
-    TcPluginSolveResult (TcPluginOk),
-    unsafeTcPluginTcM
-  )
+import GHC.Tc.Types (
+  TcGblEnv (..),
+  TcM,
+  TcPlugin (..),
+  TcPluginSolveResult (TcPluginOk),
+  unsafeTcPluginTcM,
+ )
 import GHC.Types.Unique.FM (emptyUFM)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
@@ -58,7 +58,7 @@ import Plugin.GHCSpecter.Hooks (
   runPhaseHook',
   runRnSpliceHook',
  )
-import Plugin.GHCSpecter.Init (initGhcSession)
+-- import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (
   core2coreCommands,
   emptyCommandSet,
@@ -214,7 +214,7 @@ corePlugin opts todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  initGhcSession env0
+  -- initGhcSession env0
   -- Note: Here we try to detect the start of the compilation of each module
   -- and assign driver id per the instance.
   -- From GHC 9.4, the start point can be consistenly detected by runPhaseHook.

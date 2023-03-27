@@ -51,14 +51,6 @@ source-repository-package
         location: https://github.com/wavewave/replica.git
         tag: 30e41c7982047d782db5080c17b76d4756291e0c
 
-package OGDF
-  -- by default, ghc finds g++ and that is linked to /usr/bin/g++ on macos.
-  ghc-options: -pgmcxx c++
-
-package ghc-specter-daemon
-  -- by default, ghc finds g++ and that is linked to /usr/bin/g++ on macos.
-  ghc-options: -pgmcxx c++
-
 allow-newer:
   Cabal,
   base,

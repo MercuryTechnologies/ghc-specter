@@ -39,6 +39,7 @@ import GHCSpecter.Data.Map (
  )
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
+  HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
@@ -217,7 +218,7 @@ render ss =
             (topPart ++ statusPart ++ infoPart)
   where
     sessionInfo = ss ^. serverSessionInfo
-    mgi = sessionModuleGraph sessionInfo
+    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
     timing = ss ^. serverTiming . tsTimingMap
     drvModMap = ss ^. serverDriverModuleMap
     pausedMap = ss ^. serverPaused

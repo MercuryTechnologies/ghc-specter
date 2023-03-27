@@ -62,6 +62,7 @@ import Language.Haskell.Syntax.Expr (HsUntypedSplice)
 import Language.Haskell.Syntax.Module.Name (moduleNameString)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
+import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (
   postMetaCommands,
   postPhaseCommands,
@@ -270,6 +271,11 @@ sendCompStateOnPhase drvId phase pt = do
               modGraphInfo = extractModuleGraphInfo modGraph
           putStrLn "Hsc Phase start"
           print modGraphInfo
+          -- NOTE: Unfortunately, from GHC 9.6, the driver plugin is loaded before
+          -- the module graph is computed. Therefore, the Hsc phase start point of
+          -- the first module is where we can get module graph information reliably.
+          -- So we put the initialization here.
+          initGhcSession env
           -- send timing information
           startTime <- getCurrentTime
           setAllocationCounter 0

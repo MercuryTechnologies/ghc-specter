@@ -95,7 +95,6 @@ initGhcSession env = do
                   , sessionGhcMode = ghcMode
                   , sessionBackend = backend
                   , sessionStartTime = Just startTime
-                  , sessionModuleGraph = modGraphInfo
                   , sessionModuleSources = M.empty
                   , sessionIsPaused = configStartWithBreakpoint cfg
                   }
@@ -105,6 +104,7 @@ initGhcSession env = do
                 s
                   { psSessionConfig = cfg
                   , psSessionInfo = newGhcSessionInfo
+                  , psModuleGraphInfo = modGraphInfo
                   , psMessageQueue = Just queue_
                   }
             )
@@ -113,11 +113,13 @@ initGhcSession env = do
     void $ forkOS $ runMessageQueue cfg queue
     let modGraph = hsc_mod_graph env
     modSources <- extractModuleSources modGraph
-    sinfo <-
+    (sinfo, mgi) <-
       atomically $
         stateTVar sessionRef $ \ps ->
           let sinfo0 = psSessionInfo ps
               sinfo = sinfo0 {sessionModuleSources = modSources}
+              mgi = psModuleGraphInfo ps
               ps' = ps {psSessionInfo = sinfo}
-           in (sinfo, ps')
+           in ((sinfo, mgi), ps')
     queueMessage (CMSession sinfo)
+    queueMessage (CMModuleGraph mgi)

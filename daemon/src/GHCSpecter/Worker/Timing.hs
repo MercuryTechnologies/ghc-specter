@@ -22,6 +22,7 @@ import GHCSpecter.Data.Timing.Util (
 import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
 import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types (
+  HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState,
@@ -37,24 +38,23 @@ timingWorker ssRef = do
     Just sessStart -> do
       let timing = ss ^. serverTiming . tsTimingMap
           drvModMap = ss ^. serverDriverModuleMap
-          mgi = sessionModuleGraph sessInfo
+          mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
       atomically $ modifyTVar' ssRef (serverTiming . tsTimingTable .~ ttable)
 
 timingBlockerGraphWorker :: TVar ServerState -> IO ()
 timingBlockerGraphWorker ssRef = do
-  ss' <-
+  (ss', mgi) <-
     atomically $ do
       ss <- readTVar ssRef
       let blThre = ss ^. serverTiming . tsBlockerDetailLevel . to blockerThreshold
-          mgi = ss ^. serverSessionInfo . to sessionModuleGraph
+          mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
           ttable = ss ^. serverTiming . tsTimingTable
           blockerGraph = makeBlockerGraph blThre mgi ttable
           ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
       writeTVar ssRef ss'
-      pure ss'
-  let mgi = ss' ^. serverSessionInfo . to sessionModuleGraph
-      modNameMap = mginfoModuleNameMap mgi
+      pure (ss', mgi)
+  let modNameMap = mginfoModuleNameMap mgi
       blockerReversed = makeRevDep (ss' ^. serverTiming . tsBlockerGraph)
   grVisInfo <- Sugiyama.layOutGraph modNameMap blockerReversed
   atomically $
