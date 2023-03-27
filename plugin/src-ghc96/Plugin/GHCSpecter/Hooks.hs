@@ -57,7 +57,7 @@ import GHCSpecter.Channel.Outbound.Types (
   TimerTag (..),
  )
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
-import GHCSpecter.Util.GHC (getModuleName)
+import GHCSpecter.Util.GHC (extractModuleGraphInfo, getModuleName)
 import Language.Haskell.Syntax.Expr (HsUntypedSplice)
 import Language.Haskell.Syntax.Module.Name (moduleNameString)
 import Plugin.GHCSpecter.Comm (queueMessage)
@@ -263,9 +263,13 @@ sendCompStateOnPhase drvId phase pt = do
     T_Cpp {} -> pure ()
     T_HsPp {} -> pure ()
     T_HscRecomp {} -> pure ()
-    T_Hsc {} ->
+    T_Hsc env _ ->
       case pt of
         PhaseStart -> do
+          let modGraph = hsc_mod_graph env
+              modGraphInfo = extractModuleGraphInfo modGraph
+          putStrLn "Hsc Phase start"
+          print modGraphInfo
           -- send timing information
           startTime <- getCurrentTime
           setAllocationCounter 0
