@@ -26,6 +26,8 @@ executable ghc-specter-daemon-exp
   build-depends:
                  base >=4.15 && <5,
                  ghc-specter-daemon,
+                 ghc-specter-plugin,
                  gi-gtk,
-                 haskell-gi-base
+                 haskell-gi-base,
+                 stm
   default-language: GHC2021
