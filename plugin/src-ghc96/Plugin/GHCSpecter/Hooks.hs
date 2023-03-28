@@ -346,7 +346,7 @@ runPhaseHook' = PhaseHook $ \phase -> do
       phaseTxt = tphase2Text phase
   mdrvId <-
     case phase of
-      T_Hsc _ _ ->
+      T_Hsc _ modSummary ->
         -- Since GHC 9.4, T_Hsc is a point where the module name is first identified
         -- in the plugin though GHC knows the module index when planning the build.
         -- Therefore, we are only able to issue a new ID associated with a given module

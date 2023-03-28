@@ -30,6 +30,7 @@ in {
       shellHook = ''
         echo "ghc.nix shell hook"
         ${attrs.shellHook}
+        export CXX=${pkgs.stdenv.cc}/bin/c++
         echo "now entering into ghcHEAD shell. Please set PATH to have your target GHC bin directory."
         export FONTCONFIG_FILE="${fontconf}"
         export PANGOCAIRO_BACKEND=fc
