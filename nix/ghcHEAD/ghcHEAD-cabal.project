@@ -1,5 +1,6 @@
 packages:
   ./daemon
+  ./daemon-exp
   ./logcat
   ./plugin
   ./ghc-build-analyzer
