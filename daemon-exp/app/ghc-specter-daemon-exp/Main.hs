@@ -40,10 +40,8 @@ import GHCSpecter.GraphLayout.Types (
   Dimension (..),
   EdgeLayout (..),
   GraphVisInfo,
-  HasEdgeLayout (..),
   HasGraphVisInfo (..),
   HasNodeLayout (..),
-  HasPoint (..),
   NodeLayout (..),
   Point (..),
   toTuple,
@@ -101,7 +99,8 @@ setColor Black = R.setSourceRGBA 0 0 0 1
 setColor White = R.setSourceRGBA 1 1 1 1
 setColor Red = R.setSourceRGBA 1 0 0 1
 setColor Blue = R.setSourceRGBA 0 0 1 1
-setColor Green = R.setSourceRGBA 0 1 0 1
+setColor Green = R.setSourceRGBA 0 0.5 0 1
+setColor Gray = R.setSourceRGBA 0.5 0.5 0.5 1
 
 renderPrimitive :: View -> Primitive -> R.Render ()
 renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth) = do
@@ -144,7 +143,7 @@ compileGraphViewDSL valueFor grVisInfo =
       rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
         Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
       edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
-        let (color, swidth) = ("gray", "1")
+        let (color, swidth) = (Gray, 1.0)
             -- if source and target nodes cannot be found,
             -- just use coordinates recorded in edge.
             -- TODO: should be handled as error.
@@ -153,7 +152,7 @@ compileGraphViewDSL valueFor grVisInfo =
               tgtNode <- IM.lookup tgt nodeLayoutMap
               -- Left-to-right flow.
               pure (rightCenter srcNode, leftCenter tgtNode)
-         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) Black 0.5
+         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
       node (NodeLayout (_, name) (Point x y) (Dim w h)) =
         let fontSize = 6
             ratio = valueFor name
