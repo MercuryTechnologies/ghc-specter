@@ -107,13 +107,6 @@ initGhcSession env = do
           pure (True, queue_)
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg queue
-    let modGraph = hsc_mod_graph env
-        modGraphInfo = extractModuleGraphInfo modGraph
-    modSources <- extractModuleSources modGraph
-    sinfo <- atomically $
-      stateTVar sessionRef $ \ps ->
-        let sinfo = psSessionInfo ps
-            ps' = ps {psModuleGraph = (modGraphInfo, modSources)}
-         in (sinfo, ps')
+    sinfo <-
+      atomically $ psSessionInfo <$> readTVar sessionRef
     queueMessage (CMSession sinfo)
-    queueMessage (CMModuleGraph modGraphInfo modSources)
