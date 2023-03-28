@@ -3,6 +3,7 @@ packages:
   ./daemon-exp
   ./logcat
   ./plugin
+  ./render
   ./ghc-build-analyzer
 
 repository head.hackage.ghc.haskell.org
