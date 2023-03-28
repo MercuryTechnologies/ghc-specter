@@ -46,7 +46,9 @@ import GHCSpecter.GraphLayout.Types (
   HasPoint (..),
   NodeLayout (..),
   Point (..),
+  toTuple,
  )
+import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -94,6 +96,75 @@ drawText (View pangoCtxt desc) sz (x, y) msg = do
   ctxt <- RC.getContext
   PC.showLayout ctxt layout
 
+setColor :: Color -> R.Render ()
+setColor Black = R.setSourceRGBA 0 0 0 1
+setColor White = R.setSourceRGBA 1 1 1 1
+setColor Red = R.setSourceRGBA 1 0 0 1
+setColor Blue = R.setSourceRGBA 0 0 1 1
+setColor Green = R.setSourceRGBA 0 1 0 1
+
+renderPrimitive :: View -> Primitive -> R.Render ()
+renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth) = do
+  for_ mbkg $ \bkg -> do
+    setColor bkg
+    R.rectangle x y w h
+    R.fill
+  for_ ((,) <$> mline <*> mlwidth) $ \(line, lwidth) -> do
+    setColor line
+    R.setLineWidth lwidth
+    R.rectangle x y w h
+    R.stroke
+renderPrimitive _ (Polyline start xys end line width) = do
+  setColor line
+  R.setLineWidth width
+  uncurry R.moveTo start
+  traverse_ (uncurry R.lineTo) xys
+  uncurry R.lineTo end
+  R.stroke
+renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
+  let y' = case pos of
+        UpperLeft -> y
+        LowerLeft -> y - fromIntegral fontSize - 1
+  setColor color
+  drawText vw (fromIntegral fontSize) (x, y') msg
+
+compileGraphViewDSL :: (Text -> Double) -> GraphVisInfo -> [Primitive]
+compileGraphViewDSL valueFor grVisInfo =
+  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+      nodeLayoutMap =
+        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
+      -- graph layout parameter
+      aFactor = 0.95
+      offX = -15
+      offYFactor = -1.0
+      -- the center of left side of a node
+      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
+        Point (x + offX) (y + h * offYFactor + h + 0.5)
+      -- the center of right side of a node
+      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
+        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
+      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
+        let (color, swidth) = ("gray", "1")
+            -- if source and target nodes cannot be found,
+            -- just use coordinates recorded in edge.
+            -- TODO: should be handled as error.
+            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
+              srcNode <- IM.lookup src nodeLayoutMap
+              tgtNode <- IM.lookup tgt nodeLayoutMap
+              -- Left-to-right flow.
+              pure (rightCenter srcNode, leftCenter tgtNode)
+         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) Black 0.5
+      node (NodeLayout (_, name) (Point x y) (Dim w h)) =
+        let fontSize = 6
+            ratio = valueFor name
+            w' = ratio * w
+         in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just Black) (Just White) (Just 0.8)
+            , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8)
+            , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing
+            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
+            ]
+   in fmap edge (grVisInfo ^. gviEdges) ++ concatMap node (grVisInfo ^. gviNodes)
+
 renderAction ::
   View ->
   BiKeyMap DriverId ModuleName ->
@@ -115,74 +186,8 @@ renderAction vw drvModMap timing clustering (Just grVisInfo) = do
               let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
-
-  -- TODO: This is largely a copied code from GHCSpecter.Render.Components.GraphView.
-  --       This should be refactored out properly.
-  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
-      nodeLayoutMap =
-        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
-      -- graph layout parameter
-      aFactor = 0.95
-      offX = -15
-      offYFactor = -1.0
-      -- the center of left side of a node
-      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
-        Point (x + offX) (y + h * offYFactor + h + 0.5)
-      -- the center of right side of a node
-      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
-        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
-      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) = do
-        let (color, swidth) = ("gray", "1")
-            -- if source and target nodes cannot be found,
-            -- just use coordinates recorded in edge.
-            -- TODO: should be handled as error.
-            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
-              srcNode <- IM.lookup src nodeLayoutMap
-              tgtNode <- IM.lookup tgt nodeLayoutMap
-              -- Left-to-right flow.
-              pure (rightCenter srcNode, leftCenter tgtNode)
-        R.setSourceRGBA 0 0 0 1
-        R.setLineWidth 0.5
-        R.moveTo (srcPt ^. pointX) (srcPt ^. pointY)
-        for_ xys $ \p ->
-          R.lineTo (p ^. pointX) (p ^. pointY)
-        R.lineTo (tgtPt ^. pointX) (tgtPt ^. pointY)
-        R.stroke
-      node (NodeLayout (_, name) (Point x y) (Dim w h)) = do
-        -- base box
-        R.setSourceRGBA 1 1 1 1
-        R.rectangle (x + offX) (y + h * offYFactor + h - 6) (w * aFactor) 13
-        R.fill
-        R.setSourceRGBA 0 0 0 1
-        R.setLineWidth 0.8
-        R.rectangle (x + offX) (y + h * offYFactor + h - 6) (w * aFactor) 13
-        R.stroke
-        -- module name
-        R.setSourceRGBA 0 0 0 1
-        let fontSize = 6 :: Int32
-        drawText
-          vw
-          fontSize
-          ( x + offX + 2
-          , y + h * offYFactor + h {- this -fontSize - 1 is due to text position convention difference -} - (fromIntegral fontSize) - 1
-          )
-          name
-        -- progress bar base box
-        R.setSourceRGBA 1 1 1 1
-        R.rectangle (x + offX) (y + h * offYFactor + h + 3) (w * aFactor) 4
-        R.fill
-        R.setSourceRGBA 0 0 0 1
-        R.rectangle (x + offX) (y + h * offYFactor + h + 3) (w * aFactor) 4
-        R.stroke
-        -- progress bar box
-        let ratio = valueFor name
-            w' = ratio * w
-        R.setSourceRGBA 0 0 1 1
-        R.rectangle (x + offX) (y + h * offYFactor + h + 3) (w' * aFactor) 4
-        R.fill
-
-  traverse_ edge (grVisInfo ^. gviEdges)
-  traverse_ node (grVisInfo ^. gviNodes)
+      rexp = compileGraphViewDSL valueFor grVisInfo
+  traverse_ (renderPrimitive vw) rexp
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
