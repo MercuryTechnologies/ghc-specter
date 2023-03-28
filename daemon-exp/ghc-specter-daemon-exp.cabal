@@ -27,7 +27,11 @@ executable ghc-specter-daemon-exp
                  base >=4.15 && <5,
                  ghc-specter-daemon,
                  ghc-specter-plugin,
+                 gi-cairo-connector,
+                 gi-cairo-render,
                  gi-gtk,
+                 gi-gtk-hs,
                  haskell-gi-base,
+                 lens,
                  stm
   default-language: GHC2021
