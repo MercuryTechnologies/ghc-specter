@@ -25,6 +25,7 @@ executable ghc-specter-daemon-exp
   ghc-options:   -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
                  base >=4.15 && <5,
+                 containers,
                  ghc-specter-daemon,
                  ghc-specter-plugin,
                  gi-cairo-connector,
