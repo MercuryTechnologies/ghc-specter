@@ -17,8 +17,11 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_, traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.Int (Int32)
 import Data.IntMap qualified as IM
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
+import Data.Traversable (for)
 import GHCSpecter.Config (
   Config (..),
   defaultGhcSpecterConfigFile,
@@ -43,8 +46,10 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GI.Cairo.Render qualified as R
-import GI.Cairo.Render.Connector (renderWithContext)
+import GI.Cairo.Render.Connector qualified as RC
 import GI.Gtk qualified as Gtk
+import GI.Pango qualified as P
+import GI.PangoCairo qualified as PC
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -56,12 +61,36 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-renderAction :: Maybe GraphVisInfo -> R.Render ()
-renderAction Nothing = do
+data View = View
+  { viewPangoContext :: P.Context
+  , viewFontDesc :: P.FontDescription
+  }
+
+initView :: IO (Maybe View)
+initView = do
+  fontMap :: PC.FontMap <- PC.fontMapGetDefault
+  pangoCtxt <- #createContext fontMap
+  family <- #getFamily fontMap "FreeSans"
+  mface <- #getFace family Nothing
+  for mface $ \face -> do
+    desc <- #describe face
+    pure (View pangoCtxt desc)
+
+drawText :: View -> Int32 -> (Double, Double) -> Text -> R.Render ()
+drawText (View pangoCtxt desc) sz (x, y) msg = do
+  layout :: P.Layout <- P.layoutNew pangoCtxt
+  #setSize desc (sz * P.SCALE)
+  #setFontDescription layout (Just desc)
+  #setText layout msg (-1)
+  R.moveTo x y
+  ctxt <- RC.getContext
+  PC.showLayout ctxt layout
+
+renderAction :: View -> Maybe GraphVisInfo -> R.Render ()
+renderAction vw Nothing = do
   R.setSourceRGBA 0 0 0 1
-  R.rectangle 100 100 200 150
-  R.fill
-renderAction (Just grVisInfo) = do
+  drawText vw 36 (100, 100) "GHC is not connected yet"
+renderAction vw (Just grVisInfo) = do
   -- TODO: This is largely a copied code from GHCSpecter.Render.Components.GraphView.
   --       This should be refactored out properly.
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
@@ -94,14 +123,19 @@ renderAction (Just grVisInfo) = do
           R.lineTo (p ^. pointX) (p ^. pointY)
         R.lineTo (tgtPt ^. pointX) (tgtPt ^. pointY)
         R.stroke
-      node (NodeLayout _ (Point x y) (Dim w h)) = do
+      node (NodeLayout (_, name) (Point x y) (Dim w h)) = do
+        R.setSourceRGBA 1 1 1 1
+        R.rectangle (x + offX) (y + h * offYFactor + h - 6) (w * aFactor) 13
+        R.fill
         R.setSourceRGBA 0 0 1 1
         R.setLineWidth 0.8
         R.rectangle (x + offX) (y + h * offYFactor + h - 6) (w * aFactor) 13
         R.stroke
+        R.setSourceRGBA 0 0 0 1
+        drawText vw 6 (x + offX + 2, y + h * offYFactor + h - 5) name
 
-  traverse_ node (grVisInfo ^. gviNodes)
   traverse_ edge (grVisInfo ^. gviEdges)
+  traverse_ node (grVisInfo ^. gviNodes)
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
@@ -118,26 +152,31 @@ main =
     workQ <- newTQueueIO
     chanSignal <- newTChanIO
     let servSess = ServerSession ssRef chanSignal
-    _ <- forkOS $ Comm.listener socketFile servSess workQ
 
     _ <- Gtk.init Nothing
-    mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
-    _ <- mainWindow `on` #destroy $ Gtk.mainQuit
-    drawingArea <- new Gtk.DrawingArea []
-    _ <- drawingArea
-      `on` #draw
-      $ renderWithContext
-      $ do
-        ss <- liftIO $ atomically $ readTVar ssRef
-        let mgrvis = ss ^. serverModuleGraphState . mgsClusterGraph
-        renderAction mgrvis
-        pure True
-    layout <- do
-      vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
-      #packStart vbox drawingArea True True 0
-      pure vbox
-    #add mainWindow layout
-    #setDefaultSize mainWindow 1440 768
-    #showAll mainWindow
-    _ <- forkOS (forceUpdateLoop drawingArea)
-    Gtk.main
+    mvw <- initView
+    case mvw of
+      Nothing -> error "cannot initialize pango"
+      Just vw0 -> do
+        vwRef <- atomically $ newTVar vw0
+        mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
+        _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+        drawingArea <- new Gtk.DrawingArea []
+        _ <- drawingArea
+          `on` #draw
+          $ RC.renderWithContext
+          $ do
+            (ss, vw) <- liftIO $ atomically ((,) <$> readTVar ssRef <*> readTVar vwRef)
+            let mgrvis = ss ^. serverModuleGraphState . mgsClusterGraph
+            renderAction vw mgrvis
+            pure True
+        layout <- do
+          vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
+          #packStart vbox drawingArea True True 0
+          pure vbox
+        #add mainWindow layout
+        #setDefaultSize mainWindow 1440 768
+        #showAll mainWindow
+        _ <- forkOS $ Comm.listener socketFile servSess workQ
+        _ <- forkOS (forceUpdateLoop drawingArea)
+        Gtk.main

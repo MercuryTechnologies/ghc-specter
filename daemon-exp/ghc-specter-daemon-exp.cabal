@@ -32,7 +32,10 @@ executable ghc-specter-daemon-exp
                  gi-cairo-render,
                  gi-gtk,
                  gi-gtk-hs,
+                 gi-pango,
+                 gi-pangocairo,
                  haskell-gi-base,
                  lens,
-                 stm
+                 stm,
+                 text
   default-language: GHC2021
