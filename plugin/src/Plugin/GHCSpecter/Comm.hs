@@ -3,7 +3,7 @@ module Plugin.GHCSpecter.Comm (
   queueMessage,
 ) where
 
-import Control.Concurrent (forkIO, forkOS)
+import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
@@ -16,7 +16,6 @@ import Data.Foldable (for_)
 import Data.Foldable qualified as F
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq
-import GHC.Debug.Stub qualified as Debug
 import GHCSpecter.Channel.Inbound.Types (
   Request (..),
   SessionRequest (..),

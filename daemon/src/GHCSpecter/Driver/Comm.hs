@@ -46,6 +46,7 @@ import GHCSpecter.Driver.Session.Types (
  )
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
+  HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
@@ -79,6 +80,8 @@ updateInbox chanMsg = incrementSN . updater
          in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
+      CMBox (CMModuleGraph mgi _msrcs) ->
+        (serverModuleGraphState . mgsModuleGraphInfo .~ mgi)
       CMBox (CMHsHie _ _) ->
         id
       CMBox (CMPaused drvId loc) ->
@@ -119,9 +122,8 @@ invokeWorker ssRef workQ (CMBox o) =
     CMCheckImports {} -> pure ()
     CMModuleInfo {} -> pure ()
     CMTiming {} -> pure ()
-    CMSession s' -> do
-      let modSrcs = sessionModuleSources s'
-          mgi = sessionModuleGraph s'
+    CMSession {} -> pure ()
+    CMModuleGraph mgi modSrcs -> do
       void $ forkIO (moduleSourceWorker ssRef modSrcs)
       void $ forkIO (moduleGraphWorker ssRef mgi)
     CMHsHie _drvId hiefile ->

@@ -35,6 +35,7 @@ import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.TimingView qualified as TimingView
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
+  HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
@@ -168,9 +169,8 @@ renderBlockerGraph ss =
     ]
     contents
   where
-    sessionInfo = ss ^. serverSessionInfo
     drvModMap = ss ^. serverDriverModuleMap
-    nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+    nameMap = ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
     ttable = ss ^. serverTiming . tsTimingTable
     maxTime =
       case ttable ^. ttableTimingInfos of

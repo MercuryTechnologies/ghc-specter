@@ -48,8 +48,10 @@ import GHCSpecter.Channel.Common.Types (
 import GHCSpecter.Channel.Outbound.Types (
   BreakpointLoc,
   Channel,
+  ModuleGraphInfo (..),
   SessionInfo (..),
   Timer,
+  emptyModuleGraphInfo,
   emptySessionInfo,
  )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
@@ -91,7 +93,8 @@ emptyTimingState =
     }
 
 data ModuleGraphState = ModuleGraphState
-  { _mgsModuleForest :: Forest ModuleName
+  { _mgsModuleGraphInfo :: ModuleGraphInfo
+  , _mgsModuleForest :: Forest ModuleName
   , _mgsClusterGraph :: Maybe GraphVisInfo
   , _mgsClustering :: [(ModuleName, [ModuleName])]
   , _mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
@@ -105,7 +108,14 @@ instance FromJSON ModuleGraphState
 instance ToJSON ModuleGraphState
 
 emptyModuleGraphState :: ModuleGraphState
-emptyModuleGraphState = ModuleGraphState [] Nothing [] []
+emptyModuleGraphState =
+  ModuleGraphState
+    { _mgsModuleGraphInfo = emptyModuleGraphInfo
+    , _mgsModuleForest = []
+    , _mgsClusterGraph = Nothing
+    , _mgsClustering = []
+    , _mgsSubgraph = []
+    }
 
 newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo

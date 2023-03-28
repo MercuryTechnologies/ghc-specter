@@ -18,9 +18,11 @@ module Plugin.GHCSpecter.Hooks (
 ) where
 
 import Control.Applicative ((<|>))
-import Control.Concurrent.STM (atomically, readTVar, writeTVar)
+import Control.Concurrent.STM (atomically, modifyTVar', readTVar, writeTVar)
+import Control.Monad (when)
 import Control.Monad.Extra (ifM)
 import Data.Foldable (for_)
+import Data.IntMap qualified as IM
 import Data.Maybe (listToMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -53,15 +55,21 @@ import GHCSpecter.Channel.Outbound.Types (
   BreakpointLoc (..),
   ChanMessage (..),
   MemInfo (..),
+  ModuleGraphInfo (..),
   Timer (..),
   TimerTag (..),
  )
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
-import GHCSpecter.Util.GHC (getModuleName)
+import GHCSpecter.Util.GHC (
+  extractModuleGraphInfo,
+  extractModuleSources,
+  getModuleName,
+ )
 import Language.Haskell.Syntax.Expr (HsUntypedSplice)
 import Language.Haskell.Syntax.Module.Name (moduleNameString)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
+import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (
   postMetaCommands,
   postPhaseCommands,
@@ -263,9 +271,28 @@ sendCompStateOnPhase drvId phase pt = do
     T_Cpp {} -> pure ()
     T_HsPp {} -> pure ()
     T_HscRecomp {} -> pure ()
-    T_Hsc {} ->
+    T_Hsc env _ ->
       case pt of
         PhaseStart -> do
+          -- NOTE: Unfortunately, from GHC 9.6, the driver plugin is loaded before
+          -- the module graph is computed. Therefore, the Hsc phase start point of
+          -- the first module is where we can get module graph information reliably.
+          -- So we put the initialization here.
+          let modGraph1 = hsc_mod_graph env
+              modGraphInfo1 = extractModuleGraphInfo modGraph1
+          modSources1 <- extractModuleSources modGraph1
+          shouldUpdate <-
+            atomically $ do
+              (modGraphInfo0, _) <- psModuleGraph <$> readTVar sessionRef
+              let
+                -- TODO: this check is incorrect. need a better method for detecting changes.
+                shouldUpdate =
+                  IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)
+              when shouldUpdate $
+                modifyTVar' sessionRef (\ps -> ps {psModuleGraph = (modGraphInfo1, modSources1)})
+              pure shouldUpdate
+          when shouldUpdate $ do
+            queueMessage (CMModuleGraph modGraphInfo1 modSources1)
           -- send timing information
           startTime <- getCurrentTime
           setAllocationCounter 0
@@ -320,8 +347,8 @@ runPhaseHook' = PhaseHook $ \phase -> do
   mdrvId <-
     case phase of
       T_Hsc _ modSummary ->
-        -- T_Hsc is a point where the module name is first identified in the plugin though
-        -- GHC knows the module index when planning the build.
+        -- Since GHC 9.4, T_Hsc is a point where the module name is first identified
+        -- in the plugin though GHC knows the module index when planning the build.
         -- Therefore, we are only able to issue a new ID associated with a given module
         -- at this point.
         -- TODO: Work on the upstream GHC to provide the index as a part of API.

@@ -31,6 +31,8 @@ import Control.Concurrent.STM (
   newTVarIO,
   readTVar,
  )
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import GHCSpecter.Channel.Common.Types (
@@ -40,7 +42,9 @@ import GHCSpecter.Channel.Common.Types (
 import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
 import GHCSpecter.Channel.Outbound.Types (
   ChanMessageBox (..),
+  ModuleGraphInfo (..),
   SessionInfo (..),
+  emptyModuleGraphInfo,
   emptySessionInfo,
  )
 import GHCSpecter.Config (Config, emptyConfig)
@@ -74,6 +78,7 @@ emptyConsoleState = ConsoleState Nothing
 data PluginSession = PluginSession
   { psSessionConfig :: Config
   , psSessionInfo :: SessionInfo
+  , psModuleGraph :: (ModuleGraphInfo, Map ModuleName FilePath)
   , psMessageQueue :: Maybe MsgQueue
   , psDrvIdModuleMap :: BiKeyMap DriverId ModuleName
   , psDrvIdModuleFileMap :: BiKeyMap DriverId FilePath
@@ -88,6 +93,7 @@ emptyPluginSession =
   PluginSession
     { psSessionConfig = emptyConfig
     , psSessionInfo = emptySessionInfo
+    , psModuleGraph = (emptyModuleGraphInfo, Map.empty)
     , psMessageQueue = Nothing
     , psDrvIdModuleMap = emptyBiKeyMap
     , psDrvIdModuleFileMap = emptyBiKeyMap

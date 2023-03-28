@@ -209,7 +209,7 @@ render model ss =
         )
   where
     sessionInfo = ss ^. serverSessionInfo
-    nameMap = mginfoModuleNameMap $ sessionModuleGraph sessionInfo
+    nameMap = ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
     drvModMap = ss ^. serverDriverModuleMap
     timing = ss ^. serverTiming . tsTimingMap
     mgs = ss ^. serverModuleGraphState
