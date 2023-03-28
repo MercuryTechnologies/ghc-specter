@@ -215,18 +215,6 @@ driver opts env0 = do
   -- NOTE2: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-  {- sinfo0 <-
-    atomically $
-      psSessionInfo <$> readTVar sessionRef
-  let modGraphInfo0 = sessionModuleGraph sinfo0
-      modGraph1 = hsc_mod_graph env0
-      modGraphInfo1 = extractModuleGraphInfo modGraph1
-  when (IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)) $ do
-    let sinfo1 = sinfo0 {sessionModuleGraph = modGraphInfo1}
-    atomically $
-      modifyTVar'
-        sessionRef
-        (\s -> s {psSessionInfo = sinfo1}) -}
   let modGraph = hsc_mod_graph env0
       modGraphInfo = extractModuleGraphInfo modGraph
   modSources <- extractModuleSources modGraph

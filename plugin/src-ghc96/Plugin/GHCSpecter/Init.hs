@@ -10,10 +10,8 @@ import Control.Concurrent.STM (
   atomically,
   modifyTVar',
   readTVar,
-  stateTVar,
  )
 import Control.Monad (void, when)
-import Data.Map.Strict qualified as M
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Backend (backendDescription)
 import GHC.Driver.Env (HscEnv (..))
@@ -25,17 +23,12 @@ import GHCSpecter.Channel.Outbound.Types (
   GhcMode (..),
   ProcessInfo (..),
   SessionInfo (..),
-  emptyModuleGraphInfo,
  )
 import GHCSpecter.Config (
   Config (..),
   defaultGhcSpecterConfigFile,
   emptyConfig,
   loadConfig,
- )
-import GHCSpecter.Util.GHC (
-  extractModuleGraphInfo,
-  extractModuleSources,
  )
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
 import Plugin.GHCSpecter.Types (
@@ -68,7 +61,7 @@ initGhcSession env = do
   let cfg = either (const emptyConfig) id ecfg
   -- read/write should be atomic inside a single STM. i.e. no interleaving
   -- IO actions are allowed.
-  (isNewStart, queue, mgi) <-
+  (isNewStart, queue) <-
     atomically $ do
       ps <- readTVar sessionRef
       let ghcSessionInfo = psSessionInfo ps
@@ -76,7 +69,7 @@ initGhcSession env = do
             (,) <$> sessionStartTime ghcSessionInfo <*> psMessageQueue ps
       case mtimeQueue of
         -- session has started already.
-        Just (_, queue) -> pure (False, queue, emptyModuleGraphInfo)
+        Just (_, queue) -> pure (False, queue)
         -- session start
         Nothing -> do
           let ghcMode =
@@ -93,16 +86,12 @@ initGhcSession env = do
                         --  | desc == "compiling to JavaScript" -> Javascript
                         | desc == "byte-code interpreter" -> Interpreter
                         | otherwise -> NoBackend
-              modGraph = hsc_mod_graph env
-              modGraphInfo = extractModuleGraphInfo modGraph
               newGhcSessionInfo =
                 SessionInfo
                   { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
                   , sessionGhcMode = ghcMode
                   , sessionBackend = backend
                   , sessionStartTime = Just startTime
-                  , sessionModuleGraph = modGraphInfo
-                  , sessionModuleSources = M.empty
                   , sessionIsPaused = configStartWithBreakpoint cfg
                   }
           modifyTVar'
@@ -114,17 +103,11 @@ initGhcSession env = do
                   , psMessageQueue = Just queue_
                   }
             )
-          pure (True, queue_, modGraphInfo)
-  print mgi
+          pure (True, queue_)
+  -- start message queue
   when isNewStart $ do
     void $ forkOS $ runMessageQueue cfg queue
-    let modGraph = hsc_mod_graph env
-    modSources <- extractModuleSources modGraph
     sinfo <-
       atomically $
-        stateTVar sessionRef $ \ps ->
-          let sinfo0 = psSessionInfo ps
-              sinfo = sinfo0 {sessionModuleSources = modSources}
-              ps' = ps {psSessionInfo = sinfo}
-           in (sinfo, ps')
+        psSessionInfo <$> readTVar sessionRef
     queueMessage (CMSession sinfo)

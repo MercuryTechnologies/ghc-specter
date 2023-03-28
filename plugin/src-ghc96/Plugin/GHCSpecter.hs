@@ -12,13 +12,11 @@ module Plugin.GHCSpecter (
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
-  readTVar,
  )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.Functor ((<&>))
-import Data.IntMap qualified as IM
 import Data.Text qualified as T
 import GHC.Core.Opt.Monad (CoreM, getDynFlags)
 import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
@@ -42,11 +40,10 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (
   BreakpointLoc (..),
   ChanMessage (..),
-  ModuleGraphInfo (..),
-  SessionInfo (..),
  )
 import GHCSpecter.Util.GHC (
   extractModuleGraphInfo,
+  extractModuleSources,
   showPpr,
  )
 import Language.Haskell.Syntax.Decls (HsGroup)
@@ -58,7 +55,7 @@ import Plugin.GHCSpecter.Hooks (
   runPhaseHook',
   runRnSpliceHook',
  )
--- import Plugin.GHCSpecter.Init (initGhcSession)
+import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (
   core2coreCommands,
   emptyCommandSet,
@@ -214,30 +211,10 @@ corePlugin opts todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
-  -- initGhcSession env0
-  -- Note: Here we try to detect the start of the compilation of each module
-  -- and assign driver id per the instance.
-  -- From GHC 9.4, the start point can be consistenly detected by runPhaseHook.
-  -- However, unfortunately, on GHC 9.2, runPhaseHook is not called there in
-  -- the usual "ghc --make" case, but fortunately, the driver plugin initialization
-  -- is invoked at the module compilation start though this is not an intended
-  -- behavior. Thus, I assign the driver id here for GHC 9.2.
-  -- NOTE2: this will wipe out all other plugins and fix opts
+  initGhcSession env0
+  -- NOTE: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
-  sinfo0 <-
-    atomically $
-      psSessionInfo <$> readTVar sessionRef
-  let modGraphInfo0 = sessionModuleGraph sinfo0
-      modGraph1 = hsc_mod_graph env0
-      modGraphInfo1 = extractModuleGraphInfo modGraph1
-  when (IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)) $ do
-    let sinfo1 = sinfo0 {sessionModuleGraph = modGraphInfo1}
-    atomically $
-      modifyTVar'
-        sessionRef
-        (\s -> s {psSessionInfo = sinfo1})
-    queueMessage (CMSession sinfo1)
   let newPlugin =
         plugin
           { installCoreToDos = corePlugin
