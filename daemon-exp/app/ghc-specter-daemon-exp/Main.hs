@@ -163,7 +163,9 @@ compileGraphViewDSL valueFor grVisInfo =
             , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing
             , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
             ]
-   in fmap edge (grVisInfo ^. gviEdges) ++ concatMap node (grVisInfo ^. gviNodes)
+   in [Rectangle (0, 0) canvasWidth canvasHeight Nothing (Just White) Nothing]
+        ++ fmap edge (grVisInfo ^. gviEdges)
+        ++ concatMap node (grVisInfo ^. gviNodes)
 
 renderAction ::
   View ->

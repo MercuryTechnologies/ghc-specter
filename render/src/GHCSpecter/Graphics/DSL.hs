@@ -7,7 +7,7 @@ module GHCSpecter.Graphics.DSL (
 
 import Data.Text (Text)
 
-data Color = Black | White | Red | Blue | Green
+data Color = Black | White | Red | Blue | Green | Gray
   deriving (Show)
 
 data TextPosition = UpperLeft | LowerLeft
