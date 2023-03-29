@@ -10,14 +10,16 @@ import Control.Concurrent.STM (
   newTChanIO,
   newTQueueIO,
   newTVar,
+  newTVarIO,
   readTVar,
  )
-import Control.Lens (to, (^.))
+import Control.Lens (to, (.~), (^.))
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
+import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
@@ -25,14 +27,29 @@ import GHCSpecter.Config (
   defaultGhcSpecterConfigFile,
   loadConfig,
  )
+import GHCSpecter.Control.Types (
+  Control,
+  nextEvent,
+  printMsg,
+ )
 import GHCSpecter.Driver.Comm qualified as Comm
-import GHCSpecter.Driver.Session.Types (ServerSession (..))
+import GHCSpecter.Driver.Session qualified as Session (main)
+import GHCSpecter.Driver.Session.Types (
+  ClientSession (..),
+  ServerSession (..),
+ )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
   initServerState,
+ )
+import GHCSpecter.UI.Types (
+  HasUIState (..),
+  UIView (..),
+  emptyMainView,
+  emptyUIState,
  )
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
@@ -97,14 +114,33 @@ forceUpdateLoop drawingArea = forever $ do
   postGUIASync $
     #queueDraw drawingArea
 
+controlMain :: Control ()
+controlMain = forever $ do
+  printMsg "hello"
+  _ <- nextEvent
+  pure ()
+
 main :: IO ()
 main =
   withConfig Nothing $ \cfg -> do
+    -- server session
     let socketFile = configSocket cfg
         nodeSizeLimit = configModuleClusterSize cfg
     ssRef <- atomically $ newTVar (initServerState nodeSizeLimit)
     chanSignal <- newTChanIO
     let servSess = ServerSession ssRef chanSignal
+    -- client session
+    -- assets <- Assets.loadAssets
+    let assets = undefined
+    initTime <- getCurrentTime
+    let ui0 = emptyUIState assets initTime
+        ui0' = (uiView .~ MainMode emptyMainView) ui0
+    uiRef <- newTVarIO ui0'
+    chanEv <- newTChanIO
+    chanState <- newTChanIO
+    chanBkg <- newTChanIO
+    let cliSess = ClientSession uiRef chanEv chanState chanBkg
+
     workQ <- newTQueueIO
     vmRef <- atomically $ newTVar (ViewModel TabModuleGraph)
 
@@ -147,5 +183,6 @@ main =
         #setDefaultSize mainWindow 1440 768
         #showAll mainWindow
         _ <- forkOS $ Comm.listener socketFile servSess workQ
+        _ <- forkOS $ Session.main servSess cliSess controlMain
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main

@@ -15,8 +15,8 @@ import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import GHCSpecter.Control qualified as Control (main)
 import GHCSpecter.Control.Runner (stepControlUpToEvent)
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
   HasClientSession (..),
@@ -32,8 +32,9 @@ import GHCSpecter.UI.Types.Event (
 main ::
   ServerSession ->
   ClientSession ->
+  Control () ->
   IO ()
-main servSess cs = do
+main servSess cs controlMain = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -57,6 +58,7 @@ main servSess cs = do
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do
+      putStrLn $ "I am here in chanDriver: " ++ show lastMessageSN
       -- wait for next poll
       threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
       -- blocked until a new message comes
@@ -68,9 +70,10 @@ main servSess cs = do
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
-    controlDriver = loopM step (\_ -> Control.main)
+    controlDriver = loopM step (\_ -> controlMain)
       where
         step c = do
+          putStrLn "I am here in control driver"
           ev <- atomically $ readTChan chanEv
           ec' <-
             runReaderT
