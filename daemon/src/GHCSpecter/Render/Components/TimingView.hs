@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.TimingView (
+  diffTime2X,
   -- * render
   render,
 ) where

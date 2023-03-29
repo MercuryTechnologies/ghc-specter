@@ -87,8 +87,9 @@ renderAction vb vm ss = do
       case vmCurrentTab vm of
         TabModuleGraph ->
           renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
-        TabTiming ->
-           renderTiming vb
+        TabTiming -> do
+          let ttable = ss ^. serverTiming . tsTimingTable
+          renderTiming vb ttable
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do

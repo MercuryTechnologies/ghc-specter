@@ -43,5 +43,6 @@ executable ghc-specter-daemon-exp
                  haskell-gi-base,
                  lens,
                  stm,
-                 text
+                 text,
+                 time
   default-language: GHC2021
