@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.GraphView (
+  compileGraphView,
   renderModuleGraph,
   renderGraph,
 ) where
@@ -16,12 +17,13 @@ import Concur.Replica (
   onMouseLeave,
   width,
  )
+import Concur.Replica.DOM.Props (Props)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map qualified as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
@@ -34,7 +36,9 @@ import GHCSpecter.GraphLayout.Types (
   HasNodeLayout (..),
   NodeLayout (..),
   Point (..),
+  toTuple,
  )
+import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
@@ -43,24 +47,24 @@ import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Text.Printf (printf)
 import Prelude hiding (div)
 
-makePolylineText :: (Point, Point) -> [Point] -> Text
+makePolylineText :: ((Double, Double), (Double, Double)) -> [(Double, Double)] -> Text
 makePolylineText (p0, p1) xys =
   T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
   where
-    each (Point x y) = T.pack $ printf "%.2f,%.2f" x y
+    each (x, y) = T.pack $ printf "%.2f,%.2f" x y
 
-renderModuleGraph ::
+compileGraphView ::
   -- | key = graph id
   IntMap ModuleName ->
   -- | For each module, assign a double type value in [0, 1],
   -- which will be shown as bar below the module node.
-  (ModuleName -> Double) ->
+  (Text -> Double) ->
   -- | Graph layout information
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Widget IHTML ModuleGraphEvent
-renderModuleGraph
+  [Primitive]
+compileGraphView
   nameMap
   valueFor
   grVisInfo
@@ -80,13 +84,13 @@ renderModuleGraph
         rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
           Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
         edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
-          let (color, swidth) = fromMaybe ("gray", "1") $ do
+          let (color, swidth) = fromMaybe (Gray, 1.0) $ do
                 hinted <- mhinted
                 hintedIdx_ <- M.lookup hinted revNameMap
                 hintedIdx <- Just hintedIdx_
                 if
-                    | src == hintedIdx -> pure ("black", "2")
-                    | tgt == hintedIdx -> pure ("black", "2")
+                    | src == hintedIdx -> pure (Black, 2.0)
+                    | tgt == hintedIdx -> pure (Black, 2.0)
                     | otherwise -> Nothing
               -- if source and target nodes cannot be found,
               -- just use coordinates recorded in edge.
@@ -96,67 +100,92 @@ renderModuleGraph
                 tgtNode <- IM.lookup tgt nodeLayoutMap
                 -- Left-to-right flow.
                 pure (rightCenter srcNode, leftCenter tgtNode)
-           in S.polyline
-                [ SP.points (makePolylineText (srcPt, tgtPt) xys)
-                , SP.stroke color
-                , SP.strokeWidth swidth
-                , SP.fill "none"
-                ]
-                []
-
-        box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
-          let color
-                | Just name == mfocused = "orange"
-                | Just name == mhinted = "honeydew"
-                | otherwise = "ivory"
-           in S.rect
-                [ HoverOnModuleEv (Just name) <$ onMouseEnter
-                , HoverOnModuleEv Nothing <$ onMouseLeave
-                , ClickOnModuleEv (Just name) <$ onClick
-                , SP.x (T.pack $ show (x + offX))
-                , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
-                , width (T.pack $ show (w * aFactor))
-                , height "13"
-                , SP.stroke "dimgray"
-                , SP.fill color
-                , SP.pointerEvents "visible"
-                ]
-                []
-        box1 (NodeLayout _ (Point x y) (Dim w h)) =
-          S.rect
-            [ SP.x (T.pack $ show (x + offX))
-            , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
-            , width (T.pack $ show (w * aFactor))
-            , height "4"
-            , SP.stroke "black"
-            , SP.fill "none"
-            , SP.pointerEvents "none"
-            ]
-            []
-        box2 (NodeLayout (_, name) (Point x y) (Dim w h)) =
-          let ratio = valueFor name
+           in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+        node (NodeLayout (_, name) (Point x y) (Dim w h)) =
+          let fontSize = 6
+              ratio = valueFor name
               w' = ratio * w
-           in S.rect
-                [ SP.x (T.pack $ show (x + offX))
-                , SP.y (T.pack $ show (y + h * offYFactor + h + 3))
-                , width (T.pack $ show (w' * aFactor))
-                , height "4"
-                , SP.fill "blue"
-                , SP.pointerEvents "none"
-                ]
-                []
-        moduleText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
-          S.text
-            [ SP.x (T.pack $ show (x + offX + 2))
-            , SP.y (T.pack $ show (y + h * offYFactor + h))
-            , classList [("small", True)]
-            , SP.pointerEvents "none"
-            ]
-            [text name]
-        edges = fmap edge (grVisInfo ^. gviEdges)
-        nodes =
-          concatMap (\x -> [box0 x, box1 x, box2 x, moduleText x]) (grVisInfo ^. gviNodes)
+              color1
+                | Just name == mfocused = Orange
+                | Just name == mhinted = HoneyDew
+                | otherwise = Ivory
+           in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just name)
+              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
+              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
+              , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
+              ]
+     in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+          ++ fmap edge (grVisInfo ^. gviEdges)
+          ++ concatMap node (grVisInfo ^. gviNodes)
 
+renderColor :: Color -> Text
+renderColor Black = "black"
+renderColor White = "white"
+renderColor Red = "red"
+renderColor Blue = "blue"
+renderColor Green = "green"
+renderColor Gray = "gray"
+renderColor Orange = "orange"
+renderColor HoneyDew = "honeydew"
+renderColor Ivory = "ivory"
+renderColor DimGray = "dimgray"
+
+renderPrimitive :: (Text -> [Props ModuleGraphEvent]) -> Primitive -> Widget IHTML ModuleGraphEvent
+renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth handleHover) =
+  S.rect
+    ( maybe [] (\name -> handlers name) handleHover
+        ++ [ SP.x (T.pack $ show x)
+           , SP.y (T.pack $ show y)
+           , width (T.pack $ show w)
+           , height (T.pack $ show h)
+           , SP.stroke (maybe "none" renderColor mline)
+           , SP.fill (maybe "none" renderColor mbkg)
+           , SP.pointerEvents (if isJust handleHover then "visible" else "none")
+           ]
+        ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
+    )
+    []
+renderPrimitive _ (Polyline start xys end line width) =
+  S.polyline
+    [ SP.points (makePolylineText (start, end) xys)
+    , SP.stroke (renderColor line)
+    , SP.strokeWidth (T.pack $ show width)
+    , SP.fill "none"
+    ]
+    []
+renderPrimitive _ (DrawText (x, y) _pos color _fontSize msg) =
+  S.text
+    [ SP.x (T.pack $ show x)
+    , SP.y (T.pack $ show y)
+    , -- TODO: proper font size later
+      classList [("small", True)]
+    , SP.pointerEvents "none"
+    ]
+    [text msg]
+
+renderModuleGraph ::
+  -- | key = graph id
+  IntMap ModuleName ->
+  -- | For each module, assign a double type value in [0, 1],
+  -- which will be shown as bar below the module node.
+  (ModuleName -> Double) ->
+  -- | Graph layout information
+  GraphVisInfo ->
+  -- | (focused (clicked), hinted (hovered))
+  (Maybe Text, Maybe Text) ->
+  Widget IHTML ModuleGraphEvent
+renderModuleGraph
+  nameMap
+  valueFor
+  grVisInfo
+  (mfocused, mhinted) =
+    let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+        handlers name =
+          [ HoverOnModuleEv (Just name) <$ onMouseEnter
+          , HoverOnModuleEv Nothing <$ onMouseLeave
+          , ClickOnModuleEv (Just name) <$ onClick
+          ]
+        rexp = compileGraphView nameMap valueFor grVisInfo (mfocused, mhinted)
         svgProps =
           [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox
@@ -171,7 +200,9 @@ renderModuleGraph
         svgElement =
           S.svg
             svgProps
-            (S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"] : (edges ++ nodes))
+            ( S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"]
+                : fmap (renderPrimitive handlers) rexp
+            )
      in div [classList [("is-fullwidth", True)]] [svgElement]
 
 -- | render graph more simply
@@ -201,7 +232,7 @@ renderGraph cond grVisInfo =
               -- Left-to-right flow.
               pure (rightCenter srcNode, leftCenter tgtNode)
          in S.polyline
-              [ SP.points (makePolylineText (srcPt, tgtPt) xys)
+              [ SP.points (makePolylineText (toTuple srcPt, toTuple tgtPt) (fmap toTuple xys))
               , SP.stroke color
               , SP.strokeWidth swidth
               , SP.fill "none"
