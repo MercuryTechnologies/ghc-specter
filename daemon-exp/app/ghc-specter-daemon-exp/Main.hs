@@ -6,6 +6,7 @@ module Main where
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
   atomically,
+  modifyTVar',
   newTChanIO,
   newTQueueIO,
   newTVar,
@@ -62,23 +63,29 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-data View = View
-  { viewPangoContext :: P.Context
-  , viewFontDesc :: P.FontDescription
+data ViewBackend = ViewBackend
+  { vbPangoContext :: P.Context
+  , vbFontDesc :: P.FontDescription
   }
 
-initView :: IO (Maybe View)
-initView = do
+initViewBackend :: IO (Maybe ViewBackend)
+initViewBackend = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
   family <- #getFamily fontMap "FreeSans"
   mface <- #getFace family Nothing
   for mface $ \face -> do
     desc <- #describe face
-    pure (View pangoCtxt desc)
+    pure (ViewBackend pangoCtxt desc)
 
-drawText :: View -> Int32 -> (Double, Double) -> Text -> R.Render ()
-drawText (View pangoCtxt desc) sz (x, y) msg = do
+data Tab = TabModuleGraph | TabTiming
+
+data ViewModel = ViewModel
+  { vmCurrentTab :: Tab
+  }
+
+drawText :: ViewBackend -> Int32 -> (Double, Double) -> Text -> R.Render ()
+drawText (ViewBackend pangoCtxt desc) sz (x, y) msg = do
   layout :: P.Layout <- P.layoutNew pangoCtxt
   #setSize desc (sz * P.SCALE)
   #setFontDescription layout (Just desc)
@@ -99,7 +106,7 @@ setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0
 setColor Ivory = R.setSourceRGBA 1.0 1.0 0.941 1 -- FFFFF0
 setColor DimGray = R.setSourceRGBA 0.412 0.412 0.412 1 -- 696969
 
-renderPrimitive :: View -> Primitive -> R.Render ()
+renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
 renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth _) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
@@ -125,17 +132,18 @@ renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
   drawText vw (fromIntegral fontSize) (x, y') msg
 
 renderAction ::
-  View ->
+  ViewBackend ->
+  ViewModel ->
   IntMap ModuleName ->
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   Maybe GraphVisInfo ->
   R.Render ()
-renderAction vw _ _ _ _ Nothing = do
+renderAction vw _ _ _ _ _ Nothing = do
   R.setSourceRGBA 0 0 0 1
   drawText vw 36 (100, 100) "GHC is not connected yet"
-renderAction vw nameMap drvModMap timing clustering (Just grVisInfo) = do
+renderAction vw (ViewModel TabModuleGraph) nameMap drvModMap timing clustering (Just grVisInfo) = do
   let valueFor name =
         fromMaybe 0 $ do
           cluster <- L.lookup name clustering
@@ -148,6 +156,9 @@ renderAction vw nameMap drvModMap timing clustering (Just grVisInfo) = do
               pure (fromIntegral nCompiled / fromIntegral nTot)
       rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
   traverse_ (renderPrimitive vw) rexp
+renderAction vw (ViewModel TabTiming) nameMap drvModMap timing clustering (Just grVisInfo) = do
+  R.setSourceRGBA 0 0 0 1
+  drawText vw 36 (100, 100) "No timing implementation yet"
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
@@ -161,24 +172,39 @@ main =
     let socketFile = configSocket cfg
         nodeSizeLimit = configModuleClusterSize cfg
     ssRef <- atomically $ newTVar (initServerState nodeSizeLimit)
-    workQ <- newTQueueIO
     chanSignal <- newTChanIO
     let servSess = ServerSession ssRef chanSignal
+    workQ <- newTQueueIO
+    vmRef <- atomically $ newTVar (ViewModel TabModuleGraph)
 
     _ <- Gtk.init Nothing
-    mvw <- initView
-    case mvw of
+    mvb <- initViewBackend
+    case mvb of
       Nothing -> error "cannot initialize pango"
-      Just vw0 -> do
-        vwRef <- atomically $ newTVar vw0
+      Just vb0 -> do
+        vbRef <- atomically $ newTVar vb0
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+        -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
+        menuBar <- new Gtk.MenuBar []
+        menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
+        _ <- menuitem1 `on` #activate $ do
+          atomically $
+            modifyTVar' vmRef (\v -> v {vmCurrentTab = TabModuleGraph})
+          putStrLn "Module Graph is selected"
+        menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
+        _ <- menuitem2 `on` #activate $ do
+          atomically $
+            modifyTVar' vmRef (\v -> v {vmCurrentTab = TabTiming})
+          putStrLn "Timing is selected"
+        #append menuBar menuitem1
+        #append menuBar menuitem2
         drawingArea <- new Gtk.DrawingArea []
         _ <- drawingArea
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (ss, vw) <- liftIO $ atomically ((,) <$> readTVar ssRef <*> readTVar vwRef)
+            (ss, vb, vm) <- liftIO $ atomically ((,,) <$> readTVar ssRef <*> readTVar vbRef <*> readTVar vmRef)
             let nameMap =
                   ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
                 drvModMap = ss ^. serverDriverModuleMap
@@ -186,10 +212,11 @@ main =
                 mgs = ss ^. serverModuleGraphState
                 clustering = mgs ^. mgsClustering
                 mgrvis = mgs ^. mgsClusterGraph
-            renderAction vw nameMap drvModMap timing clustering mgrvis
+            renderAction vb vm nameMap drvModMap timing clustering mgrvis
             pure True
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
+          #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout
