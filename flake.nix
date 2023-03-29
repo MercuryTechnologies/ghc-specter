@@ -122,7 +122,7 @@
           "ghc-specter-plugin" =
             hself.callCabal2nix "ghc-specter-plugin" ./plugin { };
           "ghc-specter-render" =
-            hself.callCabal2nix "ghc-specter-render" ./plugin { };
+            hself.callCabal2nix "ghc-specter-render" ./render { };
           "ghc-specter-daemon" =
             hself.callCabal2nix "ghc-specter-daemon" ./daemon { };
           "ghc-build-analyzer" =
