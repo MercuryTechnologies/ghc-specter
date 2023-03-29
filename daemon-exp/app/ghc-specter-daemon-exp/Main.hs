@@ -17,28 +17,21 @@ import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
-import Data.IntMap (IntMap)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import Data.Traversable (for)
-import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
-  Timer,
- )
+import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
   Config (..),
   defaultGhcSpecterConfigFile,
   loadConfig,
  )
-import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
-import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
+  ServerState (..),
   initServerState,
  )
 import GI.Cairo.Render qualified as R
@@ -70,22 +63,32 @@ initViewBackend = do
     desc <- #describe face
     pure (ViewBackend pangoCtxt desc)
 
+renderNotConnected :: ViewBackend -> R.Render ()
+renderNotConnected vb = do
+  R.setSourceRGBA 0 0 0 1
+  drawText vb 36 (100, 100) "GHC is not connected yet"
+
 renderAction ::
   ViewBackend ->
   ViewModel ->
-  IntMap ModuleName ->
-  BiKeyMap DriverId ModuleName ->
-  KeyMap DriverId Timer ->
-  [(Text, [Text])] ->
-  Maybe GraphVisInfo ->
+  ServerState ->
   R.Render ()
-renderAction vb _ _ _ _ _ Nothing = do
-  R.setSourceRGBA 0 0 0 1
-  drawText vb 36 (100, 100) "GHC is not connected yet"
-renderAction vb (ViewModel TabModuleGraph) nameMap drvModMap timing clustering (Just grVisInfo) =
-  renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
-renderAction vb (ViewModel TabTiming) _nameMap _drvModMap _timing _clustering (Just _grVisInfo) = do
-  renderTiming vb
+renderAction vb vm ss = do
+  let nameMap =
+        ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
+      drvModMap = ss ^. serverDriverModuleMap
+      timing = ss ^. serverTiming . tsTimingMap
+      mgs = ss ^. serverModuleGraphState
+      clustering = mgs ^. mgsClustering
+      mgrvis = mgs ^. mgsClusterGraph
+  case mgrvis of
+    Nothing -> renderNotConnected vb
+    Just grVisInfo ->
+      case vmCurrentTab vm of
+        TabModuleGraph ->
+          renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
+        TabTiming ->
+           renderTiming vb
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
@@ -132,14 +135,7 @@ main =
           $ RC.renderWithContext
           $ do
             (ss, vb, vm) <- liftIO $ atomically ((,,) <$> readTVar ssRef <*> readTVar vbRef <*> readTVar vmRef)
-            let nameMap =
-                  ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
-                drvModMap = ss ^. serverDriverModuleMap
-                timing = ss ^. serverTiming . tsTimingMap
-                mgs = ss ^. serverModuleGraphState
-                clustering = mgs ^. mgsClustering
-                mgrvis = mgs ^. mgsClusterGraph
-            renderAction vb vm nameMap drvModMap timing clustering mgrvis
+            renderAction vb vm ss
             pure True
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
