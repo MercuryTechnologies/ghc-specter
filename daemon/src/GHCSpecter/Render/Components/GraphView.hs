@@ -3,7 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.GraphView (
-  compileGraphView,
+  compileModuleGraph,
+  compileGraph,
   renderModuleGraph,
   renderGraph,
 ) where
@@ -53,7 +54,7 @@ makePolylineText (p0, p1) xys =
   where
     each (x, y) = T.pack $ printf "%.2f,%.2f" x y
 
-compileGraphView ::
+compileModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
   -- | For each module, assign a double type value in [0, 1],
@@ -64,7 +65,7 @@ compileGraphView ::
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
   [Primitive]
-compileGraphView
+compileModuleGraph
   nameMap
   valueFor
   grVisInfo
@@ -118,6 +119,46 @@ compileGraphView
           ++ fmap edge (grVisInfo ^. gviEdges)
           ++ concatMap node (grVisInfo ^. gviNodes)
 
+-- | compile graph more simply to graphics DSL
+compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive]
+compileGraph cond grVisInfo =
+  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+      nodeLayoutMap =
+        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
+      -- graph layout parameter
+      aFactor = 0.95
+      offX = -15
+      offYFactor = -1.0
+      -- the center of left side of a node
+      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
+        Point (x + offX) (y + h * offYFactor + h + 0.5)
+      -- the center of right side of a node
+      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
+        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
+      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
+        let (color, swidth) = (Gray, 1.0)
+            -- if source and target nodes cannot be found,
+            -- just use coordinates recorded in edge.
+            -- TODO: should be handled as error.
+            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
+              srcNode <- IM.lookup src nodeLayoutMap
+              tgtNode <- IM.lookup tgt nodeLayoutMap
+              -- Left-to-right flow.
+              pure (rightCenter srcNode, leftCenter tgtNode)
+         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+
+      node (NodeLayout (_, name) (Point x y) (Dim w h)) =
+        let fontSize = 6
+            color
+              | cond name = HoneyDew
+              | otherwise = Ivory
+         in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
+            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
+            ]
+   in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+        ++ fmap edge (grVisInfo ^. gviEdges)
+        ++ concatMap node (grVisInfo ^. gviNodes)
+
 renderColor :: Color -> Text
 renderColor Black = "black"
 renderColor White = "white"
@@ -130,7 +171,7 @@ renderColor HoneyDew = "honeydew"
 renderColor Ivory = "ivory"
 renderColor DimGray = "dimgray"
 
-renderPrimitive :: (Text -> [Props ModuleGraphEvent]) -> Primitive -> Widget IHTML ModuleGraphEvent
+renderPrimitive :: (Text -> [Props ev]) -> Primitive -> Widget IHTML ev
 renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth handleHover) =
   S.rect
     ( maybe [] (\name -> handlers name) handleHover
@@ -185,7 +226,7 @@ renderModuleGraph
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
           ]
-        rexp = compileGraphView nameMap valueFor grVisInfo (mfocused, mhinted)
+        rexp = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
         svgProps =
           [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox
@@ -209,61 +250,7 @@ renderModuleGraph
 renderGraph :: (Text -> Bool) -> GraphVisInfo -> Widget IHTML a
 renderGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
-      nodeLayoutMap =
-        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
-      -- graph layout parameter
-      aFactor = 0.95
-      offX = -15
-      offYFactor = -1.0
-      -- the center of left side of a node
-      leftCenter (NodeLayout _ (Point x y) (Dim _ h)) =
-        Point (x + offX) (y + h * offYFactor + h + 0.5)
-      -- the center of right side of a node
-      rightCenter (NodeLayout _ (Point x y) (Dim w h)) =
-        Point (x + offX + w * aFactor) (y + h * offYFactor + h + 0.5)
-      edge (EdgeLayout _ (src, tgt) (srcPt0, tgtPt0) xys) =
-        let (color, swidth) = ("gray", "1")
-            -- if source and target nodes cannot be found,
-            -- just use coordinates recorded in edge.
-            -- TODO: should be handled as error.
-            (srcPt, tgtPt) = fromMaybe (srcPt0, tgtPt0) $ do
-              srcNode <- IM.lookup src nodeLayoutMap
-              tgtNode <- IM.lookup tgt nodeLayoutMap
-              -- Left-to-right flow.
-              pure (rightCenter srcNode, leftCenter tgtNode)
-         in S.polyline
-              [ SP.points (makePolylineText (toTuple srcPt, toTuple tgtPt) (fmap toTuple xys))
-              , SP.stroke color
-              , SP.strokeWidth swidth
-              , SP.fill "none"
-              ]
-              []
-
-      box0 (NodeLayout (_, name) (Point x y) (Dim w h)) =
-        let color
-              | cond name = "honeydew"
-              | otherwise = "ivory"
-         in S.rect
-              [ SP.x (T.pack $ show (x + offX))
-              , SP.y (T.pack $ show (y + h * offYFactor + h - 6))
-              , width (T.pack $ show (w * aFactor))
-              , height "10"
-              , SP.stroke "dimgray"
-              , SP.fill color
-              ]
-              []
-      labelText (NodeLayout (_, name) (Point x y) (Dim _w h)) =
-        S.text
-          [ SP.x (T.pack $ show (x + offX + 2))
-          , SP.y (T.pack $ show (y + h * offYFactor + h))
-          , classList [("small", True)]
-          ]
-          [text name]
-
-      edges = fmap edge (grVisInfo ^. gviEdges)
-      nodes =
-        concatMap (\x -> [box0 x, labelText x]) (grVisInfo ^. gviNodes)
-
+      rexp = compileGraph cond grVisInfo
       svgProps =
         [ width (T.pack (show (canvasWidth + 100)))
         , SP.viewBox
@@ -278,5 +265,7 @@ renderGraph cond grVisInfo =
       svgElement =
         S.svg
           svgProps
-          (S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"] : (edges ++ nodes))
+          ( S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"]
+              : fmap (renderPrimitive (\_ -> [])) rexp
+          )
    in div [classList [("is-fullwidth", True)]] [svgElement]

@@ -39,7 +39,7 @@ import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
-import GHCSpecter.Render.Components.GraphView (compileGraphView)
+import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -146,7 +146,7 @@ renderAction vw nameMap drvModMap timing clustering (Just grVisInfo) = do
               let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
-      rexp = compileGraphView nameMap valueFor grVisInfo (Nothing, Nothing)
+      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
   traverse_ (renderPrimitive vw) rexp
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
