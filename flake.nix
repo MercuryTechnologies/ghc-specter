@@ -121,6 +121,8 @@
           # ghc-specter-*
           "ghc-specter-plugin" =
             hself.callCabal2nix "ghc-specter-plugin" ./plugin { };
+          "ghc-specter-render" =
+            hself.callCabal2nix "ghc-specter-render" ./plugin { };
           "ghc-specter-daemon" =
             hself.callCabal2nix "ghc-specter-daemon" ./daemon { };
           "ghc-build-analyzer" =
@@ -166,7 +168,8 @@
           in pkgs.mkShell { packages = [ hsenv pyenv pkgs.nixfmt ]; };
         mkPackagesFor = compiler: {
           inherit (hpkgsFor compiler)
-            ghc-specter-plugin ghc-specter-daemon ghc-build-analyzer;
+            ghc-specter-plugin ghc-specter-render ghc-specter-daemon
+            ghc-build-analyzer;
         };
         supportedCompilers = [ "ghc924" "ghc942" ];
 
