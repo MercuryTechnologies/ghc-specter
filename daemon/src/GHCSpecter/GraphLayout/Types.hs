@@ -5,6 +5,7 @@ module GHCSpecter.GraphLayout.Types (
   -- * graph visualization information
   Point (..),
   HasPoint (..),
+  toTuple,
   Dimension (..),
   HasDimension (..),
   NodeLayout (..),
@@ -32,6 +33,9 @@ makeClassy ''Point
 instance FromJSON Point
 
 instance ToJSON Point
+
+toTuple :: Point -> (Double, Double)
+toTuple (Point x y) = (x, y)
 
 data Dimension = Dim
   { _dimWidth :: Double

@@ -1,8 +1,8 @@
 cabal-version: 3.0
 
-name:           ghc-specter-daemon-exp
+name:           ghc-specter-render
 version:        0.1.0.0
-synopsis:       Daemon process for ghc-specter
+synopsis:       render primitives independent of backend
 description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category:       Development
 homepage:       https://github.com/MercuryTechnologies/ghc-specter#readme
@@ -18,25 +18,13 @@ source-repository head
   type: git
   location: https://github.com/MercuryTechnologies/ghc-specter
 
-executable ghc-specter-daemon-exp
-  main-is: Main.hs
+library
+  exposed-modules:
+      GHCSpecter.Graphics.DSL
   hs-source-dirs:
-      app/ghc-specter-daemon-exp
-  ghc-options:   -Wall -threaded -rtsopts -with-rtsopts=-N
+      src
+  ghc-options: -Wall
   build-depends:
-                 base >=4.15 && <5,
-                 containers,
-                 ghc-specter-daemon,
-                 ghc-specter-plugin,
-                 ghc-specter-render,
-                 gi-cairo-connector,
-                 gi-cairo-render,
-                 gi-gtk,
-                 gi-gtk-hs,
-                 gi-pango,
-                 gi-pangocairo,
-                 haskell-gi-base,
-                 lens,
-                 stm,
-                 text
+      base >= 4.15 && <5,
+      text
   default-language: GHC2021

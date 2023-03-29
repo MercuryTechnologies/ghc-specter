@@ -99,6 +99,7 @@ library
     , free
     , ghc
     , ghc-specter-plugin
+    , ghc-specter-render
     , http-types
     , lens
     , optparse-applicative
