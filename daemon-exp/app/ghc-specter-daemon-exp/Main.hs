@@ -15,12 +15,9 @@ import Control.Concurrent.STM (
 import Control.Lens (to, (^.))
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_, traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
-import Data.Int (Int32)
 import Data.IntMap (IntMap)
-import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Traversable (for)
@@ -35,12 +32,9 @@ import GHCSpecter.Config (
   loadConfig,
  )
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
-import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -50,8 +44,11 @@ import GHCSpecter.Server.Types (
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gtk qualified as Gtk
-import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
+import ModuleGraph (renderModuleGraph)
+import Timing (renderTiming)
+import Types (Tab (..), ViewBackend (..), ViewModel (..))
+import Util (drawText)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -63,11 +60,6 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-data ViewBackend = ViewBackend
-  { vbPangoContext :: P.Context
-  , vbFontDesc :: P.FontDescription
-  }
-
 initViewBackend :: IO (Maybe ViewBackend)
 initViewBackend = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
@@ -78,59 +70,6 @@ initViewBackend = do
     desc <- #describe face
     pure (ViewBackend pangoCtxt desc)
 
-data Tab = TabModuleGraph | TabTiming
-
-data ViewModel = ViewModel
-  { vmCurrentTab :: Tab
-  }
-
-drawText :: ViewBackend -> Int32 -> (Double, Double) -> Text -> R.Render ()
-drawText (ViewBackend pangoCtxt desc) sz (x, y) msg = do
-  layout :: P.Layout <- P.layoutNew pangoCtxt
-  #setSize desc (sz * P.SCALE)
-  #setFontDescription layout (Just desc)
-  #setText layout msg (-1)
-  R.moveTo x y
-  ctxt <- RC.getContext
-  PC.showLayout ctxt layout
-
-setColor :: Color -> R.Render ()
-setColor Black = R.setSourceRGBA 0 0 0 1
-setColor White = R.setSourceRGBA 1 1 1 1
-setColor Red = R.setSourceRGBA 1 0 0 1
-setColor Blue = R.setSourceRGBA 0 0 1 1
-setColor Green = R.setSourceRGBA 0 0.5 0 1
-setColor Gray = R.setSourceRGBA 0.5 0.5 0.5 1
-setColor Orange = R.setSourceRGBA 1.0 0.647 0 1 -- FFA500
-setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0
-setColor Ivory = R.setSourceRGBA 1.0 1.0 0.941 1 -- FFFFF0
-setColor DimGray = R.setSourceRGBA 0.412 0.412 0.412 1 -- 696969
-
-renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
-renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth _) = do
-  for_ mbkg $ \bkg -> do
-    setColor bkg
-    R.rectangle x y w h
-    R.fill
-  for_ ((,) <$> mline <*> mlwidth) $ \(line, lwidth) -> do
-    setColor line
-    R.setLineWidth lwidth
-    R.rectangle x y w h
-    R.stroke
-renderPrimitive _ (Polyline start xys end line width) = do
-  setColor line
-  R.setLineWidth width
-  uncurry R.moveTo start
-  traverse_ (uncurry R.lineTo) xys
-  uncurry R.lineTo end
-  R.stroke
-renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
-  let y' = case pos of
-        UpperLeft -> y
-        LowerLeft -> y - fromIntegral fontSize - 1
-  setColor color
-  drawText vw (fromIntegral fontSize) (x, y') msg
-
 renderAction ::
   ViewBackend ->
   ViewModel ->
@@ -140,25 +79,13 @@ renderAction ::
   [(Text, [Text])] ->
   Maybe GraphVisInfo ->
   R.Render ()
-renderAction vw _ _ _ _ _ Nothing = do
+renderAction vb _ _ _ _ _ Nothing = do
   R.setSourceRGBA 0 0 0 1
-  drawText vw 36 (100, 100) "GHC is not connected yet"
-renderAction vw (ViewModel TabModuleGraph) nameMap drvModMap timing clustering (Just grVisInfo) = do
-  let valueFor name =
-        fromMaybe 0 $ do
-          cluster <- L.lookup name clustering
-          let nTot = length cluster
-          if nTot == 0
-            then Nothing
-            else do
-              let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
-                  nCompiled = length compiled
-              pure (fromIntegral nCompiled / fromIntegral nTot)
-      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
-  traverse_ (renderPrimitive vw) rexp
-renderAction vw (ViewModel TabTiming) nameMap drvModMap timing clustering (Just grVisInfo) = do
-  R.setSourceRGBA 0 0 0 1
-  drawText vw 36 (100, 100) "No timing implementation yet"
+  drawText vb 36 (100, 100) "GHC is not connected yet"
+renderAction vb (ViewModel TabModuleGraph) nameMap drvModMap timing clustering (Just grVisInfo) =
+  renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
+renderAction vb (ViewModel TabTiming) _nameMap _drvModMap _timing _clustering (Just _grVisInfo) = do
+  renderTiming vb
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do

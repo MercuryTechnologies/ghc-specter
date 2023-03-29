@@ -19,7 +19,12 @@ source-repository head
   location: https://github.com/MercuryTechnologies/ghc-specter
 
 executable ghc-specter-daemon-exp
-  main-is: Main.hs
+  main-is:       Main.hs
+  other-modules: ModuleGraph
+                 Util
+                 Timing
+                 Types
+
   hs-source-dirs:
       app/ghc-specter-daemon-exp
   ghc-options:   -Wall -threaded -rtsopts -with-rtsopts=-N
