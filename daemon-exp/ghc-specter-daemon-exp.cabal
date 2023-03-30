@@ -22,7 +22,6 @@ executable ghc-specter-daemon-exp
   main-is:       Main.hs
   other-modules: ModuleGraph
                  Util
-                 Timing
                  Types
 
   hs-source-dirs:

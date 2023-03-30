@@ -64,7 +64,6 @@ import GI.Cairo.Render.Connector qualified as RC
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import ModuleGraph (renderModuleGraph)
-import Timing (renderTiming)
 import Types (Tab (..), ViewBackend (..), ViewModel (..))
 import Util (drawText)
 
@@ -109,12 +108,7 @@ renderAction vb vm ss = do
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
-      case vmCurrentTab vm of
-        TabModuleGraph ->
-          renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
-        TabTiming -> do
-          let ttable = ss ^. serverTiming . tsTimingTable
-          renderTiming vb ttable
+      renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
@@ -134,8 +128,7 @@ simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv Refresh
     step ev = do
       putStrLn "simpleEventLoop"
       atomically $ writeTChan chanEv ev
-      (ui, ss) <- atomically $ readTChan chanState
-      -- threadDelay 1_000_000
+      (_ui, _ss) <- atomically $ readTChan chanState
       bev' <- atomically $ readTChan chanBkg
       pure (Left (BkgEv bev'))
 
@@ -175,20 +168,6 @@ main =
         vbRef <- atomically $ newTVar vb0
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
-        -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
-        menuBar <- new Gtk.MenuBar []
-        menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
-        _ <- menuitem1 `on` #activate $ do
-          atomically $
-            modifyTVar' vmRef (\v -> v {vmCurrentTab = TabModuleGraph})
-          putStrLn "Module Graph is selected"
-        menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
-        _ <- menuitem2 `on` #activate $ do
-          atomically $
-            modifyTVar' vmRef (\v -> v {vmCurrentTab = TabTiming})
-          putStrLn "Timing is selected"
-        #append menuBar menuitem1
-        #append menuBar menuitem2
         drawingArea <- new Gtk.DrawingArea []
         _ <- drawingArea
           `on` #draw
@@ -199,7 +178,6 @@ main =
             pure True
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
-          #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout
