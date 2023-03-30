@@ -81,11 +81,11 @@ import GHCSpecter.UI.Types.Event (
  )
 import Prelude hiding (div)
 
-viewPortX :: TimingUI -> Int
-viewPortX tui = tui ^. timingUIViewPortTopLeft . _1 . to floor
+viewPortX :: TimingUI -> Double
+viewPortX tui = tui ^. timingUIViewPortTopLeft . _1
 
-viewPortY :: TimingUI -> Int
-viewPortY tui = tui ^. timingUIViewPortTopLeft . _2 . to floor
+viewPortY :: TimingUI -> Double
+viewPortY tui = tui ^. timingUIViewPortTopLeft . _2
 
 diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
 diffTime2X totalTime time =
@@ -155,56 +155,55 @@ compileTimingChart drvModMap tui ttable =
         [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
         _ -> maximum modEndTimes
     totalHeight = 5 * nMods
-    topOfBox :: Int -> Int
-    topOfBox = floor . module2Y . fromIntegral
+    topOfBox :: Int -> Double
+    topOfBox = module2Y . fromIntegral
     leftOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
-       in floor (diffTime2X totalTime startTime) :: Int
+       in diffTime2X totalTime startTime
     rightOfBox (_, tinfo) =
       let endTime = tinfo ^. plEnd . _1
-       in floor (diffTime2X totalTime endTime) :: Int
+       in diffTime2X totalTime endTime
     widthOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           endTime = tinfo ^. plEnd . _1
-       in floor (diffTime2X totalTime (endTime - startTime)) :: Int
+       in diffTime2X totalTime (endTime - startTime)
     widthHscOutOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           hscOutTime = tinfo ^. plHscOut . _1
-       in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
+       in diffTime2X totalTime (hscOutTime - startTime)
     widthAsOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           asTime = tinfo ^. plAs . _1
-       in floor (diffTime2X totalTime (asTime - startTime)) :: Int
+       in diffTime2X totalTime (asTime - startTime)
     (i, _) `isInRange` (y0, y1) =
       let y = topOfBox i
        in y0 <= y && y <= y1
 
     box (i, item@(mmodu, _)) =
-      Rectangle (fromIntegral (leftOfBox item), fromIntegral (topOfBox i)) (fromIntegral (widthOfBox item)) 3 Nothing (Just Gray {- LightSlateGray -}) Nothing Nothing
-
+      Rectangle (leftOfBox item, topOfBox i) (widthOfBox item) 3 Nothing (Just LightSlateGray) Nothing Nothing
     {-
-     boxHscOut (i, item) =
-       S.rect
-         [ SP.x (T.pack $ show (leftOfBox item))
-         , SP.y (T.pack $ show (topOfBox i))
-         , width (T.pack $ show (widthHscOutOfBox item))
-         , height "3"
-         , SP.fill "royalblue"
-         ]
-         []
-     boxAs (i, item) =
-       S.rect
-         [ SP.x (T.pack $ show (leftOfBox item))
-         , SP.y (T.pack $ show (topOfBox i))
-         , width (T.pack $ show (widthAsOfBox item))
-         , height "3"
-         , SP.fill "deepskyblue"
-         ]
-         [] -}
+    boxHscOut (i, item) =
+      S.rect
+        [ SP.x (T.pack $ show (leftOfBox item))
+        , SP.y (T.pack $ show (topOfBox i))
+        , width (T.pack $ show (widthHscOutOfBox item))
+        , height "3"
+        , SP.fill "royalblue"
+        ]
+        []
+    boxAs (i, item) =
+      S.rect
+        [ SP.x (T.pack $ show (leftOfBox item))
+        , SP.y (T.pack $ show (topOfBox i))
+        , width (T.pack $ show (widthAsOfBox item))
+        , height "3"
+        , SP.fill "deepskyblue"
+        ]
+        [] -}
     moduleText (i, item@(mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in DrawText (fromIntegral (rightOfBox item), fromIntegral (topOfBox i + 3)) LowerLeft Black fontSize moduTxt
+       in DrawText (rightOfBox item, topOfBox i + 3) LowerLeft Black fontSize moduTxt
     makeItem x = [box x, moduleText x]
     {-
           let mmodu = x ^. _2 . _1
@@ -222,7 +221,7 @@ compileTimingChart drvModMap tui ttable =
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
 
 {-
     mkLine src tgt = do
@@ -340,26 +339,26 @@ renderTimingChart drvModMap tui ttable =
         [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
         _ -> maximum modEndTimes
     totalHeight = 5 * nMods
-    topOfBox :: Int -> Int
-    topOfBox = floor . module2Y . fromIntegral
+    topOfBox :: Int -> Double
+    topOfBox = module2Y . fromIntegral
     leftOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
-       in floor (diffTime2X totalTime startTime) :: Int
+       in diffTime2X totalTime startTime
     rightOfBox (_, tinfo) =
       let endTime = tinfo ^. plEnd . _1
-       in floor (diffTime2X totalTime endTime) :: Int
+       in diffTime2X totalTime endTime
     widthOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           endTime = tinfo ^. plEnd . _1
-       in floor (diffTime2X totalTime (endTime - startTime)) :: Int
+       in diffTime2X totalTime (endTime - startTime)
     widthHscOutOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           hscOutTime = tinfo ^. plHscOut . _1
-       in floor (diffTime2X totalTime (hscOutTime - startTime)) :: Int
+       in diffTime2X totalTime (hscOutTime - startTime)
     widthAsOfBox (_, tinfo) =
       let startTime = tinfo ^. plStart . _1
           asTime = tinfo ^. plAs . _1
-       in floor (diffTime2X totalTime (asTime - startTime)) :: Int
+       in diffTime2X totalTime (asTime - startTime)
     (i, _) `isInRange` (y0, y1) =
       let y = topOfBox i
        in y0 <= y && y <= y1
@@ -419,7 +418,7 @@ renderTimingChart drvModMap tui ttable =
     svgProps =
       let viewboxProp =
             SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
-              [viewPortX tui, viewPortY tui, timingWidth, timingHeight]
+              [floor (viewPortX tui), floor (viewPortY tui), timingWidth, timingHeight]
           prop1 =
             [ MouseEv TimingView . MouseDown <$> onMouseDown
             , MouseEv TimingView . MouseUp <$> onMouseUp
@@ -438,7 +437,7 @@ renderTimingChart drvModMap tui ttable =
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
 
     mkLine src tgt = do
       (srcIdx, srcItem) <-
@@ -483,8 +482,8 @@ renderTimingBar tui ttable =
     timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
 
-    topOfBox :: Int -> Int
-    topOfBox = round . module2Y . fromIntegral
+    topOfBox :: Int -> Double
+    topOfBox = module2Y . fromIntegral
 
     (i, _) `isInRange` (y0, y1) =
       let y = topOfBox i
@@ -492,7 +491,7 @@ renderTimingBar tui ttable =
 
     allItems = zip [0 ..] timingInfos
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
 
     (minI, maxI) =
       let idxs = fmap (^. _1) filteredItems
@@ -586,10 +585,10 @@ renderMemChart drvModMap tui ttable =
 
     allItems = zip [0 ..] timingInfos'
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
 
-    topOfBox :: Int -> Int
-    topOfBox = floor . module2Y . fromIntegral
+    topOfBox :: Int -> Double
+    topOfBox = module2Y . fromIntegral
 
     alloc2X alloc =
       let
@@ -642,8 +641,8 @@ renderMemChart drvModMap tui ttable =
             )
 
     viewboxProp =
-      SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
-        [0, viewPortY tui, 300, timingHeight]
+      SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor) $
+        [0, viewPortY tui, 300, fromIntegral timingHeight]
     svgProps =
       [ width "300"
       , height (T.pack (show timingHeight))
