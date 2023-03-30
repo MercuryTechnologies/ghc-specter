@@ -21,6 +21,12 @@ data Color
   | LightSlateGray
   | RoyalBlue
   | DeepSkyBlue
+  | ColorRedLevel0
+  | ColorRedLevel1
+  | ColorRedLevel2
+  | ColorRedLevel3
+  | ColorRedLevel4
+  | ColorRedLevel5
   deriving (Show)
 
 data TextPosition = UpperLeft | LowerLeft

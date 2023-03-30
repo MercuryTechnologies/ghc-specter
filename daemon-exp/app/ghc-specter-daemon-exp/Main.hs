@@ -171,6 +171,7 @@ main =
         ui0' =
           ui0
             & (uiModel . modelTiming . timingUIPartition .~ True)
+              . (uiModel . modelTiming . timingUIHowParallel .~ True)
               . (uiView .~ MainMode (MainView TabModuleGraph))
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
