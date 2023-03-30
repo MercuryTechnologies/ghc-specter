@@ -15,7 +15,7 @@ import Control.Concurrent.STM (
   readTVar,
   writeTChan,
  )
-import Control.Lens (to, (.~), (^.))
+import Control.Lens (to, (&), (.~), (^.))
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -53,12 +53,12 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GHCSpecter.UI.Types (
+  HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
   MainView (..),
   UIState (..),
   UIView (..),
-  emptyMainView,
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -168,7 +168,10 @@ main =
     let assets = undefined
     initTime <- getCurrentTime
     let ui0 = emptyUIState assets initTime
-        ui0' = (uiView .~ MainMode (MainView TabModuleGraph)) ui0
+        ui0' =
+          ui0
+            & (uiModel . modelTiming . timingUIPartition .~ True)
+              . (uiView .~ MainMode (MainView TabModuleGraph))
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO

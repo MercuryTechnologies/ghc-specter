@@ -180,31 +180,40 @@ compileTimingChart drvModMap tui ttable =
        in y0 <= y && y <= y1
 
     box (i, item@(mmodu, _)) =
-      Rectangle (leftOfBox item, topOfBox i) (widthOfBox item) 3 Nothing (Just LightSlateGray) Nothing Nothing
-    {-
+      Rectangle
+        (leftOfBox item, topOfBox i)
+        (widthOfBox item)
+        3
+        Nothing
+        (Just LightSlateGray)
+        Nothing
+        Nothing
     boxHscOut (i, item) =
-      S.rect
-        [ SP.x (T.pack $ show (leftOfBox item))
-        , SP.y (T.pack $ show (topOfBox i))
-        , width (T.pack $ show (widthHscOutOfBox item))
-        , height "3"
-        , SP.fill "royalblue"
-        ]
-        []
+      Rectangle
+        (leftOfBox item, topOfBox i)
+        (widthHscOutOfBox item)
+        3
+        Nothing
+        (Just RoyalBlue)
+        Nothing
+        Nothing
     boxAs (i, item) =
-      S.rect
-        [ SP.x (T.pack $ show (leftOfBox item))
-        , SP.y (T.pack $ show (topOfBox i))
-        , width (T.pack $ show (widthAsOfBox item))
-        , height "3"
-        , SP.fill "deepskyblue"
-        ]
-        [] -}
+      Rectangle
+        (leftOfBox item, topOfBox i)
+        (widthAsOfBox item)
+        3
+        Nothing
+        (Just DeepSkyBlue)
+        Nothing
+        Nothing
     moduleText (i, item@(mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
        in DrawText (rightOfBox item, topOfBox i + 3) LowerLeft Black fontSize moduTxt
-    makeItem x = [box x, moduleText x]
+    makeItem x =
+      if tui ^. timingUIPartition
+        then [box x, boxAs x, boxHscOut x, moduleText x]
+        else [box x, moduleText x]
     {-
           let mmodu = x ^. _2 . _1
               props =
