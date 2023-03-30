@@ -31,6 +31,7 @@ executable ghc-specter-daemon-exp
   build-depends:
                  base >=4.15 && <5,
                  containers,
+                 extra,
                  ghc-specter-daemon,
                  ghc-specter-plugin,
                  ghc-specter-render,

@@ -11,10 +11,13 @@ import Control.Concurrent.STM (
   newTQueueIO,
   newTVar,
   newTVarIO,
+  readTChan,
   readTVar,
+  writeTChan,
  )
 import Control.Lens (to, (.~), (^.))
 import Control.Monad (forever)
+import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
@@ -37,6 +40,7 @@ import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
   ServerSession (..),
+  UIChannel (..),
  )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -50,6 +54,10 @@ import GHCSpecter.UI.Types (
   UIView (..),
   emptyMainView,
   emptyUIState,
+ )
+import GHCSpecter.UI.Types.Event (
+  BackgroundEvent (RefreshUI),
+  Event (BkgEv),
  )
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
@@ -120,6 +128,17 @@ controlMain = forever $ do
   _ <- nextEvent
   pure ()
 
+simpleEventLoop :: UIChannel -> IO ()
+simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
+  where
+    step ev = do
+      putStrLn "simpleEventLoop"
+      atomically $ writeTChan chanEv ev
+      (ui, ss) <- atomically $ readTChan chanState
+      -- threadDelay 1_000_000
+      bev' <- atomically $ readTChan chanBkg
+      pure (Left (BkgEv bev'))
+
 main :: IO ()
 main =
   withConfig Nothing $ \cfg -> do
@@ -139,7 +158,11 @@ main =
     chanEv <- newTChanIO
     chanState <- newTChanIO
     chanBkg <- newTChanIO
-    let cliSess = ClientSession uiRef chanEv chanState chanBkg
+    let
+      -- client session
+      cliSess = ClientSession uiRef chanEv chanState chanBkg
+      -- UIChannel
+      uiChan = UIChannel chanEv chanState chanBkg
 
     workQ <- newTQueueIO
     vmRef <- atomically $ newTVar (ViewModel TabModuleGraph)
@@ -184,5 +207,6 @@ main =
         #showAll mainWindow
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Session.main servSess cliSess controlMain
+        _ <- forkOS $ simpleEventLoop uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main
