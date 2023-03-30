@@ -19,13 +19,18 @@ source-repository head
   location: https://github.com/MercuryTechnologies/ghc-specter
 
 executable ghc-specter-daemon-exp
-  main-is: Main.hs
+  main-is:       Main.hs
+  other-modules: ModuleGraph
+                 Util
+                 Types
+
   hs-source-dirs:
       app/ghc-specter-daemon-exp
   ghc-options:   -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
                  base >=4.15 && <5,
                  containers,
+                 extra,
                  ghc-specter-daemon,
                  ghc-specter-plugin,
                  ghc-specter-render,
@@ -38,5 +43,6 @@ executable ghc-specter-daemon-exp
                  haskell-gi-base,
                  lens,
                  stm,
-                 text
+                 text,
+                 time
   default-language: GHC2021

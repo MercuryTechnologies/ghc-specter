@@ -18,6 +18,7 @@ import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (Config (..))
+import GHCSpecter.Control qualified as Control (main)
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session qualified as Session
 import GHCSpecter.Driver.Session.Types (
@@ -68,7 +69,7 @@ webServer cfg servSess = do
       chanBkg <- unsafeBlockingIO newTChanIO
       let newCS = ClientSession uiRef chanEv chanState chanBkg
           newUIChan = UIChannel chanEv chanState chanBkg
-      unsafeBlockingIO $ Session.main servSess newCS
+      unsafeBlockingIO $ Session.main servSess newCS Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).

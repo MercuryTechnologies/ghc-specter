@@ -15,8 +15,8 @@ import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import GHCSpecter.Control qualified as Control (main)
 import GHCSpecter.Control.Runner (stepControlUpToEvent)
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
   HasClientSession (..),
@@ -32,8 +32,9 @@ import GHCSpecter.UI.Types.Event (
 main ::
   ServerSession ->
   ClientSession ->
+  Control () ->
   IO ()
-main servSess cs = do
+main servSess cs controlMain = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -68,7 +69,7 @@ main servSess cs = do
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
-    controlDriver = loopM step (\_ -> Control.main)
+    controlDriver = loopM step (\_ -> controlMain)
       where
         step c = do
           ev <- atomically $ readTChan chanEv
