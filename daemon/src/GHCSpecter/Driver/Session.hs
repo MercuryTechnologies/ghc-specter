@@ -58,7 +58,6 @@ main servSess cs controlMain = do
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do
-      putStrLn $ "I am here in chanDriver: " ++ show lastMessageSN
       -- wait for next poll
       threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
       -- blocked until a new message comes
@@ -73,7 +72,6 @@ main servSess cs controlMain = do
     controlDriver = loopM step (\_ -> controlMain)
       where
         step c = do
-          putStrLn "I am here in control driver"
           ev <- atomically $ readTChan chanEv
           ec' <-
             runReaderT

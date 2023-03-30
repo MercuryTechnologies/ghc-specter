@@ -184,4 +184,4 @@ stepControlUpToEvent ::
   Event ->
   (Event -> Control r) ->
   Runner (Either (Event -> Control r) r)
-stepControlUpToEvent ev cont0 = loopM (\c -> (liftIO $ putStrLn "stepControlUpToEvent") >> stepControl c) (cont0 ev)
+stepControlUpToEvent ev cont0 = loopM stepControl (cont0 ev)

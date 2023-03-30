@@ -118,7 +118,7 @@ forceUpdateLoop drawingArea = forever $ do
 
 controlMain :: Control ()
 controlMain = forever $ do
-  printMsg "hello"
+  printMsg "control tick"
   _ <- nextEvent
   pure ()
 
@@ -126,7 +126,6 @@ simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
   where
     step ev = do
-      putStrLn "simpleEventLoop"
       atomically $ writeTChan chanEv ev
       (_ui, _ss) <- atomically $ readTChan chanState
       bev' <- atomically $ readTChan chanBkg
@@ -142,7 +141,7 @@ main =
     chanSignal <- newTChanIO
     let servSess = ServerSession ssRef chanSignal
     -- client session
-    -- assets <- Assets.loadAssets
+    -- TODO: Until necessary, we just put undefined assets. Later, change this properly.
     let assets = undefined
     initTime <- getCurrentTime
     let ui0 = emptyUIState assets initTime
