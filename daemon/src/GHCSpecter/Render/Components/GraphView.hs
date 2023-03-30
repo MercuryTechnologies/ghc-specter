@@ -40,6 +40,7 @@ import GHCSpecter.GraphLayout.Types (
   toTuple,
  )
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Render.ConcurReplicaSVG (makePolylineText, renderColor, renderPrimitive)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
@@ -47,12 +48,6 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Text.Printf (printf)
 import Prelude hiding (div)
-
-makePolylineText :: ((Double, Double), (Double, Double)) -> [(Double, Double)] -> Text
-makePolylineText (p0, p1) xys =
-  T.intercalate " " (fmap each ([p0] ++ xys ++ [p1]))
-  where
-    each (x, y) = T.pack $ printf "%.2f,%.2f" x y
 
 compileModuleGraph ::
   -- | key = graph id
@@ -158,51 +153,6 @@ compileGraph cond grVisInfo =
    in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
         ++ fmap edge (grVisInfo ^. gviEdges)
         ++ concatMap node (grVisInfo ^. gviNodes)
-
-renderColor :: Color -> Text
-renderColor Black = "black"
-renderColor White = "white"
-renderColor Red = "red"
-renderColor Blue = "blue"
-renderColor Green = "green"
-renderColor Gray = "gray"
-renderColor Orange = "orange"
-renderColor HoneyDew = "honeydew"
-renderColor Ivory = "ivory"
-renderColor DimGray = "dimgray"
-
-renderPrimitive :: (Text -> [Props ev]) -> Primitive -> Widget IHTML ev
-renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth handleHover) =
-  S.rect
-    ( maybe [] (\name -> handlers name) handleHover
-        ++ [ SP.x (T.pack $ show x)
-           , SP.y (T.pack $ show y)
-           , width (T.pack $ show w)
-           , height (T.pack $ show h)
-           , SP.stroke (maybe "none" renderColor mline)
-           , SP.fill (maybe "none" renderColor mbkg)
-           , SP.pointerEvents (if isJust handleHover then "visible" else "none")
-           ]
-        ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
-    )
-    []
-renderPrimitive _ (Polyline start xys end line width) =
-  S.polyline
-    [ SP.points (makePolylineText (start, end) xys)
-    , SP.stroke (renderColor line)
-    , SP.strokeWidth (T.pack $ show width)
-    , SP.fill "none"
-    ]
-    []
-renderPrimitive _ (DrawText (x, y) _pos color _fontSize msg) =
-  S.text
-    [ SP.x (T.pack $ show x)
-    , SP.y (T.pack $ show y)
-    , -- TODO: proper font size later
-      classList [("small", True)]
-    , SP.pointerEvents "none"
-    ]
-    [text msg]
 
 renderModuleGraph ::
   -- | key = graph id

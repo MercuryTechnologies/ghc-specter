@@ -55,6 +55,7 @@ library
       GHCSpecter.Render.Components.GraphView
       GHCSpecter.Render.Components.TextView
       GHCSpecter.Render.Components.TimingView
+      GHCSpecter.Render.ConcurReplicaSVG
       GHCSpecter.Render.ModuleGraph
       GHCSpecter.Render.Session
       GHCSpecter.Render.SourceView
