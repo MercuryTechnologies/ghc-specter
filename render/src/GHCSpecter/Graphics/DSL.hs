@@ -18,6 +18,9 @@ data Color
   | HoneyDew
   | Ivory
   | DimGray
+  --  | LightSlateGray
+  --  | RoyalBlue
+  --  | DeepSkyBlue
   deriving (Show)
 
 data TextPosition = UpperLeft | LowerLeft

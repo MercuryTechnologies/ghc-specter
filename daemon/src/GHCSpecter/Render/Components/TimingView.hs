@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.TimingView (
+  viewPortX,
+  viewPortY,
   diffTime2X,
+  module2Y,
 
   -- * render
   render,

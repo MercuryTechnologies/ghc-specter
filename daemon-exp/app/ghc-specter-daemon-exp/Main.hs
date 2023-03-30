@@ -53,6 +53,7 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GHCSpecter.UI.Types (
+  HasUIModel (..),
   HasUIState (..),
   MainView (..),
   UIState (..),
@@ -120,8 +121,9 @@ renderAction vb ss ui = do
         MainMode (MainView TabModuleGraph) ->
           renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
         MainMode (MainView TabTiming) -> do
-          let ttable = ss ^. serverTiming . tsTimingTable
-          renderTiming vb ttable
+          let tui = ui ^. uiModel . modelTiming
+              ttable = ss ^. serverTiming . tsTimingTable
+          renderTiming vb drvModMap tui ttable
         _ -> pure ()
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
