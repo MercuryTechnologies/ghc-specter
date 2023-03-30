@@ -94,10 +94,9 @@ renderNotConnected vb = do
 
 renderAction ::
   ViewBackend ->
-  ViewModel ->
   ServerState ->
   R.Render ()
-renderAction vb vm ss = do
+renderAction vb ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -157,7 +156,6 @@ main =
       uiChan = UIChannel chanEv chanState chanBkg
 
     workQ <- newTQueueIO
-    vmRef <- atomically $ newTVar (ViewModel TabModuleGraph)
 
     _ <- Gtk.init Nothing
     mvb <- initViewBackend
@@ -172,8 +170,8 @@ main =
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (ss, vb, vm) <- liftIO $ atomically ((,,) <$> readTVar ssRef <*> readTVar vbRef <*> readTVar vmRef)
-            renderAction vb vm ss
+            (ss, vb) <- liftIO $ atomically ((,) <$> readTVar ssRef <*> readTVar vbRef)
+            renderAction vb ss
             pure True
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
