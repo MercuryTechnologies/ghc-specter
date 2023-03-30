@@ -49,6 +49,7 @@ import GHCSpecter.Data.Timing.Types (
  )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (
   div,
@@ -291,60 +292,6 @@ mkBlocker =
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 -}
 
-renderRules ::
-  Bool ->
-  TimingTable ->
-  Int ->
-  NominalDiffTime ->
-  [Widget IHTML a]
-renderRules showParallel table totalHeight totalTime =
-  ( if showParallel
-      then fmap box rangesWithCPUUsage
-      else []
-  )
-    ++ fmap line ruleTimes
-  where
-    totalTimeInSec = nominalDiffTimeToSeconds totalTime
-    ruleTimes = [0, 1 .. totalTimeInSec]
-    ranges = zip ruleTimes (tail ruleTimes)
-    getParallelCompilation (sec1, sec2) =
-      let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
-          filtered =
-            filter
-              (\x -> x ^. _2 . to (isTimeInTimerRange avg))
-              (table ^. ttableTimingInfos)
-       in length filtered
-    rangesWithCPUUsage =
-      fmap (\range -> (range, getParallelCompilation range)) ranges
-    nCPU2Color n
-      | n <= 2 = colorCodes_ !! 0
-      | n > 2 && n <= 4 = colorCodes_ !! 1
-      | n > 4 && n <= 6 = colorCodes_ !! 2
-      | n > 6 && n <= 8 = colorCodes_ !! 3
-      | n > 8 && n <= 10 = colorCodes_ !! 4
-      | otherwise = colorCodes_ !! 5
-    line sec =
-      S.line
-        [ SP.x1 (T.pack $ show $ sec2X sec)
-        , SP.x2 (T.pack $ show $ sec2X sec)
-        , SP.y1 "0"
-        , SP.y2 (T.pack $ show totalHeight)
-        , SP.stroke "gray"
-        , SP.strokeWidth "0.25"
-        ]
-        []
-    sec2X sec =
-      floor (diffTime2X totalTime (secondsToNominalDiffTime sec)) :: Int
-    box ((sec1, _), n) =
-      S.rect
-        [ SP.x (T.pack $ show $ sec2X sec1)
-        , SP.y "0"
-        , SP.width (T.pack $ show $ sec2X (1.01))
-        , SP.height (T.pack $ show totalHeight)
-        , SP.fill (nCPU2Color n)
-        ]
-        []
-
 renderTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
@@ -356,13 +303,16 @@ renderTimingChart drvModMap tui ttable =
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
     , S.g
         []
-        ( renderRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+        ( fmap (renderPrimitive handler) rexp
             ++ (fmap makeItem filteredItems)
             ++ lineToUpstream
             ++ linesToDownstream
         )
     ]
   where
+    handler _ = []
+    rexp = compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
     nMods = length timingInfos

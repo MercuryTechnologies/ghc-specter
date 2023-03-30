@@ -18,7 +18,7 @@ import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..))
-import GHCSpecter.UI.ConcurReplica.DOM (div, text)
+import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Text.Printf (printf)
@@ -66,11 +66,11 @@ renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth handleHover) =
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )
     []
-renderPrimitive _ (Polyline start xys end line width) =
+renderPrimitive _ (Polyline start xys end color swidth) =
   S.polyline
     [ SP.points (makePolylineText (start, end) xys)
-    , SP.stroke (renderColor line)
-    , SP.strokeWidth (T.pack $ show width)
+    , SP.stroke (renderColor color)
+    , SP.strokeWidth (T.pack $ show swidth)
     , SP.fill "none"
     ]
     []
@@ -80,6 +80,7 @@ renderPrimitive _ (DrawText (x, y) _pos color _fontSize msg) =
     , SP.y (T.pack $ show y)
     , -- TODO: proper font size later
       classList [("small", True)]
+    , SP.fill (renderColor color)
     , SP.pointerEvents "none"
     ]
     [text msg]
