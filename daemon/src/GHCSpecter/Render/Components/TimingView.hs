@@ -170,149 +170,9 @@ compileTimingChart ::
 compileTimingChart drvModMap tui ttable =
   compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
     ++ (concatMap makeItem filteredItems)
+    ++ lineToUpstream
+    ++ linesToDownstream
   where
-    timingInfos = ttable ^. ttableTimingInfos
-    mhoveredMod = tui ^. timingUIHoveredModule
-    nMods = length timingInfos
-    modEndTimes = fmap (^. _2 . plEnd . _1) timingInfos
-    totalTime =
-      case modEndTimes of
-        [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
-        _ -> maximum modEndTimes
-    totalHeight = 5 * nMods
-    leftOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-       in diffTime2X totalTime startTime
-    rightOfBox (_, tinfo) =
-      let endTime = tinfo ^. plEnd . _1
-       in diffTime2X totalTime endTime
-    widthOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          endTime = tinfo ^. plEnd . _1
-       in diffTime2X totalTime (endTime - startTime)
-    widthHscOutOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          hscOutTime = tinfo ^. plHscOut . _1
-       in diffTime2X totalTime (hscOutTime - startTime)
-    widthAsOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          asTime = tinfo ^. plAs . _1
-       in diffTime2X totalTime (asTime - startTime)
-    (i, _) `isInRange` (y0, y1) =
-      let y = module2Y i
-       in y0 <= y && y <= y1
-
-    box (i, item@(mmodu, _)) =
-      Rectangle
-        (leftOfBox item, module2Y i)
-        (widthOfBox item)
-        3
-        Nothing
-        (Just LightSlateGray)
-        Nothing
-        Nothing
-    boxHscOut (i, item) =
-      Rectangle
-        (leftOfBox item, module2Y i)
-        (widthHscOutOfBox item)
-        3
-        Nothing
-        (Just RoyalBlue)
-        Nothing
-        Nothing
-    boxAs (i, item) =
-      Rectangle
-        (leftOfBox item, module2Y i)
-        (widthAsOfBox item)
-        3
-        Nothing
-        (Just DeepSkyBlue)
-        Nothing
-        Nothing
-    moduleText (i, item@(mmodu, _)) =
-      let fontSize = 4
-          moduTxt = fromMaybe "" mmodu
-       in DrawText (rightOfBox item, module2Y i + 3) LowerLeft Black fontSize moduTxt
-    makeItem x =
-      if tui ^. timingUIPartition
-        then [box x, boxAs x, boxHscOut x, moduleText x]
-        else [box x, moduleText x]
-    {-
-          let mmodu = x ^. _2 . _1
-              props =
-                case mmodu of
-                  Nothing -> []
-                  Just modu ->
-                    [ TimingEv (HoverOnModule modu) <$ onMouseEnter
-                    , TimingEv (HoverOffModule modu) <$ onMouseLeave
-                    ]
-           in if (tui ^. timingUIPartition)
-                then S.g props [box x, boxAs x, boxHscOut x, moduleText x]
-                else S.g props [box x, moduleText x]
-    -}
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    allItems = zip [0 ..] timingInfos'
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
-
-{-
-mkBlocker =
-
-    mkLine src tgt = do
-      (srcIdx, srcItem) <-
-        L.find (\(_, (mname, _)) -> mname == Just src) allItems
-      (tgtIdx, tgtItem) <-
-        L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
-      let line =
-            S.line
-              [ SP.x1 (T.pack $ show (leftOfBox srcItem))
-              , SP.y1 (T.pack $ show (module2Y srcIdx))
-              , SP.x2 (T.pack $ show (rightOfBox tgtItem))
-              , SP.y2 (T.pack $ show (module2Y tgtIdx))
-              , SP.stroke "red"
-              , SP.strokeWidth "1"
-              ]
-              []
-      pure line
-
-    lineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
-      where
-        mkLineToUpstream hoveredMod = do
-          upMod <-
-            M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
-          mkLine hoveredMod upMod
-
-    linesToDownstream :: [Widget IHTML Event]
-    linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
-      where
-        mkLinesToDownstream :: ModuleName -> Maybe [Widget IHTML Event]
-        mkLinesToDownstream hoveredMod = do
-          downMods <-
-            M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
-          pure $ mapMaybe (`mkLine` hoveredMod) downMods
--}
-
-renderTimingChart ::
-  BiKeyMap DriverId ModuleName ->
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderTimingChart drvModMap tui ttable =
-  S.svg
-    svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g
-        []
-        ( fmap (renderPrimitive handler) rexp
-            ++ (fmap makeItem filteredItems)
-            ++ lineToUpstream
-            ++ linesToDownstream
-        )
-    ]
-  where
-    handler _ = []
-    rexp = compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
     nMods = length timingInfos
@@ -346,56 +206,90 @@ renderTimingChart drvModMap tui ttable =
 
     box (i, item@(mmodu, _)) =
       let highlighter
-            | mmodu == mhoveredMod = [SP.stroke "orange", SP.strokeWidth "0.5"]
-            | otherwise = []
-       in S.rect
-            ( [ SP.x (T.pack $ show (leftOfBox item))
-              , SP.y (T.pack $ show (module2Y i))
-              , width (T.pack $ show (widthOfBox item))
-              , height "3"
-              , SP.fill "lightslategray"
-              ]
-                ++ highlighter
-            )
-            []
+            | mmodu == mhoveredMod = (Just Orange, Just 0.5)
+            | otherwise = (Nothing, Nothing)
+       in Rectangle
+            (leftOfBox item, module2Y i)
+            (widthOfBox item)
+            3
+            (highlighter ^. _1)
+            (Just LightSlateGray)
+            (highlighter ^. _2)
+            mmodu -- Nothing
     boxHscOut (i, item) =
-      S.rect
-        [ SP.x (T.pack $ show (leftOfBox item))
-        , SP.y (T.pack $ show (module2Y i))
-        , width (T.pack $ show (widthHscOutOfBox item))
-        , height "3"
-        , SP.fill "royalblue"
-        ]
-        []
+      Rectangle
+        (leftOfBox item, module2Y i)
+        (widthHscOutOfBox item)
+        3
+        Nothing
+        (Just RoyalBlue)
+        Nothing
+        Nothing
     boxAs (i, item) =
-      S.rect
-        [ SP.x (T.pack $ show (leftOfBox item))
-        , SP.y (T.pack $ show (module2Y i))
-        , width (T.pack $ show (widthAsOfBox item))
-        , height "3"
-        , SP.fill "deepskyblue"
-        ]
-        []
+      Rectangle
+        (leftOfBox item, module2Y i)
+        (widthAsOfBox item)
+        3
+        Nothing
+        (Just DeepSkyBlue)
+        Nothing
+        Nothing
     moduleText (i, item@(mmodu, _)) =
-      let moduTxt = fromMaybe "" mmodu
-       in S.text
-            [ SP.x (T.pack $ show (rightOfBox item))
-            , SP.y (T.pack $ show (module2Y i + 3))
-            , classList [("small", True)]
-            ]
-            [text moduTxt]
+      let fontSize = 4
+          moduTxt = fromMaybe "" mmodu
+       in DrawText (rightOfBox item, module2Y i + 3) LowerLeft Black fontSize moduTxt
     makeItem x =
-      let mmodu = x ^. _2 . _1
-          props =
-            case mmodu of
-              Nothing -> []
-              Just modu ->
-                [ TimingEv (HoverOnModule modu) <$ onMouseEnter
-                , TimingEv (HoverOffModule modu) <$ onMouseLeave
-                ]
-       in if (tui ^. timingUIPartition)
-            then S.g props [box x, boxAs x, boxHscOut x, moduleText x]
-            else S.g props [box x, moduleText x]
+      if tui ^. timingUIPartition
+        then [box x, boxAs x, boxHscOut x, moduleText x]
+        else [box x, moduleText x]
+    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    allItems = zip [0 ..] timingInfos'
+    filteredItems =
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
+    mkLine src tgt = do
+      (srcIdx, srcItem) <-
+        L.find (\(_, (mname, _)) -> mname == Just src) allItems
+      (tgtIdx, tgtItem) <-
+        L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
+      let line =
+            Polyline
+              (leftOfBox srcItem, module2Y srcIdx)
+              []
+              (rightOfBox tgtItem, module2Y tgtIdx)
+              Red
+              1.0
+      pure line
+    lineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
+      where
+        mkLineToUpstream hoveredMod = do
+          upMod <-
+            M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
+          mkLine hoveredMod upMod
+    linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
+      where
+        mkLinesToDownstream :: ModuleName -> Maybe [Primitive]
+        mkLinesToDownstream hoveredMod = do
+          downMods <-
+            M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
+          pure $ mapMaybe (`mkLine` hoveredMod) downMods
+
+renderTimingChart ::
+  BiKeyMap DriverId ModuleName ->
+  TimingUI ->
+  TimingTable ->
+  Widget IHTML Event
+renderTimingChart drvModMap tui ttable =
+  S.svg
+    svgProps
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+    , S.g [] (fmap (renderPrimitive handler2) rexp)
+    ]
+  where
+    handler2 modu =
+      [ TimingEv (HoverOnModule modu) <$ onMouseEnter
+      , TimingEv (HoverOffModule modu) <$ onMouseLeave
+      ]
+    rexp = compileTimingChart drvModMap tui ttable
     svgProps =
       let viewboxProp =
             SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
@@ -414,44 +308,6 @@ renderTimingChart drvModMap tui ttable =
                 [MouseEv TimingView . MouseMove <$> onMouseMove]
             | otherwise = []
        in mouseMove ++ prop1
-
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    allItems = zip [0 ..] timingInfos'
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
-
-    mkLine src tgt = do
-      (srcIdx, srcItem) <-
-        L.find (\(_, (mname, _)) -> mname == Just src) allItems
-      (tgtIdx, tgtItem) <-
-        L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
-      let line =
-            S.line
-              [ SP.x1 (T.pack $ show (leftOfBox srcItem))
-              , SP.y1 (T.pack $ show (module2Y srcIdx))
-              , SP.x2 (T.pack $ show (rightOfBox tgtItem))
-              , SP.y2 (T.pack $ show (module2Y tgtIdx))
-              , SP.stroke "red"
-              , SP.strokeWidth "1"
-              ]
-              []
-      pure line
-
-    lineToUpstream = maybeToList $ join $ fmap mkLineToUpstream mhoveredMod
-      where
-        mkLineToUpstream hoveredMod = do
-          upMod <-
-            M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
-          mkLine hoveredMod upMod
-
-    linesToDownstream :: [Widget IHTML Event]
-    linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
-      where
-        mkLinesToDownstream :: ModuleName -> Maybe [Widget IHTML Event]
-        mkLinesToDownstream hoveredMod = do
-          downMods <-
-            M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
-          pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
 renderTimingBar ::
   TimingUI ->
