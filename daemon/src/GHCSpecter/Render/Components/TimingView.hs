@@ -9,6 +9,7 @@ module GHCSpecter.Render.Components.TimingView (
   -- * compile renderer
   compileRules,
   compileTimingChart,
+  compileMemChart,
   compileTimingRange,
 
   -- * render
@@ -276,6 +277,54 @@ compileTimingChart drvModMap tui ttable =
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
+compileMemChart ::
+  BiKeyMap DriverId ModuleName ->
+  TimingUI ->
+  TimingTable ->
+  [Primitive]
+compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
+  where
+    timingInfos = ttable ^. ttableTimingInfos
+    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    allItems = zip [0 ..] timingInfos'
+    filteredItems =
+      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
+    alloc2X alloc =
+      let
+        -- ratio to 16 GiB
+        allocRatio :: Double
+        allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
+       in
+        allocRatio * 150
+    widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
+    box color lz (i, item) =
+      case item ^. _2 . lz . _2 of
+        Nothing -> []
+        Just minfo ->
+          [ Rectangle
+              (0, module2Y i)
+              (widthOfBox minfo)
+              3
+              Nothing
+              (Just color)
+              Nothing
+              Nothing
+          ]
+    moduleText (i, (mmodu, _)) =
+      let fontSize = 4
+          moduTxt = fromMaybe "" mmodu
+       in DrawText (150, module2Y i + 3) LowerLeft Black fontSize moduTxt
+    makeItem x =
+      if (tui ^. timingUIPartition)
+        then
+          box LightSlateGray plEnd x
+            ++ box DeepSkyBlue plAs x
+            ++ box RoyalBlue plHscOut x
+            ++ [moduleText x]
+        else
+          box LightSlateGray plEnd x
+            ++ [moduleText x]
+
 compileTimingRange ::
   TimingUI ->
   TimingTable ->
@@ -411,66 +460,10 @@ renderMemChart drvModMap tui ttable =
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap makeItem filteredItems)
+    , S.g [] (fmap (renderPrimitive (const [])) rexp)
     ]
   where
-    timingInfos = ttable ^. ttableTimingInfos
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-
-    allItems = zip [0 ..] timingInfos'
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
-
-    alloc2X alloc =
-      let
-        -- ratio to 16 GiB
-        allocRatio :: Double
-        allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
-       in
-        floor (allocRatio * 150) :: Int
-
-    widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
-
-    box color lz (i, item) =
-      case item ^. _2 . lz . _2 of
-        Nothing -> []
-        Just minfo ->
-          [ S.rect
-              ( [ SP.x "0"
-                , SP.y (T.pack $ show (module2Y i))
-                , width (T.pack $ show (widthOfBox minfo))
-                , height "3"
-                , SP.fill color
-                ]
-              )
-              []
-          ]
-
-    moduleText (i, (mmodu, _)) =
-      let moduTxt = fromMaybe "" mmodu
-       in S.text
-            [ SP.x "150"
-            , SP.y (T.pack $ show (module2Y i + 3))
-            , classList [("small", True)]
-            ]
-            [text moduTxt]
-    makeItem x =
-      if (tui ^. timingUIPartition)
-        then
-          S.g
-            []
-            ( box "lightslategray" plEnd x
-                ++ box "deepskyblue" plAs x
-                ++ box "royalblue" plHscOut x
-                ++ [moduleText x]
-            )
-        else
-          S.g
-            []
-            ( box "lightslategray" plEnd x
-                ++ [moduleText x]
-            )
-
+    rexp = compileMemChart drvModMap tui ttable
     viewboxProp =
       SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor) $
         [0, viewPortY tui, 300, fromIntegral timingHeight]
