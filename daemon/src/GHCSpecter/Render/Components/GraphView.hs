@@ -12,19 +12,17 @@ module GHCSpecter.Render.Components.GraphView (
 import Concur.Core (Widget)
 import Concur.Replica (
   classList,
-  height,
   onClick,
   onMouseEnter,
   onMouseLeave,
   width,
  )
-import Concur.Replica.DOM.Props (Props)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map qualified as M
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
@@ -40,13 +38,12 @@ import GHCSpecter.GraphLayout.Types (
   toTuple,
  )
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
-import GHCSpecter.Render.ConcurReplicaSVG (makePolylineText, renderColor, renderPrimitive)
+import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (div, text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
-import Text.Printf (printf)
 import Prelude hiding (div)
 
 compileModuleGraph ::

@@ -18,7 +18,6 @@ module GHCSpecter.Render.Components.TimingView (
 
 import Concur.Core (Widget)
 import Concur.Replica (
-  classList,
   height,
   onMouseEnter,
   onMouseLeave,
@@ -31,7 +30,6 @@ import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (
   NominalDiffTime,
@@ -77,7 +75,7 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (
-  ComponentTag (TimingRange, TimingView),
+  ComponentTag (TimingView),
   Event (..),
   MouseEvent (..),
   TimingEvent (..),
@@ -101,16 +99,6 @@ isInRange :: (Int, a) -> (Double, Double) -> Bool
 (i, _) `isInRange` (y0, y1) =
   let y = module2Y i
    in y0 <= y && y <= y1
-
-colorCodes_ :: [Text]
-colorCodes_ =
-  [ "#EC7063"
-  , "#F1948A"
-  , "#F5B7B1"
-  , "#FADBD8"
-  , "#FDEDEC"
-  , "#FFFFFF"
-  ]
 
 colorCodes :: [Color]
 colorCodes =
@@ -288,7 +276,7 @@ compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
     alloc2X alloc =
       let
         -- ratio to 16 GiB
@@ -333,10 +321,6 @@ compileTimingRange tui ttable = [background, handle]
   where
     timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
-
-    vx = viewPortX tui
-    vy = viewPortY tui
-
     allItems = zip [0 ..] timingInfos
     filteredItems =
       filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
@@ -389,13 +373,13 @@ renderTimingChart drvModMap tui ttable =
     rexp = compileTimingChart drvModMap tui ttable
     svgProps =
       let viewboxProp =
-            SP.viewBox . T.intercalate " " . fmap (T.pack . show) $
-              [floor (viewPortX tui), floor (viewPortY tui), timingWidth, timingHeight]
+            SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @Double @Int) $
+              [viewPortX tui, viewPortY tui, timingWidth, timingHeight]
           prop1 =
             [ MouseEv TimingView . MouseDown <$> onMouseDown
             , MouseEv TimingView . MouseUp <$> onMouseUp
-            , width (T.pack (show timingWidth))
-            , height (T.pack (show timingHeight))
+            , width (T.pack (show (timingWidth :: Int)))
+            , height (T.pack (show (timingHeight :: Int)))
             , viewboxProp
             , SP.version "1.1"
             , xmlns
@@ -406,6 +390,30 @@ renderTimingChart drvModMap tui ttable =
             | otherwise = []
        in mouseMove ++ prop1
 
+renderMemChart ::
+  BiKeyMap DriverId ModuleName ->
+  TimingUI ->
+  TimingTable ->
+  Widget IHTML Event
+renderMemChart drvModMap tui ttable =
+  S.svg
+    svgProps
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
+    , S.g [] (fmap (renderPrimitive (const [])) rexp)
+    ]
+  where
+    rexp = compileMemChart drvModMap tui ttable
+    viewboxProp =
+      SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @_ @Int) $
+        ([0, viewPortY tui, 300, timingHeight] :: [Double])
+    svgProps =
+      [ width "300"
+      , height (T.pack (show (timingHeight :: Int)))
+      , viewboxProp
+      , SP.version "1.1"
+      , xmlns
+      ]
+
 renderTimingRange ::
   TimingUI ->
   TimingTable ->
@@ -415,8 +423,8 @@ renderTimingRange tui ttable =
   where
     rexp = compileTimingRange tui ttable
     svgProps =
-      [ width (T.pack (show timingWidth))
-      , height (T.pack (show timingRangeHeight))
+      [ width (T.pack (show (timingWidth :: Int)))
+      , height (T.pack (show (timingRangeHeight :: Int)))
       , SP.version "1.1"
       , xmlns
       ]
@@ -450,30 +458,6 @@ renderBlockerLine hoveredMod ttable =
         ( divClass "blocker title" [] [text "blocking"]
             : fmap (\modu -> p [] [text modu]) downMods
         )
-
-renderMemChart ::
-  BiKeyMap DriverId ModuleName ->
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderMemChart drvModMap tui ttable =
-  S.svg
-    svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive (const [])) rexp)
-    ]
-  where
-    rexp = compileMemChart drvModMap tui ttable
-    viewboxProp =
-      SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor) $
-        [0, viewPortY tui, 300, fromIntegral timingHeight]
-    svgProps =
-      [ width "300"
-      , height (T.pack (show timingHeight))
-      , viewboxProp
-      , SP.version "1.1"
-      , xmlns
-      ]
 
 render ::
   BiKeyMap DriverId ModuleName ->
