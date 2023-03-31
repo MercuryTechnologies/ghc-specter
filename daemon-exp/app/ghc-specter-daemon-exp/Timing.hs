@@ -27,17 +27,17 @@ import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
 import GHCSpecter.Render.Components.TimingView (
   compileRules,
-  compileTimingBar,
   compileTimingChart,
+  compileTimingRange,
   diffTime2X,
   module2Y,
   viewPortX,
   viewPortY,
  )
 import GHCSpecter.UI.Constants (
-  timingBarHeight,
   timingHeight,
   timingMaxWidth,
+  timingRangeHeight,
   timingWidth,
  )
 import GHCSpecter.UI.Types (
@@ -66,7 +66,7 @@ renderTiming vb drvModMap tui ttable = do
       rexpTimingChart :: [Primitive]
       rexpTimingChart = compileTimingChart drvModMap tui ttable
       rexpTimingBar :: [Primitive]
-      rexpTimingBar = compileTimingBar tui ttable
+      rexpTimingBar = compileTimingRange tui ttable
   R.save
   R.rectangle 0 0 timingWidth timingHeight
   R.clip

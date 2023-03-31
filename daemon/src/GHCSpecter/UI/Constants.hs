@@ -10,7 +10,7 @@ module GHCSpecter.UI.Constants (
   timingMaxWidth,
   timingWidth,
   timingHeight,
-  timingBarHeight,
+  timingRangeHeight,
   widgetHeight,
 ) where
 
@@ -35,8 +35,8 @@ timingWidth = 1440
 timingHeight :: (Num a) => a
 timingHeight = 600
 
-timingBarHeight :: (Num a) => a
-timingBarHeight = 10
+timingRangeHeight :: (Num a) => a
+timingRangeHeight = 10
 
 widgetHeight :: Bool -> Text
 widgetHeight isPaused

@@ -9,7 +9,7 @@ module GHCSpecter.Render.Components.TimingView (
   -- * compile renderer
   compileRules,
   compileTimingChart,
-  compileTimingBar,
+  compileTimingRange,
 
   -- * render
   render,
@@ -66,9 +66,9 @@ import GHCSpecter.UI.ConcurReplica.DOM.Events (
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (
-  timingBarHeight,
   timingHeight,
   timingMaxWidth,
+  timingRangeHeight,
   timingWidth,
  )
 import GHCSpecter.UI.Types (
@@ -76,7 +76,7 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (
-  ComponentTag (TimingBar, TimingView),
+  ComponentTag (TimingRange, TimingView),
   Event (..),
   MouseEvent (..),
   TimingEvent (..),
@@ -95,6 +95,11 @@ diffTime2X totalTime time =
 
 module2Y :: Int -> Double
 module2Y i = 5.0 * fromIntegral i + 1.0
+
+isInRange :: (Int, a) -> (Double, Double) -> Bool
+(i, _) `isInRange` (y0, y1) =
+  let y = module2Y i
+   in y0 <= y && y <= y1
 
 colorCodes_ :: [Text]
 colorCodes_ =
@@ -201,9 +206,6 @@ compileTimingChart drvModMap tui ttable =
       let startTime = tinfo ^. plStart . _1
           asTime = tinfo ^. plAs . _1
        in diffTime2X totalTime (asTime - startTime)
-    (i, _) `isInRange` (y0, y1) =
-      let y = module2Y i
-       in y0 <= y && y <= y1
 
     box (i, item@(mmodu, _)) =
       let highlighter
@@ -274,17 +276,17 @@ compileTimingChart drvModMap tui ttable =
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
-compileTimingBar ::
+compileTimingRange ::
   TimingUI ->
   TimingTable ->
   [Primitive]
-compileTimingBar tui ttable = [background, handle]
+compileTimingRange tui ttable = [background, handle]
   where
     timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
-    (i, _) `isInRange` (y0, y1) =
-      let y = module2Y i
-       in y0 <= y && y <= y1
+
+    vx = viewPortX tui
+    vy = viewPortY tui
 
     allItems = zip [0 ..] timingInfos
     filteredItems =
@@ -304,7 +306,7 @@ compileTimingBar tui ttable = [background, handle]
       Rectangle
         (0, 0)
         timingWidth
-        timingBarHeight
+        timingRangeHeight
         Nothing
         (Just LightGray)
         Nothing
@@ -313,7 +315,7 @@ compileTimingBar tui ttable = [background, handle]
       Rectangle
         (fromIntegral handleX, 0)
         (fromIntegral handleWidth)
-        timingBarHeight
+        timingRangeHeight
         (Just Black)
         (Just White)
         (Just 1.0)
@@ -355,68 +357,25 @@ renderTimingChart drvModMap tui ttable =
             | otherwise = []
        in mouseMove ++ prop1
 
-renderTimingBar ::
+renderTimingRange ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingBar tui ttable =
+renderTimingRange tui ttable =
   div [] [svgElement]
   where
-    timingInfos = ttable ^. ttableTimingInfos
-    nMods = length timingInfos
-    (i, _) `isInRange` (y0, y1) =
-      let y = module2Y i
-       in y0 <= y && y <= y1
-
-    allItems = zip [0 ..] timingInfos
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
-
-    (minI, maxI) =
-      let idxs = fmap (^. _1) filteredItems
-       in (minimum idxs, maximum idxs)
-
-    convert i = floor @Double (fromIntegral i / fromIntegral nMods * timingWidth)
-    handleX :: Int
-    handleX = if null filteredItems then 0 else convert minI
-    handleWidth :: Int
-    handleWidth = if null filteredItems then 0 else convert (maxI - minI + 1)
-
-    background =
-      S.rect
-        [ MouseEv TimingBar . MouseMove <$> onMouseMove
-        , MouseEv TimingBar . MouseDown <$> onMouseDown
-        , MouseEv TimingBar . MouseUp <$> onMouseUp
-        , SP.x "0"
-        , SP.y "0"
-        , SP.width (T.pack (show timingWidth))
-        , SP.height (T.pack (show timingBarHeight))
-        , SP.fill "lightgray"
-        ]
-        []
-    handle =
-      S.rect
-        [ SP.x (T.pack (show handleX))
-        , SP.y "0"
-        , SP.width (T.pack (show handleWidth))
-        , SP.height (T.pack (show timingBarHeight))
-        , SP.stroke "black"
-        , SP.fill "white"
-        ]
-        []
+    rexp = compileTimingRange tui ttable
     svgProps =
       [ width (T.pack (show timingWidth))
-      , height (T.pack (show timingBarHeight))
+      , height (T.pack (show timingRangeHeight))
       , SP.version "1.1"
       , xmlns
       ]
-
     svgElement =
       S.svg
         svgProps
         [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , background
-        , handle
+        , S.g [] (fmap (renderPrimitive (const [])) rexp)
         ]
 
 renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
@@ -457,9 +416,6 @@ renderMemChart drvModMap tui ttable =
   where
     timingInfos = ttable ^. ttableTimingInfos
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    (i, _) `isInRange` (y0, y1) =
-      let y = module2Y i
-       in y0 <= y && y <= y1
 
     allItems = zip [0 ..] timingInfos'
     filteredItems =
@@ -467,9 +423,9 @@ renderMemChart drvModMap tui ttable =
 
     alloc2X alloc =
       let
-        -- ratio to 4 GiB
+        -- ratio to 16 GiB
         allocRatio :: Double
-        allocRatio = fromIntegral alloc / (4 * 1024 * 1024 * 1024)
+        allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
        in
         floor (allocRatio * 150) :: Int
 
@@ -548,7 +504,7 @@ render drvModMap tui ttable =
               [style [("overflow", "hidden")]]
               [renderMemChart drvModMap tui ttable]
           ]
-      , renderTimingBar tui ttable
+      , renderTimingRange tui ttable
       ]
         ++ hoverInfo
     )
