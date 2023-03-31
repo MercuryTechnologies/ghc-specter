@@ -49,7 +49,7 @@ blockerThreshold Blocking5 = 5
 
 data ComponentTag
   = TimingView
-  | TimingBar
+  | TimingRange
   deriving (Show, Eq)
 
 data SourceViewEvent

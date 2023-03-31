@@ -36,6 +36,16 @@ setColor Orange = R.setSourceRGBA 1.0 0.647 0 1 -- FFA500
 setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0
 setColor Ivory = R.setSourceRGBA 1.0 1.0 0.941 1 -- FFFFF0
 setColor DimGray = R.setSourceRGBA 0.412 0.412 0.412 1 -- 696969
+setColor LightGray = R.setSourceRGBA 0.827 0.827 0.827 1 -- D3D3D3
+setColor LightSlateGray = R.setSourceRGBA 0.467 0.533 0.6 1 -- 778899
+setColor RoyalBlue = R.setSourceRGBA 0.255 0.412 0.882 1 -- 4169E1
+setColor DeepSkyBlue = R.setSourceRGBA 0 0.749 1.0 1 -- 00BFFF
+setColor ColorRedLevel0 = R.setSourceRGBA 1 1 1 1 -- FFFFFF
+setColor ColorRedLevel1 = R.setSourceRGBA 0.992 0.929 0.925 1 -- FDEDEC
+setColor ColorRedLevel2 = R.setSourceRGBA 0.980 0.859 0.847 1 -- FADBD8
+setColor ColorRedLevel3 = R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
+setColor ColorRedLevel4 = R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
+setColor ColorRedLevel5 = R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
 renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
 renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth _) = do

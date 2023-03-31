@@ -10,7 +10,7 @@ module GHCSpecter.UI.Constants (
   timingMaxWidth,
   timingWidth,
   timingHeight,
-  timingBarHeight,
+  timingRangeHeight,
   widgetHeight,
 ) where
 
@@ -29,14 +29,14 @@ tickInterval = secondsToNominalDiffTime 1
 timingMaxWidth :: (Num a) => a
 timingMaxWidth = 10240
 
-timingWidth :: Int
-timingWidth = 1600
+timingWidth :: (Num a) => a
+timingWidth = 1440
 
-timingHeight :: Int
+timingHeight :: (Num a) => a
 timingHeight = 600
 
-timingBarHeight :: Int
-timingBarHeight = 10
+timingRangeHeight :: (Num a) => a
+timingRangeHeight = 10
 
 widgetHeight :: Bool -> Text
 widgetHeight isPaused

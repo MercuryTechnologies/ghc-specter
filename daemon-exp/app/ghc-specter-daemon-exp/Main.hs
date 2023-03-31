@@ -15,7 +15,7 @@ import Control.Concurrent.STM (
   readTVar,
   writeTChan,
  )
-import Control.Lens (to, (.~), (^.))
+import Control.Lens (to, (&), (.~), (^.))
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -32,8 +32,11 @@ import GHCSpecter.Config (
  )
 import GHCSpecter.Control.Types (
   Control,
+  asyncWork,
+  getSS,
   nextEvent,
   printMsg,
+  putSS,
  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -50,21 +53,27 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GHCSpecter.UI.Types (
+  HasTimingUI (..),
+  HasUIModel (..),
   HasUIState (..),
+  MainView (..),
+  UIState (..),
   UIView (..),
-  emptyMainView,
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (RefreshUI),
+  BackgroundEvent (MessageChanUpdated, RefreshUI),
   Event (BkgEv),
+  Tab (..),
  )
+import GHCSpecter.Worker.Timing (timingWorker)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import ModuleGraph (renderModuleGraph)
-import Types (Tab (..), ViewBackend (..), ViewModel (..))
+import Timing (renderTiming)
+import Types (ViewBackend (..))
 import Util (drawText)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
@@ -95,8 +104,9 @@ renderNotConnected vb = do
 renderAction ::
   ViewBackend ->
   ServerState ->
+  UIState ->
   R.Render ()
-renderAction vb ss = do
+renderAction vb ss ui = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -107,7 +117,14 @@ renderAction vb ss = do
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
-      renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
+      case ui ^. uiView of
+        MainMode (MainView TabModuleGraph) ->
+          renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
+        MainMode (MainView TabTiming) -> do
+          let tui = ui ^. uiModel . modelTiming
+              ttable = ss ^. serverTiming . tsTimingTable
+          renderTiming vb drvModMap tui ttable
+        _ -> pure ()
 
 forceUpdateLoop :: Gtk.DrawingArea -> IO ()
 forceUpdateLoop drawingArea = forever $ do
@@ -118,7 +135,14 @@ forceUpdateLoop drawingArea = forever $ do
 controlMain :: Control ()
 controlMain = forever $ do
   printMsg "control tick"
-  _ <- nextEvent
+  ev <- nextEvent
+  ss <- getSS
+  case ev of
+    BkgEv MessageChanUpdated -> do
+      let ss' = (serverShouldUpdate .~ True) ss
+      asyncWork timingWorker
+      putSS ss'
+    _ -> pure ()
   pure ()
 
 simpleEventLoop :: UIChannel -> IO ()
@@ -144,7 +168,11 @@ main =
     let assets = undefined
     initTime <- getCurrentTime
     let ui0 = emptyUIState assets initTime
-        ui0' = (uiView .~ MainMode emptyMainView) ui0
+        ui0' =
+          ui0
+            & (uiModel . modelTiming . timingUIPartition .~ True)
+              . (uiModel . modelTiming . timingUIHowParallel .~ True)
+              . (uiView .~ MainMode (MainView TabModuleGraph))
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
@@ -165,16 +193,32 @@ main =
         vbRef <- atomically $ newTVar vb0
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+        -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
+        menuBar <- new Gtk.MenuBar []
+        menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
+        _ <- menuitem1 `on` #activate $ do
+          atomically $
+            modifyTVar' uiRef (uiView .~ MainMode (MainView TabModuleGraph))
+          putStrLn "Module Graph is selected"
+        menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
+        _ <- menuitem2 `on` #activate $ do
+          atomically $
+            modifyTVar' uiRef (uiView .~ MainMode (MainView TabTiming))
+          putStrLn "Timing is selected"
+        #append menuBar menuitem1
+        #append menuBar menuitem2
+        -- main canvas
         drawingArea <- new Gtk.DrawingArea []
         _ <- drawingArea
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (ss, vb) <- liftIO $ atomically ((,) <$> readTVar ssRef <*> readTVar vbRef)
-            renderAction vb ss
+            (vb, ss, ui) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar ssRef <*> readTVar uiRef)
+            renderAction vb ss ui
             pure True
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
+          #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout
