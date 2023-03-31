@@ -9,6 +9,7 @@ module GHCSpecter.Render.Components.TimingView (
   -- * compile renderer
   compileRules,
   compileTimingChart,
+  compileTimingBar,
 
   -- * render
   render,
@@ -215,7 +216,7 @@ compileTimingChart drvModMap tui ttable =
             (highlighter ^. _1)
             (Just LightSlateGray)
             (highlighter ^. _2)
-            mmodu -- Nothing
+            mmodu
     boxHscOut (i, item) =
       Rectangle
         (leftOfBox item, module2Y i)
@@ -245,7 +246,7 @@ compileTimingChart drvModMap tui ttable =
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
     mkLine src tgt = do
       (srcIdx, srcItem) <-
         L.find (\(_, (mname, _)) -> mname == Just src) allItems
@@ -272,6 +273,51 @@ compileTimingChart drvModMap tui ttable =
           downMods <-
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
+
+compileTimingBar ::
+  TimingUI ->
+  TimingTable ->
+  [Primitive]
+compileTimingBar tui ttable = [background, handle]
+  where
+    timingInfos = ttable ^. ttableTimingInfos
+    nMods = length timingInfos
+    (i, _) `isInRange` (y0, y1) =
+      let y = module2Y i
+       in y0 <= y && y <= y1
+
+    allItems = zip [0 ..] timingInfos
+    filteredItems =
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+
+    (minI, maxI) =
+      let idxs = fmap (^. _1) filteredItems
+       in (minimum idxs, maximum idxs)
+
+    convert i = floor @Double (fromIntegral i / fromIntegral nMods * timingWidth)
+    handleX :: Int
+    handleX = if null filteredItems then 0 else convert minI
+    handleWidth :: Int
+    handleWidth = if null filteredItems then 0 else convert (maxI - minI + 1)
+
+    background =
+      Rectangle
+        (0, 0)
+        timingWidth
+        timingBarHeight
+        Nothing
+        (Just LightGray)
+        Nothing
+        Nothing
+    handle =
+      Rectangle
+        (fromIntegral handleX, 0)
+        (fromIntegral handleWidth)
+        timingBarHeight
+        (Just Black)
+        (Just White)
+        (Just 1.0)
+        Nothing
 
 renderTimingChart ::
   BiKeyMap DriverId ModuleName ->
@@ -324,13 +370,13 @@ renderTimingBar tui ttable =
 
     allItems = zip [0 ..] timingInfos
     filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + fromIntegral timingHeight)) allItems
+      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
 
     (minI, maxI) =
       let idxs = fmap (^. _1) filteredItems
        in (minimum idxs, maximum idxs)
 
-    convert i = floor @Double (fromIntegral i / fromIntegral nMods * fromIntegral timingWidth)
+    convert i = floor @Double (fromIntegral i / fromIntegral nMods * timingWidth)
     handleX :: Int
     handleX = if null filteredItems then 0 else convert minI
     handleWidth :: Int
@@ -348,7 +394,6 @@ renderTimingBar tui ttable =
         , SP.fill "lightgray"
         ]
         []
-
     handle =
       S.rect
         [ SP.x (T.pack (show handleX))

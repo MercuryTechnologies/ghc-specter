@@ -18,6 +18,7 @@ data Color
   | HoneyDew
   | Ivory
   | DimGray
+  | LightGray
   | LightSlateGray
   | RoyalBlue
   | DeepSkyBlue

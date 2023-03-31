@@ -29,13 +29,13 @@ tickInterval = secondsToNominalDiffTime 1
 timingMaxWidth :: (Num a) => a
 timingMaxWidth = 10240
 
-timingWidth :: Int
-timingWidth = 1600
+timingWidth :: (Num a) => a
+timingWidth = 1440
 
-timingHeight :: Int
+timingHeight :: (Num a) => a
 timingHeight = 600
 
-timingBarHeight :: Int
+timingBarHeight :: (Num a) => a
 timingBarHeight = 10
 
 widgetHeight :: Bool -> Text

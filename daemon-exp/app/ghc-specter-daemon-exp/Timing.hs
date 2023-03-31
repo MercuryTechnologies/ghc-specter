@@ -27,6 +27,7 @@ import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
 import GHCSpecter.Render.Components.TimingView (
   compileRules,
+  compileTimingBar,
   compileTimingChart,
   diffTime2X,
   module2Y,
@@ -62,6 +63,16 @@ renderTiming vb drvModMap tui ttable = do
         case modEndTimes of
           [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
           _ -> maximum modEndTimes
-      rexp :: [Primitive]
-      rexp = compileTimingChart drvModMap tui ttable
-  traverse_ (renderPrimitive vb) rexp
+      rexpTimingChart :: [Primitive]
+      rexpTimingChart = compileTimingChart drvModMap tui ttable
+      rexpTimingBar :: [Primitive]
+      rexpTimingBar = compileTimingBar tui ttable
+  R.save
+  R.rectangle 0 0 timingWidth timingHeight
+  R.clip
+  traverse_ (renderPrimitive vb) rexpTimingChart
+  R.restore
+  R.save
+  R.translate 0 timingHeight
+  traverse_ (renderPrimitive vb) rexpTimingBar
+  R.restore

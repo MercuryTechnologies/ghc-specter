@@ -36,6 +36,7 @@ setColor Orange = R.setSourceRGBA 1.0 0.647 0 1 -- FFA500
 setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0
 setColor Ivory = R.setSourceRGBA 1.0 1.0 0.941 1 -- FFFFF0
 setColor DimGray = R.setSourceRGBA 0.412 0.412 0.412 1 -- 696969
+setColor LightGray = R.setSourceRGBA 0.827 0.827 0.827 1 -- D3D3D3
 setColor LightSlateGray = R.setSourceRGBA 0.467 0.533 0.6 1 -- 778899
 setColor RoyalBlue = R.setSourceRGBA 0.255 0.412 0.882 1 -- 4169E1
 setColor DeepSkyBlue = R.setSourceRGBA 0 0.749 1.0 1 -- 00BFFF
