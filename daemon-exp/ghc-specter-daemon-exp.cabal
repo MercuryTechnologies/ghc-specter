@@ -37,6 +37,7 @@ executable ghc-specter-daemon-exp
                  ghc-specter-render,
                  gi-cairo-connector,
                  gi-cairo-render,
+                 gi-gdk,
                  gi-gtk,
                  gi-gtk-hs,
                  gi-pango,

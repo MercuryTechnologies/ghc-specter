@@ -3,6 +3,9 @@
 module Util (
   drawText,
   renderPrimitive,
+  -- * transformation function for viewport
+  transformScroll,
+  transformZoom,
 ) where
 
 import Data.Foldable (for_, traverse_)
@@ -11,12 +14,15 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
+import GI.Gdk qualified as Gdk
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 import Types (ViewBackend (..))
 
 drawText :: ViewBackend -> Int32 -> (Double, Double) -> Text -> R.Render ()
-drawText (ViewBackend pangoCtxt desc) sz (x, y) msg = do
+drawText vb sz (x, y) msg = do
+  let pangoCtxt = vbPangoContext vb
+      desc = vbFontDesc vb
   layout :: P.Layout <- P.layoutNew pangoCtxt
   #setSize desc (sz * P.SCALE)
   #setFontDescription layout (Just desc)
@@ -71,3 +77,32 @@ renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
   drawText vw (fromIntegral fontSize) (x, y') msg
+
+-- | scroll
+transformScroll ::
+  Gdk.ScrollDirection ->
+  (Double, Double) ->
+  ((Double, Double), (Double, Double)) ->
+  ((Double, Double), (Double, Double))
+transformScroll dir (dx, dy) ((x0, y0), (x1, y1)) =
+  case dir of
+    Gdk.ScrollDirectionRight -> ((x0 + dx, y0), (x1 + dx, y1))
+    Gdk.ScrollDirectionLeft -> ((x0 - dx, y0), (x1 - dx, y1))
+    Gdk.ScrollDirectionDown -> ((x0, y0 + dy), (x1, y1 + dy))
+    Gdk.ScrollDirectionUp -> ((x0, y0 - dy), (x1, y1 - dy))
+    _ -> ((x0, y0), (x1, y1))
+
+-- | zoom
+transformZoom ::
+  (Double, Double) ->
+  Double ->
+  ((Double, Double), (Double, Double)) ->
+  ((Double, Double), (Double, Double))
+transformZoom (rx, ry) scale ((x0, y0), (x1, y1)) = ((x0', y0'), (x1', y1'))
+  where
+    x = x0 + (x1 - x0) * rx
+    y = y0 + (y1 - y0) * ry
+    x0' = x + (x0 - x) / scale
+    y0' = y + (y0 - y) / scale
+    x1' = x + (x1 - x) / scale
+    y1' = y + (y1 - y) / scale
