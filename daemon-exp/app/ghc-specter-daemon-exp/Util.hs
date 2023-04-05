@@ -13,9 +13,9 @@ import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
-import GI.Gdk qualified as Gdk
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 import Types (ViewBackend (..))
@@ -81,17 +81,16 @@ renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
 
 -- | scroll
 transformScroll ::
-  Gdk.ScrollDirection ->
+  ScrollDirection ->
   (Double, Double) ->
   ((Double, Double), (Double, Double)) ->
   ((Double, Double), (Double, Double))
 transformScroll dir (dx, dy) ((x0, y0), (x1, y1)) =
   case dir of
-    Gdk.ScrollDirectionRight -> ((x0 + dx, y0), (x1 + dx, y1))
-    Gdk.ScrollDirectionLeft -> ((x0 - dx, y0), (x1 - dx, y1))
-    Gdk.ScrollDirectionDown -> ((x0, y0 + dy), (x1, y1 + dy))
-    Gdk.ScrollDirectionUp -> ((x0, y0 - dy), (x1, y1 - dy))
-    _ -> ((x0, y0), (x1, y1))
+    ScrollDirectionRight -> ((x0 + dx, y0), (x1 + dx, y1))
+    ScrollDirectionLeft -> ((x0 - dx, y0), (x1 - dx, y1))
+    ScrollDirectionDown -> ((x0, y0 + dy), (x1, y1 + dy))
+    ScrollDirectionUp -> ((x0, y0 - dy), (x1, y1 - dy))
 
 -- | zoom
 transformZoom ::

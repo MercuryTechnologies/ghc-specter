@@ -20,6 +20,7 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
@@ -67,6 +68,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
   Event (BkgEv),
+  ScrollDirection (..),
   Tab (..),
  )
 import GHCSpecter.Worker.Timing (timingWorker)
@@ -160,6 +162,28 @@ controlMain = forever $ do
     _ -> pure ()
   pure ()
 
+handleScroll :: TVar UIState -> Gdk.EventScroll -> IO ()
+handleScroll uiRef ev = do
+  dx <- get ev #deltaX
+  dy <- get ev #deltaY
+  dir <- get ev #direction
+  let mdir' = case dir of
+        Gdk.ScrollDirectionRight -> Just ScrollDirectionRight
+        Gdk.ScrollDirectionLeft -> Just ScrollDirectionLeft
+        Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
+        Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
+        _ -> Nothing
+  for_ mdir' $ \dir' ->
+    atomically $
+      modifyTVar' uiRef (uiExp . expViewPort %~ transformScroll dir' (dx, dy))
+
+-- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
+handleZoom :: TVar UIState -> (Double, Double) -> Double -> IO ()
+handleZoom uiRef (rx, ry) scale = atomically $
+  modifyTVar' uiRef $ \ui ->
+    let vp = ui ^. uiExp . expViewPort
+     in (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
+
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
   where
@@ -168,21 +192,6 @@ simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv Refresh
       (_ui, _ss) <- atomically $ readTChan chanState
       bev' <- atomically $ readTChan chanBkg
       pure (Left (BkgEv bev'))
-
-handleScroll :: TVar UIState -> Gdk.EventScroll -> IO ()
-handleScroll uiRef ev = do
-  dx <- get ev #deltaX
-  dy <- get ev #deltaY
-  dir <- get ev #direction
-  atomically $
-    modifyTVar' uiRef (uiExp . expViewPort %~ transformScroll dir (dx, dy))
-
--- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoom :: TVar UIState -> (Double, Double) -> Double -> IO ()
-handleZoom uiRef (rx, ry) scale = atomically $
-  modifyTVar' uiRef $ \ui ->
-    let vp = ui ^. uiExp . expViewPort
-     in (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
 
 main :: IO ()
 main =
