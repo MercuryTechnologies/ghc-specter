@@ -170,6 +170,19 @@ controlMain = forever $ do
     MouseEv _ (Scroll dir' (dx, dy)) -> do
       let ui' = (uiExp . expViewPort %~ transformScroll dir' (dx, dy)) ui
       putUI ui'
+    MouseEv _ (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiExp . expViewPort
+          ui' = (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
+      putUI ui'
+    MouseEv _ ZoomEnd -> do
+      let ui' = case ui ^. uiExp . expTemporaryViewPort of
+            Just viewPort ->
+              ui
+                & ( (uiExp . expViewPort .~ viewPort)
+                      . (uiExp . expTemporaryViewPort .~ Nothing)
+                  )
+            Nothing -> ui
+      putUI ui'
     _ -> pure ()
   pure ()
 
@@ -189,11 +202,15 @@ handleScroll chanGtk ev = do
       writeTChan chanGtk (MouseEv TimingView (Scroll dir' (dx, dy)))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoom :: TVar UIState -> (Double, Double) -> Double -> IO ()
-handleZoom uiRef (rx, ry) scale = atomically $
-  modifyTVar' uiRef $ \ui ->
-    let vp = ui ^. uiExp . expViewPort
-     in (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
+handleZoomUpdate :: TChan Event -> (Double, Double) -> Double -> IO ()
+handleZoomUpdate chanGtk (rx, ry) scale =
+  atomically $
+    writeTChan chanGtk (MouseEv TimingView (ZoomUpdate (rx, ry) scale))
+
+handleZoomEnd :: TChan Event -> IO ()
+handleZoomEnd chanGtk =
+  atomically $
+    writeTChan chanGtk (MouseEv TimingView ZoomEnd)
 
 simpleEventLoop :: TChan Event -> UIChannel -> IO ()
 simpleEventLoop chanGtk (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
@@ -298,21 +315,13 @@ main =
             (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
             let rx = xcenter / (canvasDim ^. _1)
                 ry = ycenter / (canvasDim ^. _2)
-            handleZoom uiRef (rx, ry) scale
+            handleZoomUpdate chanGtk (rx, ry) scale
             postGUIASync $
               #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            atomically $
-              modifyTVar' uiRef $ \ui ->
-                case ui ^. uiExp . expTemporaryViewPort of
-                  Just viewPort ->
-                    ui
-                      & ( (uiExp . expViewPort .~ viewPort)
-                            . (uiExp . expTemporaryViewPort .~ Nothing)
-                        )
-                  Nothing -> ui
+            handleZoomEnd chanGtk
             postGUIASync $
               #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble

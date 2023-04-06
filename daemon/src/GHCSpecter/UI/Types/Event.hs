@@ -106,7 +106,8 @@ data MouseEvent
   | MouseDown (Maybe (Double, Double))
   | MouseUp (Maybe (Double, Double))
   | Scroll ScrollDirection (Double, Double)
-  | Zoom (Double, Double) Double
+  | ZoomUpdate (Double, Double) Double
+  | ZoomEnd
   deriving (Show, Eq)
 
 data ConsoleEvent k
