@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.TimingView (
-  viewPortX,
-  viewPortY,
   diffTime2X,
   module2Y,
 
@@ -72,6 +70,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
+  HasViewPortInfo (..),
   TimingUI,
   ViewPort (..),
  )
@@ -82,12 +81,6 @@ import GHCSpecter.UI.Types.Event (
   TimingEvent (..),
  )
 import Prelude hiding (div)
-
-viewPortX :: TimingUI -> Double
-viewPortX tui = tui ^. timingUIViewPort . to topLeft . _1
-
-viewPortY :: TimingUI -> Double
-viewPortY tui = tui ^. timingUIViewPort . to topLeft . _2
 
 diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
 diffTime2X totalTime time =
@@ -238,7 +231,8 @@ compileTimingChart drvModMap tui ttable =
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     rangeY =
-      let vp = tui ^. timingUIViewPort
+      let vpi = tui ^. timingUIViewPort
+          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
        in (topLeft vp ^. _2, bottomRight vp ^. _2)
     filteredItems = filter (`isInRange` rangeY) allItems
     mkLine src tgt = do
@@ -279,7 +273,8 @@ compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     rangeY =
-      let vp = tui ^. timingUIViewPort
+      let vpi = tui ^. timingUIViewPort
+          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
        in (topLeft vp ^. _2, bottomRight vp ^. _2)
     filteredItems = filter (`isInRange` rangeY) allItems
     alloc2X alloc =
@@ -328,7 +323,8 @@ compileTimingRange tui ttable = [background, handle]
     nMods = length timingInfos
     allItems = zip [0 ..] timingInfos
     rangeY =
-      let vp = tui ^. timingUIViewPort
+      let vpi = tui ^. timingUIViewPort
+          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
        in (topLeft vp ^. _2, bottomRight vp ^. _2)
     filteredItems = filter (`isInRange` rangeY) allItems
 
@@ -378,10 +374,16 @@ renderTimingChart drvModMap tui ttable =
       , TimingEv (HoverOffModule modu) <$ onMouseLeave
       ]
     rexp = compileTimingChart drvModMap tui ttable
+    vpi = tui ^. timingUIViewPort
+    vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     svgProps =
       let viewboxProp =
             SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @Double @Int) $
-              [viewPortX tui, viewPortY tui, timingWidth, timingHeight]
+              [ topLeft vp ^. _1
+              , topLeft vp ^. _2
+              , timingWidth
+              , timingHeight
+              ]
           prop1 =
             [ MouseEv TagTimingView . MouseDown <$> onMouseDown
             , MouseEv TagTimingView . MouseUp <$> onMouseUp
@@ -410,9 +412,15 @@ renderMemChart drvModMap tui ttable =
     ]
   where
     rexp = compileMemChart drvModMap tui ttable
+    vpi = tui ^. timingUIViewPort
+    vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     viewboxProp =
       SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @_ @Int) $
-        ([0, viewPortY tui, 300, timingHeight] :: [Double])
+        [ 0
+        , topLeft vp ^. _2
+        , 300
+        , timingHeight
+        ]
     svgProps =
       [ width "300"
       , height (T.pack (show (timingHeight :: Int)))

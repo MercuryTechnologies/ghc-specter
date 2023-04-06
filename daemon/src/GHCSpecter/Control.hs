@@ -62,12 +62,14 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasViewPortInfo (..),
   MainView,
   ModuleGraphUI (..),
   UIModel,
   UIState,
   UIView (..),
   ViewPort (..),
+  ViewPortInfo (..),
   emptyMainView,
  )
 import GHCSpecter.UI.Types.Event (
@@ -171,9 +173,12 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           newModel =
             oldModel
               & ( modelTiming . timingUIViewPort
-                    .~ ViewPort
-                      (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
-                      (timingMaxWidth, fromIntegral totalHeight)
+                    .~ ViewPortInfo
+                      ( ViewPort
+                          (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
+                          (timingMaxWidth, fromIntegral totalHeight)
+                      )
+                      Nothing
                 )
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
@@ -393,7 +398,8 @@ goTiming ev (view, model0) = do
   model <-
     case ev of
       MouseEv TagTimingView (MouseDown (Just (x, y))) -> do
-        let vp = model0 ^. modelTiming . timingUIViewPort
+        let vpi = model0 ^. modelTiming . timingUIViewPort
+            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
             -- turn on mouse move event handling
             model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
         ui0 <- getUI
@@ -407,7 +413,7 @@ goTiming ev (view, model0) = do
     addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
       let (dx, dy) = (x' - x, y' - y)
        in modelTiming . timingUIViewPort
-            .~ ViewPort (tx - dx, ty - dy) (tx1 - dx, ty1 - dy)
+            .~ ViewPortInfo (ViewPort (tx - dx, ty - dy) (tx1 - dx, ty1 - dy)) Nothing
 
     -- (x, y): mouse down point, vp: viewport
     onDraggingInTimingView model_ (x, y) vp = do

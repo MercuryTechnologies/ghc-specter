@@ -60,11 +60,12 @@ import GHCSpecter.Server.Types (
  )
 import GHCSpecter.UI.Constants (
   canvasDim,
+  modGraphHeight,
+  modGraphWidth,
   timingHeight,
   timingWidth,
  )
 import GHCSpecter.UI.Types (
-  HasExpUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
@@ -74,12 +75,11 @@ import GHCSpecter.UI.Types (
   UIView (..),
   ViewPort (..),
   ViewPortInfo (..),
-  emptyExpUI,
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  ComponentTag (TagBanner, TagModuleGraph, TagTimingView),
+  ComponentTag (TagModuleGraph, TagTimingView),
   Event (..),
   MouseEvent (..),
   ScrollDirection (..),
@@ -116,18 +116,9 @@ initViewBackend = do
     desc <- #describe face
     pure (ViewBackend pangoCtxt desc)
 
-renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
-renderNotConnected vb ex = do
+renderNotConnected :: ViewBackend -> R.Render ()
+renderNotConnected vb = do
   R.save
-  -- TODO: refactor this out
-  let ViewPort (x0, y0) (x1, y1) =
-        fromMaybe
-          (ex ^. expViewPortBanner . vpViewPort)
-          (ex ^. expViewPortBanner . vpTempViewPort)
-      scaleX = (canvasDim ^. _1) / (x1 - x0)
-      scaleY = (canvasDim ^. _2) / (y1 - y0)
-  R.scale scaleX scaleY
-  R.translate (-x0) (-y0)
   R.setSourceRGBA 0 0 0 1
   drawText vb 36 (100, 100) "GHC is not connected yet"
   R.restore
@@ -146,7 +137,7 @@ renderAction vb ss ui = do
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
   case mgrvis of
-    Nothing -> renderNotConnected vb (ui ^. uiExp)
+    Nothing -> renderNotConnected vb
     Just grVisInfo ->
       case ui ^. uiView of
         MainMode (MainView TabModuleGraph) ->
@@ -174,52 +165,26 @@ controlMain = forever $ do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
-    MouseEv TagBanner (Scroll dir' (dx, dy)) -> do
-      let ui' =
-            ui
-              & (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
-                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
-      putUI ui'
     MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
-      let vp = ui ^. uiModel . modelTiming . timingUIViewPort
+      let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
           vp' = transformScroll dir' (dx, dy) vp
           ui' =
             ui
-              & (uiExp . expViewPortTimingView . vpViewPort .~ vp')
-                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
-                . (uiModel . modelTiming . timingUIViewPort .~ vp')
-      putUI ui'
-    MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
-          ui' =
-            ui
-              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
+              & (uiModel . modelTiming . timingUIViewPort . vpViewPort .~ vp')
+                . (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Nothing)
       putUI ui'
     MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
+      let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
           vp' = (transformZoom (rx, ry) scale vp)
           ui' =
             ui
-              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just vp')
-                . (uiModel . modelTiming . timingUIViewPort .~ vp')
-      putUI ui'
-    MouseEv TagBanner ZoomEnd -> do
-      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
-            Just viewPort ->
-              ui
-                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
-                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
-                  )
-            Nothing -> ui
+              & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
       putUI ui'
     MouseEv TagTimingView ZoomEnd -> do
-      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
+      let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
             Just viewPort ->
               ui
-                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
-                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
-                      . (uiModel . modelTiming . timingUIViewPort .~ viewPort)
-                  )
+                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
             Nothing -> ui
       putUI ui'
     _ -> pure ()
@@ -287,13 +252,6 @@ main =
             & (uiModel . modelTiming . timingUIPartition .~ True)
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiView .~ MainMode (MainView TabModuleGraph))
-              . ( uiExp
-                    .~ ( emptyExpUI
-                          & (expViewPortBanner .~ ViewPortInfo (ViewPort (0, 0) (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
-                            . (expViewPortTimingView .~ ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing)
-                            . (expViewPortModGraph .~ ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing)
-                       )
-                )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
@@ -352,16 +310,17 @@ main =
             (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
             let mgs = ss ^. serverModuleGraphState
                 mgrvis = mgs ^. mgsClusterGraph
-                tag = case mgrvis of
-                  Nothing -> TagBanner
+                mtag = case mgrvis of
+                  Nothing -> Nothing
                   Just _ ->
                     case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
-                      MainMode (MainView TabTiming) -> TagTimingView
-                      _ -> TagBanner
-            handleScroll chanGtk tag ev
-            postGUIASync $
-              #queueDraw drawingArea
+                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
+                      MainMode (MainView TabTiming) -> Just TagTimingView
+                      _ -> Nothing
+            for_ mtag $ \tag -> do
+              handleScroll chanGtk tag ev
+              postGUIASync $
+                #queueDraw drawingArea
             pure True
 
         gzoom <- Gtk.gestureZoomNew drawingArea
@@ -372,24 +331,24 @@ main =
             (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
             let mgs = ss ^. serverModuleGraphState
                 mgrvis = mgs ^. mgsClusterGraph
-                tag = case mgrvis of
-                  Nothing -> TagBanner
+                mtag = case mgrvis of
+                  Nothing -> Nothing
                   Just _ ->
                     case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
-                      MainMode (MainView TabTiming) -> TagTimingView
-                      _ -> TagBanner
-            (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
-            let (width, height) =
-                  case tag of
-                    TagBanner -> canvasDim
-                    TagTimingView -> (timingWidth, timingHeight)
-                    _ -> canvasDim
-                rx = xcenter / width
-                ry = ycenter / height
-            handleZoomUpdate chanGtk tag (rx, ry) scale
-            postGUIASync $
-              #queueDraw drawingArea
+                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
+                      MainMode (MainView TabTiming) -> Just TagTimingView
+                      _ -> Nothing
+            for_ mtag $ \tag -> do
+              (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
+              let (width, height) =
+                    case tag of
+                      TagTimingView -> (timingWidth, timingHeight)
+                      TagModuleGraph -> (modGraphWidth, modGraphHeight)
+                  rx = xcenter / width
+                  ry = ycenter / height
+              handleZoomUpdate chanGtk tag (rx, ry) scale
+              postGUIASync $
+                #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
@@ -397,16 +356,17 @@ main =
             (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
             let mgs = ss ^. serverModuleGraphState
                 mgrvis = mgs ^. mgsClusterGraph
-                tag = case mgrvis of
-                  Nothing -> TagBanner
+                mtag = case mgrvis of
+                  Nothing -> Nothing
                   Just _ ->
                     case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
-                      MainMode (MainView TabTiming) -> TagTimingView
-                      _ -> TagBanner
-            handleZoomEnd chanGtk tag
-            postGUIASync $
-              #queueDraw drawingArea
+                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
+                      MainMode (MainView TabTiming) -> Just TagTimingView
+                      _ -> Nothing
+            for_ mtag $ \tag -> do
+              handleZoomEnd chanGtk tag
+              postGUIASync $
+                #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
 
         layout <- do

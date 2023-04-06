@@ -6,6 +6,7 @@ module Timing (
 
 import Control.Lens ((^.))
 import Data.Foldable (traverse_)
+import Data.Maybe (fromMaybe)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)
@@ -21,6 +22,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
+  HasViewPortInfo (..),
   TimingUI,
   ViewPort (..),
  )
@@ -46,7 +48,8 @@ renderTiming vb drvModMap tui ttable = do
   R.rectangle 0 0 (timingWidth * 0.8) timingHeight
   R.clip
   -- TODO: refactor this out
-  let ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
+  let vpi = tui ^. timingUIViewPort
+      ViewPort (vx0, vy0) (vx1, vy1) = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
       scaleX = timingWidth / (vx1 - vx0)
       scaleY = timingHeight / (vy1 - vy0)
   R.scale scaleX scaleY
