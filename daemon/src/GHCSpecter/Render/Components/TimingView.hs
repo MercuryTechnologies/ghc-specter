@@ -237,8 +237,10 @@ compileTimingChart drvModMap tui ttable =
         else [box x, moduleText x]
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+    rangeY =
+      let vp = tui ^. timingUIViewPort
+       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+    filteredItems = filter (`isInRange` rangeY) allItems
     mkLine src tgt = do
       (srcIdx, srcItem) <-
         L.find (\(_, (mname, _)) -> mname == Just src) allItems
@@ -276,8 +278,10 @@ compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
     timingInfos = ttable ^. ttableTimingInfos
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+    rangeY =
+      let vp = tui ^. timingUIViewPort
+       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+    filteredItems = filter (`isInRange` rangeY) allItems
     alloc2X alloc =
       let
         -- ratio to 16 GiB
@@ -323,8 +327,10 @@ compileTimingRange tui ttable = [background, handle]
     timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
     allItems = zip [0 ..] timingInfos
-    filteredItems =
-      filter (`isInRange` (viewPortY tui, viewPortY tui + timingHeight)) allItems
+    rangeY =
+      let vp = tui ^. timingUIViewPort
+       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+    filteredItems = filter (`isInRange` rangeY) allItems
 
     (minI, maxI) =
       let idxs = fmap (^. _1) filteredItems

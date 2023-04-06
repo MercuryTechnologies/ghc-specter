@@ -85,7 +85,14 @@ renderTiming vb drvModMap tui ttable = do
   R.restore
   -- mem chart
   R.save
+  R.rectangle (timingWidth * 0.8) 0 timingWidth timingHeight
+  R.clip
   R.translate (timingWidth * 0.8) 0
+  let (vx, vy) = tui ^. timingUIViewPort . to topLeft
+      ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
+      scaleX = timingWidth / (vx1 - vx0)
+      scaleY = timingHeight / (vy1 - vy0)
+  R.scale scaleX scaleY
   R.translate 0 (-vy)
   traverse_ (renderPrimitive vb) rexpMemChart
   R.restore
