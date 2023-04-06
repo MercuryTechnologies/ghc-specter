@@ -170,9 +170,6 @@ controlMain = forever $ do
   ev <- nextEvent
   ss <- getSS
   ui <- getUI
-  let vp = ui ^. uiModel . modelTiming . timingUIViewPort
-  printMsg (T.pack (show vp))
-
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
