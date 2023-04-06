@@ -55,7 +55,8 @@ renderTiming ::
   TimingTable ->
   R.Render ()
 renderTiming vb drvModMap tui ttable = do
-  let timingInfos = ttable ^. ttableTimingInfos
+  let (vx, vy) = tui ^. timingUIViewPortTopLeft
+      timingInfos = ttable ^. ttableTimingInfos
       nMods = length timingInfos
       modEndTimes = fmap (^. _2 . plEnd . _1) timingInfos
       totalHeight = 5 * nMods
@@ -71,6 +72,7 @@ renderTiming vb drvModMap tui ttable = do
       rexpTimingBar = compileTimingRange tui ttable
   -- timing chart
   R.save
+  R.translate (-vx) (-vy)
   R.rectangle 0 0 (timingWidth * 0.8) timingHeight
   R.clip
   traverse_ (renderPrimitive vb) rexpTimingChart
@@ -78,6 +80,7 @@ renderTiming vb drvModMap tui ttable = do
   -- mem chart
   R.save
   R.translate (timingWidth * 0.8) 0
+  R.translate 0 (-vy)
   traverse_ (renderPrimitive vb) rexpMemChart
   R.restore
   -- timing range

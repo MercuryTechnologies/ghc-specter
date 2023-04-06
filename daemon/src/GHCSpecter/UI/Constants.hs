@@ -12,6 +12,9 @@ module GHCSpecter.UI.Constants (
   timingHeight,
   timingRangeHeight,
   widgetHeight,
+
+  -- * global
+  canvasDim,
 ) where
 
 import Data.Text (Text)
@@ -38,6 +41,10 @@ timingHeight = 600
 timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
 
+canvasDim :: (Num a) => (a, a)
+canvasDim = (1440, 768)
+
+-- TODO: this web-specific code should be located elsewhere.
 widgetHeight :: Bool -> Text
 widgetHeight isPaused
   | isPaused = "50vh"

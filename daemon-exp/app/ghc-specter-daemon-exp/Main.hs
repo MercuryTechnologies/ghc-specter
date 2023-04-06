@@ -26,6 +26,7 @@ import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -58,6 +59,11 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   initServerState,
  )
+import GHCSpecter.UI.Constants (
+  canvasDim,
+  timingHeight,
+  timingWidth,
+ )
 import GHCSpecter.UI.Types (
   ExpUI (ExpUI),
   HasExpUI (..),
@@ -73,7 +79,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  ComponentTag (TimingView),
+  ComponentTag (TagBanner, TagModuleGraph, TagTimingView),
   Event (..),
   MouseEvent (..),
   ScrollDirection (..),
@@ -89,9 +95,6 @@ import ModuleGraph (renderModuleGraph)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
 import Util (drawText, transformScroll, transformZoom)
-
-canvasDim :: (Num a) => (a, a)
-canvasDim = (1440, 768)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -117,7 +120,9 @@ renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
 renderNotConnected vb ex = do
   R.save
   let ((x0, y0), (x1, y1)) =
-        fromMaybe (ex ^. expViewPort1 . vpViewPort) (ex ^. expViewPort1 . vpTempViewPort)
+        fromMaybe
+          (ex ^. expViewPortBanner . vpViewPort)
+          (ex ^. expViewPortBanner . vpTempViewPort)
       scaleX = (canvasDim ^. _1) / (x1 - x0)
       scaleY = (canvasDim ^. _2) / (y1 - y0)
   R.scale scaleX scaleY
@@ -168,27 +173,41 @@ controlMain = forever $ do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
-    MouseEv _ (Scroll dir' (dx, dy)) -> do
-      let ui' = (uiExp . expViewPort1 . vpViewPort %~ transformScroll dir' (dx, dy)) ui
+    MouseEv TagBanner (Scroll dir' (dx, dy)) -> do
+      let ui' =
+            ui &
+              (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
       putUI ui'
-    MouseEv _ (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiExp . expViewPort1 . vpViewPort
-          ui' = (uiExp . expViewPort1 . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
+    MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
+      let ui' =
+            ui &
+              (uiExp . expViewPortTimingView . vpViewPort %~ transformScroll dir' (dx, dy))
+          ((vx, vy), _) = ui' ^. uiExp . expViewPortTimingView . vpViewPort
+          ui'' =
+            ui' &
+              (uiModel . modelTiming . timingUIViewPortTopLeft .~ (vx, vy))
+      -- printMsg (T.pack $ show upperleft)
+      putUI ui''
+    MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
+          ui' =
+            ui &
+              (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
       putUI ui'
-    MouseEv _ ZoomEnd -> do
-      let ui' = case ui ^. uiExp . expViewPort1 . vpTempViewPort of
+    MouseEv TagBanner ZoomEnd -> do
+      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
             Just viewPort ->
               ui
-                & ( (uiExp . expViewPort1 . vpViewPort .~ viewPort)
-                      . (uiExp . expViewPort1 . vpTempViewPort .~ Nothing)
+                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
+                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
                   )
             Nothing -> ui
       putUI ui'
     _ -> pure ()
   pure ()
 
-handleScroll :: TChan Event -> Gdk.EventScroll -> IO ()
-handleScroll chanGtk ev = do
+handleScroll :: TChan Event -> ComponentTag -> Gdk.EventScroll -> IO ()
+handleScroll chanGtk tag ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -200,18 +219,18 @@ handleScroll chanGtk ev = do
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do
-      writeTChan chanGtk (MouseEv TimingView (Scroll dir' (dx, dy)))
+      writeTChan chanGtk (MouseEv tag (Scroll dir' (dx, dy)))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoomUpdate :: TChan Event -> (Double, Double) -> Double -> IO ()
-handleZoomUpdate chanGtk (rx, ry) scale =
+handleZoomUpdate :: TChan Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
+handleZoomUpdate chanGtk tag (rx, ry) scale =
   atomically $
-    writeTChan chanGtk (MouseEv TimingView (ZoomUpdate (rx, ry) scale))
+    writeTChan chanGtk (MouseEv tag (ZoomUpdate (rx, ry) scale))
 
-handleZoomEnd :: TChan Event -> IO ()
-handleZoomEnd chanGtk =
+handleZoomEnd :: TChan Event -> ComponentTag -> IO ()
+handleZoomEnd chanGtk tag =
   atomically $
-    writeTChan chanGtk (MouseEv TimingView ZoomEnd)
+    writeTChan chanGtk (MouseEv tag ZoomEnd)
 
 simpleEventLoop :: TChan Event -> UIChannel -> IO ()
 simpleEventLoop chanGtk (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
@@ -250,7 +269,9 @@ main =
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiView .~ MainMode (MainView TabModuleGraph))
               . ( uiExp
-                    .~ ExpUI (ViewPortInfo ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
+                    .~ ExpUI
+                         (ViewPortInfo ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
+                         (ViewPortInfo ((0, 0), (timingWidth, timingHeight)) Nothing)
                 )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
@@ -306,7 +327,18 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            handleScroll chanGtk ev
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)            
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
+            handleScroll chanGtk tag ev
             postGUIASync $
               #queueDraw drawingArea
             pure True
@@ -318,13 +350,13 @@ main =
             (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
             let rx = xcenter / (canvasDim ^. _1)
                 ry = ycenter / (canvasDim ^. _2)
-            handleZoomUpdate chanGtk (rx, ry) scale
+            handleZoomUpdate chanGtk TagBanner (rx, ry) scale
             postGUIASync $
               #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            handleZoomEnd chanGtk
+            handleZoomEnd chanGtk TagBanner
             postGUIASync $
               #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble

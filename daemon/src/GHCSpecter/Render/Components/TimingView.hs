@@ -75,7 +75,7 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (
-  ComponentTag (TimingView),
+  ComponentTag (TagTimingView),
   Event (..),
   MouseEvent (..),
   TimingEvent (..),
@@ -376,8 +376,8 @@ renderTimingChart drvModMap tui ttable =
             SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @Double @Int) $
               [viewPortX tui, viewPortY tui, timingWidth, timingHeight]
           prop1 =
-            [ MouseEv TimingView . MouseDown <$> onMouseDown
-            , MouseEv TimingView . MouseUp <$> onMouseUp
+            [ MouseEv TagTimingView . MouseDown <$> onMouseDown
+            , MouseEv TagTimingView . MouseUp <$> onMouseUp
             , width (T.pack (show (timingWidth :: Int)))
             , height (T.pack (show (timingHeight :: Int)))
             , viewboxProp
@@ -386,7 +386,7 @@ renderTimingChart drvModMap tui ttable =
             ]
           mouseMove
             | tui ^. timingUIHandleMouseMove =
-                [MouseEv TimingView . MouseMove <$> onMouseMove]
+                [MouseEv TagTimingView . MouseMove <$> onMouseMove]
             | otherwise = []
        in mouseMove ++ prop1
 

@@ -160,13 +160,14 @@ emptyViewPortInfo = ViewPortInfo ((0, 0), (1440, 768)) Nothing
 
 -- | experimental UI
 data ExpUI = ExpUI
-  { _expViewPort1 :: ViewPortInfo
+  { _expViewPortBanner :: ViewPortInfo
+  , _expViewPortTimingView :: ViewPortInfo
   }
 
 makeClassy ''ExpUI
 
 emptyExpUI :: ExpUI
-emptyExpUI = ExpUI emptyViewPortInfo
+emptyExpUI = ExpUI emptyViewPortInfo emptyViewPortInfo
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool

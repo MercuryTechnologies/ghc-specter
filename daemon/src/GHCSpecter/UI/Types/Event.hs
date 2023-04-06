@@ -49,8 +49,10 @@ blockerThreshold Blocking4 = 4
 blockerThreshold Blocking5 = 5
 
 data ComponentTag
-  = TimingView
-  | TimingRange
+  = TagBanner
+  | TagTimingView
+  | TagTimingRange
+  | TagModuleGraph
   deriving (Show, Eq)
 
 data ScrollDirection
