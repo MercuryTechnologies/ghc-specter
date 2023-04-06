@@ -39,9 +39,11 @@ import GHCSpecter.Control.Types (
   Control,
   asyncWork,
   getSS,
+  getUI,
   nextEvent,
   printMsg,
   putSS,
+  putUI,
  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -159,18 +161,20 @@ controlMain = forever $ do
   printMsg "control tick"
   ev <- nextEvent
   ss <- getSS
+  ui <- getUI
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
     MouseEv _ (Scroll dir' (dx, dy)) -> do
-      printMsg "Scroll event!"
+      let ui' = (uiExp . expViewPort %~ transformScroll dir' (dx, dy)) ui
+      putUI ui'
     _ -> pure ()
   pure ()
 
-handleScroll :: TChan Event -> TVar UIState -> Gdk.EventScroll -> IO ()
-handleScroll chanGtk uiRef ev = do
+handleScroll :: TChan Event -> Gdk.EventScroll -> IO ()
+handleScroll chanGtk ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -183,7 +187,6 @@ handleScroll chanGtk uiRef ev = do
   for_ mdir' $ \dir' -> do
     atomically $ do
       writeTChan chanGtk (MouseEv TimingView (Scroll dir' (dx, dy)))
-      modifyTVar' uiRef (uiExp . expViewPort %~ transformScroll dir' (dx, dy))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
 handleZoom :: TVar UIState -> (Double, Double) -> Double -> IO ()
@@ -283,7 +286,7 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            handleScroll chanGtk uiRef ev
+            handleScroll chanGtk ev
             postGUIASync $
               #queueDraw drawingArea
             pure True
