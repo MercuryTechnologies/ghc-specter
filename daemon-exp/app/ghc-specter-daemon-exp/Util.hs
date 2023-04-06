@@ -3,6 +3,7 @@
 module Util (
   drawText,
   renderPrimitive,
+
   -- * transformation function for viewport
   transformScroll,
   transformZoom,

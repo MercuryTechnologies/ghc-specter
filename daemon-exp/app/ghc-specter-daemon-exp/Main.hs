@@ -179,7 +179,8 @@ handleScroll vbRef ev = do
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
 handleZoom :: TVar ViewBackend -> (Double, Double) -> Double -> IO ()
 handleZoom vbRef (rx, ry) scale = atomically $
-  modifyTVar' vbRef $ \vb -> vb {vbTemporaryViewPort = Just (transformZoom (rx, ry) scale (vbViewPort vb))}
+  modifyTVar' vbRef $
+    \vb -> vb {vbTemporaryViewPort = Just (transformZoom (rx, ry) scale (vbViewPort vb))}
 
 main :: IO ()
 main =
