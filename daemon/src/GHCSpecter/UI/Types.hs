@@ -27,6 +27,7 @@ module GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ExpUI (..),
   HasExpUI (..),
+  emptyExpUI,
   UIState (..),
   HasUIState (..),
   emptyUIState,
@@ -38,7 +39,12 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.UI.Constants (timingHeight, timingWidth)
+import GHCSpecter.UI.Constants (
+  modGraphHeight,
+  modGraphWidth,
+  timingHeight,
+  timingWidth,
+ )
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ViewPort = ViewPort
@@ -52,12 +58,18 @@ data ModuleGraphUI = ModuleGraphUI
   -- ^ module under mouse cursor in Module Graph
   , _modGraphUIClick :: Maybe Text
   -- ^ module clicked in Module Graph
+  , _modGraphViewPort :: ViewPort
   }
 
 makeClassy ''ModuleGraphUI
 
 emptyModuleGraphUI :: ModuleGraphUI
-emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
+emptyModuleGraphUI =
+  ModuleGraphUI
+    { _modGraphUIHover = Nothing
+    , _modGraphUIClick = Nothing
+    , _modGraphViewPort = ViewPort (0, 0) (modGraphWidth, modGraphHeight)
+    }
 
 data SourceViewUI = SourceViewUI
   { _srcViewExpandedModule :: Maybe Text
@@ -142,8 +154,8 @@ makeClassy ''UIModel
 emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
-    { _modelMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    { _modelMainModuleGraph = emptyModuleGraphUI
+    , _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
@@ -169,12 +181,18 @@ emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
 data ExpUI = ExpUI
   { _expViewPortBanner :: ViewPortInfo
   , _expViewPortTimingView :: ViewPortInfo
+  , _expViewPortModGraph :: ViewPortInfo
   }
 
 makeClassy ''ExpUI
 
 emptyExpUI :: ExpUI
-emptyExpUI = ExpUI emptyViewPortInfo emptyViewPortInfo
+emptyExpUI =
+  ExpUI
+    { _expViewPortBanner = emptyViewPortInfo
+    , _expViewPortTimingView = emptyViewPortInfo
+    , _expViewPortModGraph = emptyViewPortInfo
+    }
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool

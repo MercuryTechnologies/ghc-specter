@@ -1,5 +1,5 @@
 {
-  description = "ghc-build-analzyer: utility for analyzing GHC build";
+  description = "Inspecting tool for the GHC pipeline through GHC plugin";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";

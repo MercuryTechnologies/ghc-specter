@@ -26,7 +26,6 @@ import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
-import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -65,7 +64,6 @@ import GHCSpecter.UI.Constants (
   timingWidth,
  )
 import GHCSpecter.UI.Types (
-  ExpUI (ExpUI),
   HasExpUI (..),
   HasTimingUI (..),
   HasUIModel (..),
@@ -76,6 +74,7 @@ import GHCSpecter.UI.Types (
   UIView (..),
   ViewPort (..),
   ViewPortInfo (..),
+  emptyExpUI,
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -289,15 +288,11 @@ main =
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiView .~ MainMode (MainView TabModuleGraph))
               . ( uiExp
-                    .~ ExpUI
-                      ( ViewPortInfo
-                          (ViewPort (0, 0) (canvasDim ^. _1, canvasDim ^. _2))
-                          Nothing
-                      )
-                      ( ViewPortInfo
-                          (ViewPort (0, 0) (timingWidth, timingHeight))
-                          Nothing
-                      )
+                    .~ ( emptyExpUI
+                          & (expViewPortBanner .~ ViewPortInfo (ViewPort (0, 0) (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
+                            . (expViewPortTimingView .~ ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing)
+                            . (expViewPortModGraph .~ ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing)
+                       )
                 )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
