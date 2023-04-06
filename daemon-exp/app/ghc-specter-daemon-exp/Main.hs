@@ -194,12 +194,30 @@ controlMain = forever $ do
             ui
               & (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
       putUI ui'
+    MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
+          vp' = (transformZoom (rx, ry) scale vp)
+          ui' =
+            ui
+              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just vp')
+                . (uiModel . modelTiming . timingUIViewPort .~ vp')
+      putUI ui'
     MouseEv TagBanner ZoomEnd -> do
       let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
             Just viewPort ->
               ui
                 & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
                       . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
+                  )
+            Nothing -> ui
+      putUI ui'
+    MouseEv TagTimingView ZoomEnd -> do
+      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
+            Just viewPort ->
+              ui
+                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
+                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
+                      . (uiModel . modelTiming . timingUIViewPort .~ viewPort)
                   )
             Nothing -> ui
       putUI ui'
@@ -353,16 +371,43 @@ main =
         _ <- gzoom
           `on` #scaleChanged
           $ \scale -> do
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
             (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
-            let rx = xcenter / (canvasDim ^. _1)
-                ry = ycenter / (canvasDim ^. _2)
-            handleZoomUpdate chanGtk TagBanner (rx, ry) scale
+            let (width, height) =
+                  case tag of
+                    TagBanner -> canvasDim
+                    TagTimingView -> (timingWidth, timingHeight)
+                    _ -> canvasDim
+                rx = xcenter / width
+                ry = ycenter / height
+            handleZoomUpdate chanGtk tag (rx, ry) scale
             postGUIASync $
               #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            handleZoomEnd chanGtk TagBanner
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
+            handleZoomEnd chanGtk tag
             postGUIASync $
               #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
