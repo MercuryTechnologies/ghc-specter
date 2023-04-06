@@ -6,7 +6,6 @@ module Main where
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
   TChan,
-  TVar,
   atomically,
   modifyTVar',
   newTChanIO,
@@ -65,9 +64,11 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasViewPortInfo (..),
   MainView (..),
   UIState (..),
   UIView (..),
+  ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -116,7 +117,7 @@ renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
 renderNotConnected vb ex = do
   R.save
   let ((x0, y0), (x1, y1)) =
-        fromMaybe (ex ^. expViewPort) (ex ^. expTemporaryViewPort)
+        fromMaybe (ex ^. expViewPort1 . vpViewPort) (ex ^. expViewPort1 . vpTempViewPort)
       scaleX = (canvasDim ^. _1) / (x1 - x0)
       scaleY = (canvasDim ^. _2) / (y1 - y0)
   R.scale scaleX scaleY
@@ -168,18 +169,18 @@ controlMain = forever $ do
       asyncWork timingWorker
       putSS ss'
     MouseEv _ (Scroll dir' (dx, dy)) -> do
-      let ui' = (uiExp . expViewPort %~ transformScroll dir' (dx, dy)) ui
+      let ui' = (uiExp . expViewPort1 . vpViewPort %~ transformScroll dir' (dx, dy)) ui
       putUI ui'
     MouseEv _ (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiExp . expViewPort
-          ui' = (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
+      let vp = ui ^. uiExp . expViewPort1 . vpViewPort
+          ui' = (uiExp . expViewPort1 . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
       putUI ui'
     MouseEv _ ZoomEnd -> do
-      let ui' = case ui ^. uiExp . expTemporaryViewPort of
+      let ui' = case ui ^. uiExp . expViewPort1 . vpTempViewPort of
             Just viewPort ->
               ui
-                & ( (uiExp . expViewPort .~ viewPort)
-                      . (uiExp . expTemporaryViewPort .~ Nothing)
+                & ( (uiExp . expViewPort1 . vpViewPort .~ viewPort)
+                      . (uiExp . expViewPort1 . vpTempViewPort .~ Nothing)
                   )
             Nothing -> ui
       putUI ui'
@@ -246,9 +247,11 @@ main =
         ui0' =
           ui0
             & (uiModel . modelTiming . timingUIPartition .~ True)
-              . (uiModel . modelTiming . timingUIHowParallel .~ True)
+              . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiView .~ MainMode (MainView TabModuleGraph))
-              . (uiExp .~ ExpUI ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
+              . ( uiExp
+                    .~ ExpUI (ViewPortInfo ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
+                )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO

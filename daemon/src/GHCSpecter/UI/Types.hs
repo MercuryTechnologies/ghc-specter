@@ -22,6 +22,8 @@ module GHCSpecter.UI.Types (
   emptyUIModel,
   UIView (..),
   HasUIView (..),
+  ViewPortInfo (..),
+  HasViewPortInfo (..),
   ExpUI (..),
   HasExpUI (..),
   UIState (..),
@@ -145,14 +147,26 @@ data UIView
 
 makeClassy ''UIView
 
+data ViewPortInfo = ViewPortInfo
+  { _vpViewPort :: ((Double, Double), (Double, Double))
+  -- ^ (upperleft, lowerright)
+  , _vpTempViewPort :: Maybe ((Double, Double), (Double, Double))
+  }
+
+makeClassy ''ViewPortInfo
+
+emptyViewPortInfo :: ViewPortInfo
+emptyViewPortInfo = ViewPortInfo ((0, 0), (1440, 768)) Nothing
+
 -- | experimental UI
 data ExpUI = ExpUI
-  { _expViewPort :: ((Double, Double), (Double, Double))
-  -- ^ (upperleft, lowerright)
-  , _expTemporaryViewPort :: Maybe ((Double, Double), (Double, Double))
+  { _expViewPort1 :: ViewPortInfo
   }
 
 makeClassy ''ExpUI
+
+emptyExpUI :: ExpUI
+emptyExpUI = ExpUI emptyViewPortInfo
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool
@@ -178,5 +192,5 @@ emptyUIState assets now =
     , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
     , _uiAssets = assets
-    , _uiExp = ExpUI ((0, 0), (1440, 768)) Nothing
+    , _uiExp = emptyExpUI
     }
