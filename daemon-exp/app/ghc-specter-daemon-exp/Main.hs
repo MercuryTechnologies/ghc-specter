@@ -5,6 +5,7 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
+  TVar,
   atomically,
   modifyTVar',
   newTChanIO,
@@ -15,11 +16,11 @@ import Control.Concurrent.STM (
   readTVar,
   writeTChan,
  )
-import Control.Lens (to, (&), (.~), (^.))
+import Control.Lens (to, (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Data.GI.Base (AttrOp ((:=)), new, on)
+import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
@@ -69,12 +70,16 @@ import GHCSpecter.UI.Types.Event (
 import GHCSpecter.Worker.Timing (timingWorker)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
+import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import ModuleGraph (renderModuleGraph)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
-import Util (drawText)
+import Util (drawText, transformScroll, transformZoom)
+
+canvasDim :: (Num a) => (a, a)
+canvasDim = (1440, 768)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -94,12 +99,20 @@ initViewBackend = do
   mface <- #getFace family Nothing
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc)
+    pure (ViewBackend pangoCtxt desc ((0, 0), canvasDim) Nothing)
 
 renderNotConnected :: ViewBackend -> R.Render ()
 renderNotConnected vb = do
+  R.save
+  let ((x0, y0), (x1, y1)) =
+        fromMaybe (vbViewPort vb) (vbTemporaryViewPort vb)
+      scaleX = (canvasDim ^. _1) / (x1 - x0)
+      scaleY = (canvasDim ^. _2) / (y1 - y0)
+  R.scale scaleX scaleY
+  R.translate (-x0) (-y0)
   R.setSourceRGBA 0 0 0 1
   drawText vb 36 (100, 100) "GHC is not connected yet"
+  R.restore
 
 renderAction ::
   ViewBackend ->
@@ -153,6 +166,21 @@ simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv Refresh
       (_ui, _ss) <- atomically $ readTChan chanState
       bev' <- atomically $ readTChan chanBkg
       pure (Left (BkgEv bev'))
+
+handleScroll :: TVar ViewBackend -> Gdk.EventScroll -> IO ()
+handleScroll vbRef ev = do
+  dx <- get ev #deltaX
+  dy <- get ev #deltaY
+  dir <- get ev #direction
+  atomically $
+    modifyTVar' vbRef $ \vb ->
+      vb {vbViewPort = transformScroll dir (dx, dy) (vbViewPort vb)}
+
+-- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
+handleZoom :: TVar ViewBackend -> (Double, Double) -> Double -> IO ()
+handleZoom vbRef (rx, ry) scale = atomically $
+  modifyTVar' vbRef $
+    \vb -> vb {vbTemporaryViewPort = Just (transformZoom (rx, ry) scale (vbViewPort vb))}
 
 main :: IO ()
 main =
@@ -209,6 +237,13 @@ main =
         #append menuBar menuitem2
         -- main canvas
         drawingArea <- new Gtk.DrawingArea []
+
+        #addEvents
+          drawingArea
+          [ Gdk.EventMaskScrollMask
+          , Gdk.EventMaskTouchpadGestureMask
+          ]
+
         _ <- drawingArea
           `on` #draw
           $ RC.renderWithContext
@@ -216,13 +251,43 @@ main =
             (vb, ss, ui) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar ssRef <*> readTVar uiRef)
             renderAction vb ss ui
             pure True
+        _ <- drawingArea
+          `on` #scrollEvent
+          $ \ev -> do
+            handleScroll vbRef ev
+            postGUIASync $
+              #queueDraw drawingArea
+            pure True
+
+        gzoom <- Gtk.gestureZoomNew drawingArea
+        _ <- gzoom
+          `on` #scaleChanged
+          $ \scale -> do
+            (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
+            let rx = xcenter / (canvasDim ^. _1)
+                ry = ycenter / (canvasDim ^. _2)
+            handleZoom vbRef (rx, ry) scale
+            postGUIASync $
+              #queueDraw drawingArea
+        _ <- gzoom
+          `on` #end
+          $ \_ -> do
+            atomically $
+              modifyTVar' vbRef $ \vb ->
+                case vbTemporaryViewPort vb of
+                  Just viewPort -> vb {vbViewPort = viewPort, vbTemporaryViewPort = Nothing}
+                  Nothing -> vb
+            postGUIASync $
+              #queueDraw drawingArea
+        #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
+
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
           #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout
-        #setDefaultSize mainWindow 1440 768
+        #setDefaultSize mainWindow (canvasDim ^. _1) (canvasDim ^. _2)
         #showAll mainWindow
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Session.main servSess cliSess controlMain
