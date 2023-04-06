@@ -26,7 +26,6 @@ import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
-import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -74,6 +73,7 @@ import GHCSpecter.UI.Types (
   MainView (..),
   UIState (..),
   UIView (..),
+  ViewPort (..),
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -119,7 +119,7 @@ initViewBackend = do
 renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
 renderNotConnected vb ex = do
   R.save
-  let ((x0, y0), (x1, y1)) =
+  let ViewPort (x0, y0) (x1, y1) =
         fromMaybe
           (ex ^. expViewPortBanner . vpViewPort)
           (ex ^. expViewPortBanner . vpTempViewPort)
@@ -175,24 +175,23 @@ controlMain = forever $ do
       putSS ss'
     MouseEv TagBanner (Scroll dir' (dx, dy)) -> do
       let ui' =
-            ui &
-              (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
+            ui
+              & (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
       putUI ui'
     MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
       let ui' =
-            ui &
-              (uiExp . expViewPortTimingView . vpViewPort %~ transformScroll dir' (dx, dy))
-          ((vx, vy), _) = ui' ^. uiExp . expViewPortTimingView . vpViewPort
+            ui
+              & (uiExp . expViewPortTimingView . vpViewPort %~ transformScroll dir' (dx, dy))
+          ViewPort (vx, vy) _ = ui' ^. uiExp . expViewPortTimingView . vpViewPort
           ui'' =
-            ui' &
-              (uiModel . modelTiming . timingUIViewPortTopLeft .~ (vx, vy))
-      -- printMsg (T.pack $ show upperleft)
+            ui'
+              & (uiModel . modelTiming . timingUIViewPortTopLeft .~ (vx, vy))
       putUI ui''
     MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
       let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
           ui' =
-            ui &
-              (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
+            ui
+              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
       putUI ui'
     MouseEv TagBanner ZoomEnd -> do
       let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
@@ -270,8 +269,14 @@ main =
               . (uiView .~ MainMode (MainView TabModuleGraph))
               . ( uiExp
                     .~ ExpUI
-                         (ViewPortInfo ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
-                         (ViewPortInfo ((0, 0), (timingWidth, timingHeight)) Nothing)
+                      ( ViewPortInfo
+                          (ViewPort (0, 0) (canvasDim ^. _1, canvasDim ^. _2))
+                          Nothing
+                      )
+                      ( ViewPortInfo
+                          (ViewPort (0, 0) (timingWidth, timingHeight))
+                          Nothing
+                      )
                 )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
@@ -328,7 +333,7 @@ main =
           `on` #scrollEvent
           $ \ev -> do
             -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)            
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
             let mgs = ss ^. serverModuleGraphState
                 mgrvis = mgs ^. mgsClusterGraph
                 tag = case mgrvis of

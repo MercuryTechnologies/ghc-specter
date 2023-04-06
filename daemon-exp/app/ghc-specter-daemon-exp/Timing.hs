@@ -72,9 +72,9 @@ renderTiming vb drvModMap tui ttable = do
       rexpTimingBar = compileTimingRange tui ttable
   -- timing chart
   R.save
-  R.translate (-vx) (-vy)
   R.rectangle 0 0 (timingWidth * 0.8) timingHeight
   R.clip
+  R.translate (-vx) (-vy)
   traverse_ (renderPrimitive vb) rexpTimingChart
   R.restore
   -- mem chart

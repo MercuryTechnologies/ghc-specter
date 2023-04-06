@@ -13,6 +13,7 @@ import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.UI.Types (ViewPort (..))
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
@@ -83,22 +84,22 @@ renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
 transformScroll ::
   ScrollDirection ->
   (Double, Double) ->
-  ((Double, Double), (Double, Double)) ->
-  ((Double, Double), (Double, Double))
-transformScroll dir (dx, dy) ((x0, y0), (x1, y1)) =
+  ViewPort ->
+  ViewPort
+transformScroll dir (dx, dy) (ViewPort (x0, y0) (x1, y1)) =
   case dir of
-    ScrollDirectionRight -> ((x0 + dx, y0), (x1 + dx, y1))
-    ScrollDirectionLeft -> ((x0 - dx, y0), (x1 - dx, y1))
-    ScrollDirectionDown -> ((x0, y0 + dy), (x1, y1 + dy))
-    ScrollDirectionUp -> ((x0, y0 - dy), (x1, y1 - dy))
+    ScrollDirectionRight -> ViewPort (x0 + dx, y0) (x1 + dx, y1)
+    ScrollDirectionLeft -> ViewPort (x0 - dx, y0) (x1 - dx, y1)
+    ScrollDirectionDown -> ViewPort (x0, y0 + dy) (x1, y1 + dy)
+    ScrollDirectionUp -> ViewPort (x0, y0 - dy) (x1, y1 - dy)
 
 -- | zoom
 transformZoom ::
   (Double, Double) ->
   Double ->
-  ((Double, Double), (Double, Double)) ->
-  ((Double, Double), (Double, Double))
-transformZoom (rx, ry) scale ((x0, y0), (x1, y1)) = ((x0', y0'), (x1', y1'))
+  ViewPort ->
+  ViewPort
+transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') (x1', y1')
   where
     x = x0 + (x1 - x0) * rx
     y = y0 + (y1 - y0) * ry

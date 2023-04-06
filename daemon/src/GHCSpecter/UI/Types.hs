@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types (
+  ViewPort (..),
   ModuleGraphUI (..),
   HasModuleGraphUI (..),
   emptyModuleGraphUI,
@@ -38,6 +39,11 @@ import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
+
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
+  }
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -148,15 +154,14 @@ data UIView
 makeClassy ''UIView
 
 data ViewPortInfo = ViewPortInfo
-  { _vpViewPort :: ((Double, Double), (Double, Double))
-  -- ^ (upperleft, lowerright)
-  , _vpTempViewPort :: Maybe ((Double, Double), (Double, Double))
+  { _vpViewPort :: ViewPort
+  , _vpTempViewPort :: Maybe ViewPort
   }
 
 makeClassy ''ViewPortInfo
 
 emptyViewPortInfo :: ViewPortInfo
-emptyViewPortInfo = ViewPortInfo ((0, 0), (1440, 768)) Nothing
+emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
 
 -- | experimental UI
 data ExpUI = ExpUI
