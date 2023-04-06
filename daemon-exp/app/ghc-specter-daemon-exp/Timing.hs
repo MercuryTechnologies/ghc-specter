@@ -90,9 +90,9 @@ renderTiming vb drvModMap tui ttable = do
   R.translate (timingWidth * 0.8) 0
   let (vx, vy) = tui ^. timingUIViewPort . to topLeft
       ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
-      scaleX = timingWidth / (vx1 - vx0)
+      -- scaleX = timingWidth / (vx1 - vx0)
       scaleY = timingHeight / (vy1 - vy0)
-  R.scale scaleX scaleY
+  R.scale 1.0 scaleY
   R.translate 0 (-vy)
   traverse_ (renderPrimitive vb) rexpMemChart
   R.restore

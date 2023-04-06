@@ -45,6 +45,7 @@ data ViewPort = ViewPort
   { topLeft :: (Double, Double)
   , bottomRight :: (Double, Double)
   }
+  deriving (Show)
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text

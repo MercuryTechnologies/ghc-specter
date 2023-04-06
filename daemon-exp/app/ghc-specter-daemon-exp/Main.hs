@@ -26,6 +26,7 @@ import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -169,6 +170,9 @@ controlMain = forever $ do
   ev <- nextEvent
   ss <- getSS
   ui <- getUI
+  let vp = ui ^. uiModel . modelTiming . timingUIViewPort
+  printMsg (T.pack (show vp))
+
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
@@ -178,16 +182,17 @@ controlMain = forever $ do
       let ui' =
             ui
               & (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
+                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
       putUI ui'
     MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
-      let ui' =
+      let vp = ui ^. uiModel . modelTiming . timingUIViewPort
+          vp' = transformScroll dir' (dx, dy) vp
+          ui' =
             ui
-              & (uiExp . expViewPortTimingView . vpViewPort %~ transformScroll dir' (dx, dy))
-          vp = ui' ^. uiExp . expViewPortTimingView . vpViewPort
-          ui'' =
-            ui'
-              & (uiModel . modelTiming . timingUIViewPort .~ vp)
-      putUI ui''
+              & (uiExp . expViewPortTimingView . vpViewPort .~ vp')
+                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
+                . (uiModel . modelTiming . timingUIViewPort .~ vp')
+      putUI ui'
     MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
       let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
           ui' =
