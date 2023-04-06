@@ -43,6 +43,7 @@ import GHCSpecter.UI.Constants (
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
   TimingUI (..),
+  ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
 import Types (ViewBackend)
@@ -73,11 +74,26 @@ renderTiming vb drvModMap tui ttable = do
   R.save
   R.rectangle 0 0 (timingWidth * 0.8) timingHeight
   R.clip
+  -- TODO: refactor this out
+  let (vx, vy) = tui ^. timingUIViewPort . to topLeft
+      ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
+      scaleX = timingWidth / (vx1 - vx0)
+      scaleY = timingHeight / (vy1 - vy0)
+  R.scale scaleX scaleY
+  R.translate (-vx0) (-vy0)
   traverse_ (renderPrimitive vb) rexpTimingChart
   R.restore
   -- mem chart
   R.save
+  R.rectangle (timingWidth * 0.8) 0 timingWidth timingHeight
+  R.clip
   R.translate (timingWidth * 0.8) 0
+  let (vx, vy) = tui ^. timingUIViewPort . to topLeft
+      ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
+      -- scaleX = timingWidth / (vx1 - vx0)
+      scaleY = timingHeight / (vy1 - vy0)
+  R.scale 1.0 scaleY
+  R.translate 0 (-vy)
   traverse_ (renderPrimitive vb) rexpMemChart
   R.restore
   -- timing range

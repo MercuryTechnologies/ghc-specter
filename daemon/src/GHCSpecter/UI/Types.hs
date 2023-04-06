@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types (
+  ViewPort (..),
   ModuleGraphUI (..),
   HasModuleGraphUI (..),
   emptyModuleGraphUI,
@@ -22,6 +23,10 @@ module GHCSpecter.UI.Types (
   emptyUIModel,
   UIView (..),
   HasUIView (..),
+  ViewPortInfo (..),
+  HasViewPortInfo (..),
+  ExpUI (..),
+  HasExpUI (..),
   UIState (..),
   HasUIState (..),
   emptyUIState,
@@ -33,7 +38,14 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
+import GHCSpecter.UI.Constants (timingHeight, timingWidth)
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
+
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
+  }
+  deriving (Show)
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -67,8 +79,8 @@ data TimingUI = TimingUI
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
-  , _timingUIViewPortTopLeft :: (Double, Double)
-  -- ^ Top-Left corner of timing UI viewport
+  , _timingUIViewPort :: ViewPort
+  -- ^ timing UI viewport
   , _timingUIHandleMouseMove :: Bool
   , _timingUIHoveredModule :: Maybe Text
   , _timingUIBlockerGraph :: Bool
@@ -82,7 +94,7 @@ emptyTimingUI =
     { _timingFrozenTable = Nothing
     , _timingUIPartition = False
     , _timingUIHowParallel = False
-    , _timingUIViewPortTopLeft = (0, 0)
+    , _timingUIViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
     , _timingUIHandleMouseMove = False
     , _timingUIHoveredModule = Nothing
     , _timingUIBlockerGraph = False
@@ -143,6 +155,27 @@ data UIView
 
 makeClassy ''UIView
 
+data ViewPortInfo = ViewPortInfo
+  { _vpViewPort :: ViewPort
+  , _vpTempViewPort :: Maybe ViewPort
+  }
+
+makeClassy ''ViewPortInfo
+
+emptyViewPortInfo :: ViewPortInfo
+emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
+
+-- | experimental UI
+data ExpUI = ExpUI
+  { _expViewPortBanner :: ViewPortInfo
+  , _expViewPortTimingView :: ViewPortInfo
+  }
+
+makeClassy ''ExpUI
+
+emptyExpUI :: ExpUI
+emptyExpUI = ExpUI emptyViewPortInfo emptyViewPortInfo
+
 data UIState = UIState
   { _uiShouldUpdate :: Bool
   -- ^ should update?
@@ -154,6 +187,7 @@ data UIState = UIState
   -- ^ main view state
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
+  , _uiExp :: ExpUI
   }
 
 makeClassy ''UIState
@@ -166,4 +200,5 @@ emptyUIState assets now =
     , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
     , _uiAssets = assets
+    , _uiExp = emptyExpUI
     }

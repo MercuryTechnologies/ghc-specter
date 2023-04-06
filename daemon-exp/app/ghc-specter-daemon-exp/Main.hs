@@ -5,7 +5,7 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
-  TVar,
+  TChan,
   atomically,
   modifyTVar',
   newTChanIO,
@@ -14,15 +14,19 @@ import Control.Concurrent.STM (
   newTVarIO,
   readTChan,
   readTVar,
+  retry,
+  tryReadTChan,
   writeTChan,
  )
-import Control.Lens (to, (&), (.~), (^.), _1, _2)
+import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -35,9 +39,11 @@ import GHCSpecter.Control.Types (
   Control,
   asyncWork,
   getSS,
+  getUI,
   nextEvent,
   printMsg,
   putSS,
+  putUI,
  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -53,18 +59,31 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   initServerState,
  )
+import GHCSpecter.UI.Constants (
+  canvasDim,
+  timingHeight,
+  timingWidth,
+ )
 import GHCSpecter.UI.Types (
+  ExpUI (ExpUI),
+  HasExpUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasViewPortInfo (..),
   MainView (..),
   UIState (..),
   UIView (..),
+  ViewPort (..),
+  ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  Event (BkgEv),
+  ComponentTag (TagBanner, TagModuleGraph, TagTimingView),
+  Event (..),
+  MouseEvent (..),
+  ScrollDirection (..),
   Tab (..),
  )
 import GHCSpecter.Worker.Timing (timingWorker)
@@ -77,9 +96,6 @@ import ModuleGraph (renderModuleGraph)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
 import Util (drawText, transformScroll, transformZoom)
-
-canvasDim :: (Num a) => (a, a)
-canvasDim = (1440, 768)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -99,13 +115,16 @@ initViewBackend = do
   mface <- #getFace family Nothing
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc ((0, 0), canvasDim) Nothing)
+    pure (ViewBackend pangoCtxt desc)
 
-renderNotConnected :: ViewBackend -> R.Render ()
-renderNotConnected vb = do
+renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
+renderNotConnected vb ex = do
   R.save
-  let ((x0, y0), (x1, y1)) =
-        fromMaybe (vbViewPort vb) (vbTemporaryViewPort vb)
+  -- TODO: refactor this out
+  let ViewPort (x0, y0) (x1, y1) =
+        fromMaybe
+          (ex ^. expViewPortBanner . vpViewPort)
+          (ex ^. expViewPortBanner . vpTempViewPort)
       scaleX = (canvasDim ^. _1) / (x1 - x0)
       scaleY = (canvasDim ^. _2) / (y1 - y0)
   R.scale scaleX scaleY
@@ -128,7 +147,7 @@ renderAction vb ss ui = do
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
   case mgrvis of
-    Nothing -> renderNotConnected vb
+    Nothing -> renderNotConnected vb (ui ^. uiExp)
     Just grVisInfo ->
       case ui ^. uiView of
         MainMode (MainView TabModuleGraph) ->
@@ -150,37 +169,105 @@ controlMain = forever $ do
   printMsg "control tick"
   ev <- nextEvent
   ss <- getSS
+  ui <- getUI
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
+    MouseEv TagBanner (Scroll dir' (dx, dy)) -> do
+      let ui' =
+            ui
+              & (uiExp . expViewPortBanner . vpViewPort %~ transformScroll dir' (dx, dy))
+                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
+      putUI ui'
+    MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
+      let vp = ui ^. uiModel . modelTiming . timingUIViewPort
+          vp' = transformScroll dir' (dx, dy) vp
+          ui' =
+            ui
+              & (uiExp . expViewPortTimingView . vpViewPort .~ vp')
+                . (uiExp . expViewPortTimingView . vpTempViewPort .~ Nothing)
+                . (uiModel . modelTiming . timingUIViewPort .~ vp')
+      putUI ui'
+    MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
+          ui' =
+            ui
+              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just (transformZoom (rx, ry) scale vp))
+      putUI ui'
+    MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
+          vp' = (transformZoom (rx, ry) scale vp)
+          ui' =
+            ui
+              & (uiExp . expViewPortBanner . vpTempViewPort .~ Just vp')
+                . (uiModel . modelTiming . timingUIViewPort .~ vp')
+      putUI ui'
+    MouseEv TagBanner ZoomEnd -> do
+      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
+            Just viewPort ->
+              ui
+                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
+                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
+                  )
+            Nothing -> ui
+      putUI ui'
+    MouseEv TagTimingView ZoomEnd -> do
+      let ui' = case ui ^. uiExp . expViewPortBanner . vpTempViewPort of
+            Just viewPort ->
+              ui
+                & ( (uiExp . expViewPortBanner . vpViewPort .~ viewPort)
+                      . (uiExp . expViewPortBanner . vpTempViewPort .~ Nothing)
+                      . (uiModel . modelTiming . timingUIViewPort .~ viewPort)
+                  )
+            Nothing -> ui
+      putUI ui'
     _ -> pure ()
   pure ()
 
-simpleEventLoop :: UIChannel -> IO ()
-simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
+handleScroll :: TChan Event -> ComponentTag -> Gdk.EventScroll -> IO ()
+handleScroll chanGtk tag ev = do
+  dx <- get ev #deltaX
+  dy <- get ev #deltaY
+  dir <- get ev #direction
+  let mdir' = case dir of
+        Gdk.ScrollDirectionRight -> Just ScrollDirectionRight
+        Gdk.ScrollDirectionLeft -> Just ScrollDirectionLeft
+        Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
+        Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
+        _ -> Nothing
+  for_ mdir' $ \dir' -> do
+    atomically $ do
+      writeTChan chanGtk (MouseEv tag (Scroll dir' (dx, dy)))
+
+-- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
+handleZoomUpdate :: TChan Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
+handleZoomUpdate chanGtk tag (rx, ry) scale =
+  atomically $
+    writeTChan chanGtk (MouseEv tag (ZoomUpdate (rx, ry) scale))
+
+handleZoomEnd :: TChan Event -> ComponentTag -> IO ()
+handleZoomEnd chanGtk tag =
+  atomically $
+    writeTChan chanGtk (MouseEv tag ZoomEnd)
+
+simpleEventLoop :: TChan Event -> UIChannel -> IO ()
+simpleEventLoop chanGtk (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
   where
     step ev = do
       atomically $ writeTChan chanEv ev
       (_ui, _ss) <- atomically $ readTChan chanState
-      bev' <- atomically $ readTChan chanBkg
-      pure (Left (BkgEv bev'))
-
-handleScroll :: TVar ViewBackend -> Gdk.EventScroll -> IO ()
-handleScroll vbRef ev = do
-  dx <- get ev #deltaX
-  dy <- get ev #deltaY
-  dir <- get ev #direction
-  atomically $
-    modifyTVar' vbRef $ \vb ->
-      vb {vbViewPort = transformScroll dir (dx, dy) (vbViewPort vb)}
-
--- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoom :: TVar ViewBackend -> (Double, Double) -> Double -> IO ()
-handleZoom vbRef (rx, ry) scale = atomically $
-  modifyTVar' vbRef $
-    \vb -> vb {vbTemporaryViewPort = Just (transformZoom (rx, ry) scale (vbViewPort vb))}
+      ev' <- atomically $ do
+        mbev' <- tryReadTChan chanBkg
+        case mbev' of
+          Just bev' -> pure (BkgEv bev')
+          Nothing -> do
+            mev' <- tryReadTChan chanGtk
+            case mev' of
+              Just ev' -> pure ev'
+              Nothing -> retry
+      pure (Left ev')
 
 main :: IO ()
 main =
@@ -199,12 +286,24 @@ main =
         ui0' =
           ui0
             & (uiModel . modelTiming . timingUIPartition .~ True)
-              . (uiModel . modelTiming . timingUIHowParallel .~ True)
+              . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiView .~ MainMode (MainView TabModuleGraph))
+              . ( uiExp
+                    .~ ExpUI
+                      ( ViewPortInfo
+                          (ViewPort (0, 0) (canvasDim ^. _1, canvasDim ^. _2))
+                          Nothing
+                      )
+                      ( ViewPortInfo
+                          (ViewPort (0, 0) (timingWidth, timingHeight))
+                          Nothing
+                      )
+                )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
     chanBkg <- newTChanIO
+    chanGtk <- newTChanIO
     let
       -- client session
       cliSess = ClientSession uiRef chanEv chanState chanBkg
@@ -254,7 +353,18 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            handleScroll vbRef ev
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
+            handleScroll chanGtk tag ev
             postGUIASync $
               #queueDraw drawingArea
             pure True
@@ -263,20 +373,43 @@ main =
         _ <- gzoom
           `on` #scaleChanged
           $ \scale -> do
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
             (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
-            let rx = xcenter / (canvasDim ^. _1)
-                ry = ycenter / (canvasDim ^. _2)
-            handleZoom vbRef (rx, ry) scale
+            let (width, height) =
+                  case tag of
+                    TagBanner -> canvasDim
+                    TagTimingView -> (timingWidth, timingHeight)
+                    _ -> canvasDim
+                rx = xcenter / width
+                ry = ycenter / height
+            handleZoomUpdate chanGtk tag (rx, ry) scale
             postGUIASync $
               #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            atomically $
-              modifyTVar' vbRef $ \vb ->
-                case vbTemporaryViewPort vb of
-                  Just viewPort -> vb {vbViewPort = viewPort, vbTemporaryViewPort = Nothing}
-                  Nothing -> vb
+            -- TODO: this branch will be moved to control
+            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
+            let mgs = ss ^. serverModuleGraphState
+                mgrvis = mgs ^. mgsClusterGraph
+                tag = case mgrvis of
+                  Nothing -> TagBanner
+                  Just _ ->
+                    case ui ^. uiView of
+                      MainMode (MainView TabModuleGraph) -> TagModuleGraph
+                      MainMode (MainView TabTiming) -> TagTimingView
+                      _ -> TagBanner
+            handleZoomEnd chanGtk tag
             postGUIASync $
               #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
@@ -289,8 +422,9 @@ main =
         #add mainWindow layout
         #setDefaultSize mainWindow (canvasDim ^. _1) (canvasDim ^. _2)
         #showAll mainWindow
+
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Session.main servSess cliSess controlMain
-        _ <- forkOS $ simpleEventLoop uiChan
+        _ <- forkOS $ simpleEventLoop chanGtk uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main

@@ -5,6 +5,7 @@ module GHCSpecter.UI.Types.Event (
   BlockerDetailLevel (..),
   blockerThreshold,
   ComponentTag (..),
+  ScrollDirection (..),
 
   -- * Event types
   SourceViewEvent (..),
@@ -48,8 +49,17 @@ blockerThreshold Blocking4 = 4
 blockerThreshold Blocking5 = 5
 
 data ComponentTag
-  = TimingView
-  | TimingRange
+  = TagBanner
+  | TagTimingView
+  | TagTimingRange
+  | TagModuleGraph
+  deriving (Show, Eq)
+
+data ScrollDirection
+  = ScrollDirectionRight
+  | ScrollDirectionLeft
+  | ScrollDirectionDown
+  | ScrollDirectionUp
   deriving (Show, Eq)
 
 data SourceViewEvent
@@ -97,6 +107,9 @@ data MouseEvent
   = MouseMove (Maybe (Double, Double))
   | MouseDown (Maybe (Double, Double))
   | MouseUp (Maybe (Double, Double))
+  | Scroll ScrollDirection (Double, Double)
+  | ZoomUpdate (Double, Double) Double
+  | ZoomEnd
   deriving (Show, Eq)
 
 data ConsoleEvent k
