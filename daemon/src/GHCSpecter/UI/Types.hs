@@ -22,6 +22,8 @@ module GHCSpecter.UI.Types (
   emptyUIModel,
   UIView (..),
   HasUIView (..),
+  ExpUI (..),
+  HasExpUI (..),
   UIState (..),
   HasUIState (..),
   emptyUIState,
@@ -143,6 +145,15 @@ data UIView
 
 makeClassy ''UIView
 
+-- | experimental UI
+data ExpUI = ExpUI
+  { _expViewPort :: ((Double, Double), (Double, Double))
+  -- ^ (upperleft, lowerright)
+  , _expTemporaryViewPort :: Maybe ((Double, Double), (Double, Double))
+  }
+
+makeClassy ''ExpUI
+
 data UIState = UIState
   { _uiShouldUpdate :: Bool
   -- ^ should update?
@@ -154,6 +165,7 @@ data UIState = UIState
   -- ^ main view state
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
+  , _uiExp :: ExpUI
   }
 
 makeClassy ''UIState
@@ -166,4 +178,5 @@ emptyUIState assets now =
     , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
     , _uiAssets = assets
+    , _uiExp = ExpUI ((0, 0), (1440, 768)) Nothing
     }

@@ -16,7 +16,7 @@ import Control.Concurrent.STM (
   readTVar,
   writeTChan,
  )
-import Control.Lens (to, (&), (.~), (^.), _1, _2)
+import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -54,6 +54,8 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GHCSpecter.UI.Types (
+  ExpUI (ExpUI),
+  HasExpUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
@@ -99,13 +101,13 @@ initViewBackend = do
   mface <- #getFace family Nothing
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc ((0, 0), canvasDim) Nothing)
+    pure (ViewBackend pangoCtxt desc)
 
-renderNotConnected :: ViewBackend -> R.Render ()
-renderNotConnected vb = do
+renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
+renderNotConnected vb ex = do
   R.save
   let ((x0, y0), (x1, y1)) =
-        fromMaybe (vbViewPort vb) (vbTemporaryViewPort vb)
+        fromMaybe (ex ^. expViewPort) (ex ^. expTemporaryViewPort)
       scaleX = (canvasDim ^. _1) / (x1 - x0)
       scaleY = (canvasDim ^. _2) / (y1 - y0)
   R.scale scaleX scaleY
@@ -128,7 +130,7 @@ renderAction vb ss ui = do
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
   case mgrvis of
-    Nothing -> renderNotConnected vb
+    Nothing -> renderNotConnected vb (ui ^. uiExp)
     Just grVisInfo ->
       case ui ^. uiView of
         MainMode (MainView TabModuleGraph) ->
@@ -167,20 +169,20 @@ simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv Refresh
       bev' <- atomically $ readTChan chanBkg
       pure (Left (BkgEv bev'))
 
-handleScroll :: TVar ViewBackend -> Gdk.EventScroll -> IO ()
-handleScroll vbRef ev = do
+handleScroll :: TVar UIState -> Gdk.EventScroll -> IO ()
+handleScroll uiRef ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
   atomically $
-    modifyTVar' vbRef $ \vb ->
-      vb {vbViewPort = transformScroll dir (dx, dy) (vbViewPort vb)}
+    modifyTVar' uiRef (uiExp . expViewPort %~ transformScroll dir (dx, dy))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoom :: TVar ViewBackend -> (Double, Double) -> Double -> IO ()
-handleZoom vbRef (rx, ry) scale = atomically $
-  modifyTVar' vbRef $
-    \vb -> vb {vbTemporaryViewPort = Just (transformZoom (rx, ry) scale (vbViewPort vb))}
+handleZoom :: TVar UIState -> (Double, Double) -> Double -> IO ()
+handleZoom uiRef (rx, ry) scale = atomically $
+  modifyTVar' uiRef $ \ui ->
+    let vp = ui ^. uiExp . expViewPort
+     in (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
 
 main :: IO ()
 main =
@@ -201,6 +203,7 @@ main =
             & (uiModel . modelTiming . timingUIPartition .~ True)
               . (uiModel . modelTiming . timingUIHowParallel .~ True)
               . (uiView .~ MainMode (MainView TabModuleGraph))
+              . (uiExp .~ ExpUI ((0, 0), (canvasDim ^. _1, canvasDim ^. _2)) Nothing)
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
@@ -254,7 +257,7 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            handleScroll vbRef ev
+            handleScroll uiRef ev
             postGUIASync $
               #queueDraw drawingArea
             pure True
@@ -266,17 +269,21 @@ main =
             (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
             let rx = xcenter / (canvasDim ^. _1)
                 ry = ycenter / (canvasDim ^. _2)
-            handleZoom vbRef (rx, ry) scale
+            handleZoom uiRef (rx, ry) scale
             postGUIASync $
               #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
             atomically $
-              modifyTVar' vbRef $ \vb ->
-                case vbTemporaryViewPort vb of
-                  Just viewPort -> vb {vbViewPort = viewPort, vbTemporaryViewPort = Nothing}
-                  Nothing -> vb
+              modifyTVar' uiRef $ \ui ->
+                case ui ^. uiExp . expTemporaryViewPort of
+                  Just viewPort ->
+                    ui
+                      & ( (uiExp . expViewPort .~ viewPort)
+                            . (uiExp . expTemporaryViewPort .~ Nothing)
+                        )
+                  Nothing -> ui
             postGUIASync $
               #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
