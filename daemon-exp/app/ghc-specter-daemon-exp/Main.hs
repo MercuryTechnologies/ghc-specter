@@ -5,6 +5,7 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
+  TChan,
   TVar,
   atomically,
   modifyTVar',
@@ -14,6 +15,8 @@ import Control.Concurrent.STM (
   newTVarIO,
   readTChan,
   readTVar,
+  retry,
+  tryReadTChan,
   writeTChan,
  )
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
@@ -67,7 +70,9 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  Event (BkgEv),
+  ComponentTag (TimingView),
+  Event (..),
+  MouseEvent (..),
   ScrollDirection (..),
   Tab (..),
  )
@@ -159,11 +164,13 @@ controlMain = forever $ do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
+    MouseEv _ (Scroll dir' (dx, dy)) -> do
+      printMsg "Scroll event!"
     _ -> pure ()
   pure ()
 
-handleScroll :: TVar UIState -> Gdk.EventScroll -> IO ()
-handleScroll uiRef ev = do
+handleScroll :: TChan Event -> TVar UIState -> Gdk.EventScroll -> IO ()
+handleScroll chanGtk uiRef ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -173,8 +180,9 @@ handleScroll uiRef ev = do
         Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
         Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
         _ -> Nothing
-  for_ mdir' $ \dir' ->
-    atomically $
+  for_ mdir' $ \dir' -> do
+    atomically $ do
+      writeTChan chanGtk (MouseEv TimingView (Scroll dir' (dx, dy)))
       modifyTVar' uiRef (uiExp . expViewPort %~ transformScroll dir' (dx, dy))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
@@ -184,14 +192,22 @@ handleZoom uiRef (rx, ry) scale = atomically $
     let vp = ui ^. uiExp . expViewPort
      in (uiExp . expTemporaryViewPort .~ Just (transformZoom (rx, ry) scale vp)) ui
 
-simpleEventLoop :: UIChannel -> IO ()
-simpleEventLoop (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
+simpleEventLoop :: TChan Event -> UIChannel -> IO ()
+simpleEventLoop chanGtk (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
   where
     step ev = do
       atomically $ writeTChan chanEv ev
       (_ui, _ss) <- atomically $ readTChan chanState
-      bev' <- atomically $ readTChan chanBkg
-      pure (Left (BkgEv bev'))
+      ev' <- atomically $ do
+        mbev' <- tryReadTChan chanBkg
+        case mbev' of
+          Just bev' -> pure (BkgEv bev')
+          Nothing -> do
+            mev' <- tryReadTChan chanGtk
+            case mev' of
+              Just ev' -> pure ev'
+              Nothing -> retry
+      pure (Left ev')
 
 main :: IO ()
 main =
@@ -217,6 +233,7 @@ main =
     chanEv <- newTChanIO
     chanState <- newTChanIO
     chanBkg <- newTChanIO
+    chanGtk <- newTChanIO
     let
       -- client session
       cliSess = ClientSession uiRef chanEv chanState chanBkg
@@ -266,7 +283,7 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            handleScroll uiRef ev
+            handleScroll chanGtk uiRef ev
             postGUIASync $
               #queueDraw drawingArea
             pure True
@@ -305,8 +322,9 @@ main =
         #add mainWindow layout
         #setDefaultSize mainWindow (canvasDim ^. _1) (canvasDim ^. _2)
         #showAll mainWindow
+
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Session.main servSess cliSess controlMain
-        _ <- forkOS $ simpleEventLoop uiChan
+        _ <- forkOS $ simpleEventLoop chanGtk uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main
