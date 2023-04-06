@@ -73,6 +73,7 @@ import GHCSpecter.UI.Constants (
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
   TimingUI,
+  ViewPort (..),
  )
 import GHCSpecter.UI.Types.Event (
   ComponentTag (TagTimingView),
@@ -83,10 +84,10 @@ import GHCSpecter.UI.Types.Event (
 import Prelude hiding (div)
 
 viewPortX :: TimingUI -> Double
-viewPortX tui = tui ^. timingUIViewPortTopLeft . _1
+viewPortX tui = tui ^. timingUIViewPort . to topLeft . _1
 
 viewPortY :: TimingUI -> Double
-viewPortY tui = tui ^. timingUIViewPortTopLeft . _2
+viewPortY tui = tui ^. timingUIViewPort . to topLeft . _2
 
 diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
 diffTime2X totalTime time =

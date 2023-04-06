@@ -67,6 +67,7 @@ import GHCSpecter.UI.Types (
   UIModel,
   UIState,
   UIView (..),
+  ViewPort (..),
   emptyMainView,
  )
 import GHCSpecter.UI.Types.Event (
@@ -169,10 +170,10 @@ defaultUpdateModel topEv (oldModel, oldSS) =
           totalHeight = 5 * nMods
           newModel =
             oldModel
-              & ( modelTiming . timingUIViewPortTopLeft
-                    .~ ( fromIntegral (timingMaxWidth - timingWidth)
-                       , fromIntegral (totalHeight - timingHeight)
-                       )
+              & ( modelTiming . timingUIViewPort
+                    .~ ViewPort
+                      (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
+                      (timingMaxWidth, fromIntegral totalHeight)
                 )
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
@@ -392,23 +393,24 @@ goTiming ev (view, model0) = do
   model <-
     case ev of
       MouseEv TagTimingView (MouseDown (Just (x, y))) -> do
-        let (tx, ty) = model0 ^. modelTiming . timingUIViewPortTopLeft
+        let vp = model0 ^. modelTiming . timingUIViewPort
             -- turn on mouse move event handling
             model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
         ui0 <- getUI
         let ui1 = ui0 & (uiModel .~ model1)
         putUI ui1
-        onDraggingInTimingView model1 (x, y) (tx, ty)
+        onDraggingInTimingView model1 (x, y) vp
       _ -> pure model0
   goCommon ev (view, model)
   where
-    addDelta :: (Double, Double) -> (Double, Double) -> (Double, Double) -> UIModel -> UIModel
-    addDelta (x, y) (x', y') (tx, ty) =
+    addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
+    addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
       let (dx, dy) = (x' - x, y' - y)
-       in modelTiming . timingUIViewPortTopLeft .~ (tx - dx, ty - dy)
+       in modelTiming . timingUIViewPort
+            .~ ViewPort (tx - dx, ty - dy) (tx1 - dx, ty1 - dy)
 
-    -- (x, y): mouse down point, (tx, ty): viewport origin
-    onDraggingInTimingView model_ (x, y) (tx, ty) = do
+    -- (x, y): mouse down point, vp: viewport
+    onDraggingInTimingView model_ (x, y) vp = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
@@ -416,17 +418,17 @@ goTiming ev (view, model0) = do
           let model =
                 -- turn off mouse move event handling
                 (modelTiming . timingUIHandleMouseMove .~ False)
-                  . addDelta (x, y) (x', y') (tx, ty)
+                  . addDelta (x, y) (x', y') vp
                   $ model_
           pure model
         MouseEv TagTimingView (MouseMove (Just (x', y'))) -> do
-          let model = addDelta (x, y) (x', y') (tx, ty) model_
+          let model = addDelta (x, y) (x', y') vp model_
           ui0 <- getUI
           let ui1 = ui0 & (uiModel .~ model)
           ui <- updateLastUpdated ui1
           putUI ui
-          onDraggingInTimingView model (x, y) (tx, ty)
-        _ -> onDraggingInTimingView model_ (x, y) (tx, ty)
+          onDraggingInTimingView model (x, y) vp
+        _ -> onDraggingInTimingView model_ (x, y) vp
 
 -- | top-level branching through tab
 branchTab :: Tab -> (MainView, UIModel) -> Control ()

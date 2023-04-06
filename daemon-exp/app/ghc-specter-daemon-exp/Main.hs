@@ -119,6 +119,7 @@ initViewBackend = do
 renderNotConnected :: ViewBackend -> ExpUI -> R.Render ()
 renderNotConnected vb ex = do
   R.save
+  -- TODO: refactor this out
   let ViewPort (x0, y0) (x1, y1) =
         fromMaybe
           (ex ^. expViewPortBanner . vpViewPort)
@@ -182,10 +183,10 @@ controlMain = forever $ do
       let ui' =
             ui
               & (uiExp . expViewPortTimingView . vpViewPort %~ transformScroll dir' (dx, dy))
-          ViewPort (vx, vy) _ = ui' ^. uiExp . expViewPortTimingView . vpViewPort
+          vp = ui' ^. uiExp . expViewPortTimingView . vpViewPort
           ui'' =
             ui'
-              & (uiModel . modelTiming . timingUIViewPortTopLeft .~ (vx, vy))
+              & (uiModel . modelTiming . timingUIViewPort .~ vp)
       putUI ui''
     MouseEv TagBanner (ZoomUpdate (rx, ry) scale) -> do
       let vp = ui ^. uiExp . expViewPortBanner . vpViewPort
