@@ -22,8 +22,8 @@ import GHCSpecter.UI.Types (
   ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
+import Renderer (renderPrimitive)
 import Types (ViewBackend (..))
-import Util (renderPrimitive)
 
 renderModuleGraph ::
   ViewBackend ->

@@ -21,6 +21,7 @@ source-repository head
 executable ghc-specter-daemon-exp
   main-is:       Main.hs
   other-modules: ModuleGraph
+                 Renderer
                  Util
                  Timing
                  Types
