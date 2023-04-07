@@ -28,6 +28,7 @@ import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -42,6 +43,7 @@ import GHCSpecter.Control.Types (
   modifyUI,
   modifyUISS,
   nextEvent,
+  printMsg,
  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -169,6 +171,10 @@ goModuleGraph ev = do
       modifyUI $ uiView .~ MainMode (MainView TabTiming)
       ev' <- nextEvent
       goTiming ev'
+    MouseEv (MouseMove (Just (x, y))) -> do
+      printMsg ("move: " <> T.pack (show (x, y)))
+      ev' <- nextEvent
+      goModuleGraph ev'
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
@@ -217,6 +223,10 @@ goTiming ev = do
       modifyUI $ uiView .~ MainMode (MainView TabModuleGraph)
       ev' <- nextEvent
       goModuleGraph ev'
+    MouseEv (MouseMove (Just (x, y))) -> do
+      printMsg ("move: " <> T.pack (show (x, y)))
+      ev' <- nextEvent
+      goTiming ev'
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
@@ -252,6 +262,13 @@ goTiming ev = do
     _ -> do
       ev' <- nextEvent
       goTiming ev'
+
+handleMotion :: TQueue Event -> Gdk.EventMotion -> IO ()
+handleMotion chanQEv ev = do
+  x <- get ev #x
+  y <- get ev #y
+  atomically $ do
+    writeTQueue chanQEv $ MouseEv (MouseMove (Just (x, y)))
 
 handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
 handleScroll chanQEv ev = do
@@ -347,7 +364,8 @@ main =
         drawingArea <- new Gtk.DrawingArea []
         #addEvents
           drawingArea
-          [ Gdk.EventMaskScrollMask
+          [ Gdk.EventMaskPointerMotionMask
+          , Gdk.EventMaskScrollMask
           , Gdk.EventMaskTouchpadGestureMask
           ]
 
@@ -356,9 +374,6 @@ main =
         menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
         _ <- menuitem1 `on` #activate $ do
           atomically $ writeTQueue chanQEv (TabEv TabModuleGraph)
-          -- atomically $
-          --   modifyTVar' uiRef (uiView .~ MainMode (MainView TabModuleGraph))
-          -- putStrLn "Module Graph is selected"
           postGUIASync $
             #queueDraw drawingArea
 
@@ -368,9 +383,6 @@ main =
           postGUIASync $
             #queueDraw drawingArea
 
-        -- atomically $
-        --   modifyTVar' uiRef (uiView .~ MainMode (MainView TabTiming))
-        -- putStrLn "Timing is selected"
         #append menuBar menuitem1
         #append menuBar menuitem2
 
@@ -380,6 +392,11 @@ main =
           $ do
             (vb, ss, ui) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar ssRef <*> readTVar uiRef)
             renderAction vb ss ui
+            pure True
+        _ <- drawingArea
+          `on` #motionNotifyEvent
+          $ \ev -> do
+            handleMotion chanQEv ev
             pure True
         _ <- drawingArea
           `on` #scrollEvent
