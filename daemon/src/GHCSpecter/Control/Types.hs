@@ -10,6 +10,7 @@ module GHCSpecter.Control.Types (
   getSS,
   putSS,
   modifySS,
+  modifyUISS,
   sendRequest,
   nextEvent,
   printMsg,
@@ -40,6 +41,7 @@ data ControlF r
   | GetSS (ServerState -> r)
   | PutSS ServerState r
   | ModifySS (ServerState -> ServerState) r
+  | ModifyUISS ((UIState, ServerState) -> (UIState, ServerState)) r
   | SendRequest Request r
   | NextEvent (Event -> r)
   | PrintMsg Text r
@@ -70,6 +72,9 @@ putSS ss = liftF (PutSS ss ())
 
 modifySS :: (ServerState -> ServerState) -> Control ()
 modifySS upd = liftF (ModifySS upd ())
+
+modifyUISS :: ((UIState, ServerState) -> (UIState, ServerState)) -> Control ()
+modifyUISS upd = liftF (ModifyUISS upd ())
 
 sendRequest :: Request -> Control ()
 sendRequest b = liftF (SendRequest b ())

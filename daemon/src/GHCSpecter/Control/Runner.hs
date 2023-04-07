@@ -10,10 +10,13 @@ module GHCSpecter.Control.Runner (
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (
   TChan,
+  TQueue,
   TVar,
   atomically,
+  modifyTVar',
   readTVar,
   writeTChan,
+  writeTQueue,
   writeTVar,
  )
 import Control.Lens ((.~), (^.))
@@ -50,7 +53,7 @@ tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
 type Runner =
-  ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Request) IO
+  ReaderT (TVar UIState, TVar ServerState, TQueue Event, TChan Request) IO
 
 getUI' :: Runner UIState
 getUI' = do
@@ -64,9 +67,8 @@ putUI' ui = do
 
 modifyUI' :: (UIState -> UIState) -> Runner ()
 modifyUI' f = do
-  s <- getUI'
-  let s' = f s
-  s' `seq` putUI' s'
+  (uiRef, _, _, _) <- ask
+  liftIO $ atomically $ modifyTVar' uiRef f
 
 getSS' :: Runner ServerState
 getSS' = do
@@ -80,9 +82,17 @@ putSS' ss = do
 
 modifySS' :: (ServerState -> ServerState) -> Runner ()
 modifySS' f = do
-  s <- getSS'
-  let s' = f s
-  s' `seq` putSS' s'
+  (_, ssRef, _, _) <- ask
+  liftIO $ atomically $ modifyTVar' ssRef f
+
+modifyUISS' :: ((UIState, ServerState) -> (UIState, ServerState)) -> Runner ()
+modifyUISS' f = do
+  (uiRef, ssRef, _, _) <- ask
+  liftIO $ atomically $ do
+    ui <- readTVar uiRef
+    ss <- readTVar ssRef
+    let (ui', ss') = f (ui, ss)
+    ui' `seq` ss' `seq` (writeTVar uiRef ui' >> writeTVar ssRef ss')
 
 sendRequest' :: Request -> Runner ()
 sendRequest' req = do
@@ -141,6 +151,9 @@ stepControl (Free (PutSS ss next)) = do
 stepControl (Free (ModifySS upd next)) = do
   modifySS' upd
   pure (Left next)
+stepControl (Free (ModifyUISS upd next)) = do
+  modifyUISS' upd
+  pure (Left next)
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)
@@ -169,10 +182,10 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do
-  (_, _, chanBkg, _) <- ask
+  (_, _, chanQEv, _) <- ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
-    atomically $ writeTChan chanBkg RefreshUI
+    atomically $ writeTQueue chanQEv (BkgEv RefreshUI)
   pure (Left next)
 stepControl (Free (AsyncWork worker next)) = do
   (_, ssRef, _, _) <- ask

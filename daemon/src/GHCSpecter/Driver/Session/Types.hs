@@ -12,12 +12,12 @@ module GHCSpecter.Driver.Session.Types (
   HasUIChannel (..),
 ) where
 
-import Control.Concurrent.STM (TChan, TVar)
+import Control.Concurrent.STM (TChan, TQueue, TVar)
 import Control.Lens (makeClassy)
 import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState)
-import GHCSpecter.UI.Types.Event (BackgroundEvent, Event)
+import GHCSpecter.UI.Types.Event (Event)
 
 -- Session = State + Channel
 
@@ -32,7 +32,7 @@ data ClientSession = ClientSession
   { _csUIStateRef :: TVar UIState
   , _csSubscriberEvent :: TChan Event
   , _csPublisherState :: TChan (UIState, ServerState)
-  , _csPublisherBkgEvent :: TChan BackgroundEvent
+  , _csPublisherEvent :: TQueue Event
   }
 
 makeClassy ''ClientSession
@@ -44,7 +44,7 @@ data UIChannel = UIChannel
   -- ^ channel for sending event to control
   , uiSubscriberState :: TChan (UIState, ServerState)
   -- ^ channel for receiving state from control
-  , uiSubscriberBkgEvent :: TChan BackgroundEvent
+  , uiSubscriberEvent :: TQueue Event
   -- ^ channel for receiving background event
   }
 

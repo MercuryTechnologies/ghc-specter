@@ -34,7 +34,9 @@ timingWorker ssRef = do
   ss <- atomically $ readTVar ssRef
   let sessInfo = ss ^. serverSessionInfo
   case sessionStartTime sessInfo of
-    Nothing -> pure ()
+    Nothing -> do
+      putStrLn "timingWorker something wrong"
+      pure ()
     Just sessStart -> do
       let timing = ss ^. serverTiming . tsTimingMap
           drvModMap = ss ^. serverDriverModuleMap
