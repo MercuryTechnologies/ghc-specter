@@ -15,9 +15,6 @@ import GHCSpecter.Channel.Outbound.Types (
   ModuleGraphInfo (..),
   SessionInfo (..),
  )
-import GHCSpecter.Data.Timing.Types (
-  HasTimingTable (..),
- )
 import GHCSpecter.Data.Timing.Util (
   makeBlockerGraph,
   makeTimingTable,
@@ -34,7 +31,6 @@ import GHCSpecter.UI.Types.Event (blockerThreshold)
 
 timingWorker :: TVar ServerState -> IO ()
 timingWorker ssRef = do
-  putStrLn "timingWorker called"
   ss <- atomically $ readTVar ssRef
   let sessInfo = ss ^. serverSessionInfo
   case sessionStartTime sessInfo of
@@ -47,10 +43,6 @@ timingWorker ssRef = do
           mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
       atomically $ modifyTVar' ssRef (serverTiming . tsTimingTable .~ ttable)
-      let n = ss ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-          n' = ttable ^. ttableTimingInfos . to length
-      putStrLn $ "timingWorker: N = " ++ show n ++ ", N' = " ++ show n'
-      putStrLn "timingWorker ended"
 
 timingBlockerGraphWorker :: TVar ServerState -> IO ()
 timingBlockerGraphWorker ssRef = do

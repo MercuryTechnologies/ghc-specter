@@ -6,9 +6,7 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
-  TChan,
   TQueue,
-  TVar,
   atomically,
   flushTQueue,
   modifyTVar',
@@ -17,14 +15,12 @@ import Control.Concurrent.STM (
   newTVar,
   newTVarIO,
   readTChan,
-  readTQueue,
   readTVar,
   retry,
-  tryReadTChan,
   writeTChan,
   writeTQueue,
  )
-import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Lens (to, (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
@@ -33,7 +29,6 @@ import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
-import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -45,16 +40,10 @@ import GHCSpecter.Config (
 import GHCSpecter.Control.Types (
   Control,
   asyncWork,
-  getSS,
-  getUI,
   modifyUISS,
   nextEvent,
   printMsg,
-  putSS,
-  putUI,
  )
-import GHCSpecter.Data.Map (keyMapToList)
-import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
@@ -85,7 +74,6 @@ import GHCSpecter.UI.Types (
   MainView (..),
   UIState (..),
   UIView (..),
-  ViewPort (..),
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -171,14 +159,6 @@ controlMain :: Control ()
 controlMain = forever $ do
   printMsg "control tick"
   ev <- nextEvent
-  ss0 <- getSS
-  -- ui <- getUI
-
-  let n = ss0 ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-      m = ss0 ^. serverTiming . tsTimingMap . to keyMapToList . to length
-  printMsg $
-    "timing N = " <> T.pack (show n) <> ", M = " <> T.pack (show m)
-
   modifyUISS $ \(ui, ss) ->
     case ev of
       BkgEv MessageChanUpdated ->
@@ -264,15 +244,14 @@ simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv Refresh
   where
     step ev = do
       atomically $ writeTChan chanEv ev
-      (_ui, ss_) <- atomically $ readTChan chanState
 
-      let n_ = ss_ ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-          m_ = ss_ ^. serverTiming . tsTimingMap . to keyMapToList . to length
-      putStrLn $
-        "timing N_ = " <> (show n_) <> ", M_ = " <> (show m_)
+      -- this is due to the compatibility with concur-replica.
+      -- TODO: remove this properly.
+      _ <- atomically $ readTChan chanState
 
       ev' <- atomically $ do
         evs' <- flushTQueue chanQEv
+        -- Prioritize background events
         let (bevs', fevs') = partition (\case BkgEv _ -> True; _ -> False) evs'
         case bevs' of
           bev' : bevs'' -> do
@@ -395,6 +374,7 @@ main =
                     case tag of
                       TagTimingView -> (timingWidth, timingHeight)
                       TagModuleGraph -> (modGraphWidth, modGraphHeight)
+                      _ -> canvasDim
                   rx = xcenter / width
                   ry = ycenter / height
               handleZoomUpdate chanQEv tag (rx, ry) scale
