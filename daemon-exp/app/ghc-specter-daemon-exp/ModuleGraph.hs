@@ -47,7 +47,8 @@ renderModuleGraph vb mgrui nameMap drvModMap timing clustering grVisInfo = do
               let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
-      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+      mhover = mgrui ^. modGraphUIHover
+      rexp = compileModuleGraph nameMap valueFor grVisInfo (mhover, Nothing)
   R.save
   R.rectangle 0 0 modGraphWidth modGraphHeight
   R.clip

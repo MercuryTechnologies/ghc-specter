@@ -19,7 +19,7 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Lens (to, (&), (.~), (^.), _1, _2)
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (traverse_)
@@ -80,6 +80,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
   Event (..),
+  ModuleGraphEvent (..),
   MouseEvent (..),
   Tab (..),
  )
@@ -92,8 +93,8 @@ import GI.PangoCairo qualified as PC
 import Handler (
   handleMotion,
   handleScroll,
-  handleZoomUpdate,
   handleZoomEnd,
+  handleZoomUpdate,
  )
 import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
@@ -176,8 +177,9 @@ goModuleGraph ev = do
       modifyUI $ uiView .~ MainMode (MainView TabTiming)
       ev' <- nextEvent
       goTiming ev'
-    MouseEv (MouseMove (Just (x, y))) -> do
-      printMsg ("move: " <> T.pack (show (x, y)))
+    MainModuleEv (HoverOnModuleEv mlbl) -> do
+      modifyUI (uiModel . modelMainModuleGraph . modGraphUIHover .~ mlbl)
+      printMsg ("hover: " <> (T.pack $ show mlbl))
       ev' <- nextEvent
       goModuleGraph ev'
     MouseEv (Scroll dir' (dx, dy)) -> do
@@ -267,7 +269,6 @@ goTiming ev = do
     _ -> do
       ev' <- nextEvent
       goTiming ev'
-
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
@@ -369,7 +370,11 @@ main =
         _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
-            handleMotion chanQEv ev
+            (vb, ui) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar uiRef)
+            needRedraw <- handleMotion vb ui chanQEv ev
+            when needRedraw $ do
+              postGUIASync $
+                #queueDraw drawingArea
             pure True
         _ <- drawingArea
           `on` #scrollEvent

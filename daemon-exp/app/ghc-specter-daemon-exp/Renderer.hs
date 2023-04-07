@@ -54,10 +54,11 @@ setColor ColorRedLevel5 = R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
 renderPrimitive vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
   for_ mname $ \name ->
-    R.liftIO $ atomically $
-      modifyTVar' (vbEventBoxMap vb) $ \es ->
-        let e = (name, ((x, y), (x + w, y + h)))
-         in e : es
+    R.liftIO $
+      atomically $
+        modifyTVar' (vbEventBoxMap vb) $ \es ->
+          let e = (name, ((x, y), (x + w, y + h)))
+           in e : es
   for_ mbkg $ \bkg -> do
     setColor bkg
     R.rectangle x y w h
