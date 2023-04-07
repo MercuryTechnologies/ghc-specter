@@ -10,6 +10,7 @@ import Control.Concurrent.STM (
   readTVar,
   retry,
   writeTChan,
+  writeTQueue,
  )
 import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
@@ -27,6 +28,7 @@ import GHCSpecter.Server.Types (HasServerState (..))
 import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated),
+  Event (BkgEv),
  )
 
 main ::
@@ -49,7 +51,7 @@ main servSess cs controlMain = do
     uiRef = cs ^. csUIStateRef
     chanEv = cs ^. csSubscriberEvent
     chanState = cs ^. csPublisherState
-    chanBkg = cs ^. csPublisherBkgEvent
+    chanQEv = cs ^. csPublisherEvent
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
       if (ss ^. serverMessageSN == lastSN)
@@ -65,7 +67,7 @@ main servSess cs controlMain = do
         atomically $
           blockUntilNewMessage lastMessageSN
       atomically $
-        writeTChan chanBkg MessageChanUpdated
+        writeTQueue chanQEv (BkgEv MessageChanUpdated)
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
@@ -76,7 +78,7 @@ main servSess cs controlMain = do
           ec' <-
             runReaderT
               (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanBkg, chanSignal)
+              (uiRef, ssRef, chanQEv, chanSignal)
           atomically $ do
             ui <- readTVar uiRef
             ss <- readTVar ssRef

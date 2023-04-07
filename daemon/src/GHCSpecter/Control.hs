@@ -36,11 +36,7 @@ import GHCSpecter.Control.Types (
   shouldUpdate,
   type Control,
  )
-import GHCSpecter.Data.Map (
-  alterToKeyMap,
-  emptyKeyMap,
-  forwardLookup,
- )
+import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup, keyMapToList)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
@@ -95,7 +91,11 @@ defaultUpdateModel ::
   Event ->
   (UIModel, ServerState) ->
   Control (UIModel, ServerState)
-defaultUpdateModel topEv (oldModel, oldSS) =
+defaultUpdateModel topEv (oldModel, oldSS) = do
+  let n = oldSS ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
+      m = oldSS ^. serverTiming . tsTimingMap . to keyMapToList . to length
+  printMsg $
+    "timing N = " <> T.pack (show n) <> ", M = " <> T.pack (show m)
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS

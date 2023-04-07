@@ -6,6 +6,7 @@ module Main where
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
   TChan,
+  TQueue,
   atomically,
   modifyTVar',
   newTChanIO,
@@ -13,10 +14,12 @@ import Control.Concurrent.STM (
   newTVar,
   newTVarIO,
   readTChan,
+  readTQueue,
   readTVar,
   retry,
   tryReadTChan,
   writeTChan,
+  writeTQueue,
  )
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
@@ -221,8 +224,8 @@ controlMain = forever $ do
     _ -> pure ()
   pure ()
 
-handleScroll :: TChan Event -> ComponentTag -> Gdk.EventScroll -> IO ()
-handleScroll chanGtk tag ev = do
+handleScroll :: TQueue Event -> ComponentTag -> Gdk.EventScroll -> IO ()
+handleScroll chanQEv tag ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -234,34 +237,26 @@ handleScroll chanGtk tag ev = do
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do
-      writeTChan chanGtk (MouseEv tag (Scroll dir' (dx, dy)))
+      writeTQueue chanQEv (MouseEv tag (Scroll dir' (dx, dy)))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoomUpdate :: TChan Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
-handleZoomUpdate chanGtk tag (rx, ry) scale =
+handleZoomUpdate :: TQueue Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
+handleZoomUpdate chanQEv tag (rx, ry) scale =
   atomically $
-    writeTChan chanGtk (MouseEv tag (ZoomUpdate (rx, ry) scale))
+    writeTQueue chanQEv (MouseEv tag (ZoomUpdate (rx, ry) scale))
 
-handleZoomEnd :: TChan Event -> ComponentTag -> IO ()
-handleZoomEnd chanGtk tag =
+handleZoomEnd :: TQueue Event -> ComponentTag -> IO ()
+handleZoomEnd chanQEv tag =
   atomically $
-    writeTChan chanGtk (MouseEv tag ZoomEnd)
+    writeTQueue chanQEv (MouseEv tag ZoomEnd)
 
-simpleEventLoop :: TChan Event -> UIChannel -> IO ()
-simpleEventLoop chanGtk (UIChannel chanEv chanState chanBkg) = loopM step (BkgEv RefreshUI)
+simpleEventLoop :: UIChannel -> IO ()
+simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
   where
     step ev = do
       atomically $ writeTChan chanEv ev
       (_ui, _ss) <- atomically $ readTChan chanState
-      ev' <- atomically $ do
-        mbev' <- tryReadTChan chanBkg
-        case mbev' of
-          Just bev' -> pure (BkgEv bev')
-          Nothing -> do
-            mev' <- tryReadTChan chanGtk
-            case mev' of
-              Just ev' -> pure ev'
-              Nothing -> retry
+      ev' <- atomically $ readTQueue chanQEv
       pure (Left ev')
 
 main :: IO ()
@@ -286,13 +281,12 @@ main =
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
-    chanBkg <- newTChanIO
-    chanGtk <- newTChanIO
+    chanQEv <- newTQueueIO
     let
       -- client session
-      cliSess = ClientSession uiRef chanEv chanState chanBkg
+      cliSess = ClientSession uiRef chanEv chanState chanQEv
       -- UIChannel
-      uiChan = UIChannel chanEv chanState chanBkg
+      uiChan = UIChannel chanEv chanState chanQEv
 
     workQ <- newTQueueIO
 
@@ -349,7 +343,7 @@ main =
                       MainMode (MainView TabTiming) -> Just TagTimingView
                       _ -> Nothing
             for_ mtag $ \tag -> do
-              handleScroll chanGtk tag ev
+              handleScroll chanQEv tag ev
               postGUIASync $
                 #queueDraw drawingArea
             pure True
@@ -377,7 +371,7 @@ main =
                       TagModuleGraph -> (modGraphWidth, modGraphHeight)
                   rx = xcenter / width
                   ry = ycenter / height
-              handleZoomUpdate chanGtk tag (rx, ry) scale
+              handleZoomUpdate chanQEv tag (rx, ry) scale
               postGUIASync $
                 #queueDraw drawingArea
         _ <- gzoom
@@ -395,7 +389,7 @@ main =
                       MainMode (MainView TabTiming) -> Just TagTimingView
                       _ -> Nothing
             for_ mtag $ \tag -> do
-              handleZoomEnd chanGtk tag
+              handleZoomEnd chanQEv tag
               postGUIASync $
                 #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
@@ -411,6 +405,6 @@ main =
 
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Session.main servSess cliSess controlMain
-        _ <- forkOS $ simpleEventLoop chanGtk uiChan
+        _ <- forkOS $ simpleEventLoop uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main

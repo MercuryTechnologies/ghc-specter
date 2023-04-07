@@ -10,10 +10,12 @@ module GHCSpecter.Control.Runner (
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (
   TChan,
+  TQueue,
   TVar,
   atomically,
   readTVar,
   writeTChan,
+  writeTQueue,
   writeTVar,
  )
 import Control.Lens ((.~), (^.))
@@ -50,7 +52,7 @@ tempRef = unsafePerformIO (newIORef 0)
 {-# NOINLINE tempRef #-}
 
 type Runner =
-  ReaderT (TVar UIState, TVar ServerState, TChan BackgroundEvent, TChan Request) IO
+  ReaderT (TVar UIState, TVar ServerState, TQueue Event, TChan Request) IO
 
 getUI' :: Runner UIState
 getUI' = do
@@ -169,10 +171,10 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do
-  (_, _, chanBkg, _) <- ask
+  (_, _, chanQEv, _) <- ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
-    atomically $ writeTChan chanBkg RefreshUI
+    atomically $ writeTQueue chanQEv (BkgEv RefreshUI)
   pure (Left next)
 stepControl (Free (AsyncWork worker next)) = do
   (_, ssRef, _, _) <- ask

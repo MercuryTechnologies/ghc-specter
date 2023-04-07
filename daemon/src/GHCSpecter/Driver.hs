@@ -8,10 +8,13 @@ import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent.STM (
   TChan,
+  TQueue,
   atomically,
   newTChanIO,
+  newTQueueIO,
   newTVarIO,
   readTChan,
+  readTQueue,
   writeTChan,
  )
 import Control.Lens ((.~), (^.))
@@ -66,9 +69,9 @@ webServer cfg servSess = do
           newTVarIO ui0'
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
-      chanBkg <- unsafeBlockingIO newTChanIO
-      let newCS = ClientSession uiRef chanEv chanState chanBkg
-          newUIChan = UIChannel chanEv chanState chanBkg
+      chanQEv <- unsafeBlockingIO newTQueueIO
+      let newCS = ClientSession uiRef chanEv chanState chanQEv
+          newUIChan = UIChannel chanEv chanState chanQEv
       unsafeBlockingIO $ Session.main servSess newCS Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
@@ -79,13 +82,13 @@ webServer cfg servSess = do
       -- last event
       Event ->
       Widget IHTML (Either Event ())
-    step (UIChannel chanEv chanState chanBkg) ev = do
+    step (UIChannel chanEv chanState chanQEv) ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           atomically $ writeTChan chanEv ev
           (ui, ss) <- atomically $ readTChan chanState
           pure (ui, ss)
-      stepRender (ui, ss) <|> (Left . BkgEv <$> waitForBkgEv chanBkg)
+      stepRender (ui, ss) <|> (Left <$> waitForBkgEv chanQEv)
 
     stepRender :: (UIState, ServerState) -> Widget IHTML (Either Event ())
     stepRender (ui, ss) = do
@@ -96,7 +99,7 @@ webServer cfg servSess = do
       Left <$> renderUI
 
     waitForBkgEv ::
-      -- channel for receiving bkg event
-      TChan BackgroundEvent ->
-      Widget IHTML BackgroundEvent
-    waitForBkgEv chanBkg = liftSTM $ readTChan chanBkg
+      -- queue for receiving event in other channel
+      TQueue Event ->
+      Widget IHTML Event
+    waitForBkgEv chanQEv = liftSTM $ readTQueue chanQEv
