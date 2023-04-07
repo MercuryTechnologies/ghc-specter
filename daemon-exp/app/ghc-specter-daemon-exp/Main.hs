@@ -42,7 +42,6 @@ import GHCSpecter.Control.Types (
   modifyUI,
   modifyUISS,
   nextEvent,
-  printMsg,
  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -171,7 +170,7 @@ goModuleGraph ev = do
       modifyUI $ uiView .~ MainMode (MainView TabTiming)
       ev' <- nextEvent
       goTiming ev'
-    MouseEv _ (Scroll dir' (dx, dy)) -> do
+    MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
             vp' = transformScroll dir' (dx, dy) vp
@@ -181,7 +180,7 @@ goModuleGraph ev = do
          in (ui', ss)
       ev' <- nextEvent
       goModuleGraph ev'
-    MouseEv _ (ZoomUpdate (rx, ry) scale) -> do
+    MouseEv (ZoomUpdate (rx, ry) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
             vp' = (transformZoom (rx, ry) scale vp)
@@ -191,7 +190,7 @@ goModuleGraph ev = do
          in (ui', ss)
       ev' <- nextEvent
       goModuleGraph ev'
-    MouseEv _ ZoomEnd -> do
+    MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
               Just viewPort ->
@@ -217,7 +216,7 @@ goTiming ev = do
       modifyUI $ uiView .~ MainMode (MainView TabModuleGraph)
       ev' <- nextEvent
       goModuleGraph ev'
-    MouseEv _ (Scroll dir' (dx, dy)) -> do
+    MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
             vp' = transformScroll dir' (dx, dy) vp
@@ -227,7 +226,7 @@ goTiming ev = do
          in (ui', ss)
       ev' <- nextEvent
       goTiming ev'
-    MouseEv _ (ZoomUpdate (rx, ry) scale) -> do
+    MouseEv (ZoomUpdate (rx, ry) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
             vp' = (transformZoom (rx, ry) scale vp)
@@ -237,7 +236,7 @@ goTiming ev = do
          in (ui', ss)
       ev' <- nextEvent
       goTiming ev'
-    MouseEv _ ZoomEnd -> do
+    MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
               Just viewPort ->
@@ -264,18 +263,18 @@ handleScroll chanQEv tag ev = do
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do
-      writeTQueue chanQEv (MouseEv tag (Scroll dir' (dx, dy)))
+      writeTQueue chanQEv (MouseEv (Scroll dir' (dx, dy)))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
 handleZoomUpdate :: TQueue Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
 handleZoomUpdate chanQEv tag (rx, ry) scale =
   atomically $
-    writeTQueue chanQEv (MouseEv tag (ZoomUpdate (rx, ry) scale))
+    writeTQueue chanQEv (MouseEv (ZoomUpdate (rx, ry) scale))
 
 handleZoomEnd :: TQueue Event -> ComponentTag -> IO ()
 handleZoomEnd chanQEv tag =
   atomically $
-    writeTQueue chanQEv (MouseEv tag ZoomEnd)
+    writeTQueue chanQEv (MouseEv ZoomEnd)
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)

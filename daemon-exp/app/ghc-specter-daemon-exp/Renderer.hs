@@ -10,8 +10,6 @@ import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
-import GHCSpecter.UI.Types (ViewPort (..))
-import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P

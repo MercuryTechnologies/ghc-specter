@@ -385,8 +385,8 @@ renderTimingChart drvModMap tui ttable =
               , timingHeight
               ]
           prop1 =
-            [ MouseEv TagTimingView . MouseDown <$> onMouseDown
-            , MouseEv TagTimingView . MouseUp <$> onMouseUp
+            [ MouseEv . MouseDown <$> onMouseDown
+            , MouseEv . MouseUp <$> onMouseUp
             , width (T.pack (show (timingWidth :: Int)))
             , height (T.pack (show (timingHeight :: Int)))
             , viewboxProp
@@ -395,7 +395,7 @@ renderTimingChart drvModMap tui ttable =
             ]
           mouseMove
             | tui ^. timingUIHandleMouseMove =
-                [MouseEv TagTimingView . MouseMove <$> onMouseMove]
+                [MouseEv . MouseMove <$> onMouseMove]
             | otherwise = []
        in mouseMove ++ prop1
 

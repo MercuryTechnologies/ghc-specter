@@ -397,7 +397,7 @@ goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
   model <-
     case ev of
-      MouseEv TagTimingView (MouseDown (Just (x, y))) -> do
+      MouseEv (MouseDown (Just (x, y))) -> do
         let vpi = model0 ^. modelTiming . timingUIViewPort
             vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
             -- turn on mouse move event handling
@@ -420,14 +420,14 @@ goTiming ev (view, model0) = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
-        MouseEv TagTimingView (MouseUp (Just (x', y'))) -> do
+        MouseEv (MouseUp (Just (x', y'))) -> do
           let model =
                 -- turn off mouse move event handling
                 (modelTiming . timingUIHandleMouseMove .~ False)
                   . addDelta (x, y) (x', y') vp
                   $ model_
           pure model
-        MouseEv TagTimingView (MouseMove (Just (x', y'))) -> do
+        MouseEv (MouseMove (Just (x', y'))) -> do
           let model = addDelta (x, y) (x', y') vp model_
           ui0 <- getUI
           let ui1 = ui0 & (uiModel .~ model)
