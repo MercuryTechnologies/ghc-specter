@@ -45,6 +45,7 @@ import GHCSpecter.Control.Types (
   putSS,
   putUI,
  )
+import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
@@ -164,6 +165,11 @@ controlMain = forever $ do
   ev <- nextEvent
   ss <- getSS
   ui <- getUI
+
+  let n = ss ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
+      m = ss ^. serverTiming . tsTimingMap . to keyMapToList . to length
+  printMsg $
+    "timing N = " <> T.pack (show n) <> ", M = " <> T.pack (show m)
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
