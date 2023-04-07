@@ -6,7 +6,6 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
-  TQueue,
   atomically,
   flushTQueue,
   newTChanIO,
@@ -23,8 +22,8 @@ import Control.Lens (to, (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_, traverse_)
-import Data.GI.Base (AttrOp ((:=)), get, new, on)
+import Data.Foldable (traverse_)
+import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
@@ -82,7 +81,6 @@ import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
   Event (..),
   MouseEvent (..),
-  ScrollDirection (..),
   Tab (..),
  )
 import GHCSpecter.Worker.Timing (timingWorker)
@@ -91,6 +89,12 @@ import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
+import Handler (
+  handleMotion,
+  handleScroll,
+  handleZoomUpdate,
+  handleZoomEnd,
+ )
 import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
 import Timing (renderTiming)
@@ -263,38 +267,6 @@ goTiming ev = do
       ev' <- nextEvent
       goTiming ev'
 
-handleMotion :: TQueue Event -> Gdk.EventMotion -> IO ()
-handleMotion chanQEv ev = do
-  x <- get ev #x
-  y <- get ev #y
-  atomically $ do
-    writeTQueue chanQEv $ MouseEv (MouseMove (Just (x, y)))
-
-handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
-handleScroll chanQEv ev = do
-  dx <- get ev #deltaX
-  dy <- get ev #deltaY
-  dir <- get ev #direction
-  let mdir' = case dir of
-        Gdk.ScrollDirectionRight -> Just ScrollDirectionRight
-        Gdk.ScrollDirectionLeft -> Just ScrollDirectionLeft
-        Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
-        Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
-        _ -> Nothing
-  for_ mdir' $ \dir' -> do
-    atomically $ do
-      writeTQueue chanQEv (MouseEv (Scroll dir' (dx, dy)))
-
--- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoomUpdate :: TQueue Event -> (Double, Double) -> Double -> IO ()
-handleZoomUpdate chanQEv (rx, ry) scale =
-  atomically $
-    writeTQueue chanQEv (MouseEv (ZoomUpdate (rx, ry) scale))
-
-handleZoomEnd :: TQueue Event -> IO ()
-handleZoomEnd chanQEv =
-  atomically $
-    writeTQueue chanQEv (MouseEv ZoomEnd)
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
