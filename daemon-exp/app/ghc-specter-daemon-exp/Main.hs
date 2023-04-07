@@ -117,9 +117,10 @@ initViewBackend = do
   pangoCtxt <- #createContext fontMap
   family <- #getFamily fontMap "FreeSans"
   mface <- #getFace family Nothing
+  eboxRef <- atomically $ newTVar []
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc)
+    pure (ViewBackend pangoCtxt desc eboxRef)
 
 renderNotConnected :: ViewBackend -> R.Render ()
 renderNotConnected vb = do

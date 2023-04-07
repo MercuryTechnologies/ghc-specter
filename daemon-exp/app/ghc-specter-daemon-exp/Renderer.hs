@@ -6,6 +6,7 @@ module Renderer (
   renderPrimitive,
 ) where
 
+import Control.Concurrent.STM (atomically, modifyTVar')
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
@@ -51,7 +52,12 @@ setColor ColorRedLevel4 = R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
 renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
-renderPrimitive _ (Rectangle (x, y) w h mline mbkg mlwidth _) = do
+renderPrimitive vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
+  for_ mname $ \name ->
+    R.liftIO $ atomically $
+      modifyTVar' (vbEventBoxMap vb) $ \es ->
+        let e = (name, ((x, y), (x + w, y + h)))
+         in e : es
   for_ mbkg $ \bkg -> do
     setColor bkg
     R.rectangle x y w h
@@ -68,9 +74,9 @@ renderPrimitive _ (Polyline start xys end line width) = do
   traverse_ (uncurry R.lineTo) xys
   uncurry R.lineTo end
   R.stroke
-renderPrimitive vw (DrawText (x, y) pos color fontSize msg) = do
+renderPrimitive vb (DrawText (x, y) pos color fontSize msg) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
-  drawText vw (fromIntegral fontSize) (x, y') msg
+  drawText vb (fromIntegral fontSize) (x, y') msg
