@@ -164,10 +164,6 @@ controlMain = forever $ do
   ev <- nextEvent
   ss <- getSS
   ui <- getUI
-
-  let n = ss ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-  printMsg $
-    "timing N = " <> T.pack (show n)
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
@@ -188,12 +184,26 @@ controlMain = forever $ do
               & (uiModel . modelTiming . timingUIViewPort . vpViewPort .~ vp')
                 . (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Nothing)
       putUI ui'
+    MouseEv TagModuleGraph (ZoomUpdate (rx, ry) scale) -> do
+      let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+          vp' = (transformZoom (rx, ry) scale vp)
+          ui' =
+            ui
+              & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+      putUI ui'
     MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
       let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
           vp' = (transformZoom (rx, ry) scale vp)
           ui' =
             ui
               & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+      putUI ui'
+    MouseEv TagModuleGraph ZoomEnd -> do
+      let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
+            Just viewPort ->
+              ui
+                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+            Nothing -> ui
       putUI ui'
     MouseEv TagTimingView ZoomEnd -> do
       let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
