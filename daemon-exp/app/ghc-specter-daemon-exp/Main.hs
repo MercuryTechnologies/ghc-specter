@@ -26,6 +26,7 @@ import Data.Foldable (for_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -44,6 +45,7 @@ import GHCSpecter.Control.Types (
   putSS,
   putUI,
  )
+import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
@@ -66,6 +68,7 @@ import GHCSpecter.UI.Constants (
   timingWidth,
  )
 import GHCSpecter.UI.Types (
+  HasModuleGraphUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
@@ -136,12 +139,13 @@ renderAction vb ss ui = do
       mgs = ss ^. serverModuleGraphState
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
+      mgrui = ui ^. uiModel . modelMainModuleGraph
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
       case ui ^. uiView of
         MainMode (MainView TabModuleGraph) ->
-          renderModuleGraph vb nameMap drvModMap timing clustering grVisInfo
+          renderModuleGraph vb mgrui nameMap drvModMap timing clustering grVisInfo
         MainMode (MainView TabTiming) -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
@@ -160,11 +164,22 @@ controlMain = forever $ do
   ev <- nextEvent
   ss <- getSS
   ui <- getUI
+
+  let n = ss ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
+  printMsg $
+    "timing N = " <> T.pack (show n)
   case ev of
     BkgEv MessageChanUpdated -> do
       let ss' = (serverShouldUpdate .~ True) ss
       asyncWork timingWorker
       putSS ss'
+    MouseEv TagModuleGraph (Scroll dir' (dx, dy)) -> do
+      let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+          vp' = transformScroll dir' (dx, dy) vp
+          ui' =
+            ui
+              & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+      putUI ui'
     MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
       let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
           vp' = transformScroll dir' (dx, dy) vp
