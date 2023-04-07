@@ -78,7 +78,6 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  ComponentTag (TagModuleGraph, TagTimingView),
   Event (..),
   MouseEvent (..),
   ScrollDirection (..),
@@ -180,9 +179,11 @@ goModuleGraph ev = do
          in (ui', ss)
       ev' <- nextEvent
       goModuleGraph ev'
-    MouseEv (ZoomUpdate (rx, ry) scale) -> do
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            rx = xcenter / modGraphWidth
+            ry = ycenter / modGraphHeight
             vp' = (transformZoom (rx, ry) scale vp)
             ui' =
               ui
@@ -226,9 +227,11 @@ goTiming ev = do
          in (ui', ss)
       ev' <- nextEvent
       goTiming ev'
-    MouseEv (ZoomUpdate (rx, ry) scale) -> do
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            rx = xcenter / timingWidth
+            ry = ycenter / timingHeight
             vp' = (transformZoom (rx, ry) scale vp)
             ui' =
               ui
@@ -250,8 +253,8 @@ goTiming ev = do
       ev' <- nextEvent
       goTiming ev'
 
-handleScroll :: TQueue Event -> ComponentTag -> Gdk.EventScroll -> IO ()
-handleScroll chanQEv tag ev = do
+handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
+handleScroll chanQEv ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -266,13 +269,13 @@ handleScroll chanQEv tag ev = do
       writeTQueue chanQEv (MouseEv (Scroll dir' (dx, dy)))
 
 -- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoomUpdate :: TQueue Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
-handleZoomUpdate chanQEv tag (rx, ry) scale =
+handleZoomUpdate :: TQueue Event -> (Double, Double) -> Double -> IO ()
+handleZoomUpdate chanQEv (rx, ry) scale =
   atomically $
     writeTQueue chanQEv (MouseEv (ZoomUpdate (rx, ry) scale))
 
-handleZoomEnd :: TQueue Event -> ComponentTag -> IO ()
-handleZoomEnd chanQEv tag =
+handleZoomEnd :: TQueue Event -> IO ()
+handleZoomEnd chanQEv =
   atomically $
     writeTQueue chanQEv (MouseEv ZoomEnd)
 
@@ -381,68 +384,25 @@ main =
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              handleScroll chanQEv tag ev
-              postGUIASync $
-                #queueDraw drawingArea
+            handleScroll chanQEv ev
+            postGUIASync $
+              #queueDraw drawingArea
             pure True
 
         gzoom <- Gtk.gestureZoomNew drawingArea
         _ <- gzoom
           `on` #scaleChanged
           $ \scale -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
-              let (width, height) =
-                    case tag of
-                      TagTimingView -> (timingWidth, timingHeight)
-                      TagModuleGraph -> (modGraphWidth, modGraphHeight)
-                      _ -> canvasDim
-                  rx = xcenter / width
-                  ry = ycenter / height
-              handleZoomUpdate chanQEv tag (rx, ry) scale
-              postGUIASync $
-                #queueDraw drawingArea
+            (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
+            handleZoomUpdate chanQEv (xcenter, ycenter) scale
+            postGUIASync $
+              #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              handleZoomEnd chanQEv tag
-              postGUIASync $
-                #queueDraw drawingArea
+            handleZoomEnd chanQEv
+            postGUIASync $
+              #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
 
         layout <- do
