@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,7 +8,9 @@ import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
   TChan,
   TQueue,
+  TVar,
   atomically,
+  flushTQueue,
   modifyTVar',
   newTChanIO,
   newTQueueIO,
@@ -25,9 +28,10 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (forever)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.GI.Base (AttrOp ((:=)), get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.List (partition)
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
@@ -43,6 +47,7 @@ import GHCSpecter.Control.Types (
   asyncWork,
   getSS,
   getUI,
+  modifyUISS,
   nextEvent,
   printMsg,
   putSS,
@@ -166,63 +171,67 @@ controlMain :: Control ()
 controlMain = forever $ do
   printMsg "control tick"
   ev <- nextEvent
-  ss <- getSS
-  ui <- getUI
+  ss0 <- getSS
+  -- ui <- getUI
 
-  let n = ss ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-      m = ss ^. serverTiming . tsTimingMap . to keyMapToList . to length
+  let n = ss0 ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
+      m = ss0 ^. serverTiming . tsTimingMap . to keyMapToList . to length
   printMsg $
     "timing N = " <> T.pack (show n) <> ", M = " <> T.pack (show m)
+
+  modifyUISS $ \(ui, ss) ->
+    case ev of
+      BkgEv MessageChanUpdated ->
+        let ss' = (serverShouldUpdate .~ True) ss
+         in (ui, ss')
+      MouseEv TagModuleGraph (Scroll dir' (dx, dy)) ->
+        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            vp' = transformScroll dir' (dx, dy) vp
+            ui' =
+              ui
+                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+         in (ui', ss)
+      MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
+        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            vp' = transformScroll dir' (dx, dy) vp
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort . vpViewPort .~ vp')
+                  . (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Nothing)
+         in (ui', ss)
+      MouseEv TagModuleGraph (ZoomUpdate (rx, ry) scale) -> do
+        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            vp' = (transformZoom (rx, ry) scale vp)
+            ui' =
+              ui
+                & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+         in (ui', ss)
+      MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
+        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            vp' = (transformZoom (rx, ry) scale vp)
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+         in (ui', ss)
+      MouseEv TagModuleGraph ZoomEnd -> do
+        let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+         in (ui', ss)
+      MouseEv TagTimingView ZoomEnd -> do
+        let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+         in (ui', ss)
+      _ -> (ui, ss)
+
   case ev of
-    BkgEv MessageChanUpdated -> do
-      let ss' = (serverShouldUpdate .~ True) ss
-      asyncWork timingWorker
-      putSS ss'
-    MouseEv TagModuleGraph (Scroll dir' (dx, dy)) -> do
-      let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-          vp' = transformScroll dir' (dx, dy) vp
-          ui' =
-            ui
-              & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
-      putUI ui'
-    MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
-      let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-          vp' = transformScroll dir' (dx, dy) vp
-          ui' =
-            ui
-              & (uiModel . modelTiming . timingUIViewPort . vpViewPort .~ vp')
-                . (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Nothing)
-      putUI ui'
-    MouseEv TagModuleGraph (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-          vp' = (transformZoom (rx, ry) scale vp)
-          ui' =
-            ui
-              & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
-      putUI ui'
-    MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
-      let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-          vp' = (transformZoom (rx, ry) scale vp)
-          ui' =
-            ui
-              & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
-      putUI ui'
-    MouseEv TagModuleGraph ZoomEnd -> do
-      let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
-            Just viewPort ->
-              ui
-                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
-            Nothing -> ui
-      putUI ui'
-    MouseEv TagTimingView ZoomEnd -> do
-      let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
-            Just viewPort ->
-              ui
-                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
-            Nothing -> ui
-      putUI ui'
+    BkgEv MessageChanUpdated -> asyncWork timingWorker
     _ -> pure ()
-  pure ()
 
 handleScroll :: TQueue Event -> ComponentTag -> Gdk.EventScroll -> IO ()
 handleScroll chanQEv tag ev = do
@@ -255,8 +264,25 @@ simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv Refresh
   where
     step ev = do
       atomically $ writeTChan chanEv ev
-      (_ui, _ss) <- atomically $ readTChan chanState
-      ev' <- atomically $ readTQueue chanQEv
+      (_ui, ss_) <- atomically $ readTChan chanState
+
+      let n_ = ss_ ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
+          m_ = ss_ ^. serverTiming . tsTimingMap . to keyMapToList . to length
+      putStrLn $
+        "timing N_ = " <> (show n_) <> ", M_ = " <> (show m_)
+
+      ev' <- atomically $ do
+        evs' <- flushTQueue chanQEv
+        let (bevs', fevs') = partition (\case BkgEv _ -> True; _ -> False) evs'
+        case bevs' of
+          bev' : bevs'' -> do
+            traverse_ (writeTQueue chanQEv) (bevs'' ++ fevs')
+            pure bev'
+          _ -> case fevs' of
+            fev' : fevs'' -> do
+              traverse_ (writeTQueue chanQEv) fevs''
+              pure fev'
+            _ -> retry
       pure (Left ev')
 
 main :: IO ()
