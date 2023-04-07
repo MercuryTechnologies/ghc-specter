@@ -11,10 +11,16 @@ module GHCSpecter.UI.Constants (
   timingWidth,
   timingHeight,
   timingRangeHeight,
-  widgetHeight,
+
+  -- * module graph
+  modGraphWidth,
+  modGraphHeight,
 
   -- * global
   canvasDim,
+
+  -- * web
+  widgetHeight,
 ) where
 
 import Data.Text (Text)
@@ -40,6 +46,12 @@ timingHeight = 600
 
 timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
+
+modGraphWidth :: (Num a) => a
+modGraphWidth = 1440
+
+modGraphHeight :: (Num a) => a
+modGraphHeight = 768
 
 canvasDim :: (Num a) => (a, a)
 canvasDim = (1440, 768)

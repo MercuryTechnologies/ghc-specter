@@ -4,45 +4,26 @@ module Timing (
   renderTiming,
 ) where
 
-import Control.Lens (to, (%~), (^.), _1, _2)
-import Control.Monad.IO.Class (liftIO)
+import Control.Lens ((^.))
 import Data.Foldable (traverse_)
 import Data.Maybe (fromMaybe)
-import Data.Time.Clock (
-  NominalDiffTime,
-  nominalDiffTimeToSeconds,
-  secondsToNominalDiffTime,
- )
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  forwardLookup,
- )
-import GHCSpecter.Data.Timing.Types (
-  HasPipelineInfo (..),
-  HasTimingTable (..),
-  TimingTable,
- )
-import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Data.Map (BiKeyMap)
+import GHCSpecter.Data.Timing.Types (TimingTable)
+import GHCSpecter.Graphics.DSL (Primitive (..))
 import GHCSpecter.Render.Components.TimingView (
   compileMemChart,
   compileTimingChart,
   compileTimingRange,
-  diffTime2X,
-  module2Y,
-  viewPortX,
-  viewPortY,
  )
 import GHCSpecter.UI.Constants (
   timingHeight,
-  timingMaxWidth,
-  timingRangeHeight,
   timingWidth,
  )
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
-  TimingUI (..),
+  HasViewPortInfo (..),
+  TimingUI,
   ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
@@ -56,15 +37,7 @@ renderTiming ::
   TimingTable ->
   R.Render ()
 renderTiming vb drvModMap tui ttable = do
-  let timingInfos = ttable ^. ttableTimingInfos
-      nMods = length timingInfos
-      modEndTimes = fmap (^. _2 . plEnd . _1) timingInfos
-      totalHeight = 5 * nMods
-      totalTime =
-        case modEndTimes of
-          [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
-          _ -> maximum modEndTimes
-      rexpTimingChart :: [Primitive]
+  let rexpTimingChart :: [Primitive]
       rexpTimingChart = compileTimingChart drvModMap tui ttable
       rexpMemChart :: [Primitive]
       rexpMemChart = compileMemChart drvModMap tui ttable
@@ -75,8 +48,8 @@ renderTiming vb drvModMap tui ttable = do
   R.rectangle 0 0 (timingWidth * 0.8) timingHeight
   R.clip
   -- TODO: refactor this out
-  let (vx, vy) = tui ^. timingUIViewPort . to topLeft
-      ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
+  let vpi = tui ^. timingUIViewPort
+      ViewPort (vx0, vy0) (vx1, vy1) = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
       scaleX = timingWidth / (vx1 - vx0)
       scaleY = timingHeight / (vy1 - vy0)
   R.scale scaleX scaleY
@@ -88,12 +61,8 @@ renderTiming vb drvModMap tui ttable = do
   R.rectangle (timingWidth * 0.8) 0 timingWidth timingHeight
   R.clip
   R.translate (timingWidth * 0.8) 0
-  let (vx, vy) = tui ^. timingUIViewPort . to topLeft
-      ViewPort (vx0, vy0) (vx1, vy1) = tui ^. timingUIViewPort
-      -- scaleX = timingWidth / (vx1 - vx0)
-      scaleY = timingHeight / (vy1 - vy0)
   R.scale 1.0 scaleY
-  R.translate 0 (-vy)
+  R.translate 0 (-vy0)
   traverse_ (renderPrimitive vb) rexpMemChart
   R.restore
   -- timing range

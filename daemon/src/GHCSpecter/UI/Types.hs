@@ -25,8 +25,6 @@ module GHCSpecter.UI.Types (
   HasUIView (..),
   ViewPortInfo (..),
   HasViewPortInfo (..),
-  ExpUI (..),
-  HasExpUI (..),
   UIState (..),
   HasUIState (..),
   emptyUIState,
@@ -38,7 +36,12 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.UI.Constants (timingHeight, timingWidth)
+import GHCSpecter.UI.Constants (
+  modGraphHeight,
+  modGraphWidth,
+  timingHeight,
+  timingWidth,
+ )
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
 
 data ViewPort = ViewPort
@@ -47,17 +50,33 @@ data ViewPort = ViewPort
   }
   deriving (Show)
 
+data ViewPortInfo = ViewPortInfo
+  { _vpViewPort :: ViewPort
+  , _vpTempViewPort :: Maybe ViewPort
+  }
+
+makeClassy ''ViewPortInfo
+
+emptyViewPortInfo :: ViewPortInfo
+emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
+
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
   -- ^ module under mouse cursor in Module Graph
   , _modGraphUIClick :: Maybe Text
   -- ^ module clicked in Module Graph
+  , _modGraphViewPort :: ViewPortInfo
   }
 
 makeClassy ''ModuleGraphUI
 
 emptyModuleGraphUI :: ModuleGraphUI
-emptyModuleGraphUI = ModuleGraphUI Nothing Nothing
+emptyModuleGraphUI =
+  ModuleGraphUI
+    { _modGraphUIHover = Nothing
+    , _modGraphUIClick = Nothing
+    , _modGraphViewPort = ViewPortInfo (ViewPort (0, 0) (modGraphWidth, modGraphHeight)) Nothing
+    }
 
 data SourceViewUI = SourceViewUI
   { _srcViewExpandedModule :: Maybe Text
@@ -79,7 +98,7 @@ data TimingUI = TimingUI
   -- ^ Whether each module timing is partitioned into division
   , _timingUIHowParallel :: Bool
   -- ^ Whether showing color-coded parallel processes
-  , _timingUIViewPort :: ViewPort
+  , _timingUIViewPort :: ViewPortInfo
   -- ^ timing UI viewport
   , _timingUIHandleMouseMove :: Bool
   , _timingUIHoveredModule :: Maybe Text
@@ -94,7 +113,7 @@ emptyTimingUI =
     { _timingFrozenTable = Nothing
     , _timingUIPartition = False
     , _timingUIHowParallel = False
-    , _timingUIViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    , _timingUIViewPort = ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing
     , _timingUIHandleMouseMove = False
     , _timingUIHoveredModule = Nothing
     , _timingUIBlockerGraph = False
@@ -142,8 +161,8 @@ makeClassy ''UIModel
 emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
-    { _modelMainModuleGraph = ModuleGraphUI Nothing Nothing
-    , _modelSubModuleGraph = (UpTo30, ModuleGraphUI Nothing Nothing)
+    { _modelMainModuleGraph = emptyModuleGraphUI
+    , _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
@@ -154,27 +173,6 @@ data UIView
   | MainMode MainView
 
 makeClassy ''UIView
-
-data ViewPortInfo = ViewPortInfo
-  { _vpViewPort :: ViewPort
-  , _vpTempViewPort :: Maybe ViewPort
-  }
-
-makeClassy ''ViewPortInfo
-
-emptyViewPortInfo :: ViewPortInfo
-emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
-
--- | experimental UI
-data ExpUI = ExpUI
-  { _expViewPortBanner :: ViewPortInfo
-  , _expViewPortTimingView :: ViewPortInfo
-  }
-
-makeClassy ''ExpUI
-
-emptyExpUI :: ExpUI
-emptyExpUI = ExpUI emptyViewPortInfo emptyViewPortInfo
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool
@@ -187,7 +185,6 @@ data UIState = UIState
   -- ^ main view state
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
-  , _uiExp :: ExpUI
   }
 
 makeClassy ''UIState
@@ -200,5 +197,4 @@ emptyUIState assets now =
     , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
     , _uiAssets = assets
-    , _uiExp = emptyExpUI
     }
