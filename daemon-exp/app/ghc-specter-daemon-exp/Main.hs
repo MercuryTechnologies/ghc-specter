@@ -30,6 +30,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
+import GHCSpecter.Control qualified as Control
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
   Config (..),
@@ -415,7 +416,7 @@ main =
         #showAll mainWindow
 
         _ <- forkOS $ Comm.listener socketFile servSess workQ
-        _ <- forkOS $ Session.main servSess cliSess controlMain
+        _ <- forkOS $ Session.main servSess cliSess (Control.mainLoop (MainView TabModuleGraph, ui0' ^. uiModel))  -- controlMain
         _ <- forkOS $ simpleEventLoop uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main

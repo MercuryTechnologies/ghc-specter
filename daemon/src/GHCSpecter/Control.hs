@@ -3,6 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module GHCSpecter.Control (
+  mainLoop,
   main,
 ) where
 
@@ -71,7 +72,6 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (..),
   BlockerModuleGraphEvent (..),
-  ComponentTag (..),
   ConsoleEvent (..),
   Event (..),
   ModuleGraphEvent (..),
