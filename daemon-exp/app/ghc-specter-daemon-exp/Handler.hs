@@ -22,6 +22,7 @@ import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasUIViewRaw (..),
   HasViewPortInfo (..),
   UIState,
   ViewPort (..),
@@ -53,9 +54,10 @@ handleMotion vb ui chanQEv ev = do
       ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
       x' = x0 + (x1 - x0) * rx
       y' = y0 + (y1 - y0) * ry
+      emap = ui ^. uiViewRaw . uiRawEventBoxMap
+
       mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-  emap <- atomically $ readTVar (vbEventBoxMap vb)
-  let mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
+      mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
   if (mnowHit /= mprevHit)
     then do
       atomically $ do

@@ -23,6 +23,8 @@ module GHCSpecter.UI.Types (
   emptyUIModel,
   UIView (..),
   HasUIView (..),
+  UIViewRaw (..),
+  HasUIViewRaw (..),
   ViewPortInfo (..),
   HasViewPortInfo (..),
   UIState (..),
@@ -56,9 +58,6 @@ data ViewPortInfo = ViewPortInfo
   }
 
 makeClassy ''ViewPortInfo
-
-emptyViewPortInfo :: ViewPortInfo
-emptyViewPortInfo = ViewPortInfo (ViewPort (0, 0) (1440, 768)) Nothing
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -168,11 +167,20 @@ emptyUIModel =
     , _modelConsole = emptyConsoleUI
     }
 
+-- TODO: this will be replaced by UIViewRaw
+-- temporary UI state (like progress state of banner) should be in Control.
 data UIView
   = BannerMode Double
   | MainMode MainView
 
 makeClassy ''UIView
+
+data UIViewRaw = UIViewRaw
+  { _uiRawEventBoxMap :: [(Text, ((Double, Double), (Double, Double)))]
+  -- ^ event name -> bounding box map
+  }
+
+makeClassy ''UIViewRaw
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool
@@ -183,6 +191,8 @@ data UIState = UIState
   -- ^ main UI state
   , _uiView :: UIView
   -- ^ main view state
+  , _uiViewRaw :: UIViewRaw
+  -- ^ view state in the raw
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
   }
@@ -196,5 +206,6 @@ emptyUIState assets now =
     , _uiLastUpdated = now
     , _uiModel = emptyUIModel
     , _uiView = BannerMode 0
+    , _uiViewRaw = UIViewRaw []
     , _uiAssets = assets
     }

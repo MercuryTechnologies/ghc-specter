@@ -15,8 +15,12 @@ import Control.Concurrent.STM (
 import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Data.IORef (newIORef)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
-import GHCSpecter.Control.Runner (stepControlUpToEvent)
+import GHCSpecter.Control.Runner (
+  RunnerEnv (..),
+  stepControlUpToEvent,
+ )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
@@ -34,15 +38,20 @@ import GHCSpecter.UI.Types.Event (
 main ::
   ServerSession ->
   ClientSession ->
+  IO () ->
   Control () ->
   IO ()
-main servSess cs controlMain = do
+main servSess cs refreshAction controlMain = do
+  -- prepare runner
+  counterRef <- newIORef 0
+  let runner = RunnerEnv counterRef uiRef ssRef chanQEv chanSignal refreshAction
+
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
   _ <- forkIO $ chanDriver lastMessageSN
   -- start controlDriver
-  _ <- forkIO $ controlDriver
+  _ <- forkIO $ controlDriver runner
   pure ()
   where
     chanSignal = servSess ^. ssSubscriberSignal
@@ -71,14 +80,12 @@ main servSess cs controlMain = do
       chanDriver newMessageSN
 
     -- connector between driver and Control frame
-    controlDriver = loopM step (\_ -> controlMain)
+    controlDriver runner' = loopM step (\_ -> controlMain)
       where
         step c = do
           ev <- atomically $ readTChan chanEv
           ec' <-
-            runReaderT
-              (stepControlUpToEvent ev c)
-              (uiRef, ssRef, chanQEv, chanSignal)
+            runReaderT (stepControlUpToEvent ev c) runner'
           atomically $ do
             ui <- readTVar uiRef
             ss <- readTVar ssRef

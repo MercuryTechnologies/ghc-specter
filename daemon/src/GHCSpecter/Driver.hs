@@ -71,7 +71,7 @@ webServer cfg servSess = do
       chanQEv <- unsafeBlockingIO newTQueueIO
       let newCS = ClientSession uiRef chanEv chanState chanQEv
           newUIChan = UIChannel chanEv chanState chanQEv
-      unsafeBlockingIO $ Session.main servSess newCS Control.main
+      unsafeBlockingIO $ Session.main servSess newCS (pure ()) Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).

@@ -8,6 +8,7 @@ module GHCSpecter.Control (
 ) where
 
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -27,18 +28,22 @@ import GHCSpecter.Control.Types (
   getLastUpdatedUI,
   getSS,
   getUI,
+  modifyAndReturn,
+  modifySS,
+  modifyUI,
   modifyUISS,
   nextEvent,
   printMsg,
   putSS,
   putUI,
+  refresh,
   refreshUIAfter,
   saveSession,
   sendRequest,
   shouldUpdate,
   type Control,
  )
-import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup, keyMapToList)
+import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
@@ -99,146 +104,19 @@ defaultUpdateModel ::
   (UIModel, ServerState) ->
   Control (UIModel, ServerState)
 defaultUpdateModel topEv (oldModel, oldSS) = do
-  let n = oldSS ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-      m = oldSS ^. serverTiming . tsTimingMap . to keyMapToList . to length
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
       pure (oldModel, newSS)
-    SourceViewEv (SelectModule expandedModu') -> do
-      let newModel =
-            (modelSourceView . srcViewExpandedModule .~ Just expandedModu') oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SourceViewEv UnselectModule -> do
-      let newModel =
-            (modelSourceView . srcViewExpandedModule .~ Nothing) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SourceViewEv (SetBreakpoint modu isSet) -> do
-      let updater
-            | isSet = (modu :)
-            | otherwise = L.delete modu
-          newSS = (serverModuleBreakpoints %~ updater) oldSS
-          bps = newSS ^. serverModuleBreakpoints
-      sendRequest $ SessionReq (SetModuleBreakpoints bps)
-      pure (oldModel, newSS)
-    SourceViewEv (SourceViewTab tab) -> do
-      let newModel =
-            (modelSourceView . srcViewSuppViewTab .~ Just tab) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    MainModuleEv ev -> do
-      let mgui = oldModel ^. modelMainModuleGraph
-          mgui' = handleModuleGraphEv ev mgui
-          newModel = (modelMainModuleGraph .~ mgui') oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SubModuleEv sev ->
-      case sev of
-        SubModuleGraphEv ev -> do
-          let mgui = oldModel ^. modelSubModuleGraph . _2
-              mgui' = handleModuleGraphEv ev mgui
-              newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
-              newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS)
-        SubModuleLevelEv d' -> do
-          let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
-              newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS)
-    SessionEv SaveSessionEv -> do
-      saveSession
-      let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS)
-    SessionEv ResumeSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = False}
-          newSS =
-            (serverSessionInfo .~ sinfo')
-              . (serverPaused .~ emptyKeyMap)
-              . (serverShouldUpdate .~ True)
-              $ oldSS
-          newModel = (modelConsole . consoleFocus .~ Nothing) oldModel
-      sendRequest (SessionReq Resume)
-      pure (newModel, newSS)
-    SessionEv PauseSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = True}
-          newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendRequest (SessionReq Pause)
-      pure (oldModel, newSS)
-    TimingEv ToCurrentTime -> do
-      let ttable =
-            fromMaybe
-              (oldSS ^. serverTiming . tsTimingTable)
-              (oldModel ^. modelTiming . timingFrozenTable)
-          timingInfos = ttable ^. ttableTimingInfos
-          nMods = length timingInfos
-          totalHeight = 5 * nMods
-          newModel =
-            oldModel
-              & ( modelTiming . timingUIViewPort
-                    .~ ViewPortInfo
-                      ( ViewPort
-                          (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
-                          (timingMaxWidth, fromIntegral totalHeight)
-                      )
-                      Nothing
-                )
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (TimingFlow isFlowing) -> do
-      printMsg $ "TimingFlow " <> T.pack (show isFlowing)
-      let ttable = oldSS ^. serverTiming . tsTimingTable
-          newModel
-            | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) oldModel
-            | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) oldModel
-      pure (newModel, oldSS)
-    TimingEv (UpdatePartition b) -> do
-      let newModel = (modelTiming . timingUIPartition .~ b) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (UpdateParallel b) -> do
-      let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (HoverOnModule modu) -> do
-      let newModel = (modelTiming . timingUIHoveredModule .~ Just modu) oldModel
-      pure (newModel, oldSS)
-    TimingEv (HoverOffModule _modu) -> do
-      let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
-      pure (newModel, oldSS)
-    TimingEv ShowBlockerGraph -> do
-      printMsg "show blocker graph is pressed"
-      asyncWork timingBlockerGraphWorker
-      let newModel = (modelTiming . timingUIBlockerGraph .~ True) oldModel
-      pure (newModel, oldSS)
-    TimingEv CloseBlockerGraph -> do
-      printMsg "close blocker graph is pressed"
-      let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
-      pure (newModel, oldSS)
-    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
-      printMsg ("blocker module graph event: " <> T.pack (show e))
-      pure (oldModel, oldSS)
-    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
-      printMsg ("blocker module graph update: " <> T.pack (show lvl))
-      let newSS = (serverTiming . tsBlockerDetailLevel .~ lvl) oldSS
-      asyncWork timingBlockerGraphWorker
-      pure (oldModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker
+      refresh
       pure (oldModel, newSS)
     BkgEv RefreshUI -> do
+      refresh
       pure (oldModel, oldSS)
     _ -> pure (oldModel, oldSS)
-  where
-    handleModuleGraphEv ::
-      ModuleGraphEvent ->
-      ModuleGraphUI ->
-      ModuleGraphUI
-    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
-    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
 updateLastUpdated :: UIState -> Control UIState
 updateLastUpdated ui = do
@@ -390,14 +268,67 @@ goCommon ev (view, model0) = do
   pure (view', model')
 
 goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession = goCommon
+goSession ev (view, _model0) = do
+  case ev of
+    SessionEv SaveSessionEv -> do
+      saveSession
+      modifySS (serverShouldUpdate .~ False)
+    SessionEv ResumeSessionEv -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
+            sinfo = ss ^. serverSessionInfo
+            sinfo' = sinfo {sessionIsPaused = False}
+            ss' =
+              (serverSessionInfo .~ sinfo')
+                . (serverPaused .~ emptyKeyMap)
+                . (serverShouldUpdate .~ True)
+                $ ss
+         in (ui', ss')
+      sendRequest (SessionReq Resume)
+      refresh
+    SessionEv PauseSessionEv -> do
+      modifySS $ \ss ->
+        let sinfo = ss ^. serverSessionInfo
+            sinfo' = sinfo {sessionIsPaused = True}
+         in ss
+              & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+      sendRequest (SessionReq Pause)
+      refresh
+    _ -> pure ()
+  model <- (^. uiModel) <$> getUI
+  goCommon ev (view, model)
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goModuleGraph ev (view, model0) = do
+goModuleGraph ev (view, _model0) = do
   case ev of
-    MouseEv (Scroll dir' (dx, dy)) -> do
+    MainModuleEv mev -> do
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
+        let model = ui ^. uiModel
+            mgui = model ^. modelMainModuleGraph
+            mgui' = handleModuleGraphEv mev mgui
+            model' = (modelMainModuleGraph .~ mgui') model
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SubModuleEv sev -> do
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            model' =
+              case sev of
+                SubModuleGraphEv sgev ->
+                  let mgui = model ^. modelSubModuleGraph . _2
+                      mgui' = handleModuleGraphEv sgev mgui
+                   in (modelSubModuleGraph . _2 .~ mgui') model
+                SubModuleLevelEv d' ->
+                  (modelSubModuleGraph . _1 .~ d') model
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+    MouseEv (Scroll dir' (dx, dy)) -> do
+      -- TODO: refactor out this repetitive function
+      modifyUISS $ \(ui, ss) ->
+        let vp@(ViewPort (x0, _) (x1, _)) =
               ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
             scale = modGraphWidth / (x1 - x0)
             vp' = transformScroll dir' scale (dx, dy) vp
@@ -405,6 +336,7 @@ goModuleGraph ev (view, model0) = do
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
          in (ui', ss)
+      refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
@@ -415,6 +347,7 @@ goModuleGraph ev (view, model0) = do
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
          in (ui', ss)
+      refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
@@ -423,19 +356,131 @@ goModuleGraph ev (view, model0) = do
                   & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
+      refresh
+    _ -> pure ()
+  model <- (^. uiModel) <$> getUI
+  goCommon ev (view, model)
+  where
+    handleModuleGraphEv ::
+      ModuleGraphEvent ->
+      ModuleGraphUI ->
+      ModuleGraphUI
+    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
+    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
+
+goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
+goSourceView ev (view, _model0) = do
+  case ev of
+    SourceViewEv (SelectModule expandedModu') -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just expandedModu') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SourceViewEv UnselectModule -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SourceViewEv (SetBreakpoint modu isSet) -> do
+      (_, ss') <-
+        modifyAndReturn $ \(ui, ss) ->
+          let updater
+                | isSet = (modu :)
+                | otherwise = L.delete modu
+              ss' = (serverModuleBreakpoints %~ updater) ss
+           in (ui, ss')
+      let bps = ss' ^. serverModuleBreakpoints
+      sendRequest $ SessionReq (SetModuleBreakpoints bps)
+      refresh
+    SourceViewEv (SourceViewTab tab) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ Just tab) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
     _ -> pure ()
   model <- (^. uiModel) <$> getUI
   goCommon ev (view, model)
 
-goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSourceView = goCommon
-
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
   case ev of
+    TimingEv ToCurrentTime -> do
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            ttable =
+              fromMaybe
+                (ss ^. serverTiming . tsTimingTable)
+                (model ^. modelTiming . timingFrozenTable)
+            timingInfos = ttable ^. ttableTimingInfos
+            -- TODO: this should be drawn from a library function.
+            nMods = length timingInfos
+            totalHeight = 5 * nMods
+            model' =
+              model
+                & ( modelTiming . timingUIViewPort
+                      .~ ViewPortInfo
+                        ( ViewPort
+                            (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
+                            (timingMaxWidth, fromIntegral totalHeight)
+                        )
+                        Nothing
+                  )
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (TimingFlow isFlowing) -> do
+      printMsg $ "TimingFlow " <> T.pack (show isFlowing)
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            ttable = ss ^. serverTiming . tsTimingTable
+            model'
+              | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) model
+              | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) model
+            ui' = (uiModel .~ model') ui
+         in (ui', ss)
+      refresh
+    TimingEv (UpdatePartition b) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelTiming . timingUIPartition .~ b) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (UpdateParallel b) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelTiming . timingUIHowParallel .~ b) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (HoverOnModule modu) -> do
+      modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Just modu)
+      refresh
+    TimingEv (HoverOffModule _modu) -> do
+      modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Nothing)
+      refresh
+    TimingEv ShowBlockerGraph -> do
+      printMsg "show blocker graph is pressed"
+      asyncWork timingBlockerGraphWorker
+      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ True)
+      refresh
+    TimingEv CloseBlockerGraph -> do
+      printMsg "close blocker graph is pressed"
+      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ False)
+      refresh
+    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
+      printMsg ("blocker module graph event: " <> T.pack (show e))
+      pure ()
+    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
+      printMsg ("blocker module graph update: " <> T.pack (show lvl))
+      modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
+      asyncWork timingBlockerGraphWorker
+      refresh
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
+        let vp@(ViewPort (x0, _) (x1, _)) =
               ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
             scale = timingWidth / (x1 - x0)
             vp' = transformScroll dir' scale (dx, dy) vp
@@ -443,6 +488,7 @@ goTiming ev (view, model0) = do
               ui
                 & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
          in (ui', ss)
+      refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
@@ -453,6 +499,7 @@ goTiming ev (view, model0) = do
               ui
                 & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
          in (ui', ss)
+      refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
@@ -461,6 +508,7 @@ goTiming ev (view, model0) = do
                   & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
+      refresh
     _ -> pure ()
   model <-
     case ev of
@@ -523,7 +571,9 @@ branchTab tab (view, model) =
           ev <- nextEvent
           printMsg $ "event received: " <> T.pack (show ev)
           case ev of
-            TabEv tab' -> branchTab tab' (v, m)
+            TabEv tab' -> do
+              when (tab /= tab') refresh
+              branchTab tab' (v, m)
             _ -> do
               (v', m') <- go ev (v, m)
               loop (v', m')
