@@ -130,27 +130,6 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
             (modelSourceView . srcViewSuppViewTab .~ Just tab) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
-    SessionEv SaveSessionEv -> do
-      saveSession
-      let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS)
-    SessionEv ResumeSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = False}
-          newSS =
-            (serverSessionInfo .~ sinfo')
-              . (serverPaused .~ emptyKeyMap)
-              . (serverShouldUpdate .~ True)
-              $ oldSS
-          newModel = (modelConsole . consoleFocus .~ Nothing) oldModel
-      sendRequest (SessionReq Resume)
-      pure (newModel, newSS)
-    SessionEv PauseSessionEv -> do
-      let sinfo = oldSS ^. serverSessionInfo
-          sinfo' = sinfo {sessionIsPaused = True}
-          newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
-      sendRequest (SessionReq Pause)
-      pure (oldModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker
@@ -311,7 +290,35 @@ goCommon ev (view, model0) = do
   pure (view', model')
 
 goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession = goCommon
+goSession ev (view, _model0) = do
+  case ev of
+    SessionEv SaveSessionEv -> do
+      saveSession
+      modifySS (serverShouldUpdate .~ False)
+    SessionEv ResumeSessionEv -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
+            sinfo = ss ^. serverSessionInfo
+            sinfo' = sinfo {sessionIsPaused = False}
+            ss' =
+              (serverSessionInfo .~ sinfo')
+                . (serverPaused .~ emptyKeyMap)
+                . (serverShouldUpdate .~ True)
+                $ ss
+         in (ui', ss')
+      sendRequest (SessionReq Resume)
+      refresh
+    SessionEv PauseSessionEv -> do
+      modifySS $ \ss ->
+        let sinfo = ss ^. serverSessionInfo
+            sinfo' = sinfo {sessionIsPaused = True}
+         in ss
+              & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+      sendRequest (SessionReq Pause)
+      refresh
+    _ -> pure ()
+  model <- (^. uiModel) <$> getUI
+  goCommon ev (view, model)
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph ev (view, _model0) = do
@@ -331,9 +338,9 @@ goModuleGraph ev (view, _model0) = do
         let model = ui ^. uiModel
             model' =
               case sev of
-                SubModuleGraphEv ev ->
+                SubModuleGraphEv sgev ->
                   let mgui = model ^. modelSubModuleGraph . _2
-                      mgui' = handleModuleGraphEv ev mgui
+                      mgui' = handleModuleGraphEv sgev mgui
                    in (modelSubModuleGraph . _2 .~ mgui') model
                 SubModuleLevelEv d' ->
                   (modelSubModuleGraph . _1 .~ d') model
