@@ -99,8 +99,6 @@ defaultUpdateModel ::
   (UIModel, ServerState) ->
   Control (UIModel, ServerState)
 defaultUpdateModel topEv (oldModel, oldSS) = do
-  let n = oldSS ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
-      m = oldSS ^. serverTiming . tsTimingMap . to keyMapToList . to length
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
@@ -393,11 +391,11 @@ goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSession = goCommon
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goModuleGraph ev (view, model0) = do
+goModuleGraph ev (view, _model0) = do
   case ev of
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
+        let vp@(ViewPort (x0, _) (x1, _)) =
               ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
             scale = modGraphWidth / (x1 - x0)
             vp' = transformScroll dir' scale (dx, dy) vp
@@ -435,7 +433,7 @@ goTiming ev (view, model0) = do
   case ev of
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
+        let vp@(ViewPort (x0, _) (x1, _)) =
               ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
             scale = timingWidth / (x1 - x0)
             vp' = transformScroll dir' scale (dx, dy) vp

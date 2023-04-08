@@ -16,6 +16,7 @@ module GHCSpecter.Control.Types (
   printMsg,
   getCurrentTime,
   getLastUpdatedUI,
+  refresh,
   refreshUIAfter,
   shouldUpdate,
   saveSession,
@@ -49,6 +50,7 @@ data ControlF r
   | GetLastUpdatedUI (UTCTime -> r)
   | ShouldUpdate Bool r
   | SaveSession r
+  | Refresh r
   | RefreshUIAfter Double r
   | AsyncWork (TVar ServerState -> IO ()) r
   deriving (Functor)
@@ -97,6 +99,12 @@ shouldUpdate b = liftF (ShouldUpdate b ())
 saveSession :: Control ()
 saveSession = liftF (SaveSession ())
 
+-- | Perform refresh, which is UI backend dependent.
+refresh :: Control ()
+refresh = liftF (Refresh ())
+
+-- | Reserve calling refresh after nSec seconds. Note that this does not perform refresh action,
+-- but create an event for refresh that will trigger the @refreshUI@ action.
 refreshUIAfter :: Double -> Control ()
 refreshUIAfter nSec = liftF (RefreshUIAfter nSec ())
 
