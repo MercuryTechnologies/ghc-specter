@@ -346,9 +346,7 @@ goModuleGraph ev (view, _model0) = do
                         mgui = model ^. modelMainModuleGraph
                         mgui' = handleModuleGraphEv mev mgui
                         model' = (modelMainModuleGraph .~ mgui') model
-                        ui' = (uiModel .~ model') ui
-                        ss' = (serverShouldUpdate .~ False) ss
-                     in (ui', ss')
+                     in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
                 | otherwise = (ui, ss)
            in (ui', ss')
       let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
@@ -507,6 +505,25 @@ goTiming ev (view, model0) = do
       modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
       asyncWork timingBlockerGraphWorker
       refresh
+    MouseEv (MouseMove (x, y)) -> do
+      ((ui, _), (ui', _)) <-
+        modifyAndReturnBoth $ \(ui, ss) ->
+          let rx = x / timingWidth
+              ry = y / timingHeight
+              ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+              x' = x0 + (x1 - x0) * rx
+              y' = y0 + (y1 - y0) * ry
+              emap = ui ^. uiViewRaw . uiRawEventBoxMap
+              mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
+              mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
+              ui'
+                | mnowHit /= mprevHit =
+                    (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
+                | otherwise = ui
+           in (ui', ss)
+      let mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
+          mnowHit = ui' ^. uiModel . modelTiming . timingUIHoveredModule
+      when (mnowHit /= mprevHit) refresh
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp@(ViewPort (x0, _) (x1, _)) =
