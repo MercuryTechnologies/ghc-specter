@@ -4,8 +4,9 @@
 
 module Main where
 
-import Control.Concurrent (forkOS, threadDelay)
+import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
+  TVar,
   atomically,
   flushTQueue,
   newTChanIO,
@@ -19,7 +20,7 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Lens (to, (&), (.~), (^.), _1, _2)
-import Control.Monad (forever, when)
+import Control.Monad (when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (traverse_)
@@ -97,10 +98,9 @@ initViewBackend = do
   pangoCtxt <- #createContext fontMap
   family <- #getFamily fontMap "FreeSans"
   mface <- #getFace family Nothing
-  eboxRef <- atomically $ newTVar []
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc eboxRef)
+    pure (ViewBackend pangoCtxt desc)
 
 renderNotConnected :: ViewBackend -> R.Render ()
 renderNotConnected vb = do
@@ -112,9 +112,10 @@ renderNotConnected vb = do
 renderAction ::
   ViewBackend ->
   ServerState ->
-  UIState ->
+  TVar UIState ->
   R.Render ()
-renderAction vb ss ui = do
+renderAction vb ss uiRef = do
+  ui <- liftIO $ atomically $ readTVar uiRef
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -128,11 +129,11 @@ renderAction vb ss ui = do
     Just grVisInfo ->
       case ui ^. uiView of
         MainMode (MainView TabModuleGraph) ->
-          renderModuleGraph vb mgrui nameMap drvModMap timing clustering grVisInfo
+          renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
         MainMode (MainView TabTiming) -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
-          renderTiming vb drvModMap tui ttable
+          renderTiming uiRef vb drvModMap tui ttable
         _ -> pure ()
 
 simpleEventLoop :: UIChannel -> IO ()
@@ -231,8 +232,8 @@ main =
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (vb, ss, ui) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar ssRef <*> readTVar uiRef)
-            renderAction vb ss ui
+            (vb, ss) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar ssRef)
+            renderAction vb ss uiRef
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)

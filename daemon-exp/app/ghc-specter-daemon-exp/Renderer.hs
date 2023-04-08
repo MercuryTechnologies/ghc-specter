@@ -6,11 +6,21 @@ module Renderer (
   renderPrimitive,
 ) where
 
-import Control.Concurrent.STM (atomically, modifyTVar')
+import Control.Concurrent.STM (
+  TVar,
+  atomically,
+  modifyTVar',
+ )
+import Control.Lens ((%~))
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.UI.Types (
+  HasUIState (..),
+  HasUIViewRaw (..),
+  UIState,
+ )
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
@@ -51,14 +61,13 @@ setColor ColorRedLevel3 = R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: ViewBackend -> Primitive -> R.Render ()
-renderPrimitive vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
+renderPrimitive :: TVar UIState -> ViewBackend -> Primitive -> R.Render ()
+renderPrimitive uiRef vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
   for_ mname $ \name ->
     R.liftIO $
       atomically $
-        modifyTVar' (vbEventBoxMap vb) $ \es ->
-          let e = (name, ((x, y), (x + w, y + h)))
-           in e : es
+        modifyTVar' uiRef $
+          uiViewRaw . uiRawEventBoxMap %~ (\es -> let e = (name, ((x, y), (x + w, y + h))) in e : es)
   for_ mbkg $ \bkg -> do
     setColor bkg
     R.rectangle x y w h
@@ -68,14 +77,14 @@ renderPrimitive vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
     R.setLineWidth lwidth
     R.rectangle x y w h
     R.stroke
-renderPrimitive _ (Polyline start xys end line width) = do
+renderPrimitive _ _ (Polyline start xys end line width) = do
   setColor line
   R.setLineWidth width
   uncurry R.moveTo start
   traverse_ (uncurry R.lineTo) xys
   uncurry R.lineTo end
   R.stroke
-renderPrimitive vb (DrawText (x, y) pos color fontSize msg) = do
+renderPrimitive _ vb (DrawText (x, y) pos color fontSize msg) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1

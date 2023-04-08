@@ -46,7 +46,6 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
  )
 import System.IO (IOMode (..), withFile)
-import System.IO.Unsafe (unsafePerformIO)
 
 data RunnerEnv = RunnerEnv
   { runnerCounter :: IORef Int
