@@ -128,24 +128,6 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
             (modelSourceView . srcViewSuppViewTab .~ Just tab) oldModel
           newSS = (serverShouldUpdate .~ False) oldSS
       pure (newModel, newSS)
-    MainModuleEv ev -> do
-      let mgui = oldModel ^. modelMainModuleGraph
-          mgui' = handleModuleGraphEv ev mgui
-          newModel = (modelMainModuleGraph .~ mgui') oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SubModuleEv sev ->
-      case sev of
-        SubModuleGraphEv ev -> do
-          let mgui = oldModel ^. modelSubModuleGraph . _2
-              mgui' = handleModuleGraphEv ev mgui
-              newModel = (modelSubModuleGraph . _2 .~ mgui') oldModel
-              newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS)
-        SubModuleLevelEv d' -> do
-          let newModel = (modelSubModuleGraph . _1 .~ d') oldModel
-              newSS = (serverShouldUpdate .~ False) oldSS
-          pure (newModel, newSS)
     SessionEv SaveSessionEv -> do
       saveSession
       let newSS = (serverShouldUpdate .~ False) oldSS
@@ -234,13 +216,6 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
       refresh
       pure (oldModel, oldSS)
     _ -> pure (oldModel, oldSS)
-  where
-    handleModuleGraphEv ::
-      ModuleGraphEvent ->
-      ModuleGraphUI ->
-      ModuleGraphUI
-    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
-    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
 updateLastUpdated :: UIState -> Control UIState
 updateLastUpdated ui = do
@@ -397,6 +372,30 @@ goSession = goCommon
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph ev (view, _model0) = do
   case ev of
+    MainModuleEv ev -> do
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            mgui = model ^. modelMainModuleGraph
+            mgui' = handleModuleGraphEv ev mgui
+            model' = (modelMainModuleGraph .~ mgui') model
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SubModuleEv sev -> do
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            model' =
+              case sev of
+                SubModuleGraphEv ev ->
+                  let mgui = model ^. modelSubModuleGraph . _2
+                      mgui' = handleModuleGraphEv ev mgui
+                   in (modelSubModuleGraph . _2 .~ mgui') model
+                SubModuleLevelEv d' ->
+                  (modelSubModuleGraph . _1 .~ d') model
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
     MouseEv (Scroll dir' (dx, dy)) -> do
       -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
@@ -432,6 +431,13 @@ goModuleGraph ev (view, _model0) = do
     _ -> pure ()
   model <- (^. uiModel) <$> getUI
   goCommon ev (view, model)
+  where
+    handleModuleGraphEv ::
+      ModuleGraphEvent ->
+      ModuleGraphUI ->
+      ModuleGraphUI
+    handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
+    handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
 goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSourceView = goCommon
