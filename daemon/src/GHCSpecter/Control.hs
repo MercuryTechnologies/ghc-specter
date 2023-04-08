@@ -29,6 +29,7 @@ import GHCSpecter.Control.Types (
   getSS,
   getUI,
   modifyAndReturn,
+  modifyAndReturnBoth,
   modifySS,
   modifyUI,
   modifyUISS,
@@ -67,6 +68,7 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasUIViewRaw (..),
   HasViewPortInfo (..),
   MainView,
   ModuleGraphUI (..),
@@ -91,6 +93,7 @@ import GHCSpecter.UI.Types.Event (
   TimingEvent (..),
  )
 import GHCSpecter.Util.Transformation (
+  isInside,
   transformScroll,
   transformZoom,
  )
@@ -325,6 +328,32 @@ goModuleGraph ev (view, _model0) = do
             ui' = (uiModel .~ model') ui
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
+    MouseEv (MouseMove (x, y)) -> do
+      ((ui, _), (ui', _)) <-
+        modifyAndReturnBoth $ \(ui, ss) ->
+          let model = ui ^. uiModel
+              rx = x / modGraphWidth
+              ry = y / modGraphHeight
+              ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+              x' = x0 + (x1 - x0) * rx
+              y' = y0 + (y1 - y0) * ry
+              emap = ui ^. uiViewRaw . uiRawEventBoxMap
+              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
+              mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
+              (ui', ss')
+                | mnowHit /= mprevHit =
+                    let mev = HoverOnModuleEv mnowHit
+                        mgui = model ^. modelMainModuleGraph
+                        mgui' = handleModuleGraphEv mev mgui
+                        model' = (modelMainModuleGraph .~ mgui') model
+                        ui' = (uiModel .~ model') ui
+                        ss' = (serverShouldUpdate .~ False) ss
+                     in (ui', ss')
+                | otherwise = (ui, ss)
+           in (ui', ss')
+      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
+          mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
+      when (mnowHit /= mprevHit) refresh
     MouseEv (Scroll dir' (dx, dy)) -> do
       -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
