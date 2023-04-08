@@ -74,6 +74,7 @@ import GHCSpecter.UI.Types (
   MainView (..),
   UIState (..),
   UIView (..),
+  ViewPort (..),
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -184,8 +185,10 @@ goModuleGraph ev = do
       goModuleGraph ev'
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            vp' = transformScroll dir' (dx, dy) vp
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            scale = modGraphWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
             ui' =
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
@@ -236,8 +239,10 @@ goTiming ev = do
       goTiming ev'
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            vp' = transformScroll dir' (dx, dy) vp
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            scale = timingWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
             ui' =
               ui
                 & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)

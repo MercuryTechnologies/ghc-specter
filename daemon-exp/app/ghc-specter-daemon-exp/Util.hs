@@ -15,15 +15,18 @@ import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 -- | scroll
 transformScroll ::
   ScrollDirection ->
+  Double ->
   (Double, Double) ->
   ViewPort ->
   ViewPort
-transformScroll dir (dx, dy) (ViewPort (x0, y0) (x1, y1)) =
-  case dir of
-    ScrollDirectionRight -> ViewPort (x0 + dx, y0) (x1 + dx, y1)
-    ScrollDirectionLeft -> ViewPort (x0 - dx, y0) (x1 - dx, y1)
-    ScrollDirectionDown -> ViewPort (x0, y0 + dy) (x1, y1 + dy)
-    ScrollDirectionUp -> ViewPort (x0, y0 - dy) (x1, y1 - dy)
+transformScroll dir scale (dx, dy) (ViewPort (x0, y0) (x1, y1)) =
+  let dx' = dx / scale
+      dy' = dy / scale
+   in case dir of
+        ScrollDirectionRight -> ViewPort (x0 + dx', y0) (x1 + dx', y1)
+        ScrollDirectionLeft -> ViewPort (x0 - dx', y0) (x1 - dx', y1)
+        ScrollDirectionDown -> ViewPort (x0, y0 + dy') (x1, y1 + dy')
+        ScrollDirectionUp -> ViewPort (x0, y0 - dy') (x1, y1 - dy')
 
 -- | zoom
 transformZoom ::
