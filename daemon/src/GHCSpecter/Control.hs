@@ -28,6 +28,8 @@ import GHCSpecter.Control.Types (
   getLastUpdatedUI,
   getSS,
   getUI,
+  modifySS,
+  modifyUI,
   modifyUISS,
   nextEvent,
   printMsg,
@@ -148,64 +150,6 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
           sinfo' = sinfo {sessionIsPaused = True}
           newSS = (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True) $ oldSS
       sendRequest (SessionReq Pause)
-      pure (oldModel, newSS)
-    TimingEv ToCurrentTime -> do
-      let ttable =
-            fromMaybe
-              (oldSS ^. serverTiming . tsTimingTable)
-              (oldModel ^. modelTiming . timingFrozenTable)
-          timingInfos = ttable ^. ttableTimingInfos
-          nMods = length timingInfos
-          totalHeight = 5 * nMods
-          newModel =
-            oldModel
-              & ( modelTiming . timingUIViewPort
-                    .~ ViewPortInfo
-                      ( ViewPort
-                          (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
-                          (timingMaxWidth, fromIntegral totalHeight)
-                      )
-                      Nothing
-                )
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (TimingFlow isFlowing) -> do
-      printMsg $ "TimingFlow " <> T.pack (show isFlowing)
-      let ttable = oldSS ^. serverTiming . tsTimingTable
-          newModel
-            | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) oldModel
-            | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) oldModel
-      pure (newModel, oldSS)
-    TimingEv (UpdatePartition b) -> do
-      let newModel = (modelTiming . timingUIPartition .~ b) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (UpdateParallel b) -> do
-      let newModel = (modelTiming . timingUIHowParallel .~ b) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    TimingEv (HoverOnModule modu) -> do
-      let newModel = (modelTiming . timingUIHoveredModule .~ Just modu) oldModel
-      pure (newModel, oldSS)
-    TimingEv (HoverOffModule _modu) -> do
-      let newModel = (modelTiming . timingUIHoveredModule .~ Nothing) oldModel
-      pure (newModel, oldSS)
-    TimingEv ShowBlockerGraph -> do
-      printMsg "show blocker graph is pressed"
-      asyncWork timingBlockerGraphWorker
-      let newModel = (modelTiming . timingUIBlockerGraph .~ True) oldModel
-      pure (newModel, oldSS)
-    TimingEv CloseBlockerGraph -> do
-      printMsg "close blocker graph is pressed"
-      let newModel = (modelTiming . timingUIBlockerGraph .~ False) oldModel
-      pure (newModel, oldSS)
-    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
-      printMsg ("blocker module graph event: " <> T.pack (show e))
-      pure (oldModel, oldSS)
-    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
-      printMsg ("blocker module graph update: " <> T.pack (show lvl))
-      let newSS = (serverTiming . tsBlockerDetailLevel .~ lvl) oldSS
-      asyncWork timingBlockerGraphWorker
       pure (oldModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
@@ -372,11 +316,11 @@ goSession = goCommon
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph ev (view, _model0) = do
   case ev of
-    MainModuleEv ev -> do
+    MainModuleEv mev -> do
       modifyUISS $ \(ui, ss) ->
         let model = ui ^. uiModel
             mgui = model ^. modelMainModuleGraph
-            mgui' = handleModuleGraphEv ev mgui
+            mgui' = handleModuleGraphEv mev mgui
             model' = (modelMainModuleGraph .~ mgui') model
             ui' = (uiModel .~ model') ui
             ss' = (serverShouldUpdate .~ False) ss
@@ -445,6 +389,77 @@ goSourceView = goCommon
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
   case ev of
+    TimingEv ToCurrentTime -> do
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            ttable =
+              fromMaybe
+                (ss ^. serverTiming . tsTimingTable)
+                (model ^. modelTiming . timingFrozenTable)
+            timingInfos = ttable ^. ttableTimingInfos
+            -- TODO: this should be drawn from a library function.
+            nMods = length timingInfos
+            totalHeight = 5 * nMods
+            model' =
+              model
+                & ( modelTiming . timingUIViewPort
+                      .~ ViewPortInfo
+                        ( ViewPort
+                            (timingMaxWidth - timingWidth, fromIntegral totalHeight - timingHeight)
+                            (timingMaxWidth, fromIntegral totalHeight)
+                        )
+                        Nothing
+                  )
+            ui' = (uiModel .~ model') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (TimingFlow isFlowing) -> do
+      printMsg $ "TimingFlow " <> T.pack (show isFlowing)
+      modifyUISS $ \(ui, ss) ->
+        let model = ui ^. uiModel
+            ttable = ss ^. serverTiming . tsTimingTable
+            model'
+              | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) model
+              | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) model
+            ui' = (uiModel .~ model') ui
+         in (ui', ss)
+      refresh
+    TimingEv (UpdatePartition b) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelTiming . timingUIPartition .~ b) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (UpdateParallel b) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelTiming . timingUIHowParallel .~ b) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    TimingEv (HoverOnModule modu) -> do
+      modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Just modu)
+      refresh
+    TimingEv (HoverOffModule _modu) -> do
+      modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Nothing)
+      refresh
+    TimingEv ShowBlockerGraph -> do
+      printMsg "show blocker graph is pressed"
+      asyncWork timingBlockerGraphWorker
+      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ True)
+      refresh
+    TimingEv CloseBlockerGraph -> do
+      printMsg "close blocker graph is pressed"
+      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ False)
+      refresh
+    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
+      printMsg ("blocker module graph event: " <> T.pack (show e))
+      pure ()
+    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
+      printMsg ("blocker module graph update: " <> T.pack (show lvl))
+      modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
+      asyncWork timingBlockerGraphWorker
+      refresh
     MouseEv (Scroll dir' (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
         let vp@(ViewPort (x0, _) (x1, _)) =
