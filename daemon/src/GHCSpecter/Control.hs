@@ -28,6 +28,7 @@ import GHCSpecter.Control.Types (
   getLastUpdatedUI,
   getSS,
   getUI,
+  modifyAndReturn,
   modifySS,
   modifyUI,
   modifyUISS,
@@ -107,29 +108,6 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
       pure (oldModel, newSS)
-    SourceViewEv (SelectModule expandedModu') -> do
-      let newModel =
-            (modelSourceView . srcViewExpandedModule .~ Just expandedModu') oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SourceViewEv UnselectModule -> do
-      let newModel =
-            (modelSourceView . srcViewExpandedModule .~ Nothing) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
-    SourceViewEv (SetBreakpoint modu isSet) -> do
-      let updater
-            | isSet = (modu :)
-            | otherwise = L.delete modu
-          newSS = (serverModuleBreakpoints %~ updater) oldSS
-          bps = newSS ^. serverModuleBreakpoints
-      sendRequest $ SessionReq (SetModuleBreakpoints bps)
-      pure (oldModel, newSS)
-    SourceViewEv (SourceViewTab tab) -> do
-      let newModel =
-            (modelSourceView . srcViewSuppViewTab .~ Just tab) oldModel
-          newSS = (serverShouldUpdate .~ False) oldSS
-      pure (newModel, newSS)
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker
@@ -391,7 +369,40 @@ goModuleGraph ev (view, _model0) = do
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
 goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSourceView = goCommon
+goSourceView ev (view, _model0) = do
+  case ev of
+    SourceViewEv (SelectModule expandedModu') -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just expandedModu') ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SourceViewEv UnselectModule -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    SourceViewEv (SetBreakpoint modu isSet) -> do
+      (_, ss') <-
+        modifyAndReturn $ \(ui, ss) ->
+          let updater
+                | isSet = (modu :)
+                | otherwise = L.delete modu
+              ss' = (serverModuleBreakpoints %~ updater) ss
+           in (ui, ss')
+      let bps = ss' ^. serverModuleBreakpoints
+      sendRequest $ SessionReq (SetModuleBreakpoints bps)
+      refresh
+    SourceViewEv (SourceViewTab tab) -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ Just tab) ui
+            ss' = (serverShouldUpdate .~ False) ss
+         in (ui', ss')
+      refresh
+    _ -> pure ()
+  model <- (^. uiModel) <$> getUI
+  goCommon ev (view, model)
 
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do

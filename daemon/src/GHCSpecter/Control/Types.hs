@@ -11,6 +11,7 @@ module GHCSpecter.Control.Types (
   putSS,
   modifySS,
   modifyUISS,
+  modifyAndReturn,
   sendRequest,
   nextEvent,
   printMsg,
@@ -43,6 +44,7 @@ data ControlF r
   | PutSS ServerState r
   | ModifySS (ServerState -> ServerState) r
   | ModifyUISS ((UIState, ServerState) -> (UIState, ServerState)) r
+  | ModifyAndReturn ((UIState, ServerState) -> (UIState, ServerState)) ((UIState, ServerState) -> r)
   | SendRequest Request r
   | NextEvent (Event -> r)
   | PrintMsg Text r
@@ -77,6 +79,9 @@ modifySS upd = liftF (ModifySS upd ())
 
 modifyUISS :: ((UIState, ServerState) -> (UIState, ServerState)) -> Control ()
 modifyUISS upd = liftF (ModifyUISS upd ())
+
+modifyAndReturn :: ((UIState, ServerState) -> (UIState, ServerState)) -> Control (UIState, ServerState)
+modifyAndReturn upd = liftF (ModifyAndReturn upd id)
 
 sendRequest :: Request -> Control ()
 sendRequest b = liftF (SendRequest b ())
