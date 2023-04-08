@@ -54,6 +54,7 @@ data RunnerEnv = RunnerEnv
   , runnerServerState :: TVar ServerState
   , runnerQEvent :: TQueue Event
   , runnerSignalChan :: TChan Request
+  , runnerRefreshAction :: IO ()
   }
 
 type Runner = ReaderT RunnerEnv IO
@@ -186,7 +187,8 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (Refresh next)) = do
-  -- dummy implementation now
+  refreshAction <- runnerRefreshAction <$> ask
+  liftIO refreshAction
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do
   chanQEv <- runnerQEvent <$> ask

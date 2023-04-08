@@ -8,6 +8,7 @@ module GHCSpecter.Control (
 ) where
 
 import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -32,13 +33,14 @@ import GHCSpecter.Control.Types (
   printMsg,
   putSS,
   putUI,
+  refresh,
   refreshUIAfter,
   saveSession,
   sendRequest,
   shouldUpdate,
   type Control,
  )
-import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup, keyMapToList)
+import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
@@ -226,8 +228,10 @@ defaultUpdateModel topEv (oldModel, oldSS) = do
     BkgEv MessageChanUpdated -> do
       let newSS = (serverShouldUpdate .~ True) oldSS
       asyncWork timingWorker
+      refresh
       pure (oldModel, newSS)
     BkgEv RefreshUI -> do
+      refresh
       pure (oldModel, oldSS)
     _ -> pure (oldModel, oldSS)
   where
@@ -394,6 +398,7 @@ goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goModuleGraph ev (view, _model0) = do
   case ev of
     MouseEv (Scroll dir' (dx, dy)) -> do
+      -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
         let vp@(ViewPort (x0, _) (x1, _)) =
               ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
@@ -403,6 +408,7 @@ goModuleGraph ev (view, _model0) = do
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
          in (ui', ss)
+      refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
@@ -413,6 +419,7 @@ goModuleGraph ev (view, _model0) = do
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
          in (ui', ss)
+      refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
@@ -421,6 +428,7 @@ goModuleGraph ev (view, _model0) = do
                   & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
+      refresh
     _ -> pure ()
   model <- (^. uiModel) <$> getUI
   goCommon ev (view, model)
@@ -441,6 +449,7 @@ goTiming ev (view, model0) = do
               ui
                 & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
          in (ui', ss)
+      refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
@@ -451,6 +460,7 @@ goTiming ev (view, model0) = do
               ui
                 & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
          in (ui', ss)
+      refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
@@ -459,6 +469,7 @@ goTiming ev (view, model0) = do
                   & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
+      refresh
     _ -> pure ()
   model <-
     case ev of
@@ -521,7 +532,9 @@ branchTab tab (view, model) =
           ev <- nextEvent
           printMsg $ "event received: " <> T.pack (show ev)
           case ev of
-            TabEv tab' -> branchTab tab' (v, m)
+            TabEv tab' -> do
+              when (tab /= tab') refresh
+              branchTab tab' (v, m)
             _ -> do
               (v', m') <- go ev (v, m)
               loop (v', m')

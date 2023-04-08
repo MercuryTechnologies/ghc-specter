@@ -38,12 +38,13 @@ import GHCSpecter.UI.Types.Event (
 main ::
   ServerSession ->
   ClientSession ->
+  IO () ->
   Control () ->
   IO ()
-main servSess cs controlMain = do
+main servSess cs refreshAction controlMain = do
   -- prepare runner
   counterRef <- newIORef 0
-  let runner = RunnerEnv counterRef uiRef ssRef chanQEv chanSignal
+  let runner = RunnerEnv counterRef uiRef ssRef chanQEv chanSignal refreshAction
 
   -- start chanDriver
   lastMessageSN <-
