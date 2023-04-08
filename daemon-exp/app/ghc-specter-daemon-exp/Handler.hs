@@ -32,9 +32,9 @@ import GHCSpecter.UI.Types.Event (
   MouseEvent (..),
   ScrollDirection (..),
  )
+import GHCSpecter.Util.Transformation (isInside)
 import GI.Gdk qualified as Gdk
 import Types (ViewBackend (..))
-import Util (isInside)
 
 handleMotion ::
   ViewBackend ->

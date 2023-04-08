@@ -27,7 +27,6 @@ import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
-import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -36,14 +35,7 @@ import GHCSpecter.Config (
   defaultGhcSpecterConfigFile,
   loadConfig,
  )
-import GHCSpecter.Control.Types (
-  Control,
-  asyncWork,
-  modifyUI,
-  modifyUISS,
-  nextEvent,
-  printMsg,
- )
+import GHCSpecter.Control qualified as Control
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
@@ -58,34 +50,21 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   initServerState,
  )
-import GHCSpecter.UI.Constants (
-  canvasDim,
-  modGraphHeight,
-  modGraphWidth,
-  timingHeight,
-  timingWidth,
- )
+import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types (
-  HasModuleGraphUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
-  HasViewPortInfo (..),
   MainView (..),
   UIState (..),
   UIView (..),
-  ViewPort (..),
-  ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (MessageChanUpdated, RefreshUI),
+  BackgroundEvent (RefreshUI),
   Event (..),
-  ModuleGraphEvent (..),
-  MouseEvent (..),
   Tab (..),
  )
-import GHCSpecter.Worker.Timing (timingWorker)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
@@ -101,7 +80,6 @@ import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
-import Util (transformScroll, transformZoom)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -162,118 +140,6 @@ forceUpdateLoop drawingArea = forever $ do
   threadDelay 1_000_000
   postGUIASync $
     #queueDraw drawingArea
-
-controlMain :: Control ()
-controlMain = nextEvent >>= goModuleGraph
-
-goModuleGraph :: Event -> Control ()
-goModuleGraph ev = do
-  case ev of
-    BkgEv MessageChanUpdated -> do
-      modifyUISS (\(ui, ss) -> let ss' = (serverShouldUpdate .~ True) ss in (ui, ss'))
-      asyncWork timingWorker
-      ev' <- nextEvent
-      goModuleGraph ev'
-    TabEv TabTiming -> do
-      modifyUI $ uiView .~ MainMode (MainView TabTiming)
-      ev' <- nextEvent
-      goTiming ev'
-    MainModuleEv (HoverOnModuleEv mlbl) -> do
-      modifyUI (uiModel . modelMainModuleGraph . modGraphUIHover .~ mlbl)
-      printMsg ("hover: " <> (T.pack $ show mlbl))
-      ev' <- nextEvent
-      goModuleGraph ev'
-    MouseEv (Scroll dir' (dx, dy)) -> do
-      modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
-              ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            scale = modGraphWidth / (x1 - x0)
-            vp' = transformScroll dir' scale (dx, dy) vp
-            ui' =
-              ui
-                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
-         in (ui', ss)
-      ev' <- nextEvent
-      goModuleGraph ev'
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
-      modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            rx = xcenter / modGraphWidth
-            ry = ycenter / modGraphHeight
-            vp' = (transformZoom (rx, ry) scale vp)
-            ui' =
-              ui
-                & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
-         in (ui', ss)
-      ev' <- nextEvent
-      goModuleGraph ev'
-    MouseEv ZoomEnd -> do
-      modifyUISS $ \(ui, ss) ->
-        let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
-              Just viewPort ->
-                ui
-                  & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
-              Nothing -> ui
-         in (ui', ss)
-      ev' <- nextEvent
-      goModuleGraph ev'
-    _ -> do
-      ev' <- nextEvent
-      goModuleGraph ev'
-
-goTiming :: Event -> Control ()
-goTiming ev = do
-  case ev of
-    BkgEv MessageChanUpdated -> do
-      modifyUISS (\(ui, ss) -> let ss' = (serverShouldUpdate .~ True) ss in (ui, ss'))
-      asyncWork timingWorker
-      ev' <- nextEvent
-      goTiming ev'
-    TabEv TabModuleGraph -> do
-      modifyUI $ uiView .~ MainMode (MainView TabModuleGraph)
-      ev' <- nextEvent
-      goModuleGraph ev'
-    MouseEv (MouseMove (Just (x, y))) -> do
-      printMsg ("move: " <> T.pack (show (x, y)))
-      ev' <- nextEvent
-      goTiming ev'
-    MouseEv (Scroll dir' (dx, dy)) -> do
-      modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, y0) (x1, y1)) =
-              ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            scale = timingWidth / (x1 - x0)
-            vp' = transformScroll dir' scale (dx, dy) vp
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
-         in (ui', ss)
-      ev' <- nextEvent
-      goTiming ev'
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
-      modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            rx = xcenter / timingWidth
-            ry = ycenter / timingHeight
-            vp' = (transformZoom (rx, ry) scale vp)
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
-         in (ui', ss)
-      ev' <- nextEvent
-      goTiming ev'
-    MouseEv ZoomEnd -> do
-      modifyUISS $ \(ui, ss) ->
-        let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
-              Just viewPort ->
-                ui
-                  & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
-              Nothing -> ui
-         in (ui', ss)
-      ev' <- nextEvent
-      goTiming ev'
-    _ -> do
-      ev' <- nextEvent
-      goTiming ev'
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
@@ -415,7 +281,7 @@ main =
         #showAll mainWindow
 
         _ <- forkOS $ Comm.listener socketFile servSess workQ
-        _ <- forkOS $ Session.main servSess cliSess controlMain
+        _ <- forkOS $ Session.main servSess cliSess (Control.mainLoop (MainView TabModuleGraph, ui0' ^. uiModel))
         _ <- forkOS $ simpleEventLoop uiChan
         _ <- forkOS (forceUpdateLoop drawingArea)
         Gtk.main

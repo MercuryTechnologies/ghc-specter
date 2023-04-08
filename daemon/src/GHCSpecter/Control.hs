@@ -3,6 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module GHCSpecter.Control (
+  mainLoop,
   main,
 ) where
 
@@ -26,6 +27,7 @@ import GHCSpecter.Control.Types (
   getLastUpdatedUI,
   getSS,
   getUI,
+  modifyUISS,
   nextEvent,
   printMsg,
   putSS,
@@ -45,6 +47,8 @@ import GHCSpecter.Server.Types (
   ServerState,
  )
 import GHCSpecter.UI.Constants (
+  modGraphHeight,
+  modGraphWidth,
   timingHeight,
   timingMaxWidth,
   timingWidth,
@@ -71,7 +75,6 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (..),
   BlockerModuleGraphEvent (..),
-  ComponentTag (..),
   ConsoleEvent (..),
   Event (..),
   ModuleGraphEvent (..),
@@ -81,6 +84,10 @@ import GHCSpecter.UI.Types.Event (
   SubModuleEvent (..),
   Tab (..),
   TimingEvent (..),
+ )
+import GHCSpecter.Util.Transformation (
+  transformScroll,
+  transformZoom,
  )
 import GHCSpecter.Worker.Timing (
   timingBlockerGraphWorker,
@@ -94,8 +101,6 @@ defaultUpdateModel ::
 defaultUpdateModel topEv (oldModel, oldSS) = do
   let n = oldSS ^. serverTiming . tsTimingTable . ttableTimingInfos . to length
       m = oldSS ^. serverTiming . tsTimingMap . to keyMapToList . to length
-  printMsg $
-    "timing N = " <> T.pack (show n) <> ", M = " <> T.pack (show m)
   case topEv of
     TabEv _tab' -> do
       let newSS = (serverShouldUpdate .~ False) oldSS
@@ -388,13 +393,75 @@ goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSession = goCommon
 
 goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goModuleGraph = goCommon
+goModuleGraph ev (view, model0) = do
+  case ev of
+    MouseEv (Scroll dir' (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            scale = modGraphWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
+            ui' =
+              ui
+                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+         in (ui', ss)
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            rx = xcenter / modGraphWidth
+            ry = ycenter / modGraphHeight
+            vp' = (transformZoom (rx, ry) scale vp)
+            ui' =
+              ui
+                & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+         in (ui', ss)
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+         in (ui', ss)
+    _ -> pure ()
+  model <- (^. uiModel) <$> getUI
+  goCommon ev (view, model)
 
 goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goSourceView = goCommon
 
 goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
 goTiming ev (view, model0) = do
+  case ev of
+    MouseEv (Scroll dir' (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            scale = timingWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
+         in (ui', ss)
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            rx = xcenter / timingWidth
+            ry = ycenter / timingHeight
+            vp' = (transformZoom (rx, ry) scale vp)
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+         in (ui', ss)
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+         in (ui', ss)
+    _ -> pure ()
   model <-
     case ev of
       MouseEv (MouseDown (Just (x, y))) -> do
@@ -406,7 +473,7 @@ goTiming ev (view, model0) = do
         let ui1 = ui0 & (uiModel .~ model1)
         putUI ui1
         onDraggingInTimingView model1 (x, y) vp
-      _ -> pure model0
+      _ -> (^. uiModel) <$> getUI
   goCommon ev (view, model)
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel

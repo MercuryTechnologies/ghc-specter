@@ -7,7 +7,6 @@ module GHCSpecter.Driver (
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent.STM (
-  TChan,
   TQueue,
   atomically,
   newTChanIO,
