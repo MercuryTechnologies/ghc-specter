@@ -2,6 +2,7 @@ module ModuleGraph (
   renderModuleGraph,
 ) where
 
+import Control.Concurrent.STM (atomically, writeTVar)
 import Control.Lens ((^.))
 import Data.Foldable (traverse_)
 import Data.IntMap (IntMap)
@@ -22,8 +23,8 @@ import GHCSpecter.UI.Types (
   ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
+import Renderer (renderPrimitive)
 import Types (ViewBackend (..))
-import Util (renderPrimitive)
 
 renderModuleGraph ::
   ViewBackend ->
@@ -34,7 +35,8 @@ renderModuleGraph ::
   [(Text, [Text])] ->
   GraphVisInfo ->
   R.Render ()
-renderModuleGraph vw mgrui nameMap drvModMap timing clustering grVisInfo = do
+renderModuleGraph vb mgrui nameMap drvModMap timing clustering grVisInfo = do
+  R.liftIO $ atomically $ writeTVar (vbEventBoxMap vb) []
   let valueFor name =
         fromMaybe 0 $ do
           cluster <- L.lookup name clustering
@@ -45,7 +47,8 @@ renderModuleGraph vw mgrui nameMap drvModMap timing clustering grVisInfo = do
               let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
-      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+      mhover = mgrui ^. modGraphUIHover
+      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
   R.save
   R.rectangle 0 0 modGraphWidth modGraphHeight
   R.clip
@@ -55,5 +58,5 @@ renderModuleGraph vw mgrui nameMap drvModMap timing clustering grVisInfo = do
       scaleY = modGraphHeight / (vy1 - vy0)
   R.scale scaleX scaleY
   R.translate (-vx0) (-vy0)
-  traverse_ (renderPrimitive vw) rexp
+  traverse_ (renderPrimitive vb) rexp
   R.restore

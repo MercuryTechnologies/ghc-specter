@@ -131,7 +131,7 @@ data Event
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
   | TimingEv TimingEvent
-  | MouseEv ComponentTag MouseEvent
+  | MouseEv MouseEvent
   | ConsoleEv (ConsoleEvent DriverId)
   | BkgEv BackgroundEvent
   deriving (Show, Eq)

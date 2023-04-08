@@ -1,8 +1,11 @@
 module GHCSpecter.Graphics.DSL (
-  -- * data types
+  -- * enum types
   Color (..),
-  Primitive (..),
   TextPosition (..),
+
+  -- * graphics primitive and group elements
+  Primitive (..),
+  Group (..),
 ) where
 
 import Data.Text (Text)
@@ -41,3 +44,10 @@ data Primitive
   | -- | (x, y) text_pos font_size text
     DrawText (Double, Double) TextPosition Color Int Text
   deriving (Show)
+
+-- canvas coordinate to the scene
+data Group = Group
+  { groupFromCanvasCoordinate :: (Double, Double) -> (Double, Double)
+  , groupToCanvasCoordinate :: (Double, Double) -> (Double, Double)
+  , groupElements :: [Primitive]
+  }

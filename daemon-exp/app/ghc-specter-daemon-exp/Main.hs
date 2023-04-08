@@ -6,10 +6,8 @@ module Main where
 
 import Control.Concurrent (forkOS, threadDelay)
 import Control.Concurrent.STM (
-  TQueue,
   atomically,
   flushTQueue,
-  modifyTVar',
   newTChanIO,
   newTQueueIO,
   newTVar,
@@ -21,14 +19,15 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Lens (to, (&), (.~), (^.), _1, _2)
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (for_, traverse_)
-import Data.GI.Base (AttrOp ((:=)), get, new, on)
+import Data.Foldable (traverse_)
+import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -40,6 +39,7 @@ import GHCSpecter.Config (
 import GHCSpecter.Control.Types (
   Control,
   asyncWork,
+  modifyUI,
   modifyUISS,
   nextEvent,
   printMsg,
@@ -74,15 +74,15 @@ import GHCSpecter.UI.Types (
   MainView (..),
   UIState (..),
   UIView (..),
+  ViewPort (..),
   ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated, RefreshUI),
-  ComponentTag (TagModuleGraph, TagTimingView),
   Event (..),
+  ModuleGraphEvent (..),
   MouseEvent (..),
-  ScrollDirection (..),
   Tab (..),
  )
 import GHCSpecter.Worker.Timing (timingWorker)
@@ -91,10 +91,17 @@ import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
+import Handler (
+  handleMotion,
+  handleScroll,
+  handleZoomEnd,
+  handleZoomUpdate,
+ )
 import ModuleGraph (renderModuleGraph)
+import Renderer (drawText)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
-import Util (drawText, transformScroll, transformZoom)
+import Util (transformScroll, transformZoom)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -112,9 +119,10 @@ initViewBackend = do
   pangoCtxt <- #createContext fontMap
   family <- #getFamily fontMap "FreeSans"
   mface <- #getFace family Nothing
+  eboxRef <- atomically $ newTVar []
   for mface $ \face -> do
     desc <- #describe face
-    pure (ViewBackend pangoCtxt desc)
+    pure (ViewBackend pangoCtxt desc eboxRef)
 
 renderNotConnected :: ViewBackend -> R.Render ()
 renderNotConnected vb = do
@@ -156,88 +164,116 @@ forceUpdateLoop drawingArea = forever $ do
     #queueDraw drawingArea
 
 controlMain :: Control ()
-controlMain = forever $ do
-  printMsg "control tick"
-  ev <- nextEvent
-  modifyUISS $ \(ui, ss) ->
-    case ev of
-      BkgEv MessageChanUpdated ->
-        let ss' = (serverShouldUpdate .~ True) ss
-         in (ui, ss')
-      MouseEv TagModuleGraph (Scroll dir' (dx, dy)) ->
-        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            vp' = transformScroll dir' (dx, dy) vp
+controlMain = nextEvent >>= goModuleGraph
+
+goModuleGraph :: Event -> Control ()
+goModuleGraph ev = do
+  case ev of
+    BkgEv MessageChanUpdated -> do
+      modifyUISS (\(ui, ss) -> let ss' = (serverShouldUpdate .~ True) ss in (ui, ss'))
+      asyncWork timingWorker
+      ev' <- nextEvent
+      goModuleGraph ev'
+    TabEv TabTiming -> do
+      modifyUI $ uiView .~ MainMode (MainView TabTiming)
+      ev' <- nextEvent
+      goTiming ev'
+    MainModuleEv (HoverOnModuleEv mlbl) -> do
+      modifyUI (uiModel . modelMainModuleGraph . modGraphUIHover .~ mlbl)
+      printMsg ("hover: " <> (T.pack $ show mlbl))
+      ev' <- nextEvent
+      goModuleGraph ev'
+    MouseEv (Scroll dir' (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            scale = modGraphWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
             ui' =
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
          in (ui', ss)
-      MouseEv TagTimingView (Scroll dir' (dx, dy)) -> do
-        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            vp' = transformScroll dir' (dx, dy) vp
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort . vpViewPort .~ vp')
-                  . (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Nothing)
-         in (ui', ss)
-      MouseEv TagModuleGraph (ZoomUpdate (rx, ry) scale) -> do
+      ev' <- nextEvent
+      goModuleGraph ev'
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
         let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+            rx = xcenter / modGraphWidth
+            ry = ycenter / modGraphHeight
             vp' = (transformZoom (rx, ry) scale vp)
             ui' =
               ui
                 & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
          in (ui', ss)
-      MouseEv TagTimingView (ZoomUpdate (rx, ry) scale) -> do
-        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            vp' = (transformZoom (rx, ry) scale vp)
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
-         in (ui', ss)
-      MouseEv TagModuleGraph ZoomEnd -> do
+      ev' <- nextEvent
+      goModuleGraph ev'
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
               Just viewPort ->
                 ui
                   & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
-      MouseEv TagTimingView ZoomEnd -> do
+      ev' <- nextEvent
+      goModuleGraph ev'
+    _ -> do
+      ev' <- nextEvent
+      goModuleGraph ev'
+
+goTiming :: Event -> Control ()
+goTiming ev = do
+  case ev of
+    BkgEv MessageChanUpdated -> do
+      modifyUISS (\(ui, ss) -> let ss' = (serverShouldUpdate .~ True) ss in (ui, ss'))
+      asyncWork timingWorker
+      ev' <- nextEvent
+      goTiming ev'
+    TabEv TabModuleGraph -> do
+      modifyUI $ uiView .~ MainMode (MainView TabModuleGraph)
+      ev' <- nextEvent
+      goModuleGraph ev'
+    MouseEv (MouseMove (Just (x, y))) -> do
+      printMsg ("move: " <> T.pack (show (x, y)))
+      ev' <- nextEvent
+      goTiming ev'
+    MouseEv (Scroll dir' (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp@(ViewPort (x0, y0) (x1, y1)) =
+              ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            scale = timingWidth / (x1 - x0)
+            vp' = transformScroll dir' scale (dx, dy) vp
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
+         in (ui', ss)
+      ev' <- nextEvent
+      goTiming ev'
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
+        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            rx = xcenter / timingWidth
+            ry = ycenter / timingHeight
+            vp' = (transformZoom (rx, ry) scale vp)
+            ui' =
+              ui
+                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+         in (ui', ss)
+      ev' <- nextEvent
+      goTiming ev'
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
         let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
               Just viewPort ->
                 ui
                   & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
-      _ -> (ui, ss)
-
-  case ev of
-    BkgEv MessageChanUpdated -> asyncWork timingWorker
-    _ -> pure ()
-
-handleScroll :: TQueue Event -> ComponentTag -> Gdk.EventScroll -> IO ()
-handleScroll chanQEv tag ev = do
-  dx <- get ev #deltaX
-  dy <- get ev #deltaY
-  dir <- get ev #direction
-  let mdir' = case dir of
-        Gdk.ScrollDirectionRight -> Just ScrollDirectionRight
-        Gdk.ScrollDirectionLeft -> Just ScrollDirectionLeft
-        Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
-        Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
-        _ -> Nothing
-  for_ mdir' $ \dir' -> do
-    atomically $ do
-      writeTQueue chanQEv (MouseEv tag (Scroll dir' (dx, dy)))
-
--- | pinch position in relative coord, i.e. 0 <= x <= 1, 0 <= y <= 1.
-handleZoomUpdate :: TQueue Event -> ComponentTag -> (Double, Double) -> Double -> IO ()
-handleZoomUpdate chanQEv tag (rx, ry) scale =
-  atomically $
-    writeTQueue chanQEv (MouseEv tag (ZoomUpdate (rx, ry) scale))
-
-handleZoomEnd :: TQueue Event -> ComponentTag -> IO ()
-handleZoomEnd chanQEv tag =
-  atomically $
-    writeTQueue chanQEv (MouseEv tag ZoomEnd)
+      ev' <- nextEvent
+      goTiming ev'
+    _ -> do
+      ev' <- nextEvent
+      goTiming ev'
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
@@ -303,28 +339,31 @@ main =
         vbRef <- atomically $ newTVar vb0
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
+        -- main canvas
+        drawingArea <- new Gtk.DrawingArea []
+        #addEvents
+          drawingArea
+          [ Gdk.EventMaskPointerMotionMask
+          , Gdk.EventMaskScrollMask
+          , Gdk.EventMaskTouchpadGestureMask
+          ]
+
         -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
         menuBar <- new Gtk.MenuBar []
         menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
         _ <- menuitem1 `on` #activate $ do
-          atomically $
-            modifyTVar' uiRef (uiView .~ MainMode (MainView TabModuleGraph))
-          putStrLn "Module Graph is selected"
+          atomically $ writeTQueue chanQEv (TabEv TabModuleGraph)
+          postGUIASync $
+            #queueDraw drawingArea
+
         menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
         _ <- menuitem2 `on` #activate $ do
-          atomically $
-            modifyTVar' uiRef (uiView .~ MainMode (MainView TabTiming))
-          putStrLn "Timing is selected"
+          atomically $ writeTQueue chanQEv (TabEv TabTiming)
+          postGUIASync $
+            #queueDraw drawingArea
+
         #append menuBar menuitem1
         #append menuBar menuitem2
-        -- main canvas
-        drawingArea <- new Gtk.DrawingArea []
-
-        #addEvents
-          drawingArea
-          [ Gdk.EventMaskScrollMask
-          , Gdk.EventMaskTouchpadGestureMask
-          ]
 
         _ <- drawingArea
           `on` #draw
@@ -334,70 +373,36 @@ main =
             renderAction vb ss ui
             pure True
         _ <- drawingArea
-          `on` #scrollEvent
+          `on` #motionNotifyEvent
           $ \ev -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              handleScroll chanQEv tag ev
+            (vb, ui) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar uiRef)
+            needRedraw <- handleMotion vb ui chanQEv ev
+            when needRedraw $ do
               postGUIASync $
                 #queueDraw drawingArea
+            pure True
+        _ <- drawingArea
+          `on` #scrollEvent
+          $ \ev -> do
+            handleScroll chanQEv ev
+            postGUIASync $
+              #queueDraw drawingArea
             pure True
 
         gzoom <- Gtk.gestureZoomNew drawingArea
         _ <- gzoom
           `on` #scaleChanged
           $ \scale -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
-              let (width, height) =
-                    case tag of
-                      TagTimingView -> (timingWidth, timingHeight)
-                      TagModuleGraph -> (modGraphWidth, modGraphHeight)
-                      _ -> canvasDim
-                  rx = xcenter / width
-                  ry = ycenter / height
-              handleZoomUpdate chanQEv tag (rx, ry) scale
-              postGUIASync $
-                #queueDraw drawingArea
+            (_, xcenter, ycenter) <- #getBoundingBoxCenter gzoom
+            handleZoomUpdate chanQEv (xcenter, ycenter) scale
+            postGUIASync $
+              #queueDraw drawingArea
         _ <- gzoom
           `on` #end
           $ \_ -> do
-            -- TODO: this branch will be moved to control
-            (ss, ui) <- atomically ((,) <$> readTVar ssRef <*> readTVar uiRef)
-            let mgs = ss ^. serverModuleGraphState
-                mgrvis = mgs ^. mgsClusterGraph
-                mtag = case mgrvis of
-                  Nothing -> Nothing
-                  Just _ ->
-                    case ui ^. uiView of
-                      MainMode (MainView TabModuleGraph) -> Just TagModuleGraph
-                      MainMode (MainView TabTiming) -> Just TagTimingView
-                      _ -> Nothing
-            for_ mtag $ \tag -> do
-              handleZoomEnd chanQEv tag
-              postGUIASync $
-                #queueDraw drawingArea
+            handleZoomEnd chanQEv
+            postGUIASync $
+              #queueDraw drawingArea
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
 
         layout <- do
