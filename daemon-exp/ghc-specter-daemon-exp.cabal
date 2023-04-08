@@ -23,7 +23,6 @@ executable ghc-specter-daemon-exp
   other-modules: Handler
                  ModuleGraph
                  Renderer
-                 Util
                  Timing
                  Types
 
