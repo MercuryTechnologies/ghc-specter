@@ -75,6 +75,7 @@ library
       GHCSpecter.Util.ModuleGraph
       GHCSpecter.Util.SourceText
       GHCSpecter.Util.SourceTree
+      GHCSpecter.Util.Transformation
       GHCSpecter.Worker.CallGraph
       GHCSpecter.Worker.Hie
       GHCSpecter.Worker.ModuleGraph

@@ -1,4 +1,4 @@
-module Util (
+module GHCSpecter.Util.Transformation (
   -- * transformation function for viewport
   transformScroll,
   transformZoom,

@@ -102,7 +102,6 @@ import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
-import Util (transformScroll, transformZoom)
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -164,6 +163,7 @@ forceUpdateLoop drawingArea = forever $ do
   postGUIASync $
     #queueDraw drawingArea
 
+{-
 controlMain :: Control ()
 controlMain = nextEvent >>= goModuleGraph
 
@@ -275,6 +275,7 @@ goTiming ev = do
     _ -> do
       ev' <- nextEvent
       goTiming ev'
+-}
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
