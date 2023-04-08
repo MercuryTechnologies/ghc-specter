@@ -241,8 +241,8 @@ main =
         _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
-            (vb, ui) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar uiRef)
-            needRedraw <- handleMotion vb ui chanQEv ev
+            ui <- liftIO $ atomically (readTVar uiRef)
+            needRedraw <- handleMotion ui chanQEv ev
             when needRedraw $ do
               postGUIASync $
                 #queueDraw drawingArea

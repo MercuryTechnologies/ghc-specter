@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.TimingView (
@@ -75,7 +76,7 @@ import GHCSpecter.UI.Types (
   ViewPort (..),
  )
 import GHCSpecter.UI.Types.Event (
-  ComponentTag (TagTimingView),
+  BackgroundEvent (RefreshUI),
   Event (..),
   MouseEvent (..),
   TimingEvent (..),
@@ -395,7 +396,7 @@ renderTimingChart drvModMap tui ttable =
             ]
           mouseMove
             | tui ^. timingUIHandleMouseMove =
-                [MouseEv . MouseMove <$> onMouseMove]
+                [(\case Nothing -> BkgEv RefreshUI; Just xy -> MouseEv (MouseMove xy)) <$> onMouseMove]
             | otherwise = []
        in mouseMove ++ prop1
 

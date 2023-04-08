@@ -103,7 +103,7 @@ data TimingEvent
   deriving (Show, Eq)
 
 data MouseEvent
-  = MouseMove (Maybe (Double, Double))
+  = MouseMove (Double, Double)
   | MouseDown (Maybe (Double, Double))
   | MouseUp (Maybe (Double, Double))
   | Scroll ScrollDirection (Double, Double)

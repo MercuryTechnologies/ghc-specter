@@ -542,7 +542,7 @@ goTiming ev (view, model0) = do
                   . addDelta (x, y) (x', y') vp
                   $ model_
           pure model
-        MouseEv (MouseMove (Just (x', y'))) -> do
+        MouseEv (MouseMove (x', y')) -> do
           let model = addDelta (x, y) (x', y') vp model_
           ui0 <- getUI
           let ui1 = ui0 & (uiModel .~ model)

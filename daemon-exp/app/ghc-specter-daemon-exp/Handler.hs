@@ -38,15 +38,16 @@ import GI.Gdk qualified as Gdk
 import Types (ViewBackend (..))
 
 handleMotion ::
-  ViewBackend ->
   UIState ->
   TQueue Event ->
   Gdk.EventMotion ->
   -- | will redraw?
   IO Bool
-handleMotion vb ui chanQEv ev = do
+handleMotion ui chanQEv ev = do
   x <- get ev #x
   y <- get ev #y
+  -- atomically $
+  --   writeTQueue chanQEv $ MouseMove
 
   -- for now. assuming module graph
   let rx = x / modGraphWidth
@@ -65,6 +66,7 @@ handleMotion vb ui chanQEv ev = do
       -- TODO: redraw control on control side.
       pure True
     else pure False
+
 
 handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
 handleScroll chanQEv ev = do
