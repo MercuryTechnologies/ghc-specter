@@ -10,6 +10,7 @@ module GHCSpecter.Render.Components.TimingView (
   compileTimingChart,
   compileMemChart,
   compileTimingRange,
+  compileBlockers,
 
   -- * render
   render,
@@ -26,6 +27,7 @@ import Concur.Replica (
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
+import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
@@ -358,6 +360,28 @@ compileTimingRange tui ttable = [background, handle]
         (Just 1.0)
         Nothing
 
+compileBlockers :: ModuleName -> TimingTable -> [Primitive]
+compileBlockers hoveredMod ttable =
+  snd $ L.mapAccumR placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+  where
+    upMods =
+      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+    downMods =
+      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
+    --
+    selected = DrawText (0, 0) UpperLeft Black 8 hoveredMod
+    line = Polyline (0, 0) [] (400, 0) Black 1
+    blockedBy = DrawText (0, 0) UpperLeft Black 8 "Blocked By"
+    upstreams = fmap (DrawText (0, 0) UpperLeft Black 8) upMods
+    blocking = DrawText (0, 0) UpperLeft Black 8 "Blocking"
+    downstreams = fmap (DrawText (0, 0) UpperLeft Black 8) downMods
+    --
+    placing !n item = (n + 1, item')
+      where
+        item' = case item of
+          DrawText (x, y) p c f t -> DrawText (x, y + fromIntegral f * n) p c f t
+          _ -> item
+
 renderTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
@@ -451,8 +475,8 @@ renderTimingRange tui ttable =
         , S.g [] (fmap (renderPrimitive (const [])) rexp)
         ]
 
-renderBlockerLine :: ModuleName -> TimingTable -> Widget IHTML Event
-renderBlockerLine hoveredMod ttable =
+renderBlockers :: ModuleName -> TimingTable -> Widget IHTML Event
+renderBlockers hoveredMod ttable =
   divClass "blocker" [] [selected, upstream, hr [], downstreams]
   where
     upMods =
@@ -519,5 +543,5 @@ render drvModMap tui ttable =
                   , ("overflow", "hidden")
                   ]
               ]
-              [renderBlockerLine hoveredMod ttable]
+              [renderBlockers hoveredMod ttable]
           ]
