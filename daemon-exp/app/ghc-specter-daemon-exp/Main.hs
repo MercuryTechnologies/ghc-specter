@@ -20,7 +20,6 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Lens (to, (&), (.~), (^.), _1, _2)
-import Control.Monad (when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (traverse_)
@@ -241,11 +240,7 @@ main =
         _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
-            (vb, ui) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar uiRef)
-            needRedraw <- handleMotion vb ui chanQEv ev
-            when needRedraw $ do
-              postGUIASync $
-                #queueDraw drawingArea
+            handleMotion chanQEv ev
             pure True
         _ <- drawingArea
           `on` #scrollEvent

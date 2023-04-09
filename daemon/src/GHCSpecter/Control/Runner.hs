@@ -89,7 +89,9 @@ modifySS' f = do
   ssRef <- runnerServerState <$> ask
   liftIO $ atomically $ modifyTVar' ssRef f
 
-modifyUISS' :: ((UIState, ServerState) -> (UIState, ServerState)) -> Runner (UIState, ServerState)
+modifyUISS' ::
+  ((UIState, ServerState) -> (UIState, ServerState)) ->
+  Runner ((UIState, ServerState), (UIState, ServerState))
 modifyUISS' f = do
   (uiRef, ssRef) <- ((,) <$> runnerUIState <*> runnerServerState) <$> ask
   liftIO $ atomically $ do
@@ -97,7 +99,7 @@ modifyUISS' f = do
     ss <- readTVar ssRef
     let (ui', ss') = f (ui, ss)
     ui' `seq` ss' `seq` (writeTVar uiRef ui' >> writeTVar ssRef ss')
-    pure (ui', ss')
+    pure ((ui, ss), (ui', ss'))
 
 sendRequest' :: Request -> Runner ()
 sendRequest' req = do
@@ -160,8 +162,11 @@ stepControl (Free (ModifyUISS upd next)) = do
   void $ modifyUISS' upd
   pure (Left next)
 stepControl (Free (ModifyAndReturn upd cont)) = do
-  r <- modifyUISS' upd
-  pure (Left (cont r))
+  (_before, after) <- modifyUISS' upd
+  pure (Left (cont after))
+stepControl (Free (ModifyAndReturnBoth upd cont)) = do
+  (before, after) <- modifyUISS' upd
+  pure (Left (cont (before, after)))
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)
