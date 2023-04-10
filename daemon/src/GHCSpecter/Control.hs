@@ -35,7 +35,6 @@ import GHCSpecter.Control.Types (
   modifyUISS,
   nextEvent,
   printMsg,
-  putSS,
   putUI,
   refresh,
   refreshUIAfter,
@@ -62,7 +61,6 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),
-  HasMainView (..),
   HasModuleGraphUI (..),
   HasSourceViewUI (..),
   HasTimingUI (..),
@@ -70,14 +68,10 @@ import GHCSpecter.UI.Types (
   HasUIState (..),
   HasUIViewRaw (..),
   HasViewPortInfo (..),
-  MainView,
   ModuleGraphUI (..),
   UIModel,
-  UIState,
-  UIView (..),
   ViewPort (..),
   ViewPortInfo (..),
-  emptyMainView,
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (..),
@@ -102,32 +96,27 @@ import GHCSpecter.Worker.Timing (
   timingWorker,
  )
 
+-- TODO: this function does almost nothing. remove.
 defaultUpdateModel ::
   Event ->
-  (UIModel, ServerState) ->
-  Control (UIModel, ServerState)
-defaultUpdateModel topEv (oldModel, oldSS) = do
+  ServerState ->
+  ServerState
+defaultUpdateModel topEv =
   case topEv of
-    TabEv _tab' -> do
-      let newSS = (serverShouldUpdate .~ False) oldSS
-      pure (oldModel, newSS)
-    BkgEv MessageChanUpdated -> do
-      let newSS = (serverShouldUpdate .~ True) oldSS
-      asyncWork timingWorker
-      refresh
-      pure (oldModel, newSS)
-    BkgEv RefreshUI -> do
-      refresh
-      pure (oldModel, oldSS)
-    _ -> pure (oldModel, oldSS)
+    TabEv _tab' ->
+      serverShouldUpdate .~ False
+    BkgEv MessageChanUpdated ->
+      serverShouldUpdate .~ True
+    _ ->
+      id
 
-updateLastUpdated :: UIState -> Control UIState
-updateLastUpdated ui = do
+updateLastUpdated :: Control ()
+updateLastUpdated = do
   now <- getCurrentTime
-  let ui'
-        | ui ^. uiShouldUpdate = ui & uiLastUpdated .~ now
-        | otherwise = ui
-  pure ui'
+  modifyUI $ \ui ->
+    if (ui ^. uiShouldUpdate)
+      then ui & uiLastUpdated .~ now
+      else ui
 
 checkIfUpdatable :: Control ()
 checkIfUpdatable = do
@@ -143,7 +132,7 @@ showBanner :: Control ()
 showBanner = do
   startTime <- getCurrentTime
   ui <- getUI
-  let ui' = (uiView .~ BannerMode 0) ui
+  let ui' = (uiViewRaw . uiTransientBanner .~ Just 0) ui
   putUI ui'
   refreshUIAfter 0.1
   go startTime
@@ -157,14 +146,14 @@ showBanner = do
           _ev <- nextEvent
           ui <- getUI
           let r = realToFrac (diff / duration)
-              ui' = (uiView .~ BannerMode r) ui
+              ui' = (uiViewRaw . uiTransientBanner .~ Just r) ui
           putUI ui'
           refreshUIAfter 0.1
           go start
         else pure ()
 
-processConsoleCommand :: MainView -> UIModel -> DriverId -> Text -> Control UIModel
-processConsoleCommand view model drvId msg
+processConsoleCommand :: UIModel -> DriverId -> Text -> Control UIModel
+processConsoleCommand model drvId msg
   | msg == ":next" = do
       sendRequest $ ConsoleReq drvId NextBreakpoint
       pure model
@@ -198,8 +187,10 @@ processConsoleCommand view model drvId msg
       ss <- getSS
       let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
           model' =
-            (modelSourceView . srcViewExpandedModule .~ mmod) model
-      branchTab TabSourceView (view, model')
+            model
+              & (modelSourceView . srcViewExpandedModule .~ mmod)
+                . (modelTab .~ TabSourceView)
+      mainLoop
       -- should not be reached.
       pure model'
   | msg == ":dump-heap" = do
@@ -214,16 +205,18 @@ processConsoleCommand view model drvId msg
 
 appendNewCommand :: DriverId -> Text -> Control ()
 appendNewCommand drvId newMsg = do
-  ss <- getSS
-  let newCmd = ConsoleCommand newMsg
-      append Nothing = Just [newCmd]
-      append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
-      ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
-  putSS ss'
+  modifySS $ \ss ->
+    let newCmd = ConsoleCommand newMsg
+        append Nothing = Just [newCmd]
+        append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
+        ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
+     in ss'
 
 -- NOTE: This function should not exist forever.
-goCommon :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goCommon ev (view, model0) = do
+goCommon :: Event -> Control ()
+goCommon ev = do
+  -- TODO: this should be transactional. make a free monad case with transactional side effects.
+  model0 <- (^. uiModel) <$> getUI
   model <-
     case ev of
       ConsoleEv (ConsoleTab i) -> do
@@ -237,7 +230,7 @@ goCommon ev (view, model0) = do
               let msg = model0 ^. modelConsole . consoleInputEntry
                   model = (modelConsole . consoleInputEntry .~ "") $ model0
               appendNewCommand drvId msg
-              model' <- processConsoleCommand view model drvId msg
+              model' <- processConsoleCommand model drvId msg
               pure model'
           else pure model0
       ConsoleEv (ConsoleInput content) -> do
@@ -252,26 +245,21 @@ goCommon ev (view, model0) = do
               Just drvId -> do
                 let model = (modelConsole . consoleInputEntry .~ "") $ model0
                 appendNewCommand drvId msg
-                model' <- processConsoleCommand view model drvId msg
+                model' <- processConsoleCommand model drvId msg
                 pure model'
           else pure $ (modelConsole . consoleInputEntry .~ msg) model0
       _ -> pure model0
-  ui <- getUI
-  ss <- getSS
-  (model', ss') <- defaultUpdateModel ev (model, ss)
-  let
-    -- just placeholder
-    view' = view
-    ui' =
-      ui
-        & (uiView .~ MainMode view')
-          . (uiModel .~ model')
-  putUI ui'
-  putSS ss'
-  pure (view', model')
+  modifyUISS $ \(ui, ss) ->
+    let ui' = (uiModel .~ model) ui
+        ss' = defaultUpdateModel ev ss
+     in (ui', ss')
+  case ev of
+    BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
+    BkgEv RefreshUI -> refresh
+    _ -> pure ()
 
-goSession :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSession ev (view, _model0) = do
+goSession :: Event -> Control ()
+goSession ev = do
   case ev of
     SessionEv SaveSessionEv -> do
       saveSession
@@ -298,11 +286,13 @@ goSession ev (view, _model0) = do
       sendRequest (SessionReq Pause)
       refresh
     _ -> pure ()
-  model <- (^. uiModel) <$> getUI
-  goCommon ev (view, model)
+  goCommon ev
 
-goModuleGraph :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goModuleGraph ev (view, _model0) = do
+goModuleGraph :: Event -> Control ()
+goModuleGraph ev = do
+  -- printMsg $
+  --   "I am in goModuleGraph, " <> T.pack (show (model0 ^. modelTab)) <> ", " <> T.pack (show ev)
+
   case ev of
     MainModuleEv mev -> do
       modifyUISS $ \(ui, ss) ->
@@ -385,8 +375,7 @@ goModuleGraph ev (view, _model0) = do
          in (ui', ss)
       refresh
     _ -> pure ()
-  model <- (^. uiModel) <$> getUI
-  goCommon ev (view, model)
+  goCommon ev
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -395,8 +384,8 @@ goModuleGraph ev (view, _model0) = do
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-goSourceView :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goSourceView ev (view, _model0) = do
+goSourceView :: Event -> Control ()
+goSourceView ev = do
   case ev of
     SourceViewEv (SelectModule expandedModu') -> do
       modifyUISS $ \(ui, ss) ->
@@ -428,11 +417,14 @@ goSourceView ev (view, _model0) = do
          in (ui', ss')
       refresh
     _ -> pure ()
-  model <- (^. uiModel) <$> getUI
-  goCommon ev (view, model)
+  goCommon ev
 
-goTiming :: Event -> (MainView, UIModel) -> Control (MainView, UIModel)
-goTiming ev (view, model0) = do
+goTiming :: Event -> Control ()
+goTiming ev = do
+  model0 <- (^. uiModel) <$> getUI
+  printMsg $
+    "I am in goTiming, " <> T.pack (show (model0 ^. modelTab)) <> ", " <> T.pack (show ev)
+
   case ev of
     TimingEv ToCurrentTime -> do
       modifyUISS $ \(ui, ss) ->
@@ -556,19 +548,15 @@ goTiming ev (view, model0) = do
          in (ui', ss)
       refresh
     _ -> pure ()
-  model <-
-    case ev of
-      MouseEv (MouseDown (Just (x, y))) -> do
-        let vpi = model0 ^. modelTiming . timingUIViewPort
-            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-            -- turn on mouse move event handling
-            model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
-        ui0 <- getUI
-        let ui1 = ui0 & (uiModel .~ model1)
-        putUI ui1
-        onDraggingInTimingView model1 (x, y) vp
-      _ -> (^. uiModel) <$> getUI
-  goCommon ev (view, model)
+  case ev of
+    MouseEv (MouseDown (Just (x, y))) -> do
+      modifyUI (uiModel . modelTiming . timingUIHandleMouseMove .~ True)
+      ui' <- getUI
+      let vpi = ui' ^. uiModel . modelTiming . timingUIViewPort
+          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+      onDraggingInTimingView (x, y) vp
+    _ -> pure ()
+  goCommon ev
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
     addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
@@ -577,63 +565,54 @@ goTiming ev (view, model0) = do
             .~ ViewPortInfo (ViewPort (tx - dx, ty - dy) (tx1 - dx, ty1 - dy)) Nothing
 
     -- (x, y): mouse down point, vp: viewport
-    onDraggingInTimingView model_ (x, y) vp = do
+    onDraggingInTimingView (x, y) vp = do
       checkIfUpdatable
       ev' <- nextEvent
       case ev' of
-        MouseEv (MouseUp (Just (x', y'))) -> do
-          let model =
-                -- turn off mouse move event handling
-                (modelTiming . timingUIHandleMouseMove .~ False)
-                  . addDelta (x, y) (x', y') vp
-                  $ model_
-          pure model
+        MouseEv (MouseUp (Just (x', y'))) ->
+          modifyUI $
+            -- turn off mouse move event handling
+            (uiModel . modelTiming . timingUIHandleMouseMove .~ False)
+              . (uiModel %~ addDelta (x, y) (x', y') vp)
         MouseEv (MouseMove (x', y')) -> do
-          let model = addDelta (x, y) (x', y') vp model_
-          ui0 <- getUI
-          let ui1 = ui0 & (uiModel .~ model)
-          ui <- updateLastUpdated ui1
-          putUI ui
-          onDraggingInTimingView model (x, y) vp
-        _ -> onDraggingInTimingView model_ (x, y) vp
+          modifyUI $
+            (uiModel %~ addDelta (x, y) (x', y') vp)
+          updateLastUpdated
+          onDraggingInTimingView (x, y) vp
+        _ -> onDraggingInTimingView (x, y) vp
 
--- | top-level branching through tab
-branchTab :: Tab -> (MainView, UIModel) -> Control ()
-branchTab tab (view, model) =
+initializeMainView :: Control ()
+initializeMainView =
+  modifyUI (uiViewRaw . uiTransientBanner .~ Nothing)
+
+-- | top-level loop, branching according to tab event
+mainLoop :: Control ()
+mainLoop = do
+  tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
     TabSession -> branchLoop goSession
     TabModuleGraph -> branchLoop goModuleGraph
     TabSourceView -> branchLoop goSourceView
     TabTiming -> branchLoop goTiming
   where
-    branchLoop go = do
-      let view1 = (mainTab .~ tab) view
-      (view', model') <- go (TabEv tab) (view1, model)
-      loop (view', model')
+    branchLoop go = loop
       where
-        loop (v, m) = do
+        loop = do
           checkIfUpdatable
           printMsg "wait for the next event"
           ev <- nextEvent
           printMsg $ "event received: " <> T.pack (show ev)
           case ev of
             TabEv tab' -> do
-              when (tab /= tab') refresh
-              branchTab tab' (v, m)
-            _ -> do
-              (v', m') <- go ev (v, m)
-              loop (v', m')
-
-initializeMainView :: Control (MainView, UIModel)
-initializeMainView = do
-  ui1 <- getUI
-  let ui1' = (uiView .~ MainMode emptyMainView) ui1
-  putUI ui1'
-  pure (emptyMainView, ui1' ^. uiModel)
-
--- | main loop
-mainLoop :: (MainView, UIModel) -> Control ()
-mainLoop (view, model) = branchTab (view ^. mainTab) (view, model)
+              tab <- (^. uiModel . modelTab) <$> getUI
+              if (tab /= tab')
+                then do
+                  modifyUI (uiModel . modelTab .~ tab')
+                  refresh
+                  mainLoop
+                else loop
+            _ ->
+              go ev >> loop
 
 main :: Control ()
 main = do
@@ -644,7 +623,7 @@ main = do
   showBanner
 
   -- initialize main view
-  (view, model) <- initializeMainView
+  initializeMainView
 
   -- enter the main loop
-  mainLoop (view, model)
+  mainLoop

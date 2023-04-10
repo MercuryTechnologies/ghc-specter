@@ -6,19 +6,21 @@ module Timing (
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens ((.~), (^.))
-import Data.Foldable (traverse_)
+import Data.Foldable (for_, traverse_)
 import Data.Maybe (fromMaybe)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.Graphics.DSL (Primitive (..))
 import GHCSpecter.Render.Components.TimingView (
+  compileBlockers,
   compileMemChart,
   compileTimingChart,
   compileTimingRange,
  )
 import GHCSpecter.UI.Constants (
   timingHeight,
+  timingRangeHeight,
   timingWidth,
  )
 import GHCSpecter.UI.Types (
@@ -75,4 +77,14 @@ renderTiming uiRef vb drvModMap tui ttable = do
   R.save
   R.translate 0 timingHeight
   traverse_ (renderPrimitive uiRef vb) rexpTimingBar
+  R.restore
+  -- blocker
+  R.save
+  R.translate 0 (timingHeight + timingRangeHeight)
+  -- R.setSourceRGBA 0.5 0.5 0.5 1
+  -- R.rectangle 0 0 100 100
+  -- R.stroke
+  for_ (tui ^. timingUIHoveredModule) $ \hoveredMod -> do
+    let rexpBlockers = compileBlockers hoveredMod ttable
+    traverse_ (renderPrimitive uiRef vb) rexpBlockers
   R.restore

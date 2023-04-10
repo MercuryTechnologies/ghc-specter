@@ -55,9 +55,7 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
-  MainView (..),
   UIState (..),
-  UIView (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -126,10 +124,10 @@ renderAction vb ss uiRef = do
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
-      case ui ^. uiView of
-        MainMode (MainView TabModuleGraph) ->
+      case ui ^. uiModel . modelTab of
+        TabModuleGraph ->
           renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
-        MainMode (MainView TabTiming) -> do
+        TabTiming -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
           renderTiming uiRef vb drvModMap tui ttable
@@ -178,7 +176,7 @@ main =
           ui0
             & (uiModel . modelTiming . timingUIPartition .~ True)
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
-              . (uiView .~ MainMode (MainView TabModuleGraph))
+              . (uiModel . modelTab .~ TabModuleGraph)
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
@@ -236,7 +234,6 @@ main =
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
-
         _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
@@ -275,6 +272,6 @@ main =
               servSess
               cliSess
               refreshAction
-              (Control.mainLoop (MainView TabModuleGraph, ui0' ^. uiModel))
+              Control.mainLoop
         _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main
