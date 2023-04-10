@@ -61,9 +61,11 @@ data Scene = Scene
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [Primitive]
   }
+  deriving (Show)
 
 data EventMap = EventMap
   { eventMapGlobalViewPort :: ViewPort
   , eventMapLocalViewPort :: ViewPort
   , eventMapElements :: [(Text, ViewPort)]
   }
+  deriving (Show)

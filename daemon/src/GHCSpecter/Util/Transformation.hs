@@ -58,9 +58,7 @@ hitItem (x, y) emap
   where
     cvp@(ViewPort (cx0, cy0) (cx1, cy1)) = eventMapGlobalViewPort emap
     ViewPort (vx0, vy0) (vx1, vy1) = eventMapLocalViewPort emap
-    -- scaleX = (cx1 - cx0) / (vx1 - vx0)
-    -- scaleY = (cy1 - cy0) / (vy1 - vy0)
     rx = (x - cx0) / (cx1 - cx0)
-    ry = (y - cy0) / (cy1 - cy1)
+    ry = (y - cy0) / (cy1 - cy0)
     vx = vx0 + rx * (vx1 - vx0)
     vy = vy0 + ry * (vy1 - vy0)

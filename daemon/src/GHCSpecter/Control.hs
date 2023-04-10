@@ -88,7 +88,6 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
-  isInside,
   transformScroll,
   transformZoom,
  )
@@ -291,9 +290,6 @@ goSession ev = do
 
 goModuleGraph :: Event -> Control ()
 goModuleGraph ev = do
-  -- printMsg $
-  --   "I am in goModuleGraph, " <> T.pack (show (model0 ^. modelTab)) <> ", " <> T.pack (show ev)
-
   case ev of
     MainModuleEv mev -> do
       modifyUISS $ \(ui, ss) ->
@@ -323,15 +319,9 @@ goModuleGraph ev = do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
-              -- rx = x / modGraphWidth
-              -- ry = y / modGraphHeight
-              -- ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-              -- x' = x0 + (x1 - x0) * rx
-              -- y' = y0 + (y1 - y0) * ry
               emaps = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
               mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
-              --   fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = HoverOnModuleEv mnowHit
@@ -503,15 +493,9 @@ goTiming ev = do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
           let
-            -- rx = x / timingWidth
-            -- ry = y / timingHeight
-            -- ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            -- x' = x0 + (x1 - x0) * rx
-            -- y' = y0 + (y1 - y0) * ry
             emaps = ui ^. uiViewRaw . uiRawEventMap
             mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
             mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
-            --   fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
             ui'
               | mnowHit /= mprevHit =
                   (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
