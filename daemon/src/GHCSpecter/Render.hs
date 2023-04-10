@@ -46,13 +46,11 @@ import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),
-  HasMainView (..),
   HasUIModel (..),
   HasUIState (..),
-  MainView,
+  HasUIViewRaw (..),
   UIModel (..),
   UIState (..),
-  UIView (..),
  )
 import GHCSpecter.UI.Types.Event (
   ConsoleEvent (..),
@@ -101,12 +99,11 @@ renderNavbar tab =
        in el "a" [cls, onClick]
 
 renderMainPanel ::
-  MainView ->
   UIModel ->
   ServerState ->
   Widget IHTML Event
-renderMainPanel view model ss =
-  case view ^. mainTab of
+renderMainPanel model ss =
+  case model ^. modelTab of
     TabSession -> Session.render ss
     TabModuleGraph -> ModuleGraph.render model ss
     TabSourceView -> SourceView.render (model ^. modelSourceView) ss
@@ -153,8 +150,8 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
     msgCounter =
       divClass "box" [] [text $ "message: " <> (ss ^. serverMessageSN . to (T.pack . show))]
 
-renderMainView :: (MainView, UIModel, ServerState) -> Widget IHTML Event
-renderMainView (view, model, ss) = do
+renderMainView :: (UIModel, ServerState) -> Widget IHTML Event
+renderMainView (model, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
             ( div [] [text "No GHC process yet"]
@@ -167,14 +164,14 @@ renderMainView (view, model, ss) = do
                     , ("overflow", "hidden")
                     ]
                 ]
-                [renderMainPanel view model ss]
+                [renderMainPanel model ss]
             , section [] [renderBottomPanel model ss]
             )
   div
     [ classList [("is-fullheight", True)]
     , style [("overflow", "hidden")]
     ]
-    [ renderNavbar (view ^. mainTab)
+    [ renderNavbar (model ^. modelTab)
     , mainPanel
     , bottomPanel
     ]
@@ -183,6 +180,6 @@ render ::
   (UIState, ServerState) ->
   Widget IHTML Event
 render (ui, ss) =
-  case ui ^. uiView of
-    BannerMode fraction -> renderBanner (ui ^. uiAssets . assetsGhcSpecterPng) fraction
-    MainMode view -> renderMainView (view, ui ^. uiModel, ss)
+  case ui ^. uiViewRaw . uiTransientBanner of
+    Just fraction -> renderBanner (ui ^. uiAssets . assetsGhcSpecterPng) fraction
+    Nothing -> renderMainView (ui ^. uiModel, ss)

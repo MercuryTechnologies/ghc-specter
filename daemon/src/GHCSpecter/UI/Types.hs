@@ -15,14 +15,9 @@ module GHCSpecter.UI.Types (
   ConsoleUI,
   HasConsoleUI (..),
   emptyConsoleUI,
-  MainView (..),
-  HasMainView (..),
-  emptyMainView,
   UIModel (..),
   HasUIModel (..),
   emptyUIModel,
-  UIView (..),
-  HasUIView (..),
   UIViewRaw (..),
   HasUIViewRaw (..),
   ViewPortInfo (..),
@@ -130,21 +125,10 @@ makeClassy ''ConsoleUI
 emptyConsoleUI :: ConsoleUI
 emptyConsoleUI = ConsoleUI Nothing ""
 
-data MainView = MainView
-  { _mainTab :: Tab
-  -- ^ current tab
-  }
-
-makeClassy ''MainView
-
-emptyMainView :: MainView
-emptyMainView =
-  MainView
-    { _mainTab = TabSession
-    }
-
 data UIModel = UIModel
-  { _modelMainModuleGraph :: ModuleGraphUI
+  { _modelTab :: Tab
+  -- ^ current tab.
+  , _modelMainModuleGraph :: ModuleGraphUI
   -- ^ UI state of main module graph
   , _modelSubModuleGraph :: (DetailLevel, ModuleGraphUI)
   -- ^ UI state of sub module graph
@@ -153,6 +137,7 @@ data UIModel = UIModel
   , _modelTiming :: TimingUI
   -- ^ UI state of Timing UI
   , _modelConsole :: ConsoleUI
+  -- ^ UI state of console uI
   }
 
 makeClassy ''UIModel
@@ -160,23 +145,19 @@ makeClassy ''UIModel
 emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
-    { _modelMainModuleGraph = emptyModuleGraphUI
+    { _modelTab = TabSession
+    , _modelMainModuleGraph = emptyModuleGraphUI
     , _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI)
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
     }
 
--- TODO: this will be replaced by UIViewRaw
--- temporary UI state (like progress state of banner) should be in Control.
-data UIView
-  = BannerMode Double
-  | MainMode MainView
-
-makeClassy ''UIView
-
 data UIViewRaw = UIViewRaw
-  { _uiRawEventBoxMap :: [(Text, ((Double, Double), (Double, Double)))]
+  { _uiTransientBanner :: Maybe Double
+  -- ^ progress bar status.
+  -- TODO: This will be handled more properly with typed transition.
+  , _uiRawEventBoxMap :: [(Text, ((Double, Double), (Double, Double)))]
   -- ^ event name -> bounding box map
   }
 
@@ -189,8 +170,6 @@ data UIState = UIState
   -- ^ last updated time
   , _uiModel :: UIModel
   -- ^ main UI state
-  , _uiView :: UIView
-  -- ^ main view state
   , _uiViewRaw :: UIViewRaw
   -- ^ view state in the raw
   , _uiAssets :: Assets
@@ -205,7 +184,6 @@ emptyUIState assets now =
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
     , _uiModel = emptyUIModel
-    , _uiView = BannerMode 0
-    , _uiViewRaw = UIViewRaw []
+    , _uiViewRaw = UIViewRaw Nothing []
     , _uiAssets = assets
     }

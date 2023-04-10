@@ -38,9 +38,8 @@ import GHCSpecter.UI.ConcurReplica.Types (
  )
 import GHCSpecter.UI.Types (
   HasUIState (..),
+  HasUIViewRaw (..),
   UIState,
-  UIView (..),
-  emptyMainView,
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -64,7 +63,7 @@ webServer cfg servSess = do
         unsafeBlockingIO $ do
           initTime <- getCurrentTime
           let ui0 = emptyUIState assets initTime
-              ui0' = (uiView .~ MainMode emptyMainView) ui0
+              ui0' = (uiViewRaw . uiTransientBanner .~ Nothing) ui0
           newTVarIO ui0'
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO

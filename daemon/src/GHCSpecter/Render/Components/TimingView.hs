@@ -27,7 +27,6 @@ import Concur.Replica (
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
-import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
@@ -387,9 +386,9 @@ compileBlockers hoveredMod ttable = box : contents
         -- for now
         _ -> (offset, item)
     --
-    (offset, contents) =
+    (size, contents) =
       L.mapAccumL placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
-    box = trace (show offset) $ Rectangle (0, 0) 200 offset (Just Black) Nothing (Just 1.0) Nothing
+    box = Rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
 
 renderTimingChart ::
   BiKeyMap DriverId ModuleName ->
