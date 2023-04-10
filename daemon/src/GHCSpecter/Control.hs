@@ -35,7 +35,6 @@ import GHCSpecter.Control.Types (
   modifyUISS,
   nextEvent,
   printMsg,
-  putSS,
   putUI,
   refresh,
   refreshUIAfter,
@@ -71,7 +70,6 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI (..),
   UIModel,
-  UIState,
   ViewPort (..),
   ViewPortInfo (..),
  )
@@ -192,7 +190,7 @@ processConsoleCommand model drvId msg
             model
               & (modelSourceView . srcViewExpandedModule .~ mmod)
                 . (modelTab .~ TabSourceView)
-      branchTab
+      mainLoop
       -- should not be reached.
       pure model'
   | msg == ":dump-heap" = do
@@ -552,13 +550,7 @@ goTiming ev = do
     _ -> pure ()
   case ev of
     MouseEv (MouseDown (Just (x, y))) -> do
-      modifyUI $ \ui ->
-        let model0 = ui ^. uiModel
-            vpi = model0 ^. modelTiming . timingUIViewPort
-            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-            -- turn on mouse move event handling
-            model1 = (modelTiming . timingUIHandleMouseMove .~ True) model0
-         in (uiModel .~ model1) ui
+      modifyUI (uiModel . modelTiming . timingUIHandleMouseMove .~ True)
       ui' <- getUI
       let vpi = ui' ^. uiModel . modelTiming . timingUIViewPort
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -589,9 +581,13 @@ goTiming ev = do
           onDraggingInTimingView (x, y) vp
         _ -> onDraggingInTimingView (x, y) vp
 
--- | top-level branching through tab
-branchTab :: Control ()
-branchTab = do
+initializeMainView :: Control ()
+initializeMainView =
+  modifyUI (uiViewRaw . uiTransientBanner .~ Nothing)
+
+-- | top-level loop, branching according to tab event
+mainLoop :: Control ()
+mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
     TabSession -> branchLoop goSession
@@ -613,18 +609,10 @@ branchTab = do
                 then do
                   modifyUI (uiModel . modelTab .~ tab')
                   refresh
-                  branchTab
+                  mainLoop
                 else loop
             _ ->
               go ev >> loop
-
-initializeMainView :: Control ()
-initializeMainView =
-  modifyUI (uiViewRaw . uiTransientBanner .~ Nothing)
-
--- | main loop
-mainLoop :: Control ()
-mainLoop = branchTab
 
 main :: Control ()
 main = do
