@@ -6,6 +6,7 @@ module GHCSpecter.Graphics.DSL (
   -- * graphics primitive and group elements
   Primitive (..),
   Group (..),
+  ViewPort (..),
 ) where
 
 import Data.Text (Text)
@@ -51,3 +52,9 @@ data Group = Group
   , groupToCanvasCoordinate :: (Double, Double) -> (Double, Double)
   , groupElements :: [Primitive]
   }
+
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
+  }
+  deriving (Show)

@@ -11,7 +11,10 @@ import Data.Maybe (fromMaybe)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.Graphics.DSL (Primitive (..))
+import GHCSpecter.Graphics.DSL (
+  Primitive (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.TimingView (
   compileBlockers,
   compileMemChart,
@@ -30,7 +33,6 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   TimingUI,
   UIState,
-  ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
 import Renderer (renderPrimitive)

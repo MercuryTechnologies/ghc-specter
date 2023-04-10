@@ -14,6 +14,7 @@ import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.UI.Constants (modGraphHeight, modGraphWidth)
 import GHCSpecter.UI.Types (
@@ -23,7 +24,6 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI,
   UIState,
-  ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
 import Renderer (renderPrimitive)

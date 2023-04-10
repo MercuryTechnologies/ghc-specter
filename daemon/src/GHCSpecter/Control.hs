@@ -45,6 +45,7 @@ import GHCSpecter.Control.Types (
  )
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
   HasServerState (..),
@@ -70,7 +71,6 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI (..),
   UIModel,
-  ViewPort (..),
   ViewPortInfo (..),
  )
 import GHCSpecter.UI.Types.Event (

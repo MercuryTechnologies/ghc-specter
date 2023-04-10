@@ -15,7 +15,12 @@ import Control.Lens ((%~))
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
+  TextPosition (..),
+  ViewPort (..),
+ )
 import GHCSpecter.UI.Types (
   HasUIState (..),
   HasUIViewRaw (..),
@@ -67,7 +72,7 @@ renderPrimitive uiRef _ (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
     R.liftIO $
       atomically $
         modifyTVar' uiRef $
-          uiViewRaw . uiRawEventMap %~ (\es -> let e = (name, ((x, y), (x + w, y + h))) in e : es)
+          uiViewRaw . uiRawEventMap %~ (\es -> let e = (name, ViewPort (x, y) (x + w, y + h)) in e : es)
   for_ mbkg $ \bkg -> do
     setColor bkg
     R.rectangle x y w h

@@ -7,7 +7,7 @@ module GHCSpecter.Util.Transformation (
   isInside,
 ) where
 
-import GHCSpecter.UI.Types (ViewPort (..))
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
 -- | scroll
@@ -41,6 +41,6 @@ transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') 
     x1' = x + (x1 - x) / scale
     y1' = y + (y1 - y) / scale
 
-isInside :: (Double, Double) -> ((Double, Double), (Double, Double)) -> Bool
-isInside (x, y) ((x0, y0), (x1, y1)) =
+isInside :: (Double, Double) -> ViewPort -> Bool
+isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
   x >= x0 && x <= x1 && y >= y0 && y <= y1

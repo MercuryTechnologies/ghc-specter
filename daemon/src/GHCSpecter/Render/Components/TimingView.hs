@@ -48,7 +48,12 @@ import GHCSpecter.Data.Timing.Types (
   TimingTable,
  )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
+  TextPosition (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (
@@ -74,7 +79,6 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasViewPortInfo (..),
   TimingUI,
-  ViewPort (..),
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),

@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types (
-  ViewPort (..),
   ModuleGraphUI (..),
   HasModuleGraphUI (..),
   emptyModuleGraphUI,
@@ -33,6 +32,7 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Constants (
   modGraphHeight,
   modGraphWidth,
@@ -40,12 +40,6 @@ import GHCSpecter.UI.Constants (
   timingWidth,
  )
 import GHCSpecter.UI.Types.Event (DetailLevel (..), Tab (..))
-
-data ViewPort = ViewPort
-  { topLeft :: (Double, Double)
-  , bottomRight :: (Double, Double)
-  }
-  deriving (Show)
 
 data ViewPortInfo = ViewPortInfo
   { _vpViewPort :: ViewPort
@@ -157,7 +151,7 @@ data UIViewRaw = UIViewRaw
   { _uiTransientBanner :: Maybe Double
   -- ^ progress bar status.
   -- TODO: This will be handled more properly with typed transition.
-  , _uiRawEventMap :: [(Text, ((Double, Double), (Double, Double)))]
+  , _uiRawEventMap :: [(Text, ViewPort)]
   -- ^ event name -> bounding box map
   }
 
