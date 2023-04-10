@@ -11,7 +11,7 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -87,6 +87,7 @@ import GHCSpecter.UI.Types.Event (
   TimingEvent (..),
  )
 import GHCSpecter.Util.Transformation (
+  hitItem,
   isInside,
   transformScroll,
   transformZoom,
@@ -322,14 +323,15 @@ goModuleGraph ev = do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
-              rx = x / modGraphWidth
-              ry = y / modGraphHeight
-              ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-              x' = x0 + (x1 - x0) * rx
-              y' = y0 + (y1 - y0) * ry
-              emap = ui ^. uiViewRaw . uiRawEventMap
+              -- rx = x / modGraphWidth
+              -- ry = y / modGraphHeight
+              -- ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+              -- x' = x0 + (x1 - x0) * rx
+              -- y' = y0 + (y1 - y0) * ry
+              emaps = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-              mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
+              mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+              --   fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = HoverOnModuleEv mnowHit
@@ -500,19 +502,22 @@ goTiming ev = do
     MouseEv (MouseMove (x, y)) -> do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
-          let rx = x / timingWidth
-              ry = y / timingHeight
-              ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-              x' = x0 + (x1 - x0) * rx
-              y' = y0 + (y1 - y0) * ry
-              emap = ui ^. uiViewRaw . uiRawEventMap
-              mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
-              mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
-              ui'
-                | mnowHit /= mprevHit =
-                    (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
-                | otherwise = ui
-           in (ui', ss)
+          let
+            -- rx = x / timingWidth
+            -- ry = y / timingHeight
+            -- ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+            -- x' = x0 + (x1 - x0) * rx
+            -- y' = y0 + (y1 - y0) * ry
+            emaps = ui ^. uiViewRaw . uiRawEventMap
+            mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
+            mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+            --   fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
+            ui'
+              | mnowHit /= mprevHit =
+                  (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
+              | otherwise = ui
+           in
+            (ui', ss)
       let mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
           mnowHit = ui' ^. uiModel . modelTiming . timingUIHoveredModule
       when (mnowHit /= mprevHit) refresh

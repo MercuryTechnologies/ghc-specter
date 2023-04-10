@@ -32,7 +32,7 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.Graphics.DSL (ViewPort (..))
+import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
 import GHCSpecter.UI.Constants (
   modGraphHeight,
   modGraphWidth,
@@ -151,7 +151,7 @@ data UIViewRaw = UIViewRaw
   { _uiTransientBanner :: Maybe Double
   -- ^ progress bar status.
   -- TODO: This will be handled more properly with typed transition.
-  , _uiRawEventMap :: [(Text, ViewPort)]
+  , _uiRawEventMap :: [EventMap]
   -- ^ event name -> bounding box map
   }
 

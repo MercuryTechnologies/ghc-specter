@@ -7,6 +7,9 @@ module GHCSpecter.Graphics.DSL (
   Primitive (..),
   ViewPort (..),
   Scene (..),
+
+  -- * event primitives
+  EventMap (..),
 ) where
 
 import Data.Text (Text)
@@ -57,4 +60,10 @@ data Scene = Scene
   { sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [Primitive]
+  }
+
+data EventMap = EventMap
+  { eventMapGlobalViewPort :: ViewPort
+  , eventMapLocalViewPort :: ViewPort
+  , eventMapElements :: [(Text, ViewPort)]
   }

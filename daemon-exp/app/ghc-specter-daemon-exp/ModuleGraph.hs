@@ -62,5 +62,5 @@ renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo =
       scaleY = modGraphHeight / (vy1 - vy0)
   R.scale scaleX scaleY
   R.translate (-vx0) (-vy0)
-  traverse_ (renderPrimitive uiRef vb) rexp
+  traverse_ (renderPrimitive vb) rexp
   R.restore

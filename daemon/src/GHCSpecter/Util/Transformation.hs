@@ -5,9 +5,12 @@ module GHCSpecter.Util.Transformation (
 
   -- * hit test
   isInside,
+  hitItem,
 ) where
 
-import GHCSpecter.Graphics.DSL (ViewPort (..))
+import Data.List qualified as L
+import Data.Text (Text)
+import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
 -- | scroll
@@ -44,3 +47,20 @@ transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') 
 isInside :: (Double, Double) -> ViewPort -> Bool
 isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
   x >= x0 && x <= x1 && y >= y0 && y <= y1
+
+hitItem :: (Double, Double) -> EventMap -> Maybe Text
+hitItem (x, y) emap
+  | (x, y) `isInside` cvp =
+      fst
+        <$> L.find (\(_label, box) -> (vx, vy) `isInside` box) (eventMapElements emap)
+  | otherwise =
+      Nothing
+  where
+    cvp@(ViewPort (cx0, cy0) (cx1, cy1)) = eventMapGlobalViewPort emap
+    ViewPort (vx0, vy0) (vx1, vy1) = eventMapLocalViewPort emap
+    -- scaleX = (cx1 - cx0) / (vx1 - vx0)
+    -- scaleY = (cy1 - cy0) / (vy1 - vy0)
+    rx = (x - cx0) / (cx1 - cx0)
+    ry = (y - cy0) / (cy1 - cy1)
+    vx = vx0 + rx * (vx1 - vx0)
+    vy = vy0 + ry * (vy1 - vy0)
