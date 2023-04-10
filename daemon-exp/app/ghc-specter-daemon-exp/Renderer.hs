@@ -4,6 +4,7 @@ module Renderer (
   setColor,
   drawText,
   renderPrimitive,
+  renderScene,
 ) where
 
 import Control.Concurrent.STM (
@@ -18,6 +19,7 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
+  Scene (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -95,3 +97,18 @@ renderPrimitive _ vb (DrawText (x, y) pos color fontSize msg) = do
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
   drawText vb (fromIntegral fontSize) (x, y') msg
+
+renderScene :: TVar UIState -> ViewBackend -> Scene -> R.Render ()
+renderScene uiRef vb scene = do
+  let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
+      scaleX = (cx1 - cx0) / (vx1 - vx0)
+      scaleY = (cy1 - cy0) / (vy1 - vy0)
+  R.save
+  R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+  R.clip
+  R.translate cx0 cy0
+  R.scale scaleX scaleY
+  R.translate (-vx0) (-vy0)
+  traverse_ (renderPrimitive uiRef vb) (sceneElements scene)
+  R.restore

@@ -51,6 +51,7 @@ import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
+  Scene (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -161,12 +162,17 @@ compileTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  [Primitive]
+  Scene
 compileTimingChart drvModMap tui ttable =
-  compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-    ++ (concatMap makeItem filteredItems)
-    ++ lineToUpstream
-    ++ linesToDownstream
+  Scene
+    { sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    , sceneElements =
+        compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+          ++ (concatMap makeItem filteredItems)
+          ++ lineToUpstream
+          ++ linesToDownstream
+    }
   where
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
@@ -272,8 +278,14 @@ compileMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  [Primitive]
-compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
+  Scene
+compileMemChart drvModMap tui ttable =
+  Scene
+    { sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
+    , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
+    , sceneElements =
+        concatMap makeItem filteredItems
+    }
   where
     timingInfos = ttable ^. ttableTimingInfos
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
@@ -322,8 +334,13 @@ compileMemChart drvModMap tui ttable = concatMap makeItem filteredItems
 compileTimingRange ::
   TimingUI ->
   TimingTable ->
-  [Primitive]
-compileTimingRange tui ttable = [background, handle]
+  Scene
+compileTimingRange tui ttable =
+  Scene
+    { sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
+    , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
+    , sceneElements = [background, handle]
+    }
   where
     timingInfos = ttable ^. ttableTimingInfos
     nMods = length timingInfos
@@ -363,8 +380,13 @@ compileTimingRange tui ttable = [background, handle]
         (Just 1.0)
         Nothing
 
-compileBlockers :: ModuleName -> TimingTable -> [Primitive]
-compileBlockers hoveredMod ttable = box : contents
+compileBlockers :: ModuleName -> TimingTable -> Scene
+compileBlockers hoveredMod ttable =
+  Scene
+    { sceneGlobalViewPort = ViewPort (0, 0) (200, size)
+    , sceneLocalViewPort = ViewPort (0, 0) (200, size)
+    , sceneElements = box : contents
+    }
   where
     upMods =
       maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
@@ -409,7 +431,8 @@ renderTimingChart drvModMap tui ttable =
       [ TimingEv (HoverOnModule modu) <$ onMouseEnter
       , TimingEv (HoverOffModule modu) <$ onMouseLeave
       ]
-    rexp = compileTimingChart drvModMap tui ttable
+    scene = compileTimingChart drvModMap tui ttable
+    rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     svgProps =
@@ -447,7 +470,8 @@ renderMemChart drvModMap tui ttable =
     , S.g [] (fmap (renderPrimitive (const [])) rexp)
     ]
   where
-    rexp = compileMemChart drvModMap tui ttable
+    scene = compileMemChart drvModMap tui ttable
+    rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     viewboxProp =
@@ -472,7 +496,8 @@ renderTimingRange ::
 renderTimingRange tui ttable =
   div [] [svgElement]
   where
-    rexp = compileTimingRange tui ttable
+    scene = compileTimingRange tui ttable
+    rexp = sceneElements scene
     svgProps =
       [ width (T.pack (show (timingWidth :: Int)))
       , height (T.pack (show (timingRangeHeight :: Int)))
