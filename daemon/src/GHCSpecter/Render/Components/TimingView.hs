@@ -37,6 +37,7 @@ import Data.Time.Clock (
   nominalDiffTimeToSeconds,
   secondsToNominalDiffTime,
  )
+import Debug.Trace (trace)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (MemInfo (..))
 import GHCSpecter.Data.Map (
@@ -361,8 +362,7 @@ compileTimingRange tui ttable = [background, handle]
         Nothing
 
 compileBlockers :: ModuleName -> TimingTable -> [Primitive]
-compileBlockers hoveredMod ttable =
-  snd $ L.mapAccumR placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+compileBlockers hoveredMod ttable = box : contents
   where
     upMods =
       maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
@@ -370,17 +370,26 @@ compileBlockers hoveredMod ttable =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
     selected = DrawText (0, 0) UpperLeft Black 8 hoveredMod
-    line = Polyline (0, 0) [] (400, 0) Black 1
+    line = Polyline (0, 0) [] (200, 0) Black 1
     blockedBy = DrawText (0, 0) UpperLeft Black 8 "Blocked By"
     upstreams = fmap (DrawText (0, 0) UpperLeft Black 8) upMods
     blocking = DrawText (0, 0) UpperLeft Black 8 "Blocking"
     downstreams = fmap (DrawText (0, 0) UpperLeft Black 8) downMods
     --
-    placing !n item = (n + 1, item')
-      where
-        item' = case item of
-          DrawText (x, y) p c f t -> DrawText (x, y + fromIntegral f * n) p c f t
-          _ -> item
+    placing !offset item =
+      case item of
+        DrawText (x, y) p c f t ->
+          let doffset = fromIntegral f + 4
+           in (offset + doffset, DrawText (x, y + offset) p c f t)
+        Polyline (x0, y0) [] (x1, y1) c w ->
+          let doffset = 5
+           in (offset + doffset, Polyline (x0, y0 + offset + 3) [] (x1, y1 + offset + 3) c w)
+        -- for now
+        _ -> (offset, item)
+    --
+    (offset, contents) =
+      L.mapAccumL placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+    box = trace (show offset) $ Rectangle (0, 0) 200 offset (Just Black) Nothing (Just 1.0) Nothing
 
 renderTimingChart ::
   BiKeyMap DriverId ModuleName ->
