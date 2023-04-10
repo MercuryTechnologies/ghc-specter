@@ -44,7 +44,7 @@ renderTiming ::
   TimingTable ->
   R.Render ()
 renderTiming uiRef vb drvModMap tui ttable = do
-  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventBoxMap .~ [])
+  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
   let rexpTimingChart :: [Primitive]
       rexpTimingChart = compileTimingChart drvModMap tui ttable
       rexpMemChart :: [Primitive]

@@ -62,12 +62,12 @@ setColor ColorRedLevel4 = R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
 renderPrimitive :: TVar UIState -> ViewBackend -> Primitive -> R.Render ()
-renderPrimitive uiRef vb (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
+renderPrimitive uiRef _ (Rectangle (x, y) w h mline mbkg mlwidth mname) = do
   for_ mname $ \name ->
     R.liftIO $
       atomically $
         modifyTVar' uiRef $
-          uiViewRaw . uiRawEventBoxMap %~ (\es -> let e = (name, ((x, y), (x + w, y + h))) in e : es)
+          uiViewRaw . uiRawEventMap %~ (\es -> let e = (name, ((x, y), (x + w, y + h))) in e : es)
   for_ mbkg $ \bkg -> do
     setColor bkg
     R.rectangle x y w h

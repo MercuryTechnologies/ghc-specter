@@ -40,7 +40,7 @@ renderModuleGraph ::
   GraphVisInfo ->
   R.Render ()
 renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo = do
-  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventBoxMap .~ [])
+  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
   let valueFor name =
         fromMaybe 0 $ do
           cluster <- L.lookup name clustering

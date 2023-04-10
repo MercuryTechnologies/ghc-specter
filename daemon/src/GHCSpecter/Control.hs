@@ -327,7 +327,7 @@ goModuleGraph ev = do
               ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
               x' = x0 + (x1 - x0) * rx
               y' = y0 + (y1 - y0) * ry
-              emap = ui ^. uiViewRaw . uiRawEventBoxMap
+              emap = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
               mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
               (ui', ss')
@@ -505,7 +505,7 @@ goTiming ev = do
               ViewPort (x0, y0) (x1, y1) = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
               x' = x0 + (x1 - x0) * rx
               y' = y0 + (y1 - y0) * ry
-              emap = ui ^. uiViewRaw . uiRawEventBoxMap
+              emap = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
               mnowHit = fst <$> L.find (\(_label, box) -> (x', y') `isInside` box) emap
               ui'

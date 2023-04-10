@@ -36,7 +36,6 @@ import Data.Time.Clock (
   nominalDiffTimeToSeconds,
   secondsToNominalDiffTime,
  )
-import Debug.Trace (trace)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (MemInfo (..))
 import GHCSpecter.Data.Map (
