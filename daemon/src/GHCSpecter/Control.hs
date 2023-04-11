@@ -45,7 +45,10 @@ import GHCSpecter.Control.Types (
  )
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
-import GHCSpecter.Graphics.DSL (ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  EventMap (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
   HasServerState (..),
@@ -53,7 +56,6 @@ import GHCSpecter.Server.Types (
   ServerState,
  )
 import GHCSpecter.UI.Constants (
-  modGraphHeight,
   modGraphWidth,
   timingHeight,
   timingMaxWidth,
@@ -88,6 +90,7 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
+  hitScene,
   transformScroll,
   transformZoom,
  )
@@ -348,14 +351,24 @@ goModuleGraph ev = do
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            rx = xcenter / modGraphWidth
-            ry = ycenter / modGraphHeight
-            vp' = (transformZoom (rx, ry) scale vp)
-            ui' =
-              ui
-                & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
-         in (ui', ss)
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (xcenter, ycenter) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "main-module-graph" ->
+                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
+                        -- NOTE: While zooming is in progress, the scaling is always relative to
+                        -- the last UI viewport, not relative to the currently drawn (temporary)
+                        -- view.
+                        vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+                        rx = xcenter / (cx1 - cx0)
+                        ry = ycenter / (cy1 - cy0)
+                        vp' = (transformZoom (rx, ry) scale vp)
+                        ui' =
+                          ui
+                            & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+                     in (ui', ss)
+              _ -> (ui, ss)
       refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->
@@ -518,14 +531,24 @@ goTiming ev = do
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            rx = xcenter / timingWidth
-            ry = ycenter / timingHeight
-            vp' = (transformZoom (rx, ry) scale vp)
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
-         in (ui', ss)
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (xcenter, ycenter) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "timing-chart" ->
+                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
+                        -- NOTE: While zooming is in progress, the scaling is always relative to
+                        -- the last UI viewport, not relative to the currently drawn (temporary)
+                        -- view.
+                        vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+                        rx = xcenter / (cx1 - cx0)
+                        ry = ycenter / (cy1 - cy0)
+                        vp' = (transformZoom (rx, ry) scale vp)
+                        ui' =
+                          ui
+                            & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+                     in (ui', ss)
+              _ -> (ui, ss)
       refresh
     MouseEv ZoomEnd -> do
       modifyUISS $ \(ui, ss) ->

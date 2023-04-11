@@ -138,12 +138,13 @@ addEventMap uiRef scene = do
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just name)) = Just (name, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
       eitms = mapMaybe extractEvent (sceneElements scene)
-      emap = EventMap
-        { eventMapId = sceneId scene
-        , eventMapGlobalViewPort = sceneGlobalViewPort scene
-        , eventMapLocalViewPort = sceneLocalViewPort scene
-        , eventMapElements = eitms
-        }
+      emap =
+        EventMap
+          { eventMapId = sceneId scene
+          , eventMapGlobalViewPort = sceneGlobalViewPort scene
+          , eventMapLocalViewPort = sceneLocalViewPort scene
+          , eventMapElements = eitms
+          }
   atomically $
     modifyTVar' uiRef $
       uiViewRaw . uiRawEventMap %~ (\emaps -> emap : emaps)
