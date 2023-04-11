@@ -14,6 +14,9 @@ module GHCSpecter.UI.Types (
   ConsoleUI,
   HasConsoleUI (..),
   emptyConsoleUI,
+  WidgetConfig (..),
+  HasWidgetConfig (..),
+  emptyWidgetConfig,
   UIModel (..),
   HasUIModel (..),
   emptyUIModel,
@@ -27,6 +30,8 @@ module GHCSpecter.UI.Types (
 ) where
 
 import Control.Lens (makeClassy)
+import Data.Map (Map)
+import Data.Map qualified as Map (empty)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
@@ -119,6 +124,25 @@ makeClassy ''ConsoleUI
 emptyConsoleUI :: ConsoleUI
 emptyConsoleUI = ConsoleUI Nothing ""
 
+-- | Each widget placing in the global canvas.
+data WidgetConfig = WidgetConfig
+  { _wcfgSession :: Map Text ViewPort
+  , _wcfgModuleGraph :: Map Text ViewPort
+  , _wcfgSourceView :: Map Text ViewPort
+  , _wcfgTiming :: Map Text ViewPort
+  }
+
+makeClassy ''WidgetConfig
+
+emptyWidgetConfig :: WidgetConfig
+emptyWidgetConfig =
+  WidgetConfig
+    { _wcfgSession = Map.empty
+    , _wcfgModuleGraph = Map.empty
+    , _wcfgSourceView = Map.empty
+    , _wcfgTiming = Map.empty
+    }
+
 data UIModel = UIModel
   { _modelTab :: Tab
   -- ^ current tab.
@@ -132,6 +156,8 @@ data UIModel = UIModel
   -- ^ UI state of Timing UI
   , _modelConsole :: ConsoleUI
   -- ^ UI state of console uI
+  , _modelWidgetConfig :: WidgetConfig
+  -- ^ widget config. to support dynamic configuration change
   }
 
 makeClassy ''UIModel
@@ -145,6 +171,7 @@ emptyUIModel =
     , _modelSourceView = emptySourceViewUI
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
+    , _modelWidgetConfig = emptyWidgetConfig
     }
 
 data UIViewRaw = UIViewRaw

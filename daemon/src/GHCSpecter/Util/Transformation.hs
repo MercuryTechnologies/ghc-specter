@@ -5,6 +5,7 @@ module GHCSpecter.Util.Transformation (
 
   -- * hit test
   isInside,
+  hitScene,
   hitItem,
 ) where
 
@@ -47,6 +48,9 @@ transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') 
 isInside :: (Double, Double) -> ViewPort -> Bool
 isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
   x >= x0 && x <= x1 && y >= y0 && y <= y1
+
+hitScene :: (Double, Double) -> [EventMap] -> Maybe EventMap
+hitScene (x, y) emaps = L.find (\emap -> (x, y) `isInside` eventMapGlobalViewPort emap) emaps
 
 hitItem :: (Double, Double) -> EventMap -> Maybe Text
 hitItem (x, y) emap

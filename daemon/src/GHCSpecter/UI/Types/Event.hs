@@ -106,7 +106,8 @@ data MouseEvent
   = MouseMove (Double, Double)
   | MouseDown (Maybe (Double, Double))
   | MouseUp (Maybe (Double, Double))
-  | Scroll ScrollDirection (Double, Double)
+  | -- | dir, (x, y), (dx, dy)
+    Scroll ScrollDirection (Double, Double) (Double, Double)
   | ZoomUpdate (Double, Double) Double
   | ZoomEnd
   deriving (Show, Eq)

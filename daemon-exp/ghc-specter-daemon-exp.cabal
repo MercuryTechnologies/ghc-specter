@@ -20,7 +20,9 @@ source-repository head
 
 executable ghc-specter-daemon-exp
   main-is:       Main.hs
-  other-modules: Handler
+  other-modules: BasicWidget
+                 Config
+                 Handler
                  ModuleGraph
                  Renderer
                  Timing

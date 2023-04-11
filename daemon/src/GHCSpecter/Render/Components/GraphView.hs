@@ -114,7 +114,8 @@ compileModuleGraph
               , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
               ]
      in Scene
-          { sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
+          { sceneId = "main-module-graph"
+          , sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneLocalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneElements =
               [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
