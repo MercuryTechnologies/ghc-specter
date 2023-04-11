@@ -1,11 +1,15 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ModuleGraph (
   renderModuleGraph,
 ) where
 
-import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens ((.~), (^.))
+import Control.Concurrent.STM (TVar)
+import Control.Lens ((^.))
+import Data.Foldable (for_)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
+import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
@@ -13,16 +17,10 @@ import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
-import GHCSpecter.Graphics.DSL (
-  Scene (..),
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
-import GHCSpecter.UI.Constants (modGraphHeight, modGraphWidth)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
-  HasUIState (..),
-  HasUIViewRaw (..),
   HasViewPortInfo (..),
   ModuleGraphUI,
   UIState,
@@ -54,13 +52,15 @@ renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo =
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
       mhover = mgrui ^. modGraphUIHover
-      scene = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
       vpi = mgrui ^. modGraphViewPort
       vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-      scene' =
-        scene
-          { sceneGlobalViewPort = ViewPort (0, 0) (modGraphWidth, modGraphHeight)
-          , sceneLocalViewPort = vp
-          }
-  renderScene vb scene'
-  R.liftIO $ addEventMap uiRef scene'
+
+  for_ (Map.lookup "main" wcfg) $ \vpCvs -> do
+    let scene = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
+        scene' =
+          scene
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vp
+            }
+    renderScene vb scene'
+    R.liftIO $ addEventMap uiRef scene'
