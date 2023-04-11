@@ -405,12 +405,25 @@ goModuleGraph ev = do
                         -- the last UI viewport, not relative to the currently drawn (temporary)
                         -- view.
                         vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-                        rx = xcenter / (cx1 - cx0)
-                        ry = ycenter / (cy1 - cy0)
+                        rx = (xcenter - cx0) / (cx1 - cx0)
+                        ry = (ycenter - cy0) / (cy1 - cy0)
                         vp' = (transformZoom (rx, ry) scale vp)
                         ui' =
                           ui
                             & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
+                        -- NOTE: While zooming is in progress, the scaling is always relative to
+                        -- the last UI viewport, not relative to the currently drawn (temporary)
+                        -- view.
+                        vp = ui ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpViewPort
+                        rx = (xcenter - cx0) / (cx1 - cx0)
+                        ry = (ycenter - cy0) / (cy1 - cy0)
+                        vp' = (transformZoom (rx, ry) scale vp)
+                        ui' =
+                          ui
+                            & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort .~ Just vp')
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -421,7 +434,12 @@ goModuleGraph ev = do
                 ui
                   & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
-         in (ui', ss)
+            ui'' = case ui' ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui'
+                  & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui'
+         in (ui'', ss)
       refresh
     _ -> pure ()
   goCommon ev
@@ -589,8 +607,8 @@ goTiming ev = do
                         -- the last UI viewport, not relative to the currently drawn (temporary)
                         -- view.
                         vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-                        rx = xcenter / (cx1 - cx0)
-                        ry = ycenter / (cy1 - cy0)
+                        rx = (xcenter - cx0) / (cx1 - cx0)
+                        ry = (ycenter - cy0) / (cy1 - cy0)
                         vp' = (transformZoom (rx, ry) scale vp)
                         ui' =
                           ui
