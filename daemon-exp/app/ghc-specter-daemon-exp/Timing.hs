@@ -4,7 +4,6 @@ module Timing (
   renderTiming,
 ) where
 
-import BasicWidget (compileTab)
 import Control.Concurrent.STM (TVar)
 import Control.Lens ((^.))
 import Data.Foldable (for_)
@@ -17,6 +16,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
+import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TimingView (
   compileBlockers,
   compileMemChart,

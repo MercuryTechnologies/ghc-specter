@@ -103,9 +103,12 @@ data TimingEvent
   deriving (Show, Eq)
 
 data MouseEvent
-  = MouseMove (Double, Double)
-  | MouseDown (Maybe (Double, Double))
-  | MouseUp (Maybe (Double, Double))
+  = MouseClick (Double, Double)
+  | MouseMove (Double, Double)
+  | -- TODO: this will be deprecated
+    MouseDown (Maybe (Double, Double))
+  | -- TODO: this will be deprecated
+    MouseUp (Maybe (Double, Double))
   | -- | dir, (x, y), (dx, dy)
     Scroll ScrollDirection (Double, Double) (Double, Double)
   | ZoomUpdate (Double, Double) Double

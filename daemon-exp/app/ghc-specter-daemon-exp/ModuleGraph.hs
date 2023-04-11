@@ -4,7 +4,6 @@ module ModuleGraph (
   renderModuleGraph,
 ) where
 
-import BasicWidget (compileTab)
 import Control.Concurrent.STM (TVar)
 import Control.Lens ((^.))
 import Data.Foldable (for_)
@@ -20,6 +19,7 @@ import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
+import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasViewPortInfo (..),

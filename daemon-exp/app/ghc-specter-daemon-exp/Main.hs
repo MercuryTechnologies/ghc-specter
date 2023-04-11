@@ -70,6 +70,7 @@ import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import Handler (
+  handleClick,
   handleMotion,
   handleScroll,
   handleZoomEnd,
@@ -203,7 +204,9 @@ main =
         drawingArea <- new Gtk.DrawingArea []
         #addEvents
           drawingArea
-          [ Gdk.EventMaskPointerMotionMask
+          [ Gdk.EventMaskButtonPressMask
+          , Gdk.EventMaskButtonReleaseMask
+          , Gdk.EventMaskPointerMotionMask
           , Gdk.EventMaskScrollMask
           , Gdk.EventMaskTouchpadGestureMask
           ]
@@ -237,10 +240,15 @@ main =
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
         _ <- drawingArea
+          `on` #buttonPressEvent
+          $ \ev -> do
+            handleClick chanQEv ev
+            pure True
+        {- _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
             handleMotion chanQEv ev
-            pure True
+            pure True -}
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do

@@ -513,10 +513,12 @@ goTiming ev = do
         modifyAndReturnBoth $ \(ui, ss) ->
           let
             emaps = ui ^. uiViewRaw . uiRawEventMap
+            -- let memap = hitScene (x, y) emaps
             mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
             mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
             ui'
-              | mnowHit /= mprevHit =
+              | (mnowHit /= mprevHit) --  && (eventMapId <$> emap == "timing-chart") =
+                =
                   (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
               | otherwise = ui
            in
@@ -636,6 +638,30 @@ mainLoop = do
                   refresh
                   mainLoop
                 else loop
+            MouseEv (MouseClick (x, y)) -> do
+              printMsg $ "mouse click : " <> T.pack (show (x, y))
+              emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
+              let mhitTab = do
+                    emap <- L.find (\m -> eventMapId m == "tab") emaps
+                    hitItem (x, y) emap
+              let mtab' = case mhitTab of
+                    Just "TabSession" -> Just TabSession
+                    Just "TabModuleGraph" -> Just TabModuleGraph
+                    Just "TabSourceView" -> Just TabSourceView
+                    Just "TabTiming" -> Just TabTiming
+                    _ -> Nothing
+              tab <- (^. uiModel . modelTab) <$> getUI
+              case mtab' of
+                Nothing ->
+                  -- Handling downstream
+                  go ev >> loop
+                Just tab' ->
+                  if (tab /= tab')
+                    then do
+                      modifyUI (uiModel . modelTab .~ tab')
+                      refresh
+                      mainLoop
+                    else loop
             _ ->
               go ev >> loop
 
