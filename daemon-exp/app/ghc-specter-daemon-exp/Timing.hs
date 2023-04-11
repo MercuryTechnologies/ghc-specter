@@ -16,6 +16,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
+import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TimingView (
   compileBlockers,
   compileMemChart,
@@ -33,6 +34,7 @@ import GHCSpecter.UI.Types (
   TimingUI,
   UIState,
  )
+import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import Renderer (
   addEventMap,
@@ -53,6 +55,14 @@ renderTiming uiRef vb drvModMap tui ttable = do
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
+    let sceneTab = compileTab TabTiming
+        sceneTab' =
+          sceneTab
+            { sceneGlobalViewPort = vpCvs
+            }
+    renderScene vb sceneTab'
+    R.liftIO $ addEventMap uiRef sceneTab
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
     let sceneTimingChart = compileTimingChart drvModMap tui ttable
@@ -86,16 +96,16 @@ renderTiming uiRef vb drvModMap tui ttable = do
         hoveredMod <- tui ^. timingUIHoveredModule
         vpCvs <- Map.lookup "blockers" wcfg
         pure (hoveredMod, vpCvs)
-  -- NOTE: vpCvs is ignored as dynamic size overrides it.
+  -- NOTE: the size information from vpCvs is ignored as dynamic size overrides it.
   -- TODO: clipping is still valid. we need two-layer viewport system.
-  for_ minfo $ \(hoveredMod, _vpCvs) -> do
+  for_ minfo $ \(hoveredMod, vpCvs) -> do
     let sceneBlockers = compileBlockers hoveredMod ttable
+        ViewPort (offsetX, offsetY) _ = vpCvs
         ViewPort (vx0', vy0') (vx1', vy1') = sceneLocalViewPort sceneBlockers
         w = vx1' - vx0'
         h = vy1' - vy0'
-        offsetY = timingHeight + timingRangeHeight
         sceneBlockers' =
           sceneBlockers
-            { sceneGlobalViewPort = ViewPort (0, offsetY) (w, h + offsetY)
+            { sceneGlobalViewPort = ViewPort (offsetX, offsetY) (w + offsetX, h + offsetY)
             }
     renderScene vb sceneBlockers'

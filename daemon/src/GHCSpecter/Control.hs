@@ -11,7 +11,7 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -323,7 +323,9 @@ goModuleGraph ev = do
           let model = ui ^. uiModel
               emaps = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-              mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+              mnowHit = do
+                emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
+                hitItem (x, y) emap
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = HoverOnModuleEv mnowHit
@@ -514,10 +516,11 @@ goTiming ev = do
           let
             emaps = ui ^. uiViewRaw . uiRawEventMap
             mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
-            mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+            mnowHit = do
+              emap <- L.find (\m -> eventMapId m == "timing-chart") emaps
+              hitItem (x, y) emap
             ui'
-              | mnowHit /= mprevHit =
-                  (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
+              | (mnowHit /= mprevHit) = (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
               | otherwise = ui
            in
             (ui', ss)
@@ -636,6 +639,30 @@ mainLoop = do
                   refresh
                   mainLoop
                 else loop
+            MouseEv (MouseClick (x, y)) -> do
+              printMsg $ "mouse click : " <> T.pack (show (x, y))
+              emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
+              let mhitTab = do
+                    emap <- L.find (\m -> eventMapId m == "tab") emaps
+                    hitItem (x, y) emap
+              let mtab' = case mhitTab of
+                    Just "TabSession" -> Just TabSession
+                    Just "TabModuleGraph" -> Just TabModuleGraph
+                    Just "TabSourceView" -> Just TabSourceView
+                    Just "TabTiming" -> Just TabTiming
+                    _ -> Nothing
+              tab <- (^. uiModel . modelTab) <$> getUI
+              case mtab' of
+                Nothing ->
+                  -- Handling downstream
+                  go ev >> loop
+                Just tab' ->
+                  if (tab /= tab')
+                    then do
+                      modifyUI (uiModel . modelTab .~ tab')
+                      refresh
+                      mainLoop
+                    else loop
             _ ->
               go ev >> loop
 

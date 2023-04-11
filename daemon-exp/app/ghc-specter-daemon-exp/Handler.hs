@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 
 module Handler (
+  handleClick,
   handleMotion,
   handleScroll,
   handleZoomUpdate,
@@ -20,6 +21,17 @@ import GHCSpecter.UI.Types.Event (
   ScrollDirection (..),
  )
 import GI.Gdk qualified as Gdk
+
+handleClick ::
+  TQueue Event ->
+  Gdk.EventButton ->
+  IO ()
+handleClick chanQEv ev = do
+  x <- get ev #x
+  y <- get ev #y
+  atomically $
+    writeTQueue chanQEv $
+      MouseEv (MouseClick (x, y))
 
 handleMotion ::
   TQueue Event ->

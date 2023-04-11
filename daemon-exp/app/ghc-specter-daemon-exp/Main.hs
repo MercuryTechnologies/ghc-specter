@@ -70,6 +70,7 @@ import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import Handler (
+  handleClick,
   handleMotion,
   handleScroll,
   handleZoomEnd,
@@ -77,6 +78,8 @@ import Handler (
  )
 import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
+import Session (renderSession)
+import SourceView (renderSourceView)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
 
@@ -126,13 +129,16 @@ renderAction vb ss uiRef = do
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
       case ui ^. uiModel . modelTab of
+        TabSession ->
+          renderSession uiRef vb
         TabModuleGraph ->
           renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
+        TabSourceView ->
+          renderSourceView uiRef vb
         TabTiming -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
           renderTiming uiRef vb drvModMap tui ttable
-        _ -> pure ()
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
@@ -203,29 +209,12 @@ main =
         drawingArea <- new Gtk.DrawingArea []
         #addEvents
           drawingArea
-          [ Gdk.EventMaskPointerMotionMask
+          [ Gdk.EventMaskButtonPressMask
+          , Gdk.EventMaskButtonReleaseMask
+          , Gdk.EventMaskPointerMotionMask
           , Gdk.EventMaskScrollMask
           , Gdk.EventMaskTouchpadGestureMask
           ]
-
-        -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
-        menuBar <- new Gtk.MenuBar []
-        menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
-        _ <-
-          menuitem1
-            `on` #activate
-            $ atomically
-            $ writeTQueue chanQEv (TabEv TabModuleGraph)
-
-        menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
-        _ <-
-          menuitem2
-            `on` #activate
-            $ atomically
-            $ writeTQueue chanQEv (TabEv TabTiming)
-
-        #append menuBar menuitem1
-        #append menuBar menuitem2
 
         _ <- drawingArea
           `on` #draw
@@ -236,6 +225,11 @@ main =
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
+        _ <- drawingArea
+          `on` #buttonPressEvent
+          $ \ev -> do
+            handleClick chanQEv ev
+            pure True
         _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
@@ -260,7 +254,6 @@ main =
 
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
-          #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout

@@ -19,12 +19,14 @@ import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
+import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasViewPortInfo (..),
   ModuleGraphUI,
   UIState,
  )
+import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import Renderer (addEventMap, renderScene, resetWidget)
 import Types (ViewBackend (..))
@@ -54,7 +56,16 @@ renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo =
       mhover = mgrui ^. modGraphUIHover
       vpi = mgrui ^. modGraphViewPort
       vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-
+  -- tab
+  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
+    let sceneTab = compileTab TabModuleGraph
+        sceneTab' =
+          sceneTab
+            { sceneGlobalViewPort = vpCvs
+            }
+    renderScene vb sceneTab'
+    R.liftIO $ addEventMap uiRef sceneTab
+  -- main module graph
   for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
     let scene = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
         scene' =
