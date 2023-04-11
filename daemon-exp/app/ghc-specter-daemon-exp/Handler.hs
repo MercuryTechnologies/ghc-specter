@@ -34,6 +34,8 @@ handleMotion chanQEv ev = do
 
 handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
 handleScroll chanQEv ev = do
+  x <- get ev #x
+  y <- get ev #y
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
@@ -45,7 +47,7 @@ handleScroll chanQEv ev = do
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do
-      writeTQueue chanQEv (MouseEv (Scroll dir' (dx, dy)))
+      writeTQueue chanQEv (MouseEv (Scroll dir' (x, y) (dx, dy)))
 
 -- | pinch position in canvas coord
 handleZoomUpdate :: TQueue Event -> (Double, Double) -> Double -> IO ()

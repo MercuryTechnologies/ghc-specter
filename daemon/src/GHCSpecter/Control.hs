@@ -56,7 +56,6 @@ import GHCSpecter.Server.Types (
   ServerState,
  )
 import GHCSpecter.UI.Constants (
-  modGraphWidth,
   timingHeight,
   timingMaxWidth,
   timingWidth,
@@ -337,17 +336,24 @@ goModuleGraph ev = do
       let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
           mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
       when (mnowHit /= mprevHit) refresh
-    MouseEv (Scroll dir' (dx, dy)) -> do
+    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
       -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, _) (x1, _)) =
-              ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-            scale = modGraphWidth / (x1 - x0)
-            vp' = transformScroll dir' scale (dx, dy) vp
-            ui' =
-              ui
-                & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
-         in (ui', ss)
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (x, y) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "main-module-graph" ->
+                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
+                        vp@(ViewPort (vx0, _) (vx1, _)) =
+                          ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
+                        scale = (cx1 - cx0) / (vx1 - vx0)
+                        vp' = transformScroll dir' scale (dx, dy) vp
+                        ui' =
+                          ui
+                            & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+                     in (ui', ss)
+              _ -> (ui, ss)
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
@@ -518,16 +524,23 @@ goTiming ev = do
       let mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
           mnowHit = ui' ^. uiModel . modelTiming . timingUIHoveredModule
       when (mnowHit /= mprevHit) refresh
-    MouseEv (Scroll dir' (dx, dy)) -> do
+    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
       modifyUISS $ \(ui, ss) ->
-        let vp@(ViewPort (x0, _) (x1, _)) =
-              ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-            scale = timingWidth / (x1 - x0)
-            vp' = transformScroll dir' scale (dx, dy) vp
-            ui' =
-              ui
-                & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
-         in (ui', ss)
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (x, y) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "timing-chart" ->
+                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
+                        vp@(ViewPort (x0, _) (x1, _)) =
+                          ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
+                        scale = (cx1 - cx0) / (x1 - x0)
+                        vp' = transformScroll dir' scale (dx, dy) vp
+                        ui' =
+                          ui
+                            & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
+                     in (ui', ss)
+              _ -> (ui, ss)
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
       modifyUISS $ \(ui, ss) ->
