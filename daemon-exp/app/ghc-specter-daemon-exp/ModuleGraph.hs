@@ -94,7 +94,8 @@ renderModuleGraph
       R.liftIO $ addEventMap uiRef sceneMain'
     -- sub module graph
     for_ (Map.lookup "sub-module-graph" wcfg) $ \vpCvs -> do
-      let esubgraph = do
+      let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+          esubgraph = do
             selected <-
               note "no module cluster is selected" mainModuleClicked
             subgraphsAtTheLevel <-
@@ -117,7 +118,7 @@ renderModuleGraph
                   { -- TODO: this should be set up in compileModuleGraph
                     sceneId = "sub-module-graph"
                   , sceneGlobalViewPort = vpCvs
-                  , sceneLocalViewPort = ViewPort (0, 0) (1024, 768)
+                  , sceneLocalViewPort = ViewPort (0, 0) (cx1 - cx0, cy1 - cy0)
                   }
 
           R.liftIO $ print sceneSub'

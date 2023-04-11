@@ -20,7 +20,7 @@ import Control.Concurrent.STM (
   writeTChan,
   writeTQueue,
  )
-import Control.Lens (to, (&), (.~), (^.), _1, _2)
+import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (traverse_)
@@ -44,6 +44,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -51,12 +52,19 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   initServerState,
  )
-import GHCSpecter.UI.Constants (canvasDim)
+import GHCSpecter.UI.Constants (
+  canvasDim,
+  modGraphHeight,
+  modGraphWidth,
+ )
 import GHCSpecter.UI.Types (
+  HasModuleGraphUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasWidgetConfig (..),
   UIState (..),
+  ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
@@ -193,6 +201,12 @@ main =
     -- TODO: Until necessary, we just put undefined assets. Later, change this properly.
     let assets = undefined
     initTime <- getCurrentTime
+    let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
+        vpMainModGraph =
+          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (fromMaybe defVP)
+        vpSubModGraph =
+          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (fromMaybe defVP)
+
     let ui0 = emptyUIState assets initTime
         ui0' =
           ui0
@@ -200,6 +214,12 @@ main =
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiModel . modelTab .~ TabModuleGraph)
               . (uiModel . modelWidgetConfig .~ appWidgetConfig)
+              . ( uiModel . modelMainModuleGraph . modGraphViewPort
+                    .~ ViewPortInfo vpMainModGraph Nothing
+                )
+              . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
+                    .~ ViewPortInfo vpSubModGraph Nothing
+                )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
