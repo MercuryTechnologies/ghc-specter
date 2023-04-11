@@ -4,7 +4,6 @@ module ModuleGraph (
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens ((.~), (^.))
-import Data.Foldable (traverse_)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
@@ -14,6 +13,10 @@ import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
+import GHCSpecter.Graphics.DSL (
+  Scene (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.UI.Constants (modGraphHeight, modGraphWidth)
 import GHCSpecter.UI.Types (
@@ -23,10 +26,9 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI,
   UIState,
-  ViewPort (..),
  )
 import GI.Cairo.Render qualified as R
-import Renderer (renderPrimitive)
+import Renderer (addEventMap, renderScene)
 import Types (ViewBackend (..))
 
 renderModuleGraph ::
@@ -40,7 +42,7 @@ renderModuleGraph ::
   GraphVisInfo ->
   R.Render ()
 renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo = do
-  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventBoxMap .~ [])
+  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
   let valueFor name =
         fromMaybe 0 $ do
           cluster <- L.lookup name clustering
@@ -52,15 +54,13 @@ renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo =
                   nCompiled = length compiled
               pure (fromIntegral nCompiled / fromIntegral nTot)
       mhover = mgrui ^. modGraphUIHover
-      rexp = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
-  R.save
-  R.rectangle 0 0 modGraphWidth modGraphHeight
-  R.clip
-  let vpi = mgrui ^. modGraphViewPort
-      ViewPort (vx0, vy0) (vx1, vy1) = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-      scaleX = modGraphWidth / (vx1 - vx0)
-      scaleY = modGraphHeight / (vy1 - vy0)
-  R.scale scaleX scaleY
-  R.translate (-vx0) (-vy0)
-  traverse_ (renderPrimitive uiRef vb) rexp
-  R.restore
+      scene = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
+      vpi = mgrui ^. modGraphViewPort
+      vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+      scene' =
+        scene
+          { sceneGlobalViewPort = ViewPort (0, 0) (modGraphWidth, modGraphHeight)
+          , sceneLocalViewPort = vp
+          }
+  renderScene vb scene'
+  R.liftIO $ addEventMap uiRef scene'

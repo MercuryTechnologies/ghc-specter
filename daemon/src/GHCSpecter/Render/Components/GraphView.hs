@@ -37,7 +37,13 @@ import GHCSpecter.GraphLayout.Types (
   Point (..),
   toTuple,
  )
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..), TextPosition (..))
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
+  Scene (..),
+  TextPosition (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.UI.ConcurReplica.DOM (div, text)
@@ -56,7 +62,7 @@ compileModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  [Primitive]
+  Scene
 compileModuleGraph
   nameMap
   valueFor
@@ -107,9 +113,14 @@ compileModuleGraph
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
               , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Black fontSize name
               ]
-     in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
-          ++ fmap edge (grVisInfo ^. gviEdges)
-          ++ concatMap node (grVisInfo ^. gviNodes)
+     in Scene
+          { sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
+          , sceneLocalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
+          , sceneElements =
+              [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+                ++ fmap edge (grVisInfo ^. gviEdges)
+                ++ concatMap node (grVisInfo ^. gviNodes)
+          }
 
 -- | compile graph more simply to graphics DSL
 compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive]
@@ -173,7 +184,8 @@ renderModuleGraph
           , HoverOnModuleEv Nothing <$ onMouseLeave
           , ClickOnModuleEv (Just name) <$ onClick
           ]
-        rexp = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
+        scene = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
+        rexp = sceneElements scene
         svgProps =
           [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox

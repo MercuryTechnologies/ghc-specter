@@ -3,9 +3,13 @@ module GHCSpecter.Graphics.DSL (
   Color (..),
   TextPosition (..),
 
-  -- * graphics primitive and group elements
+  -- * graphics primitives
   Primitive (..),
-  Group (..),
+  ViewPort (..),
+  Scene (..),
+
+  -- * event primitives
+  EventMap (..),
 ) where
 
 import Data.Text (Text)
@@ -45,9 +49,23 @@ data Primitive
     DrawText (Double, Double) TextPosition Color Int Text
   deriving (Show)
 
--- canvas coordinate to the scene
-data Group = Group
-  { groupFromCanvasCoordinate :: (Double, Double) -> (Double, Double)
-  , groupToCanvasCoordinate :: (Double, Double) -> (Double, Double)
-  , groupElements :: [Primitive]
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
   }
+  deriving (Show)
+
+-- scene has local view port matched with global canvas
+data Scene = Scene
+  { sceneGlobalViewPort :: ViewPort
+  , sceneLocalViewPort :: ViewPort
+  , sceneElements :: [Primitive]
+  }
+  deriving (Show)
+
+data EventMap = EventMap
+  { eventMapGlobalViewPort :: ViewPort
+  , eventMapLocalViewPort :: ViewPort
+  , eventMapElements :: [(Text, ViewPort)]
+  }
+  deriving (Show)
