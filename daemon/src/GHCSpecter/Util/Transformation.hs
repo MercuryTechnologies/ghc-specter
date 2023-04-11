@@ -2,6 +2,7 @@ module GHCSpecter.Util.Transformation (
   -- * transformation function for viewport
   transformScroll,
   transformZoom,
+  translateToOrigin,
 
   -- * hit test
   isInside,
@@ -44,6 +45,9 @@ transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') 
     y0' = y + (y0 - y) / scale
     x1' = x + (x1 - x) / scale
     y1' = y + (y1 - y) / scale
+
+translateToOrigin :: ViewPort -> ViewPort
+translateToOrigin (ViewPort (x0, y0) (x1, y1)) = ViewPort (0, 0) (x1 - x0, y1 - y0)
 
 isInside :: (Double, Double) -> ViewPort -> Bool
 isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =

@@ -30,7 +30,8 @@ appWidgetConfig =
     , _wcfgModuleGraph =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
-          , ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, modGraphHeight + tabHeight))
+          , ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight))
+          , ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
           ]
     , _wcfgSourceView =
         Map.fromList

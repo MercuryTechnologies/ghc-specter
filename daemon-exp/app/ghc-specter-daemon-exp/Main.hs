@@ -20,7 +20,7 @@ import Control.Concurrent.STM (
   writeTChan,
   writeTQueue,
  )
-import Control.Lens (to, (&), (.~), (^.), _1, _2)
+import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (traverse_)
@@ -44,6 +44,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -51,19 +52,28 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   initServerState,
  )
-import GHCSpecter.UI.Constants (canvasDim)
+import GHCSpecter.UI.Constants (
+  canvasDim,
+  modGraphHeight,
+  modGraphWidth,
+ )
 import GHCSpecter.UI.Types (
+  HasModuleGraphUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasWidgetConfig (..),
   UIState (..),
+  ViewPortInfo (..),
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),
+  DetailLevel (..),
   Event (..),
   Tab (..),
  )
+import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
@@ -82,6 +92,9 @@ import Session (renderSession)
 import SourceView (renderSourceView)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
+
+detailLevel :: DetailLevel
+detailLevel = UpTo30
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -125,6 +138,8 @@ renderAction vb ss uiRef = do
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
       mgrui = ui ^. uiModel . modelMainModuleGraph
+      sgrui = ui ^. uiModel . modelSubModuleGraph
+      subgraphs = mgs ^. mgsSubgraph
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
@@ -132,7 +147,16 @@ renderAction vb ss uiRef = do
         TabSession ->
           renderSession uiRef vb
         TabModuleGraph ->
-          renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
+          renderModuleGraph
+            uiRef
+            vb
+            (mgrui, sgrui)
+            subgraphs
+            nameMap
+            drvModMap
+            timing
+            clustering
+            grVisInfo
         TabSourceView ->
           renderSourceView uiRef vb
         TabTiming -> do
@@ -178,6 +202,12 @@ main =
     -- TODO: Until necessary, we just put undefined assets. Later, change this properly.
     let assets = undefined
     initTime <- getCurrentTime
+    let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
+        vpMainModGraph =
+          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
+        vpSubModGraph =
+          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
+
     let ui0 = emptyUIState assets initTime
         ui0' =
           ui0
@@ -185,6 +215,12 @@ main =
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiModel . modelTab .~ TabModuleGraph)
               . (uiModel . modelWidgetConfig .~ appWidgetConfig)
+              . ( uiModel . modelMainModuleGraph . modGraphViewPort
+                    .~ ViewPortInfo vpMainModGraph Nothing
+                )
+              . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
+                    .~ ViewPortInfo vpSubModGraph Nothing
+                )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO

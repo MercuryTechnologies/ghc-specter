@@ -7,7 +7,7 @@ module GHCSpecter.Control (
   main,
 ) where
 
-import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
@@ -81,6 +81,7 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   ModuleGraphEvent (..),
   MouseEvent (..),
+  ScrollDirection (..),
   SessionEvent (..),
   SourceViewEvent (..),
   SubModuleEvent (..),
@@ -214,6 +215,26 @@ appendNewCommand drvId newMsg = do
         ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
      in ss'
 
+scroll :: EventMap -> Lens' UIModel ViewPortInfo -> (ScrollDirection, (Double, Double)) -> UIModel -> UIModel
+scroll emap lensViewPort (dir, (dx, dy)) model =
+  let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
+      vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
+      scale = (cx1 - cx0) / (vx1 - vx0)
+      vp' = transformScroll dir scale (dx, dy) vp
+   in (lensViewPort .~ ViewPortInfo vp' Nothing) model
+
+zoom :: EventMap -> Lens' UIModel ViewPortInfo -> ((Double, Double), Double) -> UIModel -> UIModel
+zoom emap lensViewPort ((x, y), scale) model =
+  let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
+      -- NOTE: While zooming is in progress, the scaling is always relative to
+      -- the last UI viewport, not relative to the currently drawn (temporary)
+      -- view.
+      vp = model ^. lensViewPort . vpViewPort
+      rx = (x - cx0) / (cx1 - cx0)
+      ry = (y - cy0) / (cy1 - cy0)
+      vp' = (transformZoom (rx, ry) scale vp)
+   in (lensViewPort . vpTempViewPort .~ Just vp') model
+
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> Control ()
 goCommon ev = do
@@ -317,43 +338,64 @@ goModuleGraph ev = do
             ui' = (uiModel .~ model') ui
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
-    MouseEv (MouseMove (x, y)) -> do
+    MouseEv (MouseClick (x, y)) -> do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
               emaps = ui ^. uiViewRaw . uiRawEventMap
-              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
+              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
               mnowHit = do
                 emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
                 hitItem (x, y) emap
               (ui', ss')
                 | mnowHit /= mprevHit =
-                    let mev = HoverOnModuleEv mnowHit
+                    let mev = ClickOnModuleEv mnowHit
                         mgui = model ^. modelMainModuleGraph
                         mgui' = handleModuleGraphEv mev mgui
                         model' = (modelMainModuleGraph .~ mgui') model
                      in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
                 | otherwise = (ui, ss)
            in (ui', ss')
+      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
+          mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIClick
+      when (mnowHit /= mprevHit) refresh
+    MouseEv (MouseMove (x, y)) -> do
+      ((ui, _), (ui', _)) <-
+        modifyAndReturnBoth $ \(ui, ss) ->
+          let model = ui ^. uiModel
+              emaps = ui ^. uiViewRaw . uiRawEventMap
+              memap = hitScene (x, y) emaps
+           in case memap of
+                Just emap
+                  | eventMapId emap == "main-module-graph" ->
+                      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
+                          mnowHit = hitItem (x, y) emap
+                          (ui', ss')
+                            | mnowHit /= mprevHit =
+                                let mev = HoverOnModuleEv mnowHit
+                                    mgui = model ^. modelMainModuleGraph
+                                    mgui' = handleModuleGraphEv mev mgui
+                                    model' = (modelMainModuleGraph .~ mgui') model
+                                 in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
+                            | otherwise = (ui, ss)
+                       in (ui', ss')
+                  -- \| sub module graph does not support hover yet.
+                  | eventMapId emap == "sub-module-graph" -> (ui, ss)
+                _ -> (ui, ss)
       let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
           mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
       when (mnowHit /= mprevHit) refresh
     MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
         let emaps = ui ^. uiViewRaw . uiRawEventMap
             memap = hitScene (x, y) emaps
          in case memap of
               Just emap
                 | eventMapId emap == "main-module-graph" ->
-                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-                        vp@(ViewPort (vx0, _) (vx1, _)) =
-                          ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-                        scale = (cx1 - cx0) / (vx1 - vx0)
-                        vp' = transformScroll dir' scale (dx, dy) vp
-                        ui' =
-                          ui
-                            & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+                    let ui' = (uiModel %~ scroll emap (modelMainModuleGraph . modGraphViewPort) (dir', (dx, dy))) ui
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ui' = (uiModel %~ scroll emap (modelSubModuleGraph . _2 . modGraphViewPort) (dir', (dx, dy))) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -364,17 +406,10 @@ goModuleGraph ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "main-module-graph" ->
-                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
-                        -- NOTE: While zooming is in progress, the scaling is always relative to
-                        -- the last UI viewport, not relative to the currently drawn (temporary)
-                        -- view.
-                        vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-                        rx = xcenter / (cx1 - cx0)
-                        ry = ycenter / (cy1 - cy0)
-                        vp' = (transformZoom (rx, ry) scale vp)
-                        ui' =
-                          ui
-                            & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+                    let ui' = (uiModel %~ zoom emap (modelMainModuleGraph . modGraphViewPort) ((xcenter, ycenter), scale)) ui
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ui' = (uiModel %~ zoom emap (modelSubModuleGraph . _2 . modGraphViewPort) ((xcenter, ycenter), scale)) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -385,7 +420,12 @@ goModuleGraph ev = do
                 ui
                   & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
-         in (ui', ss)
+            ui'' = case ui' ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui'
+                  & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui'
+         in (ui'', ss)
       refresh
     _ -> pure ()
   goCommon ev
@@ -434,10 +474,6 @@ goSourceView ev = do
 
 goTiming :: Event -> Control ()
 goTiming ev = do
-  model0 <- (^. uiModel) <$> getUI
-  printMsg $
-    "I am in goTiming, " <> T.pack (show (model0 ^. modelTab)) <> ", " <> T.pack (show ev)
-
   case ev of
     TimingEv ToCurrentTime -> do
       modifyUISS $ \(ui, ss) ->
@@ -534,14 +570,7 @@ goTiming ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "timing-chart" ->
-                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-                        vp@(ViewPort (x0, _) (x1, _)) =
-                          ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-                        scale = (cx1 - cx0) / (x1 - x0)
-                        vp' = transformScroll dir' scale (dx, dy) vp
-                        ui' =
-                          ui
-                            & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
+                    let ui' = (uiModel %~ scroll emap (modelTiming . timingUIViewPort) (dir', (dx, dy))) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -552,17 +581,7 @@ goTiming ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "timing-chart" ->
-                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
-                        -- NOTE: While zooming is in progress, the scaling is always relative to
-                        -- the last UI viewport, not relative to the currently drawn (temporary)
-                        -- view.
-                        vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-                        rx = xcenter / (cx1 - cx0)
-                        ry = ycenter / (cy1 - cy0)
-                        vp' = (transformZoom (rx, ry) scale vp)
-                        ui' =
-                          ui
-                            & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+                    let ui' = (uiModel %~ zoom emap (modelTiming . timingUIViewPort) ((xcenter, ycenter), scale)) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -640,7 +659,6 @@ mainLoop = do
                   mainLoop
                 else loop
             MouseEv (MouseClick (x, y)) -> do
-              printMsg $ "mouse click : " <> T.pack (show (x, y))
               emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
               let mhitTab = do
                     emap <- L.find (\m -> eventMapId m == "tab") emaps
