@@ -11,7 +11,7 @@ import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
@@ -323,7 +323,9 @@ goModuleGraph ev = do
           let model = ui ^. uiModel
               emaps = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-              mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+              mnowHit = do
+                emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
+                hitItem (x, y) emap
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = HoverOnModuleEv mnowHit
@@ -513,13 +515,12 @@ goTiming ev = do
         modifyAndReturnBoth $ \(ui, ss) ->
           let
             emaps = ui ^. uiViewRaw . uiRawEventMap
-            -- let memap = hitScene (x, y) emaps
             mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
-            mnowHit = listToMaybe $ mapMaybe (hitItem (x, y)) emaps
+            mnowHit = do
+              emap <- L.find (\m -> eventMapId m == "timing-chart") emaps
+              hitItem (x, y) emap
             ui'
-              | (mnowHit /= mprevHit) --  && (eventMapId <$> emap == "timing-chart") =
-                =
-                  (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
+              | (mnowHit /= mprevHit) = (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
               | otherwise = ui
            in
             (ui', ss)
