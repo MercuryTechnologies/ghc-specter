@@ -4,7 +4,7 @@ module Config (
   appWidgetConfig,
 ) where
 
-import Control.Lens ((^.), _1, _2)
+import Control.Lens (to, (^.), _1, _2)
 import Data.Map qualified as Map
 import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Constants (
@@ -36,6 +36,7 @@ appWidgetConfig =
     , _wcfgSourceView =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          , ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.25), canvasDim ^. _2))
           ]
     , _wcfgTiming =
         Map.fromList

@@ -157,8 +157,9 @@ renderAction vb ss uiRef = do
             timing
             clustering
             grVisInfo
-        TabSourceView ->
-          renderSourceView uiRef vb
+        TabSourceView -> do
+          let srcUI = ui ^. uiModel . modelSourceView
+          renderSourceView uiRef vb srcUI ss
         TabTiming -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
