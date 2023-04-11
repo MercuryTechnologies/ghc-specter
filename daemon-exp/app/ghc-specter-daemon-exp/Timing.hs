@@ -4,6 +4,7 @@ module Timing (
   renderTiming,
 ) where
 
+import BasicWidget (compileTab)
 import Control.Concurrent.STM (TVar)
 import Control.Lens ((^.))
 import Data.Foldable (for_)
@@ -33,6 +34,7 @@ import GHCSpecter.UI.Types (
   TimingUI,
   UIState,
  )
+import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import Renderer (
   addEventMap,
@@ -53,6 +55,14 @@ renderTiming uiRef vb drvModMap tui ttable = do
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
+    let sceneTab = compileTab TabTiming
+        sceneTab' =
+          sceneTab
+            { sceneGlobalViewPort = vpCvs
+            }
+    renderScene vb sceneTab'
+    R.liftIO $ addEventMap uiRef sceneTab
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
     let sceneTimingChart = compileTimingChart drvModMap tui ttable

@@ -18,6 +18,7 @@ module GHCSpecter.UI.Constants (
 
   -- * global
   canvasDim,
+  tabHeight,
 
   -- * web
   widgetHeight,
@@ -55,6 +56,9 @@ modGraphHeight = 768
 
 canvasDim :: (Num a) => (a, a)
 canvasDim = (1440, 768)
+
+tabHeight :: (Num a) => a
+tabHeight = 15
 
 -- TODO: this web-specific code should be located elsewhere.
 widgetHeight :: Bool -> Text
