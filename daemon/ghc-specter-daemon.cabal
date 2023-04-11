@@ -53,6 +53,7 @@ library
       GHCSpecter.Render.Components.ConsoleItem
       GHCSpecter.Render.Components.GHCCore
       GHCSpecter.Render.Components.GraphView
+      GHCSpecter.Render.Components.ModuleTree
       GHCSpecter.Render.Components.Tab
       GHCSpecter.Render.Components.TextView
       GHCSpecter.Render.Components.TimingView

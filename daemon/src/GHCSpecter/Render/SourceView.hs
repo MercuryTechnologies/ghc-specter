@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.SourceView (
-  compileModuleTree,
   render,
   renderUnqualifiedImports,
 ) where
@@ -37,6 +36,7 @@ import GHCSpecter.Data.GHC.Hie (
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
+import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
@@ -78,69 +78,15 @@ import GHCSpecter.Util.SourceTree (
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 
-expandableText :: Bool -> Bool -> Text -> Text
-expandableText isBordered isExpandable txt =
-  let txt'
-        | not isBordered && isExpandable = txt <> " ... "
-        | otherwise = txt
-   in txt'
-
 expandableTextElement :: Bool -> Bool -> Text -> Text -> Widget IHTML MouseEvent
 expandableTextElement isBordered isExpandable cls txt =
-  let txt' = expandableText isBordered isExpandable txt
+  let txt' = ModuleTree.expandableText isBordered isExpandable txt
       spanProps =
         classList [("expandable " <> cls, True)]
           : if isBordered
             then [style [("border", "solid")]]
             else []
    in span (onClick : spanProps) [text txt']
-
-compileModuleTree :: SourceViewUI -> ServerState -> [Tree (Int, Text)] --  [Text] -- [Primitive]
-compileModuleTree srcUI ss = fmap renderTree displayedForest'
-  where
-    timing = ss ^. serverTiming . tsTimingMap
-    drvModMap = ss ^. serverDriverModuleMap
-    mexpandedModu = srcUI ^. srcViewExpandedModule
-    expanded = maybe [] (T.splitOn ".") mexpandedModu
-    displayedForest =
-      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded . fmap markLeaf)
-    displayedForest' :: [Tree (ModuleName, Bool)]
-    displayedForest' =
-      fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
-    breakpoints = ss ^. serverModuleBreakpoints
-
-    renderNode :: (ModuleName, Bool) -> Text
-    renderNode (modu, b) =
-      case mexpandedModu of
-        Just modu'
-          | modu == modu' -> expandableText True (not b) modu
-        _ -> expandableText False (not b) modu
-
-    renderTree = foldTree annotateLevel . fmap renderNode
-
-    annotateLevel :: Text -> [Tree (Int, Text)] -> Tree (Int, Text)
-    annotateLevel x ys
-      | null ys = Node (0, x) []
-      | otherwise =
-          let l = maximum (fmap (\(Node (l, _) _) -> l) ys)
-           in Node (l + 1, x) ys
-
---         x <> "\n" <> T.intercalate "\n" ys
-
-{-
-    convert :: Widget IHTML e -> [Widget IHTML e] -> Widget IHTML e
-    convert x ys
-      | null ys = li [] [x]
-      | otherwise = li [] [x, ul [] ys]
-
-    renderTree = foldTree convert . fmap renderNode
--}
-
-{-
-    contents :: [PrimitiveWidget IHTML SourceViewEvent]
-    contents =
-      where
--}
 
 -- | show information on unqualified imports
 renderUnqualifiedImports :: ModuleName -> Inbox -> Widget IHTML a
