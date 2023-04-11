@@ -317,6 +317,27 @@ goModuleGraph ev = do
             ui' = (uiModel .~ model') ui
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
+    MouseEv (MouseClick (x, y)) -> do
+      ((ui, _), (ui', _)) <-
+        modifyAndReturnBoth $ \(ui, ss) ->
+          let model = ui ^. uiModel
+              emaps = ui ^. uiViewRaw . uiRawEventMap
+              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
+              mnowHit = do
+                emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
+                hitItem (x, y) emap
+              (ui', ss')
+                | mnowHit /= mprevHit =
+                    let mev = ClickOnModuleEv mnowHit
+                        mgui = model ^. modelMainModuleGraph
+                        mgui' = handleModuleGraphEv mev mgui
+                        model' = (modelMainModuleGraph .~ mgui') model
+                     in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
+                | otherwise = (ui, ss)
+           in (ui', ss')
+      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
+          mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIClick
+      when (mnowHit /= mprevHit) refresh
     MouseEv (MouseMove (x, y)) -> do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
@@ -640,7 +661,6 @@ mainLoop = do
                   mainLoop
                 else loop
             MouseEv (MouseClick (x, y)) -> do
-              printMsg $ "mouse click : " <> T.pack (show (x, y))
               emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
               let mhitTab = do
                     emap <- L.find (\m -> eventMapId m == "tab") emaps

@@ -61,6 +61,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),
+  DetailLevel (..),
   Event (..),
   Tab (..),
  )
@@ -82,6 +83,9 @@ import Session (renderSession)
 import SourceView (renderSourceView)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
+
+detailLevel :: DetailLevel
+detailLevel = UpTo30
 
 withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
 withConfig mconfigFile action = do
@@ -125,6 +129,8 @@ renderAction vb ss uiRef = do
       clustering = mgs ^. mgsClustering
       mgrvis = mgs ^. mgsClusterGraph
       mgrui = ui ^. uiModel . modelMainModuleGraph
+      sgrui = ui ^. uiModel . modelSubModuleGraph
+      subgraphs = mgs ^. mgsSubgraph
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
@@ -132,7 +138,16 @@ renderAction vb ss uiRef = do
         TabSession ->
           renderSession uiRef vb
         TabModuleGraph ->
-          renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
+          renderModuleGraph
+            uiRef
+            vb
+            (mgrui, sgrui)
+            subgraphs
+            nameMap
+            drvModMap
+            timing
+            clustering
+            grVisInfo
         TabSourceView ->
           renderSourceView uiRef vb
         TabTiming -> do
@@ -230,11 +245,11 @@ main =
           $ \ev -> do
             handleClick chanQEv ev
             pure True
-        _ <- drawingArea
+        {- _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
             handleMotion chanQEv ev
-            pure True
+            pure True -}
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do
