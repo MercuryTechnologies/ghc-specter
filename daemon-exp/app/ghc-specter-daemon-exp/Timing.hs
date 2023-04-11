@@ -4,8 +4,8 @@ module Timing (
   renderTiming,
 ) where
 
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
-import Control.Lens ((.~), (^.))
+import Control.Concurrent.STM (TVar)
+import Control.Lens ((^.))
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -29,11 +29,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasTimingUI (..),
-  HasUIModel (..),
-  HasUIState (..),
-  HasUIViewRaw (..),
   HasViewPortInfo (..),
-  HasWidgetConfig (..),
   TimingUI,
   UIState,
  )
@@ -41,6 +37,7 @@ import GI.Cairo.Render qualified as R
 import Renderer (
   addEventMap,
   renderScene,
+  resetWidget,
  )
 import Types (ViewBackend)
 
@@ -52,11 +49,7 @@ renderTiming ::
   TimingTable ->
   R.Render ()
 renderTiming uiRef vb drvModMap tui ttable = do
-  wcfg <-
-    R.liftIO $
-      atomically $ do
-        modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
-        (^. uiModel . modelWidgetConfig . wcfgTiming) <$> readTVar uiRef
+  wcfg <- R.liftIO $ resetWidget uiRef
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)

@@ -1,11 +1,16 @@
 {-# LANGUAGE OverloadedLabels #-}
 
 module Renderer (
+  -- * drawing
   setColor,
   drawText,
   renderPrimitive,
   renderScene,
-  --
+
+  -- * reset
+  resetWidget,
+
+  -- * event map
   addEventMap,
 ) where
 
@@ -13,10 +18,12 @@ import Control.Concurrent.STM (
   TVar,
   atomically,
   modifyTVar',
+  readTVar,
  )
-import Control.Lens ((%~))
+import Control.Lens ((%~), (.~), (^.))
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
+import Data.Map (Map)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
@@ -28,10 +35,13 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.UI.Types (
+  HasUIModel (..),
   HasUIState (..),
   HasUIViewRaw (..),
+  HasWidgetConfig (..),
   UIState,
  )
+import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
@@ -111,6 +121,17 @@ renderScene vb scene = do
   R.translate (-vx0) (-vy0)
   traverse_ (renderPrimitive vb) (sceneElements scene)
   R.restore
+
+resetWidget :: TVar UIState -> IO (Map Text ViewPort)
+resetWidget uiRef = do
+  atomically $ do
+    modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
+    model <- (^. uiModel) <$> readTVar uiRef
+    case model ^. modelTab of
+      TabSession -> pure (model ^. modelWidgetConfig . wcfgSession)
+      TabModuleGraph -> pure (model ^. modelWidgetConfig . wcfgModuleGraph)
+      TabSourceView -> pure (model ^. modelWidgetConfig . wcfgSourceView)
+      TabTiming -> pure (model ^. modelWidgetConfig . wcfgTiming)
 
 addEventMap :: TVar UIState -> Scene -> IO ()
 addEventMap uiRef scene = do

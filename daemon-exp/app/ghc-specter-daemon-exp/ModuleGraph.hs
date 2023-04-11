@@ -28,7 +28,7 @@ import GHCSpecter.UI.Types (
   UIState,
  )
 import GI.Cairo.Render qualified as R
-import Renderer (addEventMap, renderScene)
+import Renderer (addEventMap, renderScene, resetWidget)
 import Types (ViewBackend (..))
 
 renderModuleGraph ::
@@ -42,7 +42,7 @@ renderModuleGraph ::
   GraphVisInfo ->
   R.Render ()
 renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo = do
-  R.liftIO $ atomically $ modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
+  wcfg <- R.liftIO $ resetWidget uiRef
   let valueFor name =
         fromMaybe 0 $ do
           cluster <- L.lookup name clustering
