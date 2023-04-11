@@ -57,14 +57,16 @@ data ViewPort = ViewPort
 
 -- scene has local view port matched with global canvas
 data Scene = Scene
-  { sceneGlobalViewPort :: ViewPort
+  { sceneId :: Text
+  , sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [Primitive]
   }
   deriving (Show)
 
 data EventMap = EventMap
-  { eventMapGlobalViewPort :: ViewPort
+  { eventMapId :: Text
+  , eventMapGlobalViewPort :: ViewPort
   , eventMapLocalViewPort :: ViewPort
   , eventMapElements :: [(Text, ViewPort)]
   }

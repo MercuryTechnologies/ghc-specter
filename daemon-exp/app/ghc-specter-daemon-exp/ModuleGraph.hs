@@ -55,7 +55,7 @@ renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo =
       vpi = mgrui ^. modGraphViewPort
       vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
 
-  for_ (Map.lookup "main" wcfg) $ \vpCvs -> do
+  for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
     let scene = compileModuleGraph nameMap valueFor grVisInfo (Nothing, mhover)
         scene' =
           scene

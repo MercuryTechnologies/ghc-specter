@@ -25,7 +25,7 @@ appWidgetConfig =
     { _wcfgSession = Map.empty
     , _wcfgModuleGraph =
         Map.fromList
-          [ ("main", ViewPort (0, 0) (modGraphWidth, modGraphHeight))
+          [ ("main-module-graph", ViewPort (0, 0) (modGraphWidth, modGraphHeight))
           ]
     , _wcfgSourceView = Map.empty
     , _wcfgTiming =

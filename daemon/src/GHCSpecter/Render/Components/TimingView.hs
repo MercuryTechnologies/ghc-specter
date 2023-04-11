@@ -165,7 +165,8 @@ compileTimingChart ::
   Scene
 compileTimingChart drvModMap tui ttable =
   Scene
-    { sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    { sceneId = "timing-chart"
+    , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
     , sceneElements =
         compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
@@ -281,7 +282,8 @@ compileMemChart ::
   Scene
 compileMemChart drvModMap tui ttable =
   Scene
-    { sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
+    { sceneId = "mem-chart"
+    , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
     , sceneElements =
         concatMap makeItem filteredItems
@@ -337,7 +339,8 @@ compileTimingRange ::
   Scene
 compileTimingRange tui ttable =
   Scene
-    { sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
+    { sceneId = "timing-range"
+    , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneElements = [background, handle]
     }
@@ -383,7 +386,8 @@ compileTimingRange tui ttable =
 compileBlockers :: ModuleName -> TimingTable -> Scene
 compileBlockers hoveredMod ttable =
   Scene
-    { sceneGlobalViewPort = ViewPort (0, 0) (200, size)
+    { sceneId = "blockers"
+    , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
     , sceneElements = box : contents
     }
