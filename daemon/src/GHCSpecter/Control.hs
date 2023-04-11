@@ -7,7 +7,7 @@ module GHCSpecter.Control (
   main,
 ) where
 
-import Control.Lens (to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
@@ -81,6 +81,7 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   ModuleGraphEvent (..),
   MouseEvent (..),
+  ScrollDirection (..),
   SessionEvent (..),
   SourceViewEvent (..),
   SubModuleEvent (..),
@@ -213,6 +214,14 @@ appendNewCommand drvId newMsg = do
         append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
         ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
      in ss'
+
+scroll :: EventMap -> Lens' UIModel ViewPortInfo -> (ScrollDirection, (Double, Double)) -> UIModel -> UIModel
+scroll emap lensViewPort (dir, (dx, dy)) model =
+  let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
+      vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
+      scale = (cx1 - cx0) / (vx1 - vx0)
+      vp' = transformScroll dir scale (dx, dy) vp
+   in (lensViewPort .~ ViewPortInfo vp' Nothing) model
 
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> Control ()
@@ -365,31 +374,16 @@ goModuleGraph ev = do
           mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
       when (mnowHit /= mprevHit) refresh
     MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      -- TODO: refactor out this repetitive function
       modifyUISS $ \(ui, ss) ->
         let emaps = ui ^. uiViewRaw . uiRawEventMap
             memap = hitScene (x, y) emaps
          in case memap of
               Just emap
                 | eventMapId emap == "main-module-graph" ->
-                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-                        vp@(ViewPort (vx0, _) (vx1, _)) =
-                          ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-                        scale = (cx1 - cx0) / (vx1 - vx0)
-                        vp' = transformScroll dir' scale (dx, dy) vp
-                        ui' =
-                          ui
-                            & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+                    let ui' = (uiModel %~ scroll emap (modelMainModuleGraph . modGraphViewPort) (dir', (dx, dy))) ui
                      in (ui', ss)
                 | eventMapId emap == "sub-module-graph" ->
-                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-                        vp@(ViewPort (vx0, _) (vx1, _)) =
-                          ui ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpViewPort
-                        scale = (cx1 - cx0) / (vx1 - vx0)
-                        vp' = transformScroll dir' scale (dx, dy) vp
-                        ui' =
-                          ui
-                            & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+                    let ui' = (uiModel %~ scroll emap (modelSubModuleGraph . _2 . modGraphViewPort) (dir', (dx, dy))) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -584,14 +578,7 @@ goTiming ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "timing-chart" ->
-                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-                        vp@(ViewPort (x0, _) (x1, _)) =
-                          ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-                        scale = (cx1 - cx0) / (x1 - x0)
-                        vp' = transformScroll dir' scale (dx, dy) vp
-                        ui' =
-                          ui
-                            & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo vp' Nothing)
+                    let ui' = (uiModel %~ scroll emap (modelTiming . timingUIViewPort) (dir', (dx, dy))) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
