@@ -78,6 +78,8 @@ import Handler (
  )
 import ModuleGraph (renderModuleGraph)
 import Renderer (drawText)
+import Session (renderSession)
+import SourceView (renderSourceView)
 import Timing (renderTiming)
 import Types (ViewBackend (..))
 
@@ -127,13 +129,16 @@ renderAction vb ss uiRef = do
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
       case ui ^. uiModel . modelTab of
+        TabSession ->
+          renderSession uiRef vb
         TabModuleGraph ->
           renderModuleGraph uiRef vb mgrui nameMap drvModMap timing clustering grVisInfo
+        TabSourceView ->
+          renderSourceView uiRef vb
         TabTiming -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
           renderTiming uiRef vb drvModMap tui ttable
-        _ -> pure ()
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)

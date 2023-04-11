@@ -23,13 +23,19 @@ import GHCSpecter.UI.Types (
 appWidgetConfig :: WidgetConfig
 appWidgetConfig =
   WidgetConfig
-    { _wcfgSession = Map.empty
+    { _wcfgSession =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          ]
     , _wcfgModuleGraph =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
           , ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, modGraphHeight + tabHeight))
           ]
-    , _wcfgSourceView = Map.empty
+    , _wcfgSourceView =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          ]
     , _wcfgTiming =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))

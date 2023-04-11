@@ -24,6 +24,8 @@ executable ghc-specter-daemon-exp
                  Handler
                  ModuleGraph
                  Renderer
+                 Session
+                 SourceView
                  Timing
                  Types
 
