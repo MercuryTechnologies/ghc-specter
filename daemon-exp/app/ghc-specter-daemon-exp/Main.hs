@@ -73,6 +73,7 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   Tab (..),
  )
+import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
@@ -203,9 +204,9 @@ main =
     initTime <- getCurrentTime
     let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
         vpMainModGraph =
-          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (fromMaybe defVP)
+          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
-          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (fromMaybe defVP)
+          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =

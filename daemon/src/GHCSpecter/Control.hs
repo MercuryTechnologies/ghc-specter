@@ -343,19 +343,24 @@ goModuleGraph ev = do
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
               emaps = ui ^. uiViewRaw . uiRawEventMap
-              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-              mnowHit = do
-                emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
-                hitItem (x, y) emap
-              (ui', ss')
-                | mnowHit /= mprevHit =
-                    let mev = HoverOnModuleEv mnowHit
-                        mgui = model ^. modelMainModuleGraph
-                        mgui' = handleModuleGraphEv mev mgui
-                        model' = (modelMainModuleGraph .~ mgui') model
-                     in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
-                | otherwise = (ui, ss)
-           in (ui', ss')
+              memap = hitScene (x, y) emaps
+           in case memap of
+                Just emap
+                  | eventMapId emap == "main-module-graph" ->
+                      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
+                          mnowHit = hitItem (x, y) emap
+                          (ui', ss')
+                            | mnowHit /= mprevHit =
+                                let mev = HoverOnModuleEv mnowHit
+                                    mgui = model ^. modelMainModuleGraph
+                                    mgui' = handleModuleGraphEv mev mgui
+                                    model' = (modelMainModuleGraph .~ mgui') model
+                                 in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
+                            | otherwise = (ui, ss)
+                       in (ui', ss')
+                  -- \| sub module graph does not support hover yet.
+                  | eventMapId emap == "sub-module-graph" -> (ui, ss)
+                _ -> (ui, ss)
       let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
           mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
       when (mnowHit /= mprevHit) refresh
@@ -375,6 +380,16 @@ goModuleGraph ev = do
                         ui' =
                           ui
                             & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo vp' Nothing)
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
+                        vp@(ViewPort (vx0, _) (vx1, _)) =
+                          ui ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpViewPort
+                        scale = (cx1 - cx0) / (vx1 - vx0)
+                        vp' = transformScroll dir' scale (dx, dy) vp
+                        ui' =
+                          ui
+                            & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo vp' Nothing)
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -455,10 +470,6 @@ goSourceView ev = do
 
 goTiming :: Event -> Control ()
 goTiming ev = do
-  model0 <- (^. uiModel) <$> getUI
-  printMsg $
-    "I am in goTiming, " <> T.pack (show (model0 ^. modelTab)) <> ", " <> T.pack (show ev)
-
   case ev of
     TimingEv ToCurrentTime -> do
       modifyUISS $ \(ui, ss) ->

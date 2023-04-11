@@ -70,8 +70,10 @@ renderModuleGraph
         mainModuleClicked = mgrui ^. modGraphUIClick
         mainModuleHovered = mgrui ^. modGraphUIHover
         subModuleHovered = sgrui ^. modGraphUIHover
-        vpi = mgrui ^. modGraphViewPort
-        vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+        vpiMain = mgrui ^. modGraphViewPort
+        vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
+        vpiSub = sgrui ^. modGraphViewPort
+        vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- tab
     for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
       let sceneTab = compileTab TabModuleGraph
@@ -88,7 +90,7 @@ renderModuleGraph
           sceneMain' =
             sceneMain
               { sceneGlobalViewPort = vpCvs
-              , sceneLocalViewPort = vp
+              , sceneLocalViewPort = vpMain
               }
       renderScene vb sceneMain'
       R.liftIO $ addEventMap uiRef sceneMain'
@@ -115,12 +117,16 @@ renderModuleGraph
                 compileModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
               sceneSub' =
                 sceneSub
-                  { -- TODO: this should be set up in compileModuleGraph
+                  { -- TODO: this should be set up from compileModuleGraph
                     sceneId = "sub-module-graph"
                   , sceneGlobalViewPort = vpCvs
-                  , sceneLocalViewPort = ViewPort (0, 0) (cx1 - cx0, cy1 - cy0)
+                  , sceneLocalViewPort = vpSub
                   }
-
-          R.liftIO $ print sceneSub'
+          -- separator rule
+          R.setSourceRGBA 0 0 0 1
+          R.setLineWidth 1.0
+          R.moveTo cx0 cy0
+          R.lineTo cx1 cy0
+          R.stroke
           renderScene vb sceneSub'
           R.liftIO $ addEventMap uiRef sceneSub'
