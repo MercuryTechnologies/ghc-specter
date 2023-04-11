@@ -96,16 +96,16 @@ renderTiming uiRef vb drvModMap tui ttable = do
         hoveredMod <- tui ^. timingUIHoveredModule
         vpCvs <- Map.lookup "blockers" wcfg
         pure (hoveredMod, vpCvs)
-  -- NOTE: vpCvs is ignored as dynamic size overrides it.
+  -- NOTE: the size information from vpCvs is ignored as dynamic size overrides it.
   -- TODO: clipping is still valid. we need two-layer viewport system.
-  for_ minfo $ \(hoveredMod, _vpCvs) -> do
+  for_ minfo $ \(hoveredMod, vpCvs) -> do
     let sceneBlockers = compileBlockers hoveredMod ttable
+        ViewPort (offsetX, offsetY) _ = vpCvs
         ViewPort (vx0', vy0') (vx1', vy1') = sceneLocalViewPort sceneBlockers
         w = vx1' - vx0'
         h = vy1' - vy0'
-        offsetY = timingHeight + timingRangeHeight
         sceneBlockers' =
           sceneBlockers
-            { sceneGlobalViewPort = ViewPort (0, offsetY) (w, h + offsetY)
+            { sceneGlobalViewPort = ViewPort (offsetX, offsetY) (w + offsetX, h + offsetY)
             }
     renderScene vb sceneBlockers'

@@ -216,25 +216,6 @@ main =
           , Gdk.EventMaskTouchpadGestureMask
           ]
 
-        -- NOTE: we will not use gtk-native widgets at all in the end. this is temporary.
-        menuBar <- new Gtk.MenuBar []
-        menuitem1 <- Gtk.menuItemNewWithLabel "ModuleGraph"
-        _ <-
-          menuitem1
-            `on` #activate
-            $ atomically
-            $ writeTQueue chanQEv (TabEv TabModuleGraph)
-
-        menuitem2 <- Gtk.menuItemNewWithLabel "Timing"
-        _ <-
-          menuitem2
-            `on` #activate
-            $ atomically
-            $ writeTQueue chanQEv (TabEv TabTiming)
-
-        #append menuBar menuitem1
-        #append menuBar menuitem2
-
         _ <- drawingArea
           `on` #draw
           $ RC.renderWithContext
@@ -273,7 +254,6 @@ main =
 
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
-          #packStart vbox menuBar False True 0
           #packStart vbox drawingArea True True 0
           pure vbox
         #add mainWindow layout
