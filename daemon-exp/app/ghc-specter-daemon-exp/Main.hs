@@ -4,6 +4,7 @@
 
 module Main where
 
+import Config (appWidgetConfig)
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
   TVar,
@@ -177,6 +178,7 @@ main =
             & (uiModel . modelTiming . timingUIPartition .~ True)
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
               . (uiModel . modelTab .~ TabModuleGraph)
+              . (uiModel . modelWidgetConfig .~ appWidgetConfig)
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
