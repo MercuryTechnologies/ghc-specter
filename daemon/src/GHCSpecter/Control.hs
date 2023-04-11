@@ -223,6 +223,18 @@ scroll emap lensViewPort (dir, (dx, dy)) model =
       vp' = transformScroll dir scale (dx, dy) vp
    in (lensViewPort .~ ViewPortInfo vp' Nothing) model
 
+zoom :: EventMap -> Lens' UIModel ViewPortInfo -> ((Double, Double), Double) -> UIModel -> UIModel
+zoom emap lensViewPort ((x, y), scale) model =
+  let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
+      -- NOTE: While zooming is in progress, the scaling is always relative to
+      -- the last UI viewport, not relative to the currently drawn (temporary)
+      -- view.
+      vp = model ^. lensViewPort . vpViewPort
+      rx = (x - cx0) / (cx1 - cx0)
+      ry = (y - cy0) / (cy1 - cy0)
+      vp' = (transformZoom (rx, ry) scale vp)
+   in (lensViewPort . vpTempViewPort .~ Just vp') model
+
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> Control ()
 goCommon ev = do
@@ -394,30 +406,10 @@ goModuleGraph ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "main-module-graph" ->
-                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
-                        -- NOTE: While zooming is in progress, the scaling is always relative to
-                        -- the last UI viewport, not relative to the currently drawn (temporary)
-                        -- view.
-                        vp = ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpViewPort
-                        rx = (xcenter - cx0) / (cx1 - cx0)
-                        ry = (ycenter - cy0) / (cy1 - cy0)
-                        vp' = (transformZoom (rx, ry) scale vp)
-                        ui' =
-                          ui
-                            & (uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort .~ Just vp')
+                    let ui' = (uiModel %~ zoom emap (modelMainModuleGraph . modGraphViewPort) ((xcenter, ycenter), scale)) ui
                      in (ui', ss)
                 | eventMapId emap == "sub-module-graph" ->
-                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
-                        -- NOTE: While zooming is in progress, the scaling is always relative to
-                        -- the last UI viewport, not relative to the currently drawn (temporary)
-                        -- view.
-                        vp = ui ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpViewPort
-                        rx = (xcenter - cx0) / (cx1 - cx0)
-                        ry = (ycenter - cy0) / (cy1 - cy0)
-                        vp' = (transformZoom (rx, ry) scale vp)
-                        ui' =
-                          ui
-                            & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort .~ Just vp')
+                    let ui' = (uiModel %~ zoom emap (modelSubModuleGraph . _2 . modGraphViewPort) ((xcenter, ycenter), scale)) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
@@ -589,17 +581,7 @@ goTiming ev = do
          in case memap of
               Just emap
                 | eventMapId emap == "timing-chart" ->
-                    let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
-                        -- NOTE: While zooming is in progress, the scaling is always relative to
-                        -- the last UI viewport, not relative to the currently drawn (temporary)
-                        -- view.
-                        vp = ui ^. uiModel . modelTiming . timingUIViewPort . vpViewPort
-                        rx = (xcenter - cx0) / (cx1 - cx0)
-                        ry = (ycenter - cy0) / (cy1 - cy0)
-                        vp' = (transformZoom (rx, ry) scale vp)
-                        ui' =
-                          ui
-                            & (uiModel . modelTiming . timingUIViewPort . vpTempViewPort .~ Just vp')
+                    let ui' = (uiModel %~ zoom emap (modelTiming . timingUIViewPort) ((xcenter, ycenter), scale)) ui
                      in (ui', ss)
               _ -> (ui, ss)
       refresh
