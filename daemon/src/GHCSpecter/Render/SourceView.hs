@@ -36,6 +36,7 @@ import GHCSpecter.Data.GHC.Hie (
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
+import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
@@ -77,11 +78,9 @@ import GHCSpecter.Util.SourceTree (
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 
-expandableText :: Bool -> Bool -> Text -> Text -> Widget IHTML MouseEvent
-expandableText isBordered isExpandable cls txt =
-  let txt'
-        | not isBordered && isExpandable = txt <> " ... "
-        | otherwise = txt
+expandableTextElement :: Bool -> Bool -> Text -> Text -> Widget IHTML MouseEvent
+expandableTextElement isBordered isExpandable cls txt =
+  let txt' = ModuleTree.expandableText isBordered isExpandable txt
       spanProps =
         classList [("expandable " <> cls, True)]
           : if isBordered
@@ -156,14 +155,14 @@ renderModuleTree srcUI ss =
                     span
                       []
                       [ UnselectModule
-                          <$ expandableText True (not b) colorTxt modu
+                          <$ expandableTextElement True (not b) colorTxt modu
                       , breakpointCheck
                       ]
               _ ->
                 span
                   []
                   [ SelectModule modu
-                      <$ expandableText False (not b) colorTxt modu
+                      <$ expandableTextElement False (not b) colorTxt modu
                   , breakpointCheck
                   ]
        in modItem
