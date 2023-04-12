@@ -8,12 +8,11 @@ module GHCSpecter.Render.Components.ModuleTree (
 
 import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
--- import Data.Map qualified as M
--- import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..), flatten, foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
@@ -21,15 +20,10 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
--- import GHCSpecter.Channel.Outbound.Types (
---  Channel (..),
---  SessionInfo (..),
--- )
--- import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
-  -- HasTimingState (..),
+  HasTimingState (..),
   ServerState (..),
  )
 import GHCSpecter.UI.Constants (canvasDim)
@@ -59,9 +53,9 @@ compileModuleTree srcUI ss =
     , sceneElements = contents
     }
   where
-    -- timing = ss ^. serverTiming . tsTimingMap
-    -- drvModMap = ss ^. serverDriverModuleMap
-    mexpandedModu = Just "Agda.Compiler.Backend" -- srcUI ^. srcViewExpandedModule
+    timing = ss ^. serverTiming . tsTimingMap
+    drvModMap = ss ^. serverDriverModuleMap
+    mexpandedModu = srcUI ^. srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
       ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded . fmap markLeaf)
@@ -70,32 +64,35 @@ compileModuleTree srcUI ss =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
     -- breakpoints = ss ^. serverModuleBreakpoints
 
-    renderNode :: (ModuleName, Bool) -> Either (ModuleName, Text) (ModuleName, Text)
+    renderNode :: (ModuleName, Bool) -> (Bool, Color, ModuleName, Text)
     renderNode (modu, b) =
-      case mexpandedModu of
-        Just modu'
-          | modu == modu' -> Right (modu, expandableText True (not b) modu)
-        _ -> Left (modu, expandableText False (not b) modu)
+      let color
+            | isModuleCompilationDone drvModMap timing modu = Green
+            | otherwise = Black
+       in case mexpandedModu of
+            Just modu'
+              | modu == modu' -> (True, color, modu, expandableText True (not b) modu)
+            _ -> (False, color, modu, expandableText False (not b) modu)
 
     annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
     annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)
 
     indentLevel = flatten . foldTree annotateLevel . fmap renderNode
 
-    render :: (Int, (Int, (Either (ModuleName, Text) (ModuleName, Text)))) -> [Primitive]
-    render (i, (j, e)) =
+    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive]
+    render (i, (j, (matched, color, modu, txt))) =
       let x = fromIntegral j * 20
-          y = fromIntegral i * 10
-       in case e of
-            Left (modu, txt) ->
-              -- TODO: we use ugly unsafe Select_ and Unsele_ prefix here. We will introduce
-              -- proper typing mechanism later on.
-              [ Rectangle (x, y) 100 10 Nothing (Just White) Nothing (Just ("Select_" <> modu))
-              , DrawText (x, y) UpperLeft Black 8 txt
-              ]
-            Right (modu, txt) ->
+          y = fromIntegral i * 14
+       in if matched
+            then
               [ Rectangle (x, y) 100 10 Nothing (Just Gray) Nothing (Just ("Unsele_" <> modu))
-              , DrawText (x, y) UpperLeft Black 8 txt
+              , DrawText (x, y) UpperLeft color 8 txt
+              ]
+            else -- TODO: we use ugly unsafe Select_ and Unsele_ prefix here. We will introduce
+            -- proper typing mechanism later on.
+
+              [ Rectangle (x, y) 100 10 Nothing (Just White) Nothing (Just ("Select_" <> modu))
+              , DrawText (x, y) UpperLeft color 8 txt
               ]
 
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')
