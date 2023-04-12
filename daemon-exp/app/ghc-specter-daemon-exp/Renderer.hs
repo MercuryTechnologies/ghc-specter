@@ -69,6 +69,7 @@ setColor White = R.setSourceRGBA 1 1 1 1
 setColor Red = R.setSourceRGBA 1 0 0 1
 setColor Blue = R.setSourceRGBA 0 0 1 1
 setColor Green = R.setSourceRGBA 0 0.5 0 1
+setColor Yellow = R.setSourceRGBA 1.0 1.0 0 1
 setColor Gray = R.setSourceRGBA 0.5 0.5 0.5 1
 setColor Orange = R.setSourceRGBA 1.0 0.647 0 1 -- FFA500
 setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0

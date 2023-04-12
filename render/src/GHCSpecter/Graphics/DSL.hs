@@ -21,6 +21,7 @@ data Color
   | Red
   | Blue
   | Green
+  | Yellow
   | Gray
   | Orange
   | HoneyDew
