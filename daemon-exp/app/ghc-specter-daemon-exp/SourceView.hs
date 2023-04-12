@@ -6,6 +6,7 @@ import Control.Concurrent.STM (TVar)
 import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
@@ -82,7 +83,8 @@ renderSourceView uiRef vb srcUI ss = do
       for_ mmodHieInfo $ \modHieInfo -> do
         let topLevelDecls = getReducedTopLevelDecls modHieInfo
             src = modHieInfo ^. modHieSource
-            vp = srcUI ^. srcViewSourceViewPort . vpViewPort
+            vpi = srcUI ^. srcViewSourceViewPort
+            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
             sceneSrcView = compileTextView src (fmap fst topLevelDecls)
             sceneSrcView' =
               sceneSrcView

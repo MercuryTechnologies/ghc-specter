@@ -15,7 +15,6 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import Debug.Trace (trace)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -495,16 +494,35 @@ goSourceView ev = do
       modifyUISS $ \(ui, ss) ->
         let emaps = ui ^. uiViewRaw . uiRawEventMap
             memap = hitScene (x, y) emaps
-         in trace (show memap) $
-              case memap of
-                Just emap
-                  | eventMapId emap == "module-tree" ->
-                      let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewModuleTreeViewPort) (dir', (dx, dy))) ui
-                       in (ui', ss)
-                  | eventMapId emap == "source-view" ->
-                      let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewSourceViewPort) (dir', (dx, dy))) ui
-                       in (ui', ss)
-                _ -> (ui, ss)
+         in case memap of
+              Just emap
+                | eventMapId emap == "module-tree" ->
+                    let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewModuleTreeViewPort) (dir', (dx, dy))) ui
+                     in (ui', ss)
+                | eventMapId emap == "source-view" ->
+                    let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewSourceViewPort) (dir', (dx, dy))) ui
+                     in (ui', ss)
+              _ -> (ui, ss)
+      refresh
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (xcenter, ycenter) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "source-view" ->
+                    let ui' = (uiModel %~ zoom emap (modelSourceView . srcViewSourceViewPort) ((xcenter, ycenter), scale)) ui
+                     in (ui', ss)
+              _ -> (ui, ss)
+      refresh
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = case ui ^. uiModel . modelSourceView . srcViewSourceViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelSourceView . srcViewSourceViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+         in (ui', ss)
       refresh
     _ -> pure ()
   goCommon ev
