@@ -469,6 +469,27 @@ goSourceView ev = do
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
       refresh
+    MouseEv (MouseClick (x, y)) -> do
+      ((ui, _), (ui', _)) <-
+        modifyAndReturnBoth $ \(ui, ss) ->
+          let emaps = ui ^. uiViewRaw . uiRawEventMap
+              mnowHit = do
+                emap <- L.find (\m -> eventMapId m == "module-tree") emaps
+                hitItem (x, y) emap
+           in case mnowHit of
+                Just nowHit
+                  | "Select_" `T.isPrefixOf` nowHit ->
+                      let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just (T.drop 7 nowHit)) ui
+                          ss' = (serverShouldUpdate .~ False) ss
+                       in (ui', ss')
+                  | "Unsele_" `T.isPrefixOf` nowHit ->
+                      let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+                          ss' = (serverShouldUpdate .~ False) ss
+                       in (ui', ss')
+                _ -> (ui, ss)
+      let mprevHit = ui ^. uiModel . modelSourceView . srcViewExpandedModule
+          mnowHit = ui' ^. uiModel . modelSourceView . srcViewExpandedModule
+      when (mnowHit /= mprevHit) refresh
     _ -> pure ()
   goCommon ev
 

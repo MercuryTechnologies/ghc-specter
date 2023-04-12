@@ -267,11 +267,11 @@ main =
           $ \ev -> do
             handleClick chanQEv ev
             pure True
-        _ <- drawingArea
+        {- _ <- drawingArea
           `on` #motionNotifyEvent
           $ \ev -> do
             handleMotion chanQEv ev
-            pure True
+            pure True -}
         _ <- drawingArea
           `on` #scrollEvent
           $ \ev -> do

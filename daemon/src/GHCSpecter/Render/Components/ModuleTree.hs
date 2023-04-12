@@ -70,26 +70,32 @@ compileModuleTree srcUI ss =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
     -- breakpoints = ss ^. serverModuleBreakpoints
 
-    renderNode :: (ModuleName, Bool) -> Text
+    renderNode :: (ModuleName, Bool) -> Either (ModuleName, Text) (ModuleName, Text)
     renderNode (modu, b) =
       case mexpandedModu of
         Just modu'
-          | modu == modu' -> expandableText True (not b) modu
-        _ -> expandableText False (not b) modu
+          | modu == modu' -> Right (modu, expandableText True (not b) modu)
+        _ -> Left (modu, expandableText False (not b) modu)
 
-    annotateLevel :: Text -> [Tree (Int, Text)] -> Tree (Int, Text)
+    annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
     annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)
 
     indentLevel = flatten . foldTree annotateLevel . fmap renderNode
 
-    render :: (Int, (Int, Text)) -> Primitive
-    render (i, (j, txt)) = DrawText (fromIntegral j * 20, fromIntegral i * 10) UpperLeft Black 8 txt
+    render :: (Int, (Int, (Either (ModuleName, Text) (ModuleName, Text)))) -> [Primitive]
+    render (i, (j, e)) =
+      let x = fromIntegral j * 20
+          y = fromIntegral i * 10
+       in case e of
+            Left (modu, txt) ->
+              -- TODO: we use ugly unsafe Select_ and Unsele_ prefix here. We will introduce
+              -- proper typing mechanism later on.
+              [ Rectangle (x, y) 100 10 Nothing (Just White) Nothing (Just ("Select_" <> modu))
+              , DrawText (x, y) UpperLeft Black 8 txt
+              ]
+            Right (modu, txt) ->
+              [ Rectangle (x, y) 100 10 Nothing (Just Gray) Nothing (Just ("Unsele_" <> modu))
+              , DrawText (x, y) UpperLeft Black 8 txt
+              ]
 
-    contents = fmap render $ zip [0 ..] (concatMap indentLevel displayedForest')
-
-{-       | null ys = Node (0, x) []
-      | otherwise =
-
-          let lvl = maximum (fmap (\(Node (l, _) _) -> l) ys)
-           in Node (lvl + 1, x) ys
--}
+    contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')
