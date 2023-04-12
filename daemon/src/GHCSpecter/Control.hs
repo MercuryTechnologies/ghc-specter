@@ -15,6 +15,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
+import Debug.Trace (trace)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -490,6 +491,21 @@ goSourceView ev = do
       let mprevHit = ui ^. uiModel . modelSourceView . srcViewExpandedModule
           mnowHit = ui' ^. uiModel . modelSourceView . srcViewExpandedModule
       when (mnowHit /= mprevHit) refresh
+    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (x, y) emaps
+         in trace (show memap) $
+              case memap of
+                Just emap
+                  | eventMapId emap == "module-tree" ->
+                      let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewModuleTreeViewPort) (dir', (dx, dy))) ui
+                       in (ui', ss)
+                  | eventMapId emap == "source-view" ->
+                      let ui' = (uiModel %~ scroll emap (modelSourceView . srcViewSourceViewPort) (dir', (dx, dy))) ui
+                       in (ui', ss)
+                _ -> (ui, ss)
+      refresh
     _ -> pure ()
   goCommon ev
 

@@ -71,7 +71,6 @@ compileTextView txt highlighted =
     -- NOTE: Rows and columns are 1-based following the GHC convention.
     ls :: [(Int, Text)]
     ls = zip [1 ..] $ T.lines txt
-    rowColChars = [((i, j), c) | (i, t) <- ls, let jcs = zip [1 ..] (T.unpack t), (j, c) <- jcs]
     nTotal = length ls
     totalWidth =
       case ls of

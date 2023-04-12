@@ -9,7 +9,10 @@ import Data.Map qualified as Map
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
-import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  Scene (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
@@ -20,11 +23,11 @@ import GHCSpecter.Server.Types (
  )
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
+  HasViewPortInfo (..),
   SourceViewUI,
   UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
-import GHCSpecter.Util.Transformation (translateToOrigin)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import GI.Cairo.Render qualified as R
 import Renderer (
@@ -52,11 +55,13 @@ renderSourceView uiRef vb srcUI ss = do
     R.liftIO $ addEventMap uiRef sceneTab
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
-    let sceneModTree = compileModuleTree srcUI ss
+    let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
+        sceneModTree = compileModuleTree srcUI ss
         sceneModTree' =
           sceneModTree
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            { sceneId = "module-tree"
+            , sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vp
             }
     renderScene vb sceneModTree'
     R.liftIO $ addEventMap uiRef sceneModTree'
@@ -77,11 +82,13 @@ renderSourceView uiRef vb srcUI ss = do
       for_ mmodHieInfo $ \modHieInfo -> do
         let topLevelDecls = getReducedTopLevelDecls modHieInfo
             src = modHieInfo ^. modHieSource
+            vp = srcUI ^. srcViewSourceViewPort . vpViewPort
             sceneSrcView = compileTextView src (fmap fst topLevelDecls)
             sceneSrcView' =
               sceneSrcView
-                { sceneGlobalViewPort = vpCvs
-                , sceneLocalViewPort = translateToOrigin vpCvs
+                { sceneId = "source-view"
+                , sceneGlobalViewPort = vpCvs
+                , sceneLocalViewPort = vp
                 }
         renderScene vb sceneSrcView'
         R.liftIO $ addEventMap uiRef sceneSrcView'

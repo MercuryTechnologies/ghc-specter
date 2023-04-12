@@ -59,6 +59,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
+  HasSourceViewUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
@@ -211,6 +212,10 @@ main =
           appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
           appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
+        vpSrcModTree =
+          appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
+        vpSrcSource =
+          appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -224,6 +229,12 @@ main =
                 )
               . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
                     .~ ViewPortInfo vpSubModGraph Nothing
+                )
+              . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
+                    .~ ViewPortInfo vpSrcModTree Nothing
+                )
+              . ( uiModel . modelSourceView . srcViewSourceViewPort
+                    .~ ViewPortInfo vpSrcSource Nothing
                 )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
