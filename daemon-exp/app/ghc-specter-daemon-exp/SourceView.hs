@@ -3,11 +3,9 @@
 module SourceView (renderSourceView) where
 
 import Control.Concurrent.STM (TVar)
-import Data.Foldable (for_, traverse_)
+import Data.Foldable (for_)
 import Data.Map qualified as Map
-import Data.Text.IO qualified as T
-import Data.Tree (drawTree)
-import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Server.Types (ServerState)
@@ -42,17 +40,11 @@ renderSourceView uiRef vb srcUI ss = do
     renderScene vb sceneTab'
     R.liftIO $ addEventMap uiRef sceneTab
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-        scene = compileModuleTree srcUI ss
+    let scene = compileModuleTree srcUI ss
         scene' =
           scene
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    -- R.setSourceRGBA 0 0 0 1
-    -- R.setLineWidth 1.0
-    -- R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-    -- R.fill
-    -- R.liftIO $
     renderScene vb scene'
     R.liftIO $ addEventMap uiRef scene'
