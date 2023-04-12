@@ -17,6 +17,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
   Scene (..),
+  TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -86,13 +87,13 @@ compileModuleTree srcUI ss =
        in if matched
             then
               [ Rectangle (x, y) 100 10 Nothing (Just Gray) Nothing (Just ("Unsele_" <> modu))
-              , DrawText (x, y) UpperLeft color 8 txt
+              , DrawText (x, y) UpperLeft Sans color 8 txt
               ]
             else -- TODO: we use ugly unsafe Select_ and Unsele_ prefix here. We will introduce
             -- proper typing mechanism later on.
 
               [ Rectangle (x, y) 100 10 Nothing (Just White) Nothing (Just ("Select_" <> modu))
-              , DrawText (x, y) UpperLeft color 8 txt
+              , DrawText (x, y) UpperLeft Sans color 8 txt
               ]
 
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')

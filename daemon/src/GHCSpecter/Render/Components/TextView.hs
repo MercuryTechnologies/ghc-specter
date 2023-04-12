@@ -29,6 +29,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
   Scene (..),
+  TextFontFace (Mono),
   TextPosition (..),
   ViewPort (..),
  )
@@ -116,7 +117,7 @@ compileTextView showCharBox txt highlighted =
         []
     -}
     mkText (i, txt) =
-      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Black 8 txt
+      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 txt
 
     contents =
       let contents_ =

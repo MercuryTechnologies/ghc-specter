@@ -52,6 +52,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
   Scene (..),
+  TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -236,7 +237,7 @@ compileTimingChart drvModMap tui ttable =
     moduleText (i, item@(mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in DrawText (rightOfBox item, module2Y i + 3) LowerLeft Black fontSize moduTxt
+       in DrawText (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x =
       if tui ^. timingUIPartition
         then [box x, boxAs x, boxHscOut x, moduleText x]
@@ -321,7 +322,7 @@ compileMemChart drvModMap tui ttable =
     moduleText (i, (mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in DrawText (150, module2Y i + 3) LowerLeft Black fontSize moduTxt
+       in DrawText (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x =
       if (tui ^. timingUIPartition)
         then
@@ -397,18 +398,18 @@ compileBlockers hoveredMod ttable =
     downMods =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
-    selected = DrawText (0, 0) UpperLeft Black 8 hoveredMod
+    selected = DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod
     line = Polyline (0, 0) [] (200, 0) Black 1
-    blockedBy = DrawText (0, 0) UpperLeft Black 8 "Blocked By"
-    upstreams = fmap (DrawText (0, 0) UpperLeft Black 8) upMods
-    blocking = DrawText (0, 0) UpperLeft Black 8 "Blocking"
-    downstreams = fmap (DrawText (0, 0) UpperLeft Black 8) downMods
+    blockedBy = DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By"
+    upstreams = fmap (DrawText (0, 0) UpperLeft Sans Black 8) upMods
+    blocking = DrawText (0, 0) UpperLeft Sans Black 8 "Blocking"
+    downstreams = fmap (DrawText (0, 0) UpperLeft Sans Black 8) downMods
     --
     placing !offset item =
       case item of
-        DrawText (x, y) p c f t ->
-          let doffset = fromIntegral f + 4
-           in (offset + doffset, DrawText (x, y + offset) p c f t)
+        DrawText (x, y) p ff c fs t ->
+          let doffset = fromIntegral fs + 4
+           in (offset + doffset, DrawText (x, y + offset) p ff c fs t)
         Polyline (x0, y0) [] (x1, y1) c w ->
           let doffset = 5
            in (offset + doffset, Polyline (x0, y0 + offset + 3) [] (x1, y1 + offset + 3) c w)
