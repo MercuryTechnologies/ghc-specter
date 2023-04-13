@@ -22,7 +22,15 @@ import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
-import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
+import GHC.Driver.Plugins (
+  ParsedResult,
+  Plugin (..),
+  PluginWithArgs (..),
+  StaticPlugin (..),
+  defaultPlugin,
+  staticPlugins,
+  type CommandLineOption,
+ )
 import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (TcGblEnv (..), TcM, TcPlugin (..), TcPluginSolveResult (TcPluginOk), unsafeTcPluginTcM)

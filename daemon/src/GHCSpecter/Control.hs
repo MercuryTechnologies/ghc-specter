@@ -8,13 +8,14 @@ module GHCSpecter.Control (
 ) where
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
-import Control.Monad (when)
+import Control.Monad (guard, when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
+import Data.Traversable (for)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -235,6 +236,75 @@ zoom emap lensViewPort ((x, y), scale) model =
       vp' = (transformZoom (rx, ry) scale vp)
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
+goScrollZoom ::
+  [(Text, UIModel -> Maybe Text, Maybe Text -> UIModel -> UIModel)] ->
+  Event ->
+  Control ()
+goScrollZoom hoverHandlers ev = do
+  case ev of
+    MouseEv (MouseMove (x, y)) -> do
+      rs <-
+        for hoverHandlers $ \(component, hoverGetter, hoverSetter) -> do
+          ((ui, _), (ui', _)) <-
+            modifyAndReturnBoth $ \(ui, ss) ->
+              let emaps = ui ^. uiViewRaw . uiRawEventMap
+                  mupdated = do
+                    emap <- hitScene (x, y) emaps
+                    guard (eventMapId emap == component)
+                    let mprevHit = ui ^. uiModel . to hoverGetter
+                        mnowHit = hitItem (x, y) emap
+                    if mnowHit /= mprevHit
+                      then pure ((uiModel %~ hoverSetter mnowHit) ui, (serverShouldUpdate .~ False) ss)
+                      else Nothing
+               in fromMaybe (ui, ss) mupdated
+          let mprevHit = ui ^. uiModel . to hoverGetter
+              mnowHit = ui' ^. uiModel . to hoverGetter
+          pure (mnowHit /= mprevHit)
+      when (or rs) refresh
+    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
+      modifyUISS $ \(ui, ss) ->
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (x, y) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "main-module-graph" ->
+                    let ui' = (uiModel %~ scroll emap (modelMainModuleGraph . modGraphViewPort) (dir', (dx, dy))) ui
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ui' = (uiModel %~ scroll emap (modelSubModuleGraph . _2 . modGraphViewPort) (dir', (dx, dy))) ui
+                     in (ui', ss)
+              _ -> (ui, ss)
+      refresh
+    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      modifyUISS $ \(ui, ss) ->
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+            memap = hitScene (xcenter, ycenter) emaps
+         in case memap of
+              Just emap
+                | eventMapId emap == "main-module-graph" ->
+                    let ui' = (uiModel %~ zoom emap (modelMainModuleGraph . modGraphViewPort) ((xcenter, ycenter), scale)) ui
+                     in (ui', ss)
+                | eventMapId emap == "sub-module-graph" ->
+                    let ui' = (uiModel %~ zoom emap (modelSubModuleGraph . _2 . modGraphViewPort) ((xcenter, ycenter), scale)) ui
+                     in (ui', ss)
+              _ -> (ui, ss)
+      refresh
+    MouseEv ZoomEnd -> do
+      modifyUISS $ \(ui, ss) ->
+        let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui
+                  & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui
+            ui'' = case ui' ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort of
+              Just viewPort ->
+                ui'
+                  & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
+              Nothing -> ui'
+         in (ui'', ss)
+      refresh
+    _ -> pure ()
+
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> Control ()
 goCommon ev = do
@@ -359,75 +429,19 @@ goModuleGraph ev = do
       let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
           mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIClick
       when (mnowHit /= mprevHit) refresh
-    MouseEv (MouseMove (x, y)) -> do
-      ((ui, _), (ui', _)) <-
-        modifyAndReturnBoth $ \(ui, ss) ->
-          let model = ui ^. uiModel
-              emaps = ui ^. uiViewRaw . uiRawEventMap
-              memap = hitScene (x, y) emaps
-           in case memap of
-                Just emap
-                  | eventMapId emap == "main-module-graph" ->
-                      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-                          mnowHit = hitItem (x, y) emap
-                          (ui', ss')
-                            | mnowHit /= mprevHit =
-                                let mev = HoverOnModuleEv mnowHit
-                                    mgui = model ^. modelMainModuleGraph
-                                    mgui' = handleModuleGraphEv mev mgui
-                                    model' = (modelMainModuleGraph .~ mgui') model
-                                 in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
-                            | otherwise = (ui, ss)
-                       in (ui', ss')
-                  -- \| sub module graph does not support hover yet.
-                  | eventMapId emap == "sub-module-graph" -> (ui, ss)
-                _ -> (ui, ss)
-      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIHover
-          mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIHover
-      when (mnowHit /= mprevHit) refresh
-    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      modifyUISS $ \(ui, ss) ->
-        let emaps = ui ^. uiViewRaw . uiRawEventMap
-            memap = hitScene (x, y) emaps
-         in case memap of
-              Just emap
-                | eventMapId emap == "main-module-graph" ->
-                    let ui' = (uiModel %~ scroll emap (modelMainModuleGraph . modGraphViewPort) (dir', (dx, dy))) ui
-                     in (ui', ss)
-                | eventMapId emap == "sub-module-graph" ->
-                    let ui' = (uiModel %~ scroll emap (modelSubModuleGraph . _2 . modGraphViewPort) (dir', (dx, dy))) ui
-                     in (ui', ss)
-              _ -> (ui, ss)
-      refresh
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
-      modifyUISS $ \(ui, ss) ->
-        let emaps = ui ^. uiViewRaw . uiRawEventMap
-            memap = hitScene (xcenter, ycenter) emaps
-         in case memap of
-              Just emap
-                | eventMapId emap == "main-module-graph" ->
-                    let ui' = (uiModel %~ zoom emap (modelMainModuleGraph . modGraphViewPort) ((xcenter, ycenter), scale)) ui
-                     in (ui', ss)
-                | eventMapId emap == "sub-module-graph" ->
-                    let ui' = (uiModel %~ zoom emap (modelSubModuleGraph . _2 . modGraphViewPort) ((xcenter, ycenter), scale)) ui
-                     in (ui', ss)
-              _ -> (ui, ss)
-      refresh
-    MouseEv ZoomEnd -> do
-      modifyUISS $ \(ui, ss) ->
-        let ui' = case ui ^. uiModel . modelMainModuleGraph . modGraphViewPort . vpTempViewPort of
-              Just viewPort ->
-                ui
-                  & (uiModel . modelMainModuleGraph . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
-              Nothing -> ui
-            ui'' = case ui' ^. uiModel . modelSubModuleGraph . _2 . modGraphViewPort . vpTempViewPort of
-              Just viewPort ->
-                ui'
-                  & (uiModel . modelSubModuleGraph . _2 . modGraphViewPort .~ ViewPortInfo viewPort Nothing)
-              Nothing -> ui'
-         in (ui'', ss)
-      refresh
     _ -> pure ()
+  let hoverLens :: Lens' UIModel (Maybe Text)
+      hoverLens = modelMainModuleGraph . modGraphUIHover
+  -- %modelMainModuleGraph . modGraphUIHover
+  -- NOTE: cannot use lens directly due to impredicative types.
+  goScrollZoom
+    [
+      ( "main-module-graph"
+      , (^. hoverLens) -- (\x -> x ^. modelMainModuleGraph . modGraphUIHover)
+      , (hoverLens .~) -- (\e -> modelMainModuleGraph . modGraphUIHover .~ e)
+      )
+    ]
+    ev
   goCommon ev
   where
     handleModuleGraphEv ::
