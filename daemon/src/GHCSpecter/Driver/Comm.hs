@@ -80,6 +80,10 @@ updateInbox chanMsg = incrementSN . updater
          in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
         (serverSessionInfo .~ s')
+          . ( case sessionPreferredModuleClusterSize s' of
+                Nothing -> id
+                Just size -> (serverModuleClusterSize .~ size)
+            )
       CMBox (CMModuleGraph mgi _msrcs) ->
         (serverModuleGraphState . mgsModuleGraphInfo .~ mgi)
       CMBox (CMHsHie _ _) ->

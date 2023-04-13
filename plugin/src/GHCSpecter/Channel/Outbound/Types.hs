@@ -204,6 +204,7 @@ data SessionInfo = SessionInfo
   , sessionBackend :: Backend
   , sessionStartTime :: Maybe UTCTime
   , sessionIsPaused :: Bool
+  , sessionPreferredModuleClusterSize :: Maybe Int
   }
   deriving (Show, Generic)
 
@@ -221,6 +222,7 @@ emptySessionInfo =
     , sessionBackend = NCG
     , sessionStartTime = Nothing
     , sessionIsPaused = True
+    , sessionPreferredModuleClusterSize = Nothing
     }
 
 data ChanMessage (a :: Channel) where
