@@ -10,6 +10,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
   Scene (..),
+  TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -36,7 +37,7 @@ compileTab tab =
     mkTab t txt =
       let x = tabPos t
        in [ Rectangle (x, 2) 80 (tabHeight - 2) Nothing (Just White) Nothing (Just (T.pack (show t)))
-          , DrawText (tabPos t, 2) UpperLeft Black fontSize txt
+          , DrawText (tabPos t, 2) UpperLeft Sans Black fontSize txt
           ]
     mkLine =
       Polyline

@@ -39,6 +39,7 @@ import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
 import GHCSpecter.UI.Constants (
+  canvasDim,
   modGraphHeight,
   modGraphWidth,
   timingHeight,
@@ -77,12 +78,20 @@ data SourceViewUI = SourceViewUI
   , _srcViewFocusedBinding :: Maybe Text
   -- ^ focused binding if exist
   , _srcViewSuppViewTab :: Maybe (Text, Int)
+  , _srcViewModuleTreeViewPort :: ViewPortInfo
+  , _srcViewSourceViewPort :: ViewPortInfo
   }
 
 makeClassy ''SourceViewUI
 
 emptySourceViewUI :: SourceViewUI
-emptySourceViewUI = SourceViewUI Nothing Nothing Nothing
+emptySourceViewUI =
+  SourceViewUI
+    Nothing
+    Nothing
+    Nothing
+    (ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing)
+    (ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing)
 
 data TimingUI = TimingUI
   { _timingFrozenTable :: Maybe TimingTable

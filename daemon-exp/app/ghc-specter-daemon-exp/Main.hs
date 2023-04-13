@@ -44,7 +44,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
-import GHCSpecter.Graphics.DSL (ViewPort (..))
+import GHCSpecter.Graphics.DSL (TextFontFace (Sans), ViewPort (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -59,6 +59,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
+  HasSourceViewUI (..),
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
@@ -110,17 +111,20 @@ initViewBackend :: IO (Maybe ViewBackend)
 initViewBackend = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
-  family <- #getFamily fontMap "FreeSans"
-  mface <- #getFace family Nothing
-  for mface $ \face -> do
-    desc <- #describe face
-    pure (ViewBackend pangoCtxt desc)
+  familySans <- #getFamily fontMap "FreeSans"
+  mfaceSans <- #getFace familySans Nothing
+  familyMono <- #getFamily fontMap "FreeMono"
+  mfaceMono <- #getFace familyMono Nothing
+  for ((,) <$> mfaceSans <*> mfaceMono) $ \(faceSans, faceMono) -> do
+    descSans <- #describe faceSans
+    descMono <- #describe faceMono
+    pure (ViewBackend pangoCtxt descSans descMono)
 
 renderNotConnected :: ViewBackend -> R.Render ()
 renderNotConnected vb = do
   R.save
   R.setSourceRGBA 0 0 0 1
-  drawText vb 36 (100, 100) "GHC is not connected yet"
+  drawText vb Sans 36 (100, 100) "GHC is not connected yet"
   R.restore
 
 renderAction ::
@@ -208,6 +212,10 @@ main =
           appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
           appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
+        vpSrcModTree =
+          appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
+        vpSrcSource =
+          appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -221,6 +229,12 @@ main =
                 )
               . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
                     .~ ViewPortInfo vpSubModGraph Nothing
+                )
+              . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
+                    .~ ViewPortInfo vpSrcModTree Nothing
+                )
+              . ( uiModel . modelSourceView . srcViewSourceViewPort
+                    .~ ViewPortInfo vpSrcSource Nothing
                 )
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO

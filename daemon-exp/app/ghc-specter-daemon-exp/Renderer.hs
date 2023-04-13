@@ -31,6 +31,7 @@ import GHCSpecter.Graphics.DSL (
   EventMap (..),
   Primitive (..),
   Scene (..),
+  TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
  )
@@ -48,10 +49,12 @@ import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 import Types (ViewBackend (..))
 
-drawText :: ViewBackend -> Int32 -> (Double, Double) -> Text -> R.Render ()
-drawText vb sz (x, y) msg = do
+drawText :: ViewBackend -> TextFontFace -> Int32 -> (Double, Double) -> Text -> R.Render ()
+drawText vb face sz (x, y) msg = do
   let pangoCtxt = vbPangoContext vb
-      desc = vbFontDesc vb
+      desc = case face of
+        Sans -> vbFontDescSans vb
+        Mono -> vbFontDescMono vb
   layout :: P.Layout <- P.layoutNew pangoCtxt
   #setSize desc (sz * P.SCALE)
   #setFontDescription layout (Just desc)
@@ -66,6 +69,7 @@ setColor White = R.setSourceRGBA 1 1 1 1
 setColor Red = R.setSourceRGBA 1 0 0 1
 setColor Blue = R.setSourceRGBA 0 0 1 1
 setColor Green = R.setSourceRGBA 0 0.5 0 1
+setColor Yellow = R.setSourceRGBA 1.0 1.0 0 1
 setColor Gray = R.setSourceRGBA 0.5 0.5 0.5 1
 setColor Orange = R.setSourceRGBA 1.0 0.647 0 1 -- FFA500
 setColor HoneyDew = R.setSourceRGBA 0.941 1.0 0.941 1 -- F0FFF0
@@ -100,12 +104,12 @@ renderPrimitive _ (Polyline start xys end line width) = do
   traverse_ (uncurry R.lineTo) xys
   uncurry R.lineTo end
   R.stroke
-renderPrimitive vb (DrawText (x, y) pos color fontSize msg) = do
+renderPrimitive vb (DrawText (x, y) pos fontFace color fontSize msg) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
-  drawText vb (fromIntegral fontSize) (x, y') msg
+  drawText vb fontFace (fromIntegral fontSize) (x, y') msg
 
 renderScene :: ViewBackend -> Scene -> R.Render ()
 renderScene vb scene = do

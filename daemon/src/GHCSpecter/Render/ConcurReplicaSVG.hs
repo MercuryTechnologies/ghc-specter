@@ -36,6 +36,7 @@ renderColor White = "white"
 renderColor Red = "red"
 renderColor Blue = "blue"
 renderColor Green = "green"
+renderColor Yellow = "yellow"
 renderColor Gray = "gray"
 renderColor Orange = "orange"
 renderColor HoneyDew = "honeydew"
@@ -75,7 +76,7 @@ renderPrimitive _ (Polyline start xys end color swidth) =
     , SP.fill "none"
     ]
     []
-renderPrimitive _ (DrawText (x, y) _pos color _fontSize msg) =
+renderPrimitive _ (DrawText (x, y) _pos _font color _fontSize msg) =
   S.text
     [ SP.x (T.pack $ show x)
     , SP.y (T.pack $ show y)

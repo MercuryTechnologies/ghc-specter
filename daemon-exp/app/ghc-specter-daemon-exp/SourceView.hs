@@ -3,18 +3,33 @@
 module SourceView (renderSourceView) where
 
 import Control.Concurrent.STM (TVar)
+import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
-import GHCSpecter.Graphics.DSL (Scene (..))
+import Data.Maybe (fromMaybe)
+import GHCSpecter.Data.GHC.Hie (
+  HasModuleHieInfo (..),
+ )
+import GHCSpecter.Graphics.DSL (
+  Scene (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
-import GHCSpecter.Server.Types (ServerState)
+import GHCSpecter.Render.Components.TextView (compileTextView)
+import GHCSpecter.Server.Types (
+  HasHieState (..),
+  HasServerState (..),
+  ServerState,
+ )
 import GHCSpecter.UI.Types (
+  HasSourceViewUI (..),
+  HasViewPortInfo (..),
   SourceViewUI,
   UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
-import GHCSpecter.Util.Transformation (translateToOrigin)
+import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import GI.Cairo.Render qualified as R
 import Renderer (
   addEventMap,
@@ -39,12 +54,43 @@ renderSourceView uiRef vb srcUI ss = do
             }
     renderScene vb sceneTab'
     R.liftIO $ addEventMap uiRef sceneTab
+  -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
-    let scene = compileModuleTree srcUI ss
-        scene' =
-          scene
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+    let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
+        sceneModTree = compileModuleTree srcUI ss
+        sceneModTree' =
+          sceneModTree
+            { sceneId = "module-tree"
+            , sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vp
             }
-    renderScene vb scene'
-    R.liftIO $ addEventMap uiRef scene'
+    renderScene vb sceneModTree'
+    R.liftIO $ addEventMap uiRef sceneModTree'
+  -- source text view
+  for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
+    let ViewPort (cx0, cy0) (_cx1, cy1) = vpCvs
+    -- vertical separator
+    R.setSourceRGBA 0 0 0 1
+    R.setLineWidth 1.0
+    R.moveTo cx0 cy0
+    R.lineTo cx0 cy1
+    R.stroke
+    -- source text
+    let hie = ss ^. serverHieState
+        mexpandedModu = srcUI ^. srcViewExpandedModule
+    for_ mexpandedModu $ \modu -> do
+      let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+      for_ mmodHieInfo $ \modHieInfo -> do
+        let topLevelDecls = getReducedTopLevelDecls modHieInfo
+            src = modHieInfo ^. modHieSource
+            vpi = srcUI ^. srcViewSourceViewPort
+            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+            sceneSrcView = compileTextView src (fmap fst topLevelDecls)
+            sceneSrcView' =
+              sceneSrcView
+                { sceneId = "source-view"
+                , sceneGlobalViewPort = vpCvs
+                , sceneLocalViewPort = vp
+                }
+        renderScene vb sceneSrcView'
+        R.liftIO $ addEventMap uiRef sceneSrcView'
