@@ -102,6 +102,12 @@ import GHCSpecter.Worker.Timing (
   timingWorker,
  )
 
+data HandlerHoverScrollZoom = HandlerHoverScrollZoom
+  { handlerHover :: [(Text, Lens' UIModel (Maybe Text))]
+  , handlerScroll :: [(Text, Lens' UIModel ViewPortInfo)]
+  , handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
+  }
+
 -- TODO: this function does almost nothing. remove.
 defaultUpdateModel ::
   Event ->
@@ -239,16 +245,14 @@ zoom emap lensViewPort ((x, y), scale) model =
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
 goHoverScrollZoom ::
-  [(Text, Lens' UIModel (Maybe Text))] ->
-  [(Text, Lens' UIModel ViewPortInfo)] ->
-  [(Text, Lens' UIModel ViewPortInfo)] ->
+  HandlerHoverScrollZoom ->
   Event ->
   Control ()
-goHoverScrollZoom hoverHandlers scrollHandlers zoomHandlers ev = do
+goHoverScrollZoom handlers ev = do
   case ev of
     MouseEv (MouseMove (x, y)) -> do
       rs <-
-        for hoverHandlers $ \(component, hoverLens) -> do
+        for (handlerHover handlers) $ \(component, hoverLens) -> do
           ((ui, _), (ui', _)) <-
             modifyAndReturnBoth $ \(ui, ss) ->
               let emaps = ui ^. uiViewRaw . uiRawEventMap
@@ -266,7 +270,7 @@ goHoverScrollZoom hoverHandlers scrollHandlers zoomHandlers ev = do
           pure (mnowHit /= mprevHit)
       when (or rs) refresh
     MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      for_ scrollHandlers $ \(component, scrollLens) ->
+      for_ (handlerScroll handlers) $ \(component, scrollLens) ->
         modifyUI $ \ui ->
           let emaps = ui ^. uiViewRaw . uiRawEventMap
               mupdated = do
@@ -276,7 +280,7 @@ goHoverScrollZoom hoverHandlers scrollHandlers zoomHandlers ev = do
            in fromMaybe ui mupdated
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
-      for_ zoomHandlers $ \(component, zoomLens) ->
+      for_ (handlerZoom handlers) $ \(component, zoomLens) ->
         modifyUI $ \ui ->
           let emaps = ui ^. uiViewRaw . uiRawEventMap
               mupdated = do
@@ -286,7 +290,7 @@ goHoverScrollZoom hoverHandlers scrollHandlers zoomHandlers ev = do
            in fromMaybe ui mupdated
       refresh
     MouseEv ZoomEnd -> do
-      for_ zoomHandlers $ \(_component, zoomLens) ->
+      for_ (handlerZoom handlers) $ \(_component, zoomLens) ->
         modifyUI $ \ui ->
           let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
                 Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
@@ -421,14 +425,19 @@ goModuleGraph ev = do
       when (mnowHit /= mprevHit) refresh
     _ -> pure ()
   goHoverScrollZoom
-    [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
-    ]
-    [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-    , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-    ]
-    [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-    , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-    ]
+    HandlerHoverScrollZoom
+      { handlerHover =
+          [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
+          ]
+      , handlerScroll =
+          [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+          , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+          ]
+      , handlerZoom =
+          [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+          , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+          ]
+      }
     ev
   goCommon ev
   where
@@ -494,12 +503,16 @@ goSourceView ev = do
       when (mnowHit /= mprevHit) refresh
     _ -> pure ()
   goHoverScrollZoom
-    []
-    [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
-    , ("source-view", modelSourceView . srcViewSourceViewPort)
-    ]
-    [ ("source-view", modelSourceView . srcViewSourceViewPort)
-    ]
+    HandlerHoverScrollZoom
+      { handlerHover = []
+      , handlerScroll =
+          [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
+          , ("source-view", modelSourceView . srcViewSourceViewPort)
+          ]
+      , handlerZoom =
+          [ ("source-view", modelSourceView . srcViewSourceViewPort)
+          ]
+      }
     ev
   goCommon ev
 
@@ -577,55 +590,6 @@ goTiming ev = do
       modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
       asyncWork timingBlockerGraphWorker
       refresh
-    {-
-    MouseEv (MouseMove (x, y)) -> do
-      ((ui, _), (ui', _)) <-
-        modifyAndReturnBoth $ \(ui, ss) ->
-          let
-            emaps = ui ^. uiViewRaw . uiRawEventMap
-            mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
-            mnowHit = do
-              emap <- L.find (\m -> eventMapId m == "timing-chart") emaps
-              hitItem (x, y) emap
-            ui'
-              | (mnowHit /= mprevHit) = (uiModel . modelTiming . timingUIHoveredModule .~ mnowHit) ui
-              | otherwise = ui
-           in
-            (ui', ss)
-      let mprevHit = ui ^. uiModel . modelTiming . timingUIHoveredModule
-          mnowHit = ui' ^. uiModel . modelTiming . timingUIHoveredModule
-      when (mnowHit /= mprevHit) refresh
-    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      modifyUISS $ \(ui, ss) ->
-        let emaps = ui ^. uiViewRaw . uiRawEventMap
-            memap = hitScene (x, y) emaps
-         in case memap of
-              Just emap
-                | eventMapId emap == "timing-chart" ->
-                    let ui' = (uiModel %~ scroll emap (modelTiming . timingUIViewPort) (dir', (dx, dy))) ui
-                     in (ui', ss)
-              _ -> (ui, ss)
-      refresh
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
-      modifyUISS $ \(ui, ss) ->
-        let emaps = ui ^. uiViewRaw . uiRawEventMap
-            memap = hitScene (xcenter, ycenter) emaps
-         in case memap of
-              Just emap
-                | eventMapId emap == "timing-chart" ->
-                    let ui' = (uiModel %~ zoom emap (modelTiming . timingUIViewPort) ((xcenter, ycenter), scale)) ui
-                     in (ui', ss)
-              _ -> (ui, ss)
-      refresh
-    MouseEv ZoomEnd -> do
-      modifyUISS $ \(ui, ss) ->
-        let ui' = case ui ^. uiModel . modelTiming . timingUIViewPort . vpTempViewPort of
-              Just viewPort ->
-                ui
-                  & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
-              Nothing -> ui
-         in (ui', ss)
-      refresh -}
     _ -> pure ()
   case ev of
     MouseEv (MouseDown (Just (x, y))) -> do
@@ -636,9 +600,11 @@ goTiming ev = do
       onDraggingInTimingView (x, y) vp
     _ -> pure ()
   goHoverScrollZoom
-    [("timing-chart", modelTiming . timingUIHoveredModule)]
-    [("timing-chart", modelTiming . timingUIViewPort)]
-    [("timing-chart", modelTiming . timingUIViewPort)]
+    HandlerHoverScrollZoom
+      { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
+      , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
+      , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+      }
     ev
   goCommon ev
   where
