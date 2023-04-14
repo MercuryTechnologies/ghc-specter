@@ -40,6 +40,7 @@ appWidgetConfig =
           , ("source-view", ViewPort (canvasDim ^. _1 . to (* 0.2), tabHeight) (canvasDim ^. _1 . to (* 0.6), canvasDim ^. _2))
           , ("supple-view", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
           , ("supple-view-tab", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, tabHeight + tabHeight))
+          , ("supple-view-contents", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
           ]
     , _wcfgTiming =
         Map.fromList

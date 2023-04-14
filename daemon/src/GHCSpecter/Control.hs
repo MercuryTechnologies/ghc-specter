@@ -101,6 +101,7 @@ import GHCSpecter.Worker.Timing (
   timingBlockerGraphWorker,
   timingWorker,
  )
+import Text.Read (readMaybe)
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))]
@@ -478,7 +479,8 @@ goSourceView ev = do
                                      in (ui', ss')
                               _ -> (ui, ss)
                     | eventMapId emap == "supple-view-tab" ->
-                        let mhitTab = read . T.unpack <$> hitItem (x, y) emap
+                        -- TODO: This text parsing should be eliminated after implementing typed events.
+                        let mhitTab = readMaybe =<< (fmap T.unpack $ hitItem (x, y) emap)
                             ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
                          in (ui', ss)
                     | otherwise -> (ui, ss)

@@ -14,7 +14,7 @@ import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
-import GHCSpecter.Render.SourceView (compileSuppViewTab)
+import GHCSpecter.Render.SourceView (compileSuppViewPanel)
 import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasHieState (..),
@@ -91,11 +91,19 @@ renderSourceView uiRef vb srcUI ss = do
           R.liftIO $ addEventMap uiRef sceneSrcView'
         -- supplementary view
         vruleLeft vpCvsSupp
-        for_ (Map.lookup "supple-view-tab" wcfg) $ \vpCvsSuppTab -> do
-          let sceneSuppleViewTab = compileSuppViewTab modu srcUI ss
-              sceneSuppleViewTab' =
-                sceneSuppleViewTab
-                  { sceneGlobalViewPort = vpCvsSuppTab
-                  }
-          renderScene vb sceneSuppleViewTab'
-          R.liftIO $ addEventMap uiRef sceneSuppleViewTab'
+        for_ ((,) <$> Map.lookup "supple-view-tab" wcfg <*> Map.lookup "supple-view-contents" wcfg) $
+          \(vpCvsSuppTab, vpCvsSuppContents) -> do
+            let (sceneSuppTab, sceneSuppContents) = compileSuppViewPanel modu srcUI ss
+                sceneSuppTab' =
+                  sceneSuppTab
+                    { sceneGlobalViewPort = vpCvsSuppTab
+                    }
+                sceneSuppContents' =
+                  sceneSuppContents
+                    { sceneGlobalViewPort = vpCvsSuppContents
+                    }
+
+            renderScene vb sceneSuppTab'
+            R.liftIO $ addEventMap uiRef sceneSuppTab'
+            renderScene vb sceneSuppContents'
+            R.liftIO $ addEventMap uiRef sceneSuppContents'

@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.SourceView (
-  compileSuppViewTab,
+  compileSuppViewPanel,
   render,
   renderUnqualifiedImports,
 ) where
@@ -36,7 +36,7 @@ import GHCSpecter.Data.GHC.Hie (
   ModuleHieInfo,
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (Scene)
+import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
 import GHCSpecter.Render.Components.Tab qualified as Tab
@@ -64,7 +64,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   ul,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants (widgetHeight)
+import GHCSpecter.UI.Constants (canvasDim, widgetHeight)
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   SourceViewUI (..),
@@ -170,6 +170,49 @@ renderModuleTree srcUI ss =
                   ]
        in modItem
 
+compileSuppView :: Maybe SupplementaryView -> Scene
+compileSuppView Nothing =
+  Scene
+    { sceneId = "supp-view-contents"
+    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+    , sceneElements = []
+    }
+compileSuppView (Just (SuppViewCallgraph grVis)) =
+  Scene
+    { sceneId = "supp-view-contents"
+    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+    , sceneElements = GraphView.compileGraph (isJust . T.find (== '.')) grVis
+    }
+compileSuppView (Just (SuppViewText _)) =
+  Scene
+    { sceneId = "supp-view-contents"
+    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+    , sceneElements = []
+    }
+
+compileSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> (Scene, Scene)
+compileSuppViewPanel modu srcUI ss =
+  (Tab.compileTab tabCfg mtab, compileSuppView msuppView)
+  where
+    mtab = srcUI ^. srcViewSuppViewTab
+    suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))
+    msuppView = do
+      tab <- mtab
+      suppView <- L.lookup tab suppViews
+      pure suppView
+    suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
+    tabCfg =
+      Tab.TabConfig
+        { Tab.tabCfgId = "supple-view-tab"
+        , Tab.tabCfgSpacing = 80
+        , Tab.tabCfgWidth = 500
+        , Tab.tabCfgHeight = 15
+        , Tab.tabCfgItems = suppViewTabs
+        }
+
 renderSuppView :: SupplementaryView -> Widget IHTML a
 renderSuppView (SuppViewCallgraph grVis) =
   div
@@ -188,21 +231,6 @@ renderSuppView (SuppViewText txt) =
         ]
     ]
     [pre [] [text txt]]
-
-compileSuppViewTab :: ModuleName -> SourceViewUI -> ServerState -> Scene
-compileSuppViewTab modu srcUI ss = Tab.compileTab cfg mtab
-  where
-    mtab = srcUI ^. srcViewSuppViewTab
-    suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))
-    suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
-    cfg =
-      Tab.TabConfig
-        { Tab.tabCfgId = "supple-view-tab"
-        , Tab.tabCfgSpacing = 80
-        , Tab.tabCfgWidth = 500
-        , Tab.tabCfgHeight = 15
-        , Tab.tabCfgItems = suppViewTabs
-        }
 
 renderSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> Widget IHTML Event
 renderSuppViewPanel modu srcUI ss =
