@@ -286,7 +286,7 @@ goHoverScrollZoom hoverHandlers scrollHandlers zoomHandlers ev = do
            in fromMaybe ui mupdated
       refresh
     MouseEv ZoomEnd -> do
-      for_ zoomHandlers $ \(component, zoomLens) ->
+      for_ zoomHandlers $ \(_component, zoomLens) ->
         modifyUI $ \ui ->
           let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
                 Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
@@ -492,6 +492,7 @@ goSourceView ev = do
       let mprevHit = ui ^. uiModel . modelSourceView . srcViewExpandedModule
           mnowHit = ui' ^. uiModel . modelSourceView . srcViewExpandedModule
       when (mnowHit /= mprevHit) refresh
+    _ -> pure ()
   goHoverScrollZoom
     []
     [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
@@ -576,6 +577,7 @@ goTiming ev = do
       modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
       asyncWork timingBlockerGraphWorker
       refresh
+    {-
     MouseEv (MouseMove (x, y)) -> do
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
@@ -623,7 +625,7 @@ goTiming ev = do
                   & (uiModel . modelTiming . timingUIViewPort .~ ViewPortInfo viewPort Nothing)
               Nothing -> ui
          in (ui', ss)
-      refresh
+      refresh -}
     _ -> pure ()
   case ev of
     MouseEv (MouseDown (Just (x, y))) -> do
@@ -633,6 +635,11 @@ goTiming ev = do
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
       onDraggingInTimingView (x, y) vp
     _ -> pure ()
+  goHoverScrollZoom
+    [("timing-chart", modelTiming . timingUIHoveredModule)]
+    [("timing-chart", modelTiming . timingUIViewPort)]
+    [("timing-chart", modelTiming . timingUIViewPort)]
+    ev
   goCommon ev
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
