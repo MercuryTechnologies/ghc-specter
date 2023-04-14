@@ -14,6 +14,7 @@ import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
+import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasServerState (..),
@@ -45,7 +46,7 @@ renderSourceView ::
 renderSourceView uiRef vb srcUI ss = do
   wcfg <- R.liftIO $ resetWidget uiRef
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab TabSourceView
+    let sceneTab = compileTab topLevelTab TabSourceView
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
