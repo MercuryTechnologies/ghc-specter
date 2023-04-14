@@ -197,7 +197,7 @@ compileSuppViewTab modu srcUI ss = Tab.compileTab cfg mtab
     suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
     cfg =
       Tab.TabConfig
-        { Tab.tabCfgId = "supple-view-tabs"
+        { Tab.tabCfgId = "supple-view-tab"
         , Tab.tabCfgSpacing = 80
         , Tab.tabCfgWidth = 500
         , Tab.tabCfgHeight = 15

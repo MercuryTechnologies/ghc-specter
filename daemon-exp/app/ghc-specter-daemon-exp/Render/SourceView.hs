@@ -97,6 +97,5 @@ renderSourceView uiRef vb srcUI ss = do
                 sceneSuppleViewTab
                   { sceneGlobalViewPort = vpCvsSuppTab
                   }
-          R.liftIO $ print sceneSuppleViewTab'
           renderScene vb sceneSuppleViewTab'
           R.liftIO $ addEventMap uiRef sceneSuppleViewTab'
