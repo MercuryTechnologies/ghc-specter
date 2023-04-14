@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module ModuleGraph (
+module Render.ModuleGraph (
   renderModuleGraph,
 ) where
 

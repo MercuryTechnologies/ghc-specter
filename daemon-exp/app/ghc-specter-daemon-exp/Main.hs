@@ -87,11 +87,11 @@ import Handler (
   handleZoomEnd,
   handleZoomUpdate,
  )
-import ModuleGraph (renderModuleGraph)
+import Render.ModuleGraph (renderModuleGraph)
+import Render.Session (renderSession)
+import Render.SourceView (renderSourceView)
+import Render.Timing (renderTiming)
 import Renderer (drawText)
-import Session (renderSession)
-import SourceView (renderSourceView)
-import Timing (renderTiming)
 import Types (ViewBackend (..))
 
 detailLevel :: DetailLevel

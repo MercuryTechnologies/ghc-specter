@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Session (renderSession) where
+module Render.Session (renderSession) where
 
 import Control.Concurrent.STM (TVar)
 import Data.Foldable (for_)

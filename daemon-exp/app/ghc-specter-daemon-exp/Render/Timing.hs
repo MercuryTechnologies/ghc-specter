@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Timing (
+module Render.Timing (
   renderTiming,
 ) where
 

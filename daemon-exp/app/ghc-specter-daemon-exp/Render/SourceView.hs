@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SourceView (renderSourceView) where
+module Render.SourceView (renderSourceView) where
 
 import Control.Concurrent.STM (TVar)
 import Control.Lens (at, (^.), (^?), _Just)
@@ -10,10 +10,7 @@ import Data.Maybe (fromMaybe)
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
-import GHCSpecter.Graphics.DSL (
-  Scene (..),
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
@@ -31,6 +28,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (Tab (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import GI.Cairo.Render qualified as R
+import Render.Common (vruleLeft)
 import Renderer (
   addEventMap,
   renderScene,
@@ -68,13 +66,7 @@ renderSourceView uiRef vb srcUI ss = do
     R.liftIO $ addEventMap uiRef sceneModTree'
   -- source text view
   for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (_cx1, cy1) = vpCvs
-    -- vertical separator
-    R.setSourceRGBA 0 0 0 1
-    R.setLineWidth 1.0
-    R.moveTo cx0 cy0
-    R.lineTo cx0 cy1
-    R.stroke
+    vruleLeft vpCvs
     -- source text
     let hie = ss ^. serverHieState
         mexpandedModu = srcUI ^. srcViewExpandedModule
@@ -94,3 +86,6 @@ renderSourceView uiRef vb srcUI ss = do
                 }
         renderScene vb sceneSrcView'
         R.liftIO $ addEventMap uiRef sceneSrcView'
+  -- supplementary view
+  for_ (Map.lookup "supple-view" wcfg) $ \vpCvs -> do
+    vruleLeft vpCvs
