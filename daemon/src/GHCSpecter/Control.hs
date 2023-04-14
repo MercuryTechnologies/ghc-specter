@@ -29,7 +29,6 @@ import GHCSpecter.Control.Types (
   asyncWork,
   getCurrentTime,
   getLastUpdatedUI,
-  getSS,
   getUI,
   modifyAndReturn,
   modifyAndReturnBoth,
@@ -164,56 +163,34 @@ showBanner = do
           go start
         else pure ()
 
-processConsoleCommand :: UIModel -> DriverId -> Text -> Control UIModel
-processConsoleCommand model drvId msg
-  | msg == ":next" = do
-      sendRequest $ ConsoleReq drvId NextBreakpoint
-      pure model
-  | msg == ":show-renamed" = do
-      sendRequest $ ConsoleReq drvId ShowRenamed
-      pure model
-  | msg == ":show-expr" = do
-      sendRequest $ ConsoleReq drvId ShowExpr
-      pure model
-  | msg == ":show-splice" = do
-      sendRequest $ ConsoleReq drvId ShowSplice
-      pure model
-  | msg == ":show-result" = do
-      sendRequest $ ConsoleReq drvId ShowResult
-      pure model
-  | msg == ":unqualified" = do
-      sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
-      pure model
-  | msg == ":list-core" = do
-      sendRequest $ ConsoleReq drvId ListCore
-      pure model
+handleConsoleCommand :: DriverId -> Text -> Control ()
+handleConsoleCommand drvId msg
+  | msg == ":next" = sendRequest $ ConsoleReq drvId NextBreakpoint
+  | msg == ":show-renamed" = sendRequest $ ConsoleReq drvId ShowRenamed
+  | msg == ":show-expr" = sendRequest $ ConsoleReq drvId ShowExpr
+  | msg == ":show-splice" = sendRequest $ ConsoleReq drvId ShowSplice
+  | msg == ":show-result" = sendRequest $ ConsoleReq drvId ShowResult
+  | msg == ":unqualified" = sendRequest $ ConsoleReq drvId ShowUnqualifiedImports
+  | msg == ":list-core" = sendRequest $ ConsoleReq drvId ListCore
   | ":print-core" `T.isPrefixOf` msg = do
       let args = maybe [] NE.tail $ NE.nonEmpty (T.words msg)
       sendRequest $ ConsoleReq drvId (PrintCore args)
       case NE.nonEmpty args of
-        Nothing -> pure model
+        Nothing -> pure ()
         Just (NE.head -> sym) ->
-          let model1 = (modelSourceView . srcViewFocusedBinding .~ Just sym) model
-           in pure model1
+          modifyUI (uiModel . modelSourceView . srcViewFocusedBinding .~ Just sym)
   | msg == ":goto-source" = do
-      ss <- getSS
-      let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
-          model' =
-            model
-              & (modelSourceView . srcViewExpandedModule .~ mmod)
-                . (modelTab .~ TabSourceView)
+      modifyUISS $ \(ui, ss) ->
+        let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
+            ui' =
+              ui
+                & (uiModel . modelSourceView . srcViewExpandedModule .~ mmod)
+                  . (uiModel . modelTab .~ TabSourceView)
+         in (ui', ss)
       mainLoop
-      -- should not be reached.
-      pure model'
-  | msg == ":dump-heap" = do
-      sendRequest $ ConsoleReq drvId DumpHeap
-      pure model
-  | msg == ":exit-ghc-debug" = do
-      sendRequest $ SessionReq ExitGhcDebug
-      pure model
-  | otherwise = do
-      sendRequest $ ConsoleReq drvId (Ping msg)
-      pure model
+  | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
+  | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
+  | otherwise = sendRequest $ ConsoleReq drvId (Ping msg)
 
 appendNewCommand :: DriverId -> Text -> Control ()
 appendNewCommand drvId newMsg = do
@@ -302,44 +279,40 @@ goHoverScrollZoom handlers ev = do
 -- NOTE: This function should not exist forever.
 goCommon :: Event -> Control ()
 goCommon ev = do
-  -- TODO: this should be transactional. make a free monad case with transactional side effects.
-  model0 <- (^. uiModel) <$> getUI
-  model <-
-    case ev of
-      ConsoleEv (ConsoleTab i) -> do
-        printMsg ("console tab: " <> T.pack (show i))
-        pure (model0 & modelConsole . consoleFocus .~ Just i)
-      ConsoleEv (ConsoleKey key) ->
-        if key == "Enter"
-          then case model0 ^. modelConsole . consoleFocus of
-            Nothing -> pure model0
+  case ev of
+    ConsoleEv (ConsoleTab i) -> do
+      printMsg ("console tab: " <> T.pack (show i))
+      modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
+    ConsoleEv (ConsoleKey key) -> do
+      model0 <- (^. uiModel) <$> getUI
+      if key == "Enter"
+        then case model0 ^. modelConsole . consoleFocus of
+          Nothing -> pure ()
+          Just drvId -> do
+            let msg = model0 ^. modelConsole . consoleInputEntry
+            appendNewCommand drvId msg
+            modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+            handleConsoleCommand drvId msg
+        else pure ()
+    ConsoleEv (ConsoleInput content) -> do
+      modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
+    ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
+      printMsg msg
+      if isImmediate
+        then do
+          model0 <- (^. uiModel) <$> getUI
+          case model0 ^. modelConsole . consoleFocus of
+            Nothing -> pure ()
             Just drvId -> do
-              let msg = model0 ^. modelConsole . consoleInputEntry
-                  model = (modelConsole . consoleInputEntry .~ "") $ model0
               appendNewCommand drvId msg
-              model' <- processConsoleCommand model drvId msg
-              pure model'
-          else pure model0
-      ConsoleEv (ConsoleInput content) -> do
-        let model = (modelConsole . consoleInputEntry .~ content) model0
-        pure model
-      ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
-        printMsg msg
-        if isImmediate
-          then do
-            case model0 ^. modelConsole . consoleFocus of
-              Nothing -> pure model0
-              Just drvId -> do
-                let model = (modelConsole . consoleInputEntry .~ "") $ model0
-                appendNewCommand drvId msg
-                model' <- processConsoleCommand model drvId msg
-                pure model'
-          else pure $ (modelConsole . consoleInputEntry .~ msg) model0
-      _ -> pure model0
-  modifyUISS $ \(ui, ss) ->
-    let ui' = (uiModel .~ model) ui
-        ss' = defaultUpdateModel ev ss
-     in (ui', ss')
+              modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+              handleConsoleCommand drvId msg
+              refresh
+        else do
+          modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
+          refresh
+    _ -> pure ()
+  modifySS $ \ss -> defaultUpdateModel ev ss
   case ev of
     BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
     BkgEv RefreshUI -> refresh
