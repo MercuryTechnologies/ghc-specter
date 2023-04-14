@@ -80,6 +80,7 @@ data SourceViewUI = SourceViewUI
   , _srcViewSuppViewTab :: Maybe (Text, Int)
   , _srcViewModuleTreeViewPort :: ViewPortInfo
   , _srcViewSourceViewPort :: ViewPortInfo
+  , _srcViewSuppViewPort :: ViewPortInfo
   }
 
 makeClassy ''SourceViewUI
@@ -90,6 +91,7 @@ emptySourceViewUI =
     Nothing
     Nothing
     Nothing
+    (ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing)
     (ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing)
     (ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing)
 

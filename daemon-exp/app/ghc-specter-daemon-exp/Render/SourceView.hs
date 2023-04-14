@@ -93,7 +93,9 @@ renderSourceView uiRef vb srcUI ss = do
         vruleLeft vpCvsSupp
         for_ ((,) <$> Map.lookup "supple-view-tab" wcfg <*> Map.lookup "supple-view-contents" wcfg) $
           \(vpCvsSuppTab, vpCvsSuppContents) -> do
-            let (sceneSuppTab, sceneSuppContents) = compileSuppViewPanel modu srcUI ss
+            let vpi = srcUI ^. srcViewSuppViewPort
+                vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+                (sceneSuppTab, sceneSuppContents) = compileSuppViewPanel modu srcUI ss
                 sceneSuppTab' =
                   sceneSuppTab
                     { sceneGlobalViewPort = vpCvsSuppTab
@@ -101,8 +103,8 @@ renderSourceView uiRef vb srcUI ss = do
                 sceneSuppContents' =
                   sceneSuppContents
                     { sceneGlobalViewPort = vpCvsSuppContents
+                    , sceneLocalViewPort = vp
                     }
-
             renderScene vb sceneSuppTab'
             R.liftIO $ addEventMap uiRef sceneSuppTab'
             renderScene vb sceneSuppContents'

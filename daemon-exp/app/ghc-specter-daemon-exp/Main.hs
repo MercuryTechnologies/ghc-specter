@@ -217,6 +217,8 @@ main =
           appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
         vpSrcSource =
           appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
+        vpSrcSupp =
+          appWidgetConfig ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -237,6 +239,10 @@ main =
               . ( uiModel . modelSourceView . srcViewSourceViewPort
                     .~ ViewPortInfo vpSrcSource Nothing
                 )
+              . ( uiModel . modelSourceView . srcViewSuppViewPort
+                    .~ ViewPortInfo vpSrcSupp Nothing
+                )
+
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
