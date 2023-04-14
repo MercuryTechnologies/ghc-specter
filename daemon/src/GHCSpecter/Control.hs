@@ -1,4 +1,5 @@
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -237,28 +238,28 @@ zoom emap lensViewPort ((x, y), scale) model =
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
 goScrollZoom ::
-  [(Text, UIModel -> Maybe Text, Maybe Text -> UIModel -> UIModel)] ->
+  [(Text, Lens' UIModel (Maybe Text))] ->
   Event ->
   Control ()
 goScrollZoom hoverHandlers ev = do
   case ev of
     MouseEv (MouseMove (x, y)) -> do
       rs <-
-        for hoverHandlers $ \(component, hoverGetter, hoverSetter) -> do
+        for hoverHandlers $ \(component, hoverLens) -> do
           ((ui, _), (ui', _)) <-
             modifyAndReturnBoth $ \(ui, ss) ->
               let emaps = ui ^. uiViewRaw . uiRawEventMap
                   mupdated = do
                     emap <- hitScene (x, y) emaps
                     guard (eventMapId emap == component)
-                    let mprevHit = ui ^. uiModel . to hoverGetter
+                    let mprevHit = ui ^. uiModel . hoverLens
                         mnowHit = hitItem (x, y) emap
                     if mnowHit /= mprevHit
-                      then pure ((uiModel %~ hoverSetter mnowHit) ui, (serverShouldUpdate .~ False) ss)
+                      then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
                       else Nothing
                in fromMaybe (ui, ss) mupdated
-          let mprevHit = ui ^. uiModel . to hoverGetter
-              mnowHit = ui' ^. uiModel . to hoverGetter
+          let mprevHit = ui ^. uiModel . hoverLens
+              mnowHit = ui' ^. uiModel . hoverLens
           pure (mnowHit /= mprevHit)
       when (or rs) refresh
     MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
@@ -432,14 +433,8 @@ goModuleGraph ev = do
     _ -> pure ()
   let hoverLens :: Lens' UIModel (Maybe Text)
       hoverLens = modelMainModuleGraph . modGraphUIHover
-  -- %modelMainModuleGraph . modGraphUIHover
-  -- NOTE: cannot use lens directly due to impredicative types.
   goScrollZoom
-    [
-      ( "main-module-graph"
-      , (^. hoverLens) -- (\x -> x ^. modelMainModuleGraph . modGraphUIHover)
-      , (hoverLens .~) -- (\e -> modelMainModuleGraph . modGraphUIHover .~ e)
-      )
+    [ ("main-module-graph", hoverLens)
     ]
     ev
   goCommon ev
