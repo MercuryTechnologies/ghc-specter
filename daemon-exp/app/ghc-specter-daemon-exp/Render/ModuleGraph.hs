@@ -77,7 +77,7 @@ renderModuleGraph
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- tab
     for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-      let sceneTab = compileTab topLevelTab TabModuleGraph
+      let sceneTab = compileTab topLevelTab (Just TabModuleGraph)
           sceneTab' =
             sceneTab
               { sceneGlobalViewPort = vpCvs

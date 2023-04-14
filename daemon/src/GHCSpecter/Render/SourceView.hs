@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.SourceView (
+  compileSuppViewTab,
   render,
   renderUnqualifiedImports,
 ) where
@@ -35,8 +36,10 @@ import GHCSpecter.Data.GHC.Hie (
   ModuleHieInfo,
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
+import GHCSpecter.Graphics.DSL (Scene)
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
+import GHCSpecter.Render.Components.Tab qualified as Tab
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
@@ -185,6 +188,21 @@ renderSuppView (SuppViewText txt) =
         ]
     ]
     [pre [] [text txt]]
+
+compileSuppViewTab :: ModuleName -> SourceViewUI -> ServerState -> Scene
+compileSuppViewTab modu srcUI ss = Tab.compileTab cfg mtab
+  where
+    mtab = srcUI ^. srcViewSuppViewTab
+    suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))
+    suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
+    cfg =
+      Tab.TabConfig
+        { Tab.tabCfgId = "supple-view-tabs"
+        , Tab.tabCfgSpacing = 80
+        , Tab.tabCfgWidth = 500
+        , Tab.tabCfgHeight = 15
+        , Tab.tabCfgItems = suppViewTabs
+        }
 
 renderSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> Widget IHTML Event
 renderSuppViewPanel modu srcUI ss =

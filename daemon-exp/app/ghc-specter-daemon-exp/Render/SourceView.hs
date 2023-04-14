@@ -14,6 +14,7 @@ import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
+import GHCSpecter.Render.SourceView (compileSuppViewTab)
 import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasHieState (..),
@@ -46,7 +47,7 @@ renderSourceView ::
 renderSourceView uiRef vb srcUI ss = do
   wcfg <- R.liftIO $ resetWidget uiRef
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab TabSourceView
+    let sceneTab = compileTab topLevelTab (Just TabSourceView)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -67,26 +68,35 @@ renderSourceView uiRef vb srcUI ss = do
     R.liftIO $ addEventMap uiRef sceneModTree'
   -- source text view
   for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
-    vruleLeft vpCvs
-    -- source text
-    let hie = ss ^. serverHieState
-        mexpandedModu = srcUI ^. srcViewExpandedModule
-    for_ mexpandedModu $ \modu -> do
-      let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
-      for_ mmodHieInfo $ \modHieInfo -> do
-        let topLevelDecls = getReducedTopLevelDecls modHieInfo
-            src = modHieInfo ^. modHieSource
-            vpi = srcUI ^. srcViewSourceViewPort
-            vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-            sceneSrcView = compileTextView src (fmap fst topLevelDecls)
-            sceneSrcView' =
-              sceneSrcView
-                { sceneId = "source-view"
-                , sceneGlobalViewPort = vpCvs
-                , sceneLocalViewPort = vp
-                }
-        renderScene vb sceneSrcView'
-        R.liftIO $ addEventMap uiRef sceneSrcView'
-  -- supplementary view
-  for_ (Map.lookup "supple-view" wcfg) $ \vpCvs -> do
-    vruleLeft vpCvs
+    for_ (Map.lookup "supple-view" wcfg) $ \vpCvsSupp -> do
+      -- source text
+      vruleLeft vpCvs
+      let hie = ss ^. serverHieState
+          mexpandedModu = srcUI ^. srcViewExpandedModule
+      for_ mexpandedModu $ \modu -> do
+        let mmodHieInfo = hie ^? hieModuleMap . at modu . _Just
+        for_ mmodHieInfo $ \modHieInfo -> do
+          let topLevelDecls = getReducedTopLevelDecls modHieInfo
+              src = modHieInfo ^. modHieSource
+              vpi = srcUI ^. srcViewSourceViewPort
+              vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+              sceneSrcView = compileTextView src (fmap fst topLevelDecls)
+              sceneSrcView' =
+                sceneSrcView
+                  { sceneId = "source-view"
+                  , sceneGlobalViewPort = vpCvs
+                  , sceneLocalViewPort = vp
+                  }
+          renderScene vb sceneSrcView'
+          R.liftIO $ addEventMap uiRef sceneSrcView'
+        -- supplementary view
+        vruleLeft vpCvsSupp
+        for_ (Map.lookup "supple-view-tab" wcfg) $ \vpCvsSuppTab -> do
+          let sceneSuppleViewTab = compileSuppViewTab modu srcUI ss
+              sceneSuppleViewTab' =
+                sceneSuppleViewTab
+                  { sceneGlobalViewPort = vpCvsSuppTab
+                  }
+          R.liftIO $ print sceneSuppleViewTab'
+          renderScene vb sceneSuppleViewTab'
+          R.liftIO $ addEventMap uiRef sceneSuppleViewTab'

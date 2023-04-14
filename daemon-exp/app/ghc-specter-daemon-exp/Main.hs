@@ -44,6 +44,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
+import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (TextFontFace (Sans), ViewPort (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -312,6 +313,7 @@ main =
         #showAll mainWindow
 
         _ <- forkOS $ Comm.listener socketFile servSess workQ
+        _ <- forkOS $ Worker.runWorkQueue workQ
         _ <-
           forkOS $
             Session.main

@@ -56,7 +56,7 @@ renderTiming uiRef vb drvModMap tui ttable = do
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab TabTiming
+    let sceneTab = compileTab topLevelTab (Just TabTiming)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

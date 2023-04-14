@@ -25,7 +25,7 @@ renderSession ::
 renderSession uiRef vb = do
   wcfg <- R.liftIO $ resetWidget uiRef
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab TabSession
+    let sceneTab = compileTab topLevelTab (Just TabSession)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

@@ -23,8 +23,8 @@ data TabConfig a = TabConfig
   , tabCfgItems :: [(a, Text)]
   }
 
-compileTab :: (Eq a, Show a) => TabConfig a -> a -> Scene
-compileTab cfg tab =
+compileTab :: (Eq a, Show a) => TabConfig a -> Maybe a -> Scene
+compileTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg
     , sceneGlobalViewPort = vp
@@ -35,7 +35,9 @@ compileTab cfg tab =
     spacing = tabCfgSpacing cfg
     height = tabCfgHeight cfg
     items = zip [0 ..] (tabCfgItems cfg)
-    mselected = L.find (\(_, (t', _)) -> tab == t') items
+    mselected = do
+      tab <- mtab
+      L.find (\(_, (t', _)) -> tab == t') items
 
     tabPos n = 5 + spacing * n
     end = tabCfgWidth cfg
