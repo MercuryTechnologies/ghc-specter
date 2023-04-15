@@ -1,5 +1,6 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -100,6 +101,7 @@ import GHCSpecter.Worker.Timing (
   timingBlockerGraphWorker,
   timingWorker,
  )
+import Text.Read (readMaybe)
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))]
@@ -454,26 +456,36 @@ goSourceView ev = do
          in (ui', ss')
       refresh
     MouseEv (MouseClick (x, y)) -> do
-      ((ui, _), (ui', _)) <-
-        modifyAndReturnBoth $ \(ui, ss) ->
-          let emaps = ui ^. uiViewRaw . uiRawEventMap
-              mnowHit = do
-                emap <- L.find (\m -> eventMapId m == "module-tree") emaps
-                hitItem (x, y) emap
-           in case mnowHit of
-                Just nowHit
-                  | "Select_" `T.isPrefixOf` nowHit ->
-                      let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just (T.drop 7 nowHit)) ui
-                          ss' = (serverShouldUpdate .~ False) ss
-                       in (ui', ss')
-                  | "Unsele_" `T.isPrefixOf` nowHit ->
-                      let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
-                          ss' = (serverShouldUpdate .~ False) ss
-                       in (ui', ss')
-                _ -> (ui, ss)
-      let mprevHit = ui ^. uiModel . modelSourceView . srcViewExpandedModule
-          mnowHit = ui' ^. uiModel . modelSourceView . srcViewExpandedModule
-      when (mnowHit /= mprevHit) refresh
+      ui0 <- getUI
+      let memap0 = hitScene (x, y) (ui0 ^. uiViewRaw . uiRawEventMap)
+          mscene = eventMapId <$> memap0
+      printMsg (T.pack (show mscene))
+      modifyUISS $ \(ui, ss) ->
+        let emaps = ui ^. uiViewRaw . uiRawEventMap
+         in case hitScene (x, y) emaps of
+              Just emap ->
+                if
+                    | eventMapId emap == "module-tree" ->
+                        let mnowHit = hitItem (x, y) emap
+                         in case mnowHit of
+                              Just nowHit
+                                | "Select_" `T.isPrefixOf` nowHit ->
+                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just (T.drop 7 nowHit)) ui
+                                        ss' = (serverShouldUpdate .~ False) ss
+                                     in (ui', ss')
+                                | "Unsele_" `T.isPrefixOf` nowHit ->
+                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+                                        ss' = (serverShouldUpdate .~ False) ss
+                                     in (ui', ss')
+                              _ -> (ui, ss)
+                    | eventMapId emap == "supple-view-tab" ->
+                        -- TODO: This text parsing should be eliminated after implementing typed events.
+                        let mhitTab = readMaybe =<< (fmap T.unpack $ hitItem (x, y) emap)
+                            ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
+                         in (ui', ss)
+                    | otherwise -> (ui, ss)
+              Nothing -> (ui, ss)
+      refresh
     _ -> pure ()
   goHoverScrollZoom
     HandlerHoverScrollZoom
@@ -481,9 +493,11 @@ goSourceView ev = do
       , handlerScroll =
           [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
           , ("source-view", modelSourceView . srcViewSourceViewPort)
+          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
           ]
       , handlerZoom =
           [ ("source-view", modelSourceView . srcViewSourceViewPort)
+          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
           ]
       }
     ev

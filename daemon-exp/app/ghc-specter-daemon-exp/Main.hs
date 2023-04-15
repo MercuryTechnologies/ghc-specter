@@ -44,6 +44,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
+import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (TextFontFace (Sans), ViewPort (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -87,11 +88,11 @@ import Handler (
   handleZoomEnd,
   handleZoomUpdate,
  )
-import ModuleGraph (renderModuleGraph)
+import Render.ModuleGraph (renderModuleGraph)
+import Render.Session (renderSession)
+import Render.SourceView (renderSourceView)
+import Render.Timing (renderTiming)
 import Renderer (drawText)
-import Session (renderSession)
-import SourceView (renderSourceView)
-import Timing (renderTiming)
 import Types (ViewBackend (..))
 
 detailLevel :: DetailLevel
@@ -216,6 +217,8 @@ main =
           appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
         vpSrcSource =
           appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
+        vpSrcSupp =
+          appWidgetConfig ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -236,6 +239,10 @@ main =
               . ( uiModel . modelSourceView . srcViewSourceViewPort
                     .~ ViewPortInfo vpSrcSource Nothing
                 )
+              . ( uiModel . modelSourceView . srcViewSuppViewPort
+                    .~ ViewPortInfo vpSrcSupp Nothing
+                )
+
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
     chanState <- newTChanIO
@@ -312,6 +319,7 @@ main =
         #showAll mainWindow
 
         _ <- forkOS $ Comm.listener socketFile servSess workQ
+        _ <- forkOS $ Worker.runWorkQueue workQ
         _ <-
           forkOS $
             Session.main

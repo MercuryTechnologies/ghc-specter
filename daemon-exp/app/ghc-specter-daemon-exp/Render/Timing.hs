@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Timing (
+module Render.Timing (
   renderTiming,
 ) where
 
@@ -23,8 +23,8 @@ import GHCSpecter.Render.Components.TimingView (
   compileTimingChart,
   compileTimingRange,
  )
+import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.UI.Constants (
-  timingHeight,
   timingRangeHeight,
   timingWidth,
  )
@@ -56,7 +56,7 @@ renderTiming uiRef vb drvModMap tui ttable = do
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab TabTiming
+    let sceneTab = compileTab topLevelTab (Just TabTiming)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

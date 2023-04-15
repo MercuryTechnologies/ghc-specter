@@ -61,6 +61,7 @@ library
       GHCSpecter.Render.ModuleGraph
       GHCSpecter.Render.Session
       GHCSpecter.Render.SourceView
+      GHCSpecter.Render.Tab
       GHCSpecter.Render.Timing
       GHCSpecter.Render.Util
       GHCSpecter.Server.Types

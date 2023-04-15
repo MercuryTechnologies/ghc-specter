@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module ModuleGraph (
+module Render.ModuleGraph (
   renderModuleGraph,
 ) where
 
@@ -22,6 +22,7 @@ import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.Render.Components.Tab (compileTab)
+import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasViewPortInfo (..),
@@ -76,7 +77,7 @@ renderModuleGraph
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- tab
     for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-      let sceneTab = compileTab TabModuleGraph
+      let sceneTab = compileTab topLevelTab (Just TabModuleGraph)
           sceneTab' =
             sceneTab
               { sceneGlobalViewPort = vpCvs
@@ -96,7 +97,7 @@ renderModuleGraph
       R.liftIO $ addEventMap uiRef sceneMain'
     -- sub module graph
     for_ (Map.lookup "sub-module-graph" wcfg) $ \vpCvs -> do
-      let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+      let ViewPort (cx0, cy0) (cx1, _cy1) = vpCvs
           esubgraph = do
             selected <-
               note "no module cluster is selected" mainModuleClicked
