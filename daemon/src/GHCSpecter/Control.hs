@@ -493,9 +493,11 @@ goSourceView ev = do
       , handlerScroll =
           [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
           , ("source-view", modelSourceView . srcViewSourceViewPort)
+          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
           ]
       , handlerZoom =
           [ ("source-view", modelSourceView . srcViewSourceViewPort)
+          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
           ]
       }
     ev

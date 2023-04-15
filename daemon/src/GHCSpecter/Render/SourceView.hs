@@ -173,21 +173,21 @@ renderModuleTree srcUI ss =
 compileSuppView :: Maybe SupplementaryView -> Scene
 compileSuppView Nothing =
   Scene
-    { sceneId = "supp-view-contents"
+    { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = []
     }
 compileSuppView (Just (SuppViewCallgraph grVis)) =
   Scene
-    { sceneId = "supp-view-contents"
+    { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = GraphView.compileGraph (isJust . T.find (== '.')) grVis
     }
 compileSuppView (Just (SuppViewText _)) =
   Scene
-    { sceneId = "supp-view-contents"
+    { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = []
