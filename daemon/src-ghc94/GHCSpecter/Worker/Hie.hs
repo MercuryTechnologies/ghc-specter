@@ -40,14 +40,16 @@ import GHCSpecter.Server.Types (
   ServerState (..),
  )
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
-import HieDb.Compat (
-  moduleName,
-  moduleNameString,
-  occNameString,
- )
-import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
-import HieDb.Utils (genDefRow, genRefsAndDecls)
 
+-- import HieDb.Compat (
+--  moduleName,
+--  moduleNameString,
+--  occNameString,
+-- )
+-- import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
+-- import HieDb.Utils (genDefRow, genRefsAndDecls)
+
+{-
 convertRefRow :: RefRow -> RefRow'
 convertRefRow RefRow {..} =
   RefRow'
@@ -83,9 +85,13 @@ convertDefRow DefRow {..} =
     , _def'ELine = defELine
     , _def'ECol = defECol
     }
+-}
 
 hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
 hieWorker ssRef workQ hiefile = do
+  pure ()
+
+{-
   nc <- initNameCache 'z' []
   hieResult <- readHieFile nc hiefile
   let hf = hie_file_result hieResult
@@ -108,6 +114,7 @@ hieWorker ssRef workQ hiefile = do
       serverHieState . hieModuleMap
         %~ M.insert modName modHie
     writeTQueue workQ callGraphWork
+-}
 
 moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do

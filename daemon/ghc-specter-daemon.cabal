@@ -130,13 +130,13 @@ library
     hs-source-dirs:
         src-ghc96
   if impl (ghc >= 9.4) && impl (ghc < 9.5)
-    build-depends:
-        hiedb
+  --  build-depends:
+  --      hiedb
     hs-source-dirs:
         src-ghc94
   if impl (ghc >= 9.2) && impl (ghc < 9.3)
-    build-depends:
-        hiedb
+  --  build-depends:
+  --      hiedb
     hs-source-dirs:
         src-ghc92
 
