@@ -139,6 +139,16 @@ compileSession ss =
                in T.intercalate " " $ fmap mkItem (procArguments procinfo)
             txtArgs = "CLI Arguments: " <> msgArgs
             chunkedMsgsArgs = T.chunksOf 250 txtArgs
+
+    msgsRTSInfo =
+      case procRTSFlags <$> sessionProcess sessionInfo of
+        Nothing -> []
+        Just rtsflags ->
+          [ ""
+          , "GHC RTS Info"
+          , TL.toStrict $ pShowNoColor rtsflags
+          ]
+
     txt =
       T.unlines
         ( [ msgSessionStart
@@ -149,6 +159,7 @@ compileSession ss =
           , msgGhcMode
           ]
             ++ msgsProcessInfo
+            ++ msgsRTSInfo
         )
 
     scene = compileTextView txt []
