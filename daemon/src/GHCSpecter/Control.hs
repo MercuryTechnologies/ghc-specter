@@ -67,6 +67,7 @@ import GHCSpecter.UI.Constants (
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasModuleGraphUI (..),
+  HasSessionUI (..),
   HasSourceViewUI (..),
   HasTimingUI (..),
   HasUIModel (..),
@@ -348,6 +349,13 @@ goSession ev = do
       sendRequest (SessionReq Pause)
       refresh
     _ -> pure ()
+  goHoverScrollZoom
+    HandlerHoverScrollZoom
+      { handlerHover = []
+      , handlerScroll = [("module-status", modelSession . sessionUIModStatusViewPort)]
+      , handlerZoom = []
+      }
+    ev
   goCommon ev
 
 goModuleGraph :: Event -> Control ()
