@@ -37,7 +37,7 @@ appWidgetConfig =
             )
           ,
             ( "session-main"
-            , ViewPort (0, tabHeight) canvasDim
+            , ViewPort (5, tabHeight + 5) canvasDim
             )
           ]
     , _wcfgModuleGraph =

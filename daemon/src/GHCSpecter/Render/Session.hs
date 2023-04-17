@@ -40,12 +40,7 @@ import GHCSpecter.Data.Map (
   lookupKey,
  )
 import GHCSpecter.Graphics.DSL (
-  Color (..),
-  Primitive (..),
   Scene (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
  )
 import GHCSpecter.Render.Components.TextView (compileTextView)
 import GHCSpecter.Render.Util (divClass, spanClass)
@@ -63,10 +58,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants (
-  sessionModStatusDim,
-  widgetHeight,
- )
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
@@ -100,12 +92,65 @@ compileSession ss =
   scene {sceneId = "session-main"}
   where
     sessionInfo = ss ^. serverSessionInfo
-    txt =
+    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
+    timing = ss ^. serverTiming . tsTimingMap
+    timingList = keyMapToList timing
+    (timingDone, timingInProg) =
+      partition (\(_, t) -> isJust (getEnd t)) timingList
+    nTot = IM.size (mginfoModuleNameMap mgi)
+    nDone = length timingDone
+    nInProg = length timingInProg
+
+    msgSessionStart =
       case sessionStartTime sessionInfo of
         Nothing ->
           "GHC Session has not been started"
         Just sessionStartTime ->
           "Session started at " <> T.pack (show sessionStartTime)
+    msgCompilationStatus =
+      "# of modules (done / in progress / total): "
+        <> T.pack (show nDone)
+        <> " / "
+        <> T.pack (show nInProg)
+        <> " / "
+        <> T.pack (show nTot)
+
+    msgGhcMode =
+      "GHC Mode: " <> ghcMode <> "\nBackend: " <> backend
+      where
+        ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
+        backend = T.pack $ show $ sessionBackend sessionInfo
+
+    msgsProcessInfo =
+      case sessionProcess sessionInfo of
+        Nothing -> []
+        Just procinfo ->
+          [ "Process ID: " <> msgPID
+          , "Executable path: " <> msgPath
+          , "Current Directory: " <> msgCWD
+          ]
+            ++ chunkedMsgsArgs
+          where
+            msgPID = T.pack $ show $ procPID procinfo
+            msgPath = T.pack $ procExecPath procinfo
+            msgCWD = T.pack $ procCWD procinfo
+            msgArgs =
+              let mkItem x = T.pack x
+               in T.intercalate " " $ fmap mkItem (procArguments procinfo)
+            txtArgs = "CLI Arguments: " <> msgArgs
+            chunkedMsgsArgs = T.chunksOf 250 txtArgs
+    txt =
+      T.unlines
+        ( [ msgSessionStart
+          , ""
+          , "Compilation Status"
+          , msgCompilationStatus
+          , ""
+          , msgGhcMode
+          ]
+            ++ msgsProcessInfo
+        )
+
     scene = compileTextView txt []
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
