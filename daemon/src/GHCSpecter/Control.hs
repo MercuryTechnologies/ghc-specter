@@ -348,6 +348,39 @@ goSession ev = do
               & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
       sendRequest (SessionReq Pause)
       refresh
+    MouseEv (MouseClick (x, y)) -> do
+      -- TODO: we need to make the whole Control transactional in updating the state
+      ui0 <- getUI
+      let emaps0 = ui0 ^. uiViewRaw . uiRawEventMap
+          mhit0 = do
+            emap0 <- L.find (\m -> eventMapId m == "session-button") emaps0
+            hitItem (x, y) emap0
+      case mhit0 of
+        Just hit ->
+          if
+              | hit == "ResumeSession" -> do
+                  modifyUISS $ \(ui, ss) ->
+                    let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
+                        sinfo = ss ^. serverSessionInfo
+                        sinfo' = sinfo {sessionIsPaused = False}
+                        ss' =
+                          (serverSessionInfo .~ sinfo')
+                            . (serverPaused .~ emptyKeyMap)
+                            . (serverShouldUpdate .~ True)
+                            $ ss
+                     in (ui', ss')
+                  sendRequest (SessionReq Resume)
+                  refresh
+              | hit == "PauseSession" -> do
+                  modifySS $ \ss ->
+                    let sinfo = ss ^. serverSessionInfo
+                        sinfo' = sinfo {sessionIsPaused = True}
+                     in ss
+                          & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+                  sendRequest (SessionReq Pause)
+                  refresh
+              | otherwise -> pure ()
+        _ -> pure ()
     _ -> pure ()
   goHoverScrollZoom
     HandlerHoverScrollZoom
@@ -468,6 +501,7 @@ goSourceView ev = do
          in (ui', ss')
       refresh
     MouseEv (MouseClick (x, y)) -> do
+      -- TODO: we need to make the whole Control transactional in updating the state
       ui0 <- getUI
       let memap0 = hitScene (x, y) (ui0 ^. uiViewRaw . uiRawEventMap)
           mscene = eventMapId <$> memap0
