@@ -10,9 +10,12 @@ import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
 import GHCSpecter.Channel.Outbound.Types (getEnd)
 import GHCSpecter.Data.Map (keyMapToList)
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.Tab (compileTab)
-import GHCSpecter.Render.Session (compileModuleInProgress)
+import GHCSpecter.Render.Session (
+  compileModuleInProgress,
+  compileSession,
+ )
 import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasServerState (..),
@@ -32,6 +35,7 @@ import Renderer (
   addEventMap,
   renderScene,
   resetWidget,
+  setColor,
  )
 import Types (ViewBackend)
 
@@ -53,8 +57,24 @@ renderSession uiRef vb ss sessui = do
             }
     renderScene vb sceneTab'
     R.liftIO $ addEventMap uiRef sceneTab
+  for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
+    let vpiMain = sessui ^. sessionUIMainViewPort
+        vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
+        sceneMain = compileSession ss
+        sceneMain' =
+          sceneMain
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vpMain
+            }
+    renderScene vb sceneMain'
+    R.liftIO $ addEventMap uiRef sceneMain'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
+    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+    setColor Ivory
+    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+    R.fill
     boxRules vpCvs
+
     let vpiStatus = sessui ^. sessionUIModStatusViewPort
         vpStatus = fromMaybe (vpiStatus ^. vpViewPort) (vpiStatus ^. vpTempViewPort)
         drvModMap = ss ^. serverDriverModuleMap

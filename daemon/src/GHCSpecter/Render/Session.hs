@@ -3,6 +3,7 @@
 
 module GHCSpecter.Render.Session (
   compileModuleInProgress,
+  compileSession,
   render,
 ) where
 
@@ -91,6 +92,21 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
     scene = compileTextView (T.unlines msgs) []
+
+compileSession ::
+  ServerState ->
+  Scene
+compileSession ss =
+  scene {sceneId = "session-main"}
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    txt =
+      case sessionStartTime sessionInfo of
+        Nothing ->
+          "GHC Session has not been started"
+        Just sessionStartTime ->
+          "Session started at " <> T.pack (show sessionStartTime)
+    scene = compileTextView txt []
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =

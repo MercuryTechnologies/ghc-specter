@@ -21,6 +21,8 @@ import GHCSpecter.UI.Types (
   WidgetConfig (..),
  )
 
+-- TODO: use type-level literal or something to be more safe.
+
 appWidgetConfig :: WidgetConfig
 appWidgetConfig =
   WidgetConfig
@@ -32,6 +34,10 @@ appWidgetConfig =
             , ViewPort
                 (canvasDim ^. _1 - sessionModStatusDim ^. _1, tabHeight)
                 (canvasDim ^. _1, sessionModStatusDim ^. _2 + tabHeight)
+            )
+          ,
+            ( "session-main"
+            , ViewPort (0, tabHeight) canvasDim
             )
           ]
     , _wcfgModuleGraph =
