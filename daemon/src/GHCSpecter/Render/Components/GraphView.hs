@@ -131,7 +131,7 @@ compileGraph cond grVisInfo =
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
       -- graph layout parameter
-      aFactor = 0.95
+      aFactor = 1.05
       offX = -15
       offYFactor = -1.0
       -- the center of left side of a node
