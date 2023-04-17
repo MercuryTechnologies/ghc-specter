@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GHCSpecter.Worker.Hie (
@@ -5,6 +6,7 @@ module GHCSpecter.Worker.Hie (
   moduleSourceWorker,
 ) where
 
+import Control.Arrow ((&&&))
 import Control.Concurrent.STM (
   TQueue,
   TVar,
@@ -13,9 +15,12 @@ import Control.Concurrent.STM (
   writeTQueue,
  )
 import Control.Lens ((%~), (.~))
-import Data.Foldable (for_)
+import Data.Bifunctor (bimap)
+import Data.Foldable (find, for_)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
+import Data.Maybe (mapMaybe, maybeToList)
+import Data.Monoid (First (..))
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.IO qualified as TIO
@@ -23,9 +28,26 @@ import GHC.Iface.Ext.Binary (
   HieFileResult (..),
   readHieFile,
  )
-import GHC.Iface.Ext.Types (HieFile (..), getAsts)
+import GHC.Iface.Ext.Types (
+  BindType (..),
+  ContextInfo (..),
+  HieFile (..),
+  Identifier (..),
+  IdentifierDetails (..),
+  Span (..),
+  getAsts,
+ )
 import GHC.Iface.Ext.Utils (generateReferencesMap)
+import GHC.Types.Name (nameModule_maybe, nameOccName, nameSrcSpan, occNameString)
 import GHC.Types.Name.Cache (initNameCache)
+import GHC.Types.SrcLoc (
+  SrcSpan (RealSrcSpan),
+  srcSpanEndCol,
+  srcSpanEndLine,
+  srcSpanStartCol,
+  srcSpanStartLine,
+ )
+import GHC.Unit.Types (GenModule (..), Unit, moduleName)
 import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.GHC.Hie (
   DeclRow' (..),
@@ -39,50 +61,118 @@ import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
  )
+import GHCSpecter.Util.GHC (moduleNameString)
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
-import HieDb.Compat (
-  moduleName,
-  moduleNameString,
-  occNameString,
- )
-import HieDb.Types (DeclRow (..), DefRow (..), RefRow (..))
-import HieDb.Utils (genDefRow, genRefsAndDecls)
 
-convertRefRow :: RefRow -> RefRow'
-convertRefRow RefRow {..} =
-  RefRow'
-    { _ref'Src = refSrc
-    , _ref'NameOcc = T.pack $ occNameString refNameOcc
-    , _ref'NameMod = T.pack $ moduleNameString refNameMod
-    , _ref'NameUnit = T.pack $ show refNameUnit
-    , _ref'SLine = refSLine
-    , _ref'SCol = refSCol
-    , _ref'ELine = refELine
-    , _ref'ECol = refECol
-    }
+genRefsAndDecls ::
+  FilePath ->
+  GenModule Unit ->
+  M.Map Identifier [(Span, IdentifierDetails a)] ->
+  ([RefRow'], [DeclRow'])
+genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
+  where
+    flat = concatMap (\(a, xs) -> map (a,) xs)
+    genRows = foldMap go
+    go = bimap maybeToList maybeToList . (goRef &&& goDec)
 
-convertDeclRow :: DeclRow -> DeclRow'
-convertDeclRow DeclRow {..} =
-  DeclRow'
-    { _decl'Src = declSrc
-    , _decl'NameOcc = T.pack $ occNameString declNameOcc
-    , _decl'SLine = declSLine
-    , _decl'SCol = declSCol
-    , _decl'ELine = declELine
-    , _decl'ECol = declECol
-    , _decl'Root = declRoot
-    }
+    goRef (Right name, (sp, _))
+      | Just mod <- nameModule_maybe name =
+          Just $
+            RefRow'
+              { _ref'Src = path
+              , _ref'NameOcc = T.pack $ occNameString occ
+              , _ref'NameMod = T.pack $ moduleNameString $ moduleName mod
+              , _ref'NameUnit = T.pack $ show $ moduleUnit mod
+              , _ref'SLine = sl
+              , _ref'SCol = sc
+              , _ref'ELine = el
+              , _ref'ECol = ec
+              }
+      where
+        occ = nameOccName name
+        sl = srcSpanStartLine sp
+        sc = srcSpanStartCol sp
+        el = srcSpanEndLine sp
+        ec = srcSpanEndCol sp
+    goRef _ = Nothing
 
-convertDefRow :: DefRow -> DefRow'
-convertDefRow DefRow {..} =
-  DefRow'
-    { _def'Src = defSrc
-    , _def'NameOcc = T.pack $ occNameString defNameOcc
-    , _def'SLine = defSLine
-    , _def'SCol = defSCol
-    , _def'ELine = defELine
-    , _def'ECol = defECol
-    }
+    goDec (Right name, (_, dets))
+      | Just mod <- nameModule_maybe name
+      , mod == smdl
+      , occ <- nameOccName name
+      , info <- identInfo dets
+      , Just sp <- getBindSpan info
+      , is_root <- isRoot info
+      , sl <- srcSpanStartLine sp
+      , sc <- srcSpanStartCol sp
+      , el <- srcSpanEndLine sp
+      , ec <- srcSpanEndCol sp =
+          Just $
+            DeclRow'
+              { _decl'Src = path
+              , _decl'NameOcc = T.pack $ occNameString occ
+              , _decl'SLine = sl
+              , _decl'SCol = sc
+              , _decl'ELine = el
+              , _decl'ECol = ec
+              , _decl'Root = is_root
+              }
+    goDec _ = Nothing
+
+    isRoot =
+      any
+        ( \case
+            ValBind InstanceBind _ _ -> True
+            Decl _ _ -> True
+            _ -> False
+        )
+
+    getBindSpan = getFirst . foldMap (First . goDecl)
+    goDecl (ValBind _ _ sp) = sp
+    goDecl (PatternBind _ _ sp) = sp
+    goDecl (Decl _ sp) = sp
+    goDecl (RecField _ sp) = sp
+    goDecl _ = Nothing
+
+genDefRow ::
+  FilePath ->
+  GenModule Unit ->
+  M.Map Identifier [(Span, IdentifierDetails a)] ->
+  [DefRow']
+genDefRow path smod refmap = genRows $ M.toList refmap
+  where
+    genRows = mapMaybe go
+    getSpan name dets
+      | RealSrcSpan sp _ <- nameSrcSpan name = Just sp
+      | otherwise = do
+          (sp, _dets) <- find defSpan dets
+          pure sp
+
+    defSpan = any isDef . identInfo . snd
+    isDef (ValBind RegularBind _ _) = True
+    isDef PatternBind {} = True
+    isDef Decl {} = True
+    isDef _ = False
+
+    go (Right name, dets)
+      | Just mod <- nameModule_maybe name
+      , mod == smod
+      , occ <- nameOccName name
+      , Just sp <- getSpan name dets
+      , sl <- srcSpanStartLine sp
+      , sc <- srcSpanStartCol sp
+      , el <- srcSpanEndLine sp
+      , ec <- srcSpanEndCol sp =
+          Just $
+            DefRow'
+              { _def'Src = path
+              , _def'NameOcc = T.pack $ occNameString occ
+              , _def'SLine = sl
+              , _def'SCol = sc
+              , _def'ELine = el
+              , _def'ECol = ec
+              }
+    go _ = Nothing
 
 hieWorker :: TVar ServerState -> TQueue (IO ()) -> FilePath -> IO ()
 hieWorker ssRef workQ hiefile = do
@@ -97,9 +187,9 @@ hieWorker ssRef workQ hiefile = do
       (refs, decls) = genRefsAndDecls "" modu refmap
       defs = genDefRow "" modu refmap
       modHie =
-        (modHieRefs .~ fmap convertRefRow refs)
-          . (modHieDecls .~ fmap convertDeclRow decls)
-          . (modHieDefs .~ fmap convertDefRow defs)
+        (modHieRefs .~ refs)
+          . (modHieDecls .~ decls)
+          . (modHieDefs .~ defs)
           . (modHieSource .~ src)
           $ emptyModuleHieInfo
       callGraphWork = CallGraph.worker ssRef modName modHie
