@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Session (
+  compileModuleInProgress,
   render,
 ) where
 
@@ -37,6 +38,15 @@ import GHCSpecter.Data.Map (
   keyMapToList,
   lookupKey,
  )
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
+  Scene (..),
+  TextFontFace (..),
+  TextPosition (..),
+  ViewPort (..),
+ )
+import GHCSpecter.Render.Components.TextView (compileTextView)
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -52,13 +62,35 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants (widgetHeight)
+import GHCSpecter.UI.Constants (
+  sessionModStatusDim,
+  widgetHeight,
+ )
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
  )
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
+
+compileModuleInProgress ::
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId BreakpointLoc ->
+  [(DriverId, Timer)] ->
+  Scene
+compileModuleInProgress drvModMap pausedMap timingInProg =
+  scene {sceneId = "module-status"}
+  where
+    msgs =
+      let is = fmap fst timingInProg
+          imodinfos = fmap (\i -> (unDriverId i, forwardLookup i drvModMap, lookupKey i pausedMap)) is
+          formatMessage (i, mmod, mpaused) =
+            let msgDrvId = T.pack (show i) <> ": "
+                msgModName = fromMaybe "" mmod
+                msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
+             in msgDrvId <> msgModName <> msgPaused
+       in fmap formatMessage imodinfos
+    scene = compileTextView (T.unlines msgs) []
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =

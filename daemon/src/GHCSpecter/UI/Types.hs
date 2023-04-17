@@ -2,28 +2,50 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types (
+  -- * ViewPortInfo
+  ViewPortInfo (..),
+  HasViewPortInfo (..),
+
+  -- * SessionUI
+  SessionUI (..),
+  HasSessionUI (..),
+  emptySessionUI,
+
+  -- * ModuleGraphUI
   ModuleGraphUI (..),
   HasModuleGraphUI (..),
   emptyModuleGraphUI,
+
+  -- * SourceViewUI
   SourceViewUI (..),
   HasSourceViewUI (..),
   emptySourceViewUI,
+
+  -- * TimingUI
   TimingUI,
   HasTimingUI (..),
   emptyTimingUI,
+
+  -- * ConsoleUI
   ConsoleUI,
   HasConsoleUI (..),
   emptyConsoleUI,
+
+  -- * WidgetConfig
   WidgetConfig (..),
   HasWidgetConfig (..),
   emptyWidgetConfig,
+
+  -- * UIModel
   UIModel (..),
   HasUIModel (..),
   emptyUIModel,
+
+  -- * UIViewRaw
   UIViewRaw (..),
   HasUIViewRaw (..),
-  ViewPortInfo (..),
-  HasViewPortInfo (..),
+
+  -- * UIState
   UIState (..),
   HasUIState (..),
   emptyUIState,
@@ -42,6 +64,7 @@ import GHCSpecter.UI.Constants (
   canvasDim,
   modGraphHeight,
   modGraphWidth,
+  sessionModStatusDim,
   timingHeight,
   timingWidth,
  )
@@ -53,6 +76,18 @@ data ViewPortInfo = ViewPortInfo
   }
 
 makeClassy ''ViewPortInfo
+
+data SessionUI = SessionUI
+  { _sessionUIModStatusViewPort :: ViewPortInfo
+  }
+
+makeClassy ''SessionUI
+
+emptySessionUI :: SessionUI
+emptySessionUI =
+  SessionUI
+    { _sessionUIModStatusViewPort = ViewPortInfo (ViewPort (0, 0) sessionModStatusDim) Nothing
+    }
 
 data ModuleGraphUI = ModuleGraphUI
   { _modGraphUIHover :: Maybe Text
@@ -157,16 +192,18 @@ emptyWidgetConfig =
 data UIModel = UIModel
   { _modelTab :: Tab
   -- ^ current tab.
+  , _modelSession :: SessionUI
+  -- ^ UI model of session
   , _modelMainModuleGraph :: ModuleGraphUI
-  -- ^ UI state of main module graph
+  -- ^ UI model of main module graph
   , _modelSubModuleGraph :: (DetailLevel, ModuleGraphUI)
-  -- ^ UI state of sub module graph
+  -- ^ UI model of sub module graph
   , _modelSourceView :: SourceViewUI
-  -- ^ UI state of source view UI
+  -- ^ UI model of source view UI
   , _modelTiming :: TimingUI
-  -- ^ UI state of Timing UI
+  -- ^ UI model of Timing UI
   , _modelConsole :: ConsoleUI
-  -- ^ UI state of console uI
+  -- ^ UI model of console uI
   , _modelWidgetConfig :: WidgetConfig
   -- ^ widget config. to support dynamic configuration change
   }
@@ -177,6 +214,7 @@ emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
     { _modelTab = TabSession
+    , _modelSession = emptySessionUI
     , _modelMainModuleGraph = emptyModuleGraphUI
     , _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI)
     , _modelSourceView = emptySourceViewUI
@@ -194,6 +232,15 @@ data UIViewRaw = UIViewRaw
   }
 
 makeClassy ''UIViewRaw
+
+{- NOTE: [UI state and model]
+
+   State is UI backend dependent and model is not, i.e. pertained to logical model of
+   view. The candidates for subfields which is only in state are likely to be related
+   to cache and rendering optimization. This line is naturally not very clear in the
+   beginning, but will be clarified after more refactoring.
+
+-}
 
 data UIState = UIState
   { _uiShouldUpdate :: Bool

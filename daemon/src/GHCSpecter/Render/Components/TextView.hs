@@ -38,6 +38,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 
+-- TODO: generalize and refactor out these layout parameters
 rowSize :: Double
 rowSize = 8
 

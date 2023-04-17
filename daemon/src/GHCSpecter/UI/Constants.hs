@@ -16,6 +16,9 @@ module GHCSpecter.UI.Constants (
   modGraphWidth,
   modGraphHeight,
 
+  -- * session
+  sessionModStatusDim,
+
   -- * global
   canvasDim,
   tabHeight,
@@ -53,6 +56,9 @@ modGraphWidth = 1440
 
 modGraphHeight :: (Num a) => a
 modGraphHeight = 768
+
+sessionModStatusDim :: (Num a) => (a, a)
+sessionModStatusDim = (250, 80)
 
 canvasDim :: (Num a) => (a, a)
 canvasDim = (1440, 768)

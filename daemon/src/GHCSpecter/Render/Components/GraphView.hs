@@ -74,7 +74,7 @@ compileModuleGraph
         nodeLayoutMap =
           IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
         -- graph layout parameter
-        aFactor = 0.95
+        aFactor = 1.05
         offX = -15
         offYFactor = -1.0
         -- the center of left side of a node
@@ -102,7 +102,7 @@ compileModuleGraph
                 pure (rightCenter srcNode, leftCenter tgtNode)
            in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
         node (NodeLayout (_, name) (Point x y) (Dim w h)) =
-          let fontSize = 6
+          let fontSize = 5
               ratio = valueFor name
               w' = ratio * w
               color1
@@ -112,7 +112,7 @@ compileModuleGraph
            in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just name)
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
-              , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Sans Black fontSize name
+              , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
               ]
      in Scene
           { sceneId = "main-module-graph"
@@ -131,7 +131,7 @@ compileGraph cond grVisInfo =
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
       -- graph layout parameter
-      aFactor = 0.95
+      aFactor = 1.05
       offX = -15
       offYFactor = -1.0
       -- the center of left side of a node
@@ -153,12 +153,12 @@ compileGraph cond grVisInfo =
          in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
 
       node (NodeLayout (_, name) (Point x y) (Dim w h)) =
-        let fontSize = 6
+        let fontSize = 5
             color
               | cond name = HoneyDew
               | otherwise = Ivory
          in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
-            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Sans Black fontSize name
+            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
             ]
    in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
         ++ fmap edge (grVisInfo ^. gviEdges)
