@@ -11,6 +11,7 @@ import GHCSpecter.UI.Constants (
   canvasDim,
   modGraphHeight,
   modGraphWidth,
+  sessionModStatusDim,
   tabHeight,
   timingHeight,
   timingRangeHeight,
@@ -26,6 +27,12 @@ appWidgetConfig =
     { _wcfgSession =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          ,
+            ( "module-status"
+            , ViewPort
+                (canvasDim ^. _1 - sessionModStatusDim ^. _1, tabHeight)
+                (canvasDim ^. _1, sessionModStatusDim ^. _2 + tabHeight)
+            )
           ]
     , _wcfgModuleGraph =
         Map.fromList

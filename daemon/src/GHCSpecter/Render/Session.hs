@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Session (
+  compileModuleInProgress,
   render,
 ) where
 
@@ -37,6 +38,14 @@ import GHCSpecter.Data.Map (
   keyMapToList,
   lookupKey,
  )
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
+  Scene (..),
+  TextFontFace (..),
+  TextPosition (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -52,13 +61,60 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants (widgetHeight)
+import GHCSpecter.UI.Constants (
+  sessionModStatusDim,
+  widgetHeight,
+ )
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
  )
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
+
+compileModuleInProgress ::
+  BiKeyMap DriverId ModuleName ->
+  KeyMap DriverId BreakpointLoc ->
+  [(DriverId, Timer)] ->
+  Scene
+compileModuleInProgress drvModMap pausedMap timingInProg =
+  Scene
+    { sceneId = "module-status"
+    , sceneGlobalViewPort = ViewPort (0, 0) sessionModStatusDim
+    , sceneLocalViewPort = ViewPort (0, 0) sessionModStatusDim
+    , sceneElements = contents
+    }
+  where
+    msgs =
+      let is = fmap fst timingInProg
+          imodinfos = fmap (\i -> (unDriverId i, forwardLookup i drvModMap, lookupKey i pausedMap)) is
+          formatMessage (i, mmod, mpaused) =
+            let msgDrvId = T.pack (show i) <> ": "
+                msgModName = fromMaybe "" mmod
+                msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
+             in msgDrvId <> msgModName <> msgPaused
+       in fmap formatMessage imodinfos
+
+    -- TODO: use refactored functions for this
+    rowSize :: Double
+    rowSize = 8
+
+    ratio :: Double
+    ratio = 0.625
+
+    charSize :: Double
+    charSize = rowSize * ratio
+
+    bottomOfBox :: Int -> Double
+    bottomOfBox i = rowSize * fromIntegral i
+
+    leftOfBox :: Int -> Double
+    leftOfBox j = charSize * fromIntegral (j - 1)
+
+    mkText (i, t) =
+      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
+    contents =
+      fmap mkText $ zip [1 ..] msgs
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =

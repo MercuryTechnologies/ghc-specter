@@ -145,12 +145,16 @@ renderAction vb ss uiRef = do
       mgrui = ui ^. uiModel . modelMainModuleGraph
       sgrui = ui ^. uiModel . modelSubModuleGraph
       subgraphs = mgs ^. mgsSubgraph
+
   case mgrvis of
     Nothing -> renderNotConnected vb
     Just grVisInfo ->
       case ui ^. uiModel . modelTab of
         TabSession ->
-          renderSession uiRef vb
+          renderSession
+            uiRef
+            vb
+            ss
         TabModuleGraph ->
           renderModuleGraph
             uiRef
