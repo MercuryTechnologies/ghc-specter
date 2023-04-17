@@ -39,6 +39,10 @@ appWidgetConfig =
             ( "session-main"
             , ViewPort (5, tabHeight + 5) canvasDim
             )
+          ,
+            ( "session-button"
+            , ViewPort (1000, tabHeight) (1100, tabHeight + 15)
+            )
           ]
     , _wcfgModuleGraph =
         Map.fromList

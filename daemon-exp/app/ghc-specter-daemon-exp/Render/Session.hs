@@ -14,6 +14,7 @@ import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Session (
   compileModuleInProgress,
+  compilePauseResume,
   compileSession,
  )
 import GHCSpecter.Render.Tab (topLevelTab)
@@ -29,6 +30,7 @@ import GHCSpecter.UI.Types (
   UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
+import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
 import Render.Common (boxRules)
 import Renderer (
@@ -91,3 +93,13 @@ renderSession uiRef vb ss sessui = do
             }
     renderScene vb sceneModStatus'
     R.liftIO $ addEventMap uiRef sceneModStatus'
+  for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
+    let sessionInfo = ss ^. serverSessionInfo
+        scenePause = compilePauseResume sessionInfo
+        scenePause' =
+          scenePause
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = translateToOrigin vpCvs
+            }
+    renderScene vb scenePause'
+    R.liftIO $ addEventMap uiRef scenePause'

@@ -4,6 +4,7 @@
 module GHCSpecter.Render.Session (
   compileModuleInProgress,
   compileSession,
+  compilePauseResume,
   render,
 ) where
 
@@ -40,7 +41,12 @@ import GHCSpecter.Data.Map (
   lookupKey,
  )
 import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Primitive (..),
   Scene (..),
+  TextFontFace (Sans),
+  TextPosition (..),
+  ViewPort (..),
  )
 import GHCSpecter.Render.Components.TextView (compileTextView)
 import GHCSpecter.Render.Util (divClass, spanClass)
@@ -163,6 +169,26 @@ compileSession ss =
         )
 
     scene = compileTextView txt []
+
+compilePauseResume :: SessionInfo -> Scene
+compilePauseResume session =
+  Scene
+    { sceneId = "session-button"
+    , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
+    , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
+    , sceneElements = contents
+    }
+  where
+    buttonTxt
+      | sessionIsPaused session = "Resume Session"
+      | otherwise = "Pause Session"
+    eventTxt
+      | sessionIsPaused session = "ResumeSession"
+      | otherwise = "PauseSession"
+    contents =
+      [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just eventTxt)
+      , DrawText (5, 0) UpperLeft Sans Black 8 buttonTxt
+      ]
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =
