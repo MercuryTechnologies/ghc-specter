@@ -46,6 +46,7 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
+import GHCSpecter.Render.Components.TextView (compileTextView)
 import GHCSpecter.Render.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -78,12 +79,7 @@ compileModuleInProgress ::
   [(DriverId, Timer)] ->
   Scene
 compileModuleInProgress drvModMap pausedMap timingInProg =
-  Scene
-    { sceneId = "module-status"
-    , sceneGlobalViewPort = ViewPort (0, 0) sessionModStatusDim
-    , sceneLocalViewPort = ViewPort (0, 0) sessionModStatusDim
-    , sceneElements = contents
-    }
+  scene {sceneId = "module-status"}
   where
     msgs =
       let is = fmap fst timingInProg
@@ -94,27 +90,7 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
                 msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
-
-    -- TODO: use refactored functions for this
-    rowSize :: Double
-    rowSize = 8
-
-    ratio :: Double
-    ratio = 0.625
-
-    charSize :: Double
-    charSize = rowSize * ratio
-
-    bottomOfBox :: Int -> Double
-    bottomOfBox i = rowSize * fromIntegral i
-
-    leftOfBox :: Int -> Double
-    leftOfBox j = charSize * fromIntegral (j - 1)
-
-    mkText (i, t) =
-      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
-    contents =
-      fmap mkText $ zip [1 ..] msgs
+    scene = compileTextView (T.unlines msgs) []
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =
