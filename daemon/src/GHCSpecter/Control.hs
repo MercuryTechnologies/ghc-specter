@@ -352,8 +352,12 @@ goSession ev = do
   goHoverScrollZoom
     HandlerHoverScrollZoom
       { handlerHover = []
-      , handlerScroll = [("module-status", modelSession . sessionUIModStatusViewPort)]
-      , handlerZoom = []
+      , handlerScroll =
+          [ ("module-status", modelSession . sessionUIModStatusViewPort)
+          , ("session-main", modelSession . sessionUIMainViewPort)
+          ]
+      , handlerZoom =
+          [("session-main", modelSession . sessionUIMainViewPort)]
       }
     ev
   goCommon ev
