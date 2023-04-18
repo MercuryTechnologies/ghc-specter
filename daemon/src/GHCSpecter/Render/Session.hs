@@ -3,6 +3,8 @@
 
 module GHCSpecter.Render.Session (
   compileModuleInProgress,
+  compileSession,
+  compilePauseResume,
   render,
 ) where
 
@@ -42,7 +44,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
   Scene (..),
-  TextFontFace (..),
+  TextFontFace (Sans),
   TextPosition (..),
   ViewPort (..),
  )
@@ -62,10 +64,7 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
  )
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
-import GHCSpecter.UI.Constants (
-  sessionModStatusDim,
-  widgetHeight,
- )
+import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
@@ -91,6 +90,105 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
     scene = compileTextView (T.unlines msgs) []
+
+compileSession ::
+  ServerState ->
+  Scene
+compileSession ss =
+  scene {sceneId = "session-main"}
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
+    timing = ss ^. serverTiming . tsTimingMap
+    timingList = keyMapToList timing
+    (timingDone, timingInProg) =
+      partition (\(_, t) -> isJust (getEnd t)) timingList
+    nTot = IM.size (mginfoModuleNameMap mgi)
+    nDone = length timingDone
+    nInProg = length timingInProg
+
+    msgSessionStart =
+      case sessionStartTime sessionInfo of
+        Nothing ->
+          "GHC Session has not been started"
+        Just sessionStartTime ->
+          "Session started at " <> T.pack (show sessionStartTime)
+    msgCompilationStatus =
+      "# of modules (done / in progress / total): "
+        <> T.pack (show nDone)
+        <> " / "
+        <> T.pack (show nInProg)
+        <> " / "
+        <> T.pack (show nTot)
+
+    msgGhcMode =
+      "GHC Mode: " <> ghcMode <> "\nBackend: " <> backend
+      where
+        ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
+        backend = T.pack $ show $ sessionBackend sessionInfo
+
+    msgsProcessInfo =
+      case sessionProcess sessionInfo of
+        Nothing -> []
+        Just procinfo ->
+          [ "Process ID: " <> msgPID
+          , "Executable path: " <> msgPath
+          , "Current Directory: " <> msgCWD
+          ]
+            ++ chunkedMsgsArgs
+          where
+            msgPID = T.pack $ show $ procPID procinfo
+            msgPath = T.pack $ procExecPath procinfo
+            msgCWD = T.pack $ procCWD procinfo
+            msgArgs =
+              let mkItem x = T.pack x
+               in T.intercalate " " $ fmap mkItem (procArguments procinfo)
+            txtArgs = "CLI Arguments: " <> msgArgs
+            chunkedMsgsArgs = T.chunksOf 250 txtArgs
+
+    msgsRTSInfo =
+      case procRTSFlags <$> sessionProcess sessionInfo of
+        Nothing -> []
+        Just rtsflags ->
+          [ ""
+          , "GHC RTS Info"
+          , TL.toStrict $ pShowNoColor rtsflags
+          ]
+
+    txt =
+      T.unlines
+        ( [ msgSessionStart
+          , ""
+          , "Compilation Status"
+          , msgCompilationStatus
+          , ""
+          , msgGhcMode
+          ]
+            ++ msgsProcessInfo
+            ++ msgsRTSInfo
+        )
+
+    scene = compileTextView txt []
+
+compilePauseResume :: SessionInfo -> Scene
+compilePauseResume session =
+  Scene
+    { sceneId = "session-button"
+    , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
+    , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
+    , sceneElements = contents
+    }
+  where
+    buttonTxt
+      | sessionIsPaused session = "Resume Session"
+      | otherwise = "Pause Session"
+    eventTxt
+      | sessionIsPaused session = "ResumeSession"
+      | otherwise = "PauseSession"
+    contents =
+      [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just eventTxt)
+      , DrawText (5, 0) UpperLeft Sans Black 8 buttonTxt
+      ]
 
 renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =

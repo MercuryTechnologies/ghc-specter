@@ -60,6 +60,7 @@ import GHCSpecter.UI.Constants (
  )
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
+  HasSessionUI (..),
   HasSourceViewUI (..),
   HasTimingUI (..),
   HasUIModel (..),
@@ -215,6 +216,8 @@ main =
     let assets = undefined
     initTime <- getCurrentTime
     let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
+        vpSessionMain =
+          appWidgetConfig ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
         vpMainModGraph =
           appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
@@ -229,16 +232,17 @@ main =
     let ui0 = emptyUIState assets initTime
         ui0' =
           ui0
-            & (uiModel . modelTiming . timingUIPartition .~ True)
-              . (uiModel . modelTiming . timingUIHowParallel .~ False)
-              . (uiModel . modelTab .~ TabModuleGraph)
-              . (uiModel . modelWidgetConfig .~ appWidgetConfig)
+            & (uiModel . modelTab .~ TabModuleGraph)
+              . ( uiModel . modelSession . sessionUIMainViewPort
+                    .~ ViewPortInfo vpSessionMain Nothing
+                )
               . ( uiModel . modelMainModuleGraph . modGraphViewPort
                     .~ ViewPortInfo vpMainModGraph Nothing
                 )
               . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
                     .~ ViewPortInfo vpSubModGraph Nothing
                 )
+              . (uiModel . modelWidgetConfig .~ appWidgetConfig)
               . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
                     .~ ViewPortInfo vpSrcModTree Nothing
                 )
@@ -248,6 +252,8 @@ main =
               . ( uiModel . modelSourceView . srcViewSuppViewPort
                     .~ ViewPortInfo vpSrcSupp Nothing
                 )
+              . (uiModel . modelTiming . timingUIPartition .~ True)
+              . (uiModel . modelTiming . timingUIHowParallel .~ False)
 
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO
