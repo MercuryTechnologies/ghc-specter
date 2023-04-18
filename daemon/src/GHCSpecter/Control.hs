@@ -50,6 +50,7 @@ import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
   EventMap (..),
+  HitEvent (..),
   ViewPort (..),
  )
 import GHCSpecter.Server.Types (
@@ -240,7 +241,7 @@ goHoverScrollZoom handlers ev = do
                     emap <- hitScene (x, y) emaps
                     guard (eventMapId emap == component)
                     let mprevHit = ui ^. uiModel . hoverLens
-                        mnowHit = hitItem (x, y) emap
+                        mnowHit = hitEventHover =<< hitItem (x, y) emap
                     if mnowHit /= mprevHit
                       then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
                       else Nothing
@@ -354,7 +355,9 @@ goSession ev = do
       let emaps0 = ui0 ^. uiViewRaw . uiRawEventMap
           mhit0 = do
             emap0 <- L.find (\m -> eventMapId m == "session-button") emaps0
-            hitItem (x, y) emap0
+            hitEvent <- hitItem (x, y) emap0
+            eventMsg <- snd (hitEventClick hitEvent)
+            pure eventMsg
       case mhit0 of
         Just hit ->
           if
@@ -430,7 +433,9 @@ goModuleGraph ev = do
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
               mnowHit = do
                 emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
-                hitItem (x, y) emap
+                hitEvent <- hitItem (x, y) emap
+                click <- snd $ hitEventClick hitEvent
+                pure click
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = ClickOnModuleEv mnowHit
@@ -512,21 +517,24 @@ goSourceView ev = do
               Just emap ->
                 if
                     | eventMapId emap == "module-tree" ->
-                        let mnowHit = hitItem (x, y) emap
+                        let mnowHit = hitEventClick <$> hitItem (x, y) emap
                          in case mnowHit of
-                              Just nowHit
-                                | "Select_" `T.isPrefixOf` nowHit ->
-                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just (T.drop 7 nowHit)) ui
+                              Just (wasActive, Just nowHit)
+                                | not wasActive ->
+                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
                                         ss' = (serverShouldUpdate .~ False) ss
                                      in (ui', ss')
-                                | "Unsele_" `T.isPrefixOf` nowHit ->
+                                | otherwise ->
                                     let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
                                         ss' = (serverShouldUpdate .~ False) ss
                                      in (ui', ss')
                               _ -> (ui, ss)
                     | eventMapId emap == "supple-view-tab" ->
                         -- TODO: This text parsing should be eliminated after implementing typed events.
-                        let mhitTab = readMaybe =<< (fmap T.unpack $ hitItem (x, y) emap)
+                        let mhitTab = do
+                              hitEvent <- hitItem (x, y) emap
+                              eventMsg <- snd (hitEventClick hitEvent)
+                              readMaybe (T.unpack eventMsg)
                             ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
                          in (ui', ss)
                     | otherwise -> (ui, ss)
@@ -698,7 +706,9 @@ mainLoop = do
               emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
               let mhitTab = do
                     emap <- L.find (\m -> eventMapId m == "tab") emaps
-                    hitItem (x, y) emap
+                    hitEvent <- hitItem (x, y) emap
+                    eventMsg <- snd (hitEventClick hitEvent)
+                    pure eventMsg
               let mtab' = case mhitTab of
                     Just "TabSession" -> Just TabSession
                     Just "TabModuleGraph" -> Just TabModuleGraph

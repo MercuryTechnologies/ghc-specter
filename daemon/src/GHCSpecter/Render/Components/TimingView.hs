@@ -50,6 +50,7 @@ import GHCSpecter.Data.Timing.Types (
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  HitEvent (..),
   Primitive (..),
   Scene (..),
   TextFontFace (..),
@@ -208,6 +209,13 @@ compileTimingChart drvModMap tui ttable =
       let highlighter
             | mmodu == mhoveredMod = (Just Orange, Just 0.5)
             | otherwise = (Nothing, Nothing)
+          mhitEvent = do
+            modu <- mmodu
+            pure
+              HitEvent
+                { hitEventHover = Just modu
+                , hitEventClick = (False, Nothing)
+                }
        in Rectangle
             (leftOfBox item, module2Y i)
             (widthOfBox item)
@@ -215,7 +223,7 @@ compileTimingChart drvModMap tui ttable =
             (highlighter ^. _1)
             (Just LightSlateGray)
             (highlighter ^. _2)
-            mmodu
+            mhitEvent
     boxHscOut (i, item) =
       Rectangle
         (leftOfBox item, module2Y i)
@@ -407,9 +415,9 @@ compileBlockers hoveredMod ttable =
     --
     placing !offset item =
       case item of
-        DrawText (x, y) p ff c fs t ->
+        DrawText (x, y) p' ff c fs t ->
           let doffset = fromIntegral fs + 4
-           in (offset + doffset, DrawText (x, y + offset) p ff c fs t)
+           in (offset + doffset, DrawText (x, y + offset) p' ff c fs t)
         Polyline (x0, y0) [] (x1, y1) c w ->
           let doffset = 5
            in (offset + doffset, Polyline (x0, y0 + offset + 3) [] (x1, y1 + offset + 3) c w)

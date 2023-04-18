@@ -4,6 +4,9 @@ module GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
 
+  -- * event type
+  HitEvent (..),
+
   -- * graphics primitives
   Primitive (..),
   ViewPort (..),
@@ -45,9 +48,17 @@ data TextPosition = UpperLeft | LowerLeft
 data TextFontFace = Sans | Mono
   deriving (Show)
 
+data HitEvent = HitEvent
+  { hitEventHover :: Maybe Text
+  -- ^ event message when hovered
+  , hitEventClick :: (Bool, Maybe Text)
+  -- ^ *current* activation status (toggle on/off), and event message when clicked
+  }
+  deriving (Show)
+
 data Primitive
   = -- | (x, y) w h line_color background_color line_width handle_hovering
-    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe Text)
+    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe HitEvent)
   | -- | start [bend_point] end line_color line_width
     Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
   | -- | (x, y) text_pos font_size text
@@ -73,6 +84,6 @@ data EventMap = EventMap
   { eventMapId :: Text
   , eventMapGlobalViewPort :: ViewPort
   , eventMapLocalViewPort :: ViewPort
-  , eventMapElements :: [(Text, ViewPort)]
+  , eventMapElements :: [(HitEvent, ViewPort)]
   }
   deriving (Show)

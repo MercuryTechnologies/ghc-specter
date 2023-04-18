@@ -139,7 +139,8 @@ resetWidget uiRef = do
 
 addEventMap :: TVar UIState -> Scene -> IO ()
 addEventMap uiRef scene = do
-  let extractEvent (Rectangle (x, y) w h _ _ _ (Just name)) = Just (name, ViewPort (x, y) (x + w, y + h))
+  let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
+        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
       eitms = mapMaybe extractEvent (sceneElements scene)
       emap =

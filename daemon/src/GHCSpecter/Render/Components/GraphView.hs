@@ -39,6 +39,7 @@ import GHCSpecter.GraphLayout.Types (
  )
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  HitEvent (..),
   Primitive (..),
   Scene (..),
   TextFontFace (..),
@@ -109,7 +110,12 @@ compileModuleGraph
                 | Just name == mfocused = Orange
                 | Just name == mhinted = HoneyDew
                 | otherwise = Ivory
-           in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just name)
+              hitEvent =
+                HitEvent
+                  { hitEventHover = Just name
+                  , hitEventClick = (False, Just name)
+                  }
+           in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
               , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
