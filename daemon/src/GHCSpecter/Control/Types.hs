@@ -26,10 +26,10 @@ module GHCSpecter.Control.Types (
 ) where
 
 import Control.Concurrent.STM (TVar)
-import Control.Monad.Free (Free (..), liftF)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
+import GHCSpecter.Control.Free (Free (..), liftF)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)

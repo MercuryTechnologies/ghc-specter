@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       GHCSpecter.Control
+      GHCSpecter.Control.Free
       GHCSpecter.Control.Runner
       GHCSpecter.Control.Types
       GHCSpecter.Data.Assets
@@ -96,6 +97,7 @@ library
     , errors
     , extra
     , fficxx-runtime
+    -- this free libray dep is still needed due to concur-replica
     , free
     , ghc
     , ghc-specter-plugin

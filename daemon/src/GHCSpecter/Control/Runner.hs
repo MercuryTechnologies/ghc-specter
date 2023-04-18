@@ -23,7 +23,6 @@ import Control.Concurrent.STM (
 import Control.Lens ((.~), (^.))
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
-import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
@@ -33,6 +32,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types (Request)
+import GHCSpecter.Control.Free (Free (..))
 import GHCSpecter.Control.Types (
   ControlF (..),
   type Control,
