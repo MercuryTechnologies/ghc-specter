@@ -147,7 +147,7 @@ showBanner :: Control ()
 showBanner = do
   startTime <- getCurrentTime
   ui <- getUI
-  let ui' = (uiViewRaw . uiTransientBanner .~ Just 0) ui
+  let ui' = (uiModel . modelTransientBanner .~ Just 0) ui
   putUI ui'
   refreshUIAfter 0.1
   go startTime
@@ -161,7 +161,7 @@ showBanner = do
           _ev <- nextEvent
           ui <- getUI
           let r = realToFrac (diff / duration)
-              ui' = (uiViewRaw . uiTransientBanner .~ Just r) ui
+              ui' = (uiModel . modelTransientBanner .~ Just r) ui
           putUI ui'
           refreshUIAfter 0.1
           go start
@@ -674,7 +674,7 @@ goTiming ev = do
 
 initializeMainView :: Control ()
 initializeMainView =
-  modifyUI (uiViewRaw . uiTransientBanner .~ Nothing)
+  modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
 -- | top-level loop, branching according to tab event
 mainLoop :: Control ()

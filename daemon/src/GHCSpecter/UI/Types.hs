@@ -208,6 +208,9 @@ data UIModel = UIModel
   -- ^ UI model of console uI
   , _modelWidgetConfig :: WidgetConfig
   -- ^ widget config. to support dynamic configuration change
+  , _modelTransientBanner :: Maybe Double
+  -- ^ progress bar status.
+  -- TODO: This will be handled more properly with typed transition.
   }
 
 makeClassy ''UIModel
@@ -223,13 +226,11 @@ emptyUIModel =
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
     , _modelWidgetConfig = emptyWidgetConfig
+    , _modelTransientBanner = Nothing
     }
 
 data UIViewRaw = UIViewRaw
-  { _uiTransientBanner :: Maybe Double
-  -- ^ progress bar status.
-  -- TODO: This will be handled more properly with typed transition.
-  , _uiRawEventMap :: [EventMap Text]
+  { _uiRawEventMap :: [EventMap Text]
   -- ^ event name -> bounding box map
   }
 
@@ -265,6 +266,6 @@ emptyUIState assets now =
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
     , _uiModel = emptyUIModel
-    , _uiViewRaw = UIViewRaw Nothing []
+    , _uiViewRaw = UIViewRaw []
     , _uiAssets = assets
     }

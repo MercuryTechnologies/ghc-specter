@@ -180,6 +180,6 @@ render ::
   (UIState, ServerState) ->
   Widget IHTML Event
 render (ui, ss) =
-  case ui ^. uiViewRaw . uiTransientBanner of
+  case ui ^. uiModel . modelTransientBanner of
     Just fraction -> renderBanner (ui ^. uiAssets . assetsGhcSpecterPng) fraction
     Nothing -> renderMainView (ui ^. uiModel, ss)
