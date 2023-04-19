@@ -46,7 +46,7 @@ renderTiming ::
   TimingTable ->
   GtkRender ()
 renderTiming drvModMap tui ttable = do
-  wcfg <- resetWidget
+  wcfg <- resetWidget TabTiming
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)

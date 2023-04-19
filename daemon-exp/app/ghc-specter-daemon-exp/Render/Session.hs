@@ -45,7 +45,7 @@ renderSession ::
   SessionUI ->
   GtkRender ()
 renderSession ss sessui = do
-  wcfg <- resetWidget
+  wcfg <- resetWidget TabSession
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
     let sceneTab = compileTab topLevelTab (Just TabSession)
         sceneTab' =

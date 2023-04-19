@@ -17,9 +17,8 @@ module Renderer (
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
-  readTVar,
  )
-import Control.Lens (to, (^.), _1, _2)
+import Control.Lens (to, (^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
@@ -38,8 +37,6 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.UI.Types (
-  HasUIModel (..),
-  HasUIState (..),
   HasWidgetConfig (..),
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
@@ -51,7 +48,7 @@ import Types (GtkRender, ViewBackend (..))
 
 drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender ()
 drawText face sz (x, y) msg = do
-  vb <- (^. _1) <$> ask
+  vb <- ask
   let pangoCtxt = vbPangoContext vb
       desc = case face of
         Sans -> vbFontDescSans vb
@@ -116,7 +113,7 @@ renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
 
-renderScene :: Scene Text -> GtkRender ()
+renderScene :: Scene e -> GtkRender ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
       ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
@@ -132,23 +129,21 @@ renderScene scene = do
   traverse_ renderPrimitive (sceneElements scene)
   lift R.restore
 
-resetWidget :: GtkRender (Map Text ViewPort)
-resetWidget = do
-  emapRef <- (^. _1 . to vbEventMap) <$> ask
-  -- TODO: this should be removed
-  uiRef <- (^. _2) <$> ask
+resetWidget :: Tab -> GtkRender (Map Text ViewPort)
+resetWidget tab = do
+  vb <- ask
+  let emapRef = vbEventMap vb
   liftIO $ atomically $ do
     modifyTVar' emapRef (const [])
-    model <- (^. uiModel) <$> readTVar uiRef
-    case model ^. modelTab of
-      TabSession -> pure (model ^. modelWidgetConfig . wcfgSession)
-      TabModuleGraph -> pure (model ^. modelWidgetConfig . wcfgModuleGraph)
-      TabSourceView -> pure (model ^. modelWidgetConfig . wcfgSourceView)
-      TabTiming -> pure (model ^. modelWidgetConfig . wcfgTiming)
+    case tab of
+      TabSession -> pure (vb ^. to vbWidgetConfig . wcfgSession)
+      TabModuleGraph -> pure (vb ^. to vbWidgetConfig . wcfgModuleGraph)
+      TabSourceView -> pure (vb ^. to vbWidgetConfig . wcfgSourceView)
+      TabTiming -> pure (vb ^. to vbWidgetConfig . wcfgTiming)
 
 addEventMap :: Scene Text -> GtkRender ()
 addEventMap scene = do
-  emapRef <- (^. _1 . to vbEventMap) <$> ask
+  emapRef <- vbEventMap <$> ask
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
         Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing

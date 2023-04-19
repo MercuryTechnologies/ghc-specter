@@ -55,7 +55,7 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Constants (
   canvasDim,
   modGraphHeight,

@@ -52,7 +52,7 @@ renderModuleGraph
   timing
   clustering
   grVisInfo = do
-    wcfg <- resetWidget
+    wcfg <- resetWidget TabModuleGraph
     let valueFor name =
           fromMaybe 0 $ do
             cluster <- L.lookup name clustering

@@ -40,7 +40,7 @@ renderSourceView ::
   ServerState ->
   GtkRender ()
 renderSourceView srcUI ss = do
-  wcfg <- resetWidget
+  wcfg <- resetWidget TabSourceView
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
     let sceneTab = compileTab topLevelTab (Just TabSourceView)
         sceneTab' =

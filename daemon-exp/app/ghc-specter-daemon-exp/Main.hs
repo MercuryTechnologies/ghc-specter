@@ -23,7 +23,7 @@ import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ask, runReaderT)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
@@ -75,6 +75,7 @@ import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
   HasWidgetConfig (..),
+  UIState,
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -130,7 +131,14 @@ initViewBackend = do
   for ((,) <$> mfaceSans <*> mfaceMono) $ \(faceSans, faceMono) -> do
     descSans <- #describe faceSans
     descMono <- #describe faceMono
-    pure (ViewBackend pangoCtxt descSans descMono emapRef)
+    pure $
+      ViewBackend
+        { vbPangoContext = pangoCtxt
+        , vbFontDescSans = descSans
+        , vbFontDescMono = descMono
+        , vbWidgetConfig = appWidgetConfig
+        , vbEventMap = emapRef
+        }
 
 renderNotConnected :: GtkRender ()
 renderNotConnected = do
@@ -140,11 +148,10 @@ renderNotConnected = do
   lift R.restore
 
 renderAction ::
+  UIState ->
   ServerState ->
   GtkRender ()
-renderAction ss = do
-  (_, uiRef) <- ask
-  ui <- liftIO $ atomically $ readTVar uiRef
+renderAction ui ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -295,8 +302,8 @@ main =
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (vb, ss) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar ssRef)
-            runReaderT (renderAction ss) (vb, uiRef)
+            (vb, ui, ss) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar uiRef <*> readTVar ssRef)
+            runReaderT (renderAction ui ss) vb
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
