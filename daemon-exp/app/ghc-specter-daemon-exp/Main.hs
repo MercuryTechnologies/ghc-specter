@@ -27,6 +27,7 @@ import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
@@ -38,10 +39,13 @@ import GHCSpecter.Config (
   loadConfig,
  )
 import GHCSpecter.Control qualified as Control
+import GHCSpecter.Control.Runner (RunnerEnv (..))
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
+  HasClientSession (..),
+  HasServerSession (..),
   ServerSession (..),
   UIChannel (..),
  )
@@ -329,14 +333,27 @@ main =
         #setDefaultSize mainWindow (canvasDim ^. _1) (canvasDim ^. _2)
         #showAll mainWindow
 
+        -- prepare runner
+        -- TODO: make common initialization function (but backend-dep)
+        counterRef <- newIORef 0
+        let runner =
+              RunnerEnv
+                { runnerCounter = counterRef
+                , runnerUIState = cliSess ^. csUIStateRef
+                , runnerServerState = servSess ^. ssServerStateRef
+                , runnerQEvent = cliSess ^. csPublisherEvent
+                , runnerSignalChan = servSess ^. ssSubscriberSignal
+                , runnerRefreshAction = refreshAction
+                , runnerHitScene = (\_ -> pure Nothing)
+                }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ
         _ <-
           forkOS $
             Session.main
+              runner
               servSess
               cliSess
-              refreshAction
               Control.mainLoop
         _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main

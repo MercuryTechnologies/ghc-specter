@@ -30,6 +30,7 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
@@ -38,6 +39,7 @@ import GHCSpecter.Control.Types (
   ControlF (..),
   type Control,
  )
+import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (
   HasUIState (..),
@@ -49,6 +51,7 @@ import GHCSpecter.UI.Types.Event (
  )
 import System.IO (IOMode (..), withFile)
 
+-- | mutating state and a few handlers
 data RunnerEnv = RunnerEnv
   { runnerCounter :: IORef Int
   , runnerUIState :: TVar UIState
@@ -56,6 +59,7 @@ data RunnerEnv = RunnerEnv
   , runnerQEvent :: TQueue Event
   , runnerSignalChan :: TChan Request
   , runnerRefreshAction :: IO ()
+  , runnerHitScene :: (Double, Double) -> IO (Maybe (EventMap Text))
   }
 
 type Runner = ReaderT RunnerEnv IO
@@ -168,6 +172,10 @@ stepControl (Free (ModifyAndReturn upd cont)) = do
 stepControl (Free (ModifyAndReturnBoth upd cont)) = do
   (before, after) <- modifyUISS' upd
   pure (Left (cont (before, after)))
+stepControl (Free (HitScene xy cont)) = do
+  hitScene' <- runnerHitScene <$> ask
+  memap <- liftIO $ hitScene' xy
+  pure (Left (cont memap))
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)

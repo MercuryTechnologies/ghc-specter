@@ -15,7 +15,6 @@ import Control.Concurrent.STM (
 import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.IORef (newIORef)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
 import GHCSpecter.Control.Runner (
   RunnerEnv (..),
@@ -36,16 +35,12 @@ import GHCSpecter.UI.Types.Event (
  )
 
 main ::
+  RunnerEnv ->
   ServerSession ->
   ClientSession ->
-  IO () ->
   Control () ->
   IO ()
-main servSess cs refreshAction controlMain = do
-  -- prepare runner
-  counterRef <- newIORef 0
-  let runner = RunnerEnv counterRef uiRef ssRef chanQEv chanSignal refreshAction
-
+main runner servSess cs controlMain = do
   -- start chanDriver
   lastMessageSN <-
     (^. serverMessageSN) <$> atomically (readTVar ssRef)
@@ -54,9 +49,7 @@ main servSess cs refreshAction controlMain = do
   _ <- forkIO $ controlDriver runner
   pure ()
   where
-    chanSignal = servSess ^. ssSubscriberSignal
     ssRef = servSess ^. ssServerStateRef
-
     uiRef = cs ^. csUIStateRef
     chanEv = cs ^. csSubscriberEvent
     chanState = cs ^. csPublisherState

@@ -15,6 +15,7 @@ module GHCSpecter.Control.Types (
   modifyUISS,
   modifyAndReturn,
   modifyAndReturnBoth,
+  hitScene,
   sendRequest,
   nextEvent,
   printMsg,
@@ -34,13 +35,15 @@ import Control.Monad.Indexed.Free.Class (iliftFree)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
+import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
 
 -- | Pattern functor for effects of Control DSL.
--- TODO: remove PutUI and PutSS in the end
--- to guarantee atomic updates.
+-- TODO: once commit (atomic state update) and refresh frame are cleared,
+-- then we can guarantee the atomicity of state update inside frame with
+-- type index, so no need for listing complex get\/put\/modify cases.
 data ControlF i j r where
   GetUI :: (UIState -> r) -> ControlF i i r
   PutUI :: UIState -> r -> ControlF i i r
@@ -56,6 +59,10 @@ data ControlF i j r where
   ModifyAndReturnBoth ::
     ((UIState, ServerState) -> (UIState, ServerState)) ->
     (((UIState, ServerState), (UIState, ServerState)) -> r) ->
+    ControlF i i r
+  HitScene ::
+    (Double, Double) ->
+    (Maybe (EventMap Text) -> r) ->
     ControlF i i r
   SendRequest :: Request -> r -> ControlF i i r
   NextEvent :: (Event -> r) -> ControlF i i r
@@ -78,6 +85,7 @@ instance IxFunctor ControlF where
   imap f (ModifyUISS g next) = ModifyUISS g (f next)
   imap f (ModifyAndReturn g cont) = ModifyAndReturn g (f . cont)
   imap f (ModifyAndReturnBoth g cont) = ModifyAndReturnBoth g (f . cont)
+  imap f (HitScene x cont) = HitScene x (f . cont)
   imap f (SendRequest x next) = SendRequest x (f next)
   imap f (NextEvent cont) = NextEvent (f . cont)
   imap f (PrintMsg x next) = PrintMsg x (f next)
@@ -128,6 +136,12 @@ modifyAndReturnBoth ::
   ((UIState, ServerState) -> (UIState, ServerState)) ->
   Control ((UIState, ServerState), (UIState, ServerState))
 modifyAndReturnBoth upd = liftF (ModifyAndReturnBoth upd id)
+
+-- | Hit test for canvas coordinate. Return the eventmap of hit scene.
+hitScene ::
+  (Double, Double) ->
+  Control (Maybe (EventMap Text))
+hitScene xy = liftF (HitScene xy id)
 
 sendRequest :: Request -> Control ()
 sendRequest b = liftF (SendRequest b ())

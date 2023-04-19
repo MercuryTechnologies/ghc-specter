@@ -18,13 +18,17 @@ import Control.Concurrent.STM (
  )
 import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
+import Data.IORef (newIORef)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Control qualified as Control (main)
+import GHCSpecter.Control.Runner (RunnerEnv (..))
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session qualified as Session
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
+  HasClientSession (..),
+  HasServerSession (..),
   ServerSession (..),
   UIChannel (..),
  )
@@ -68,9 +72,23 @@ webServer cfg servSess = do
       chanEv <- unsafeBlockingIO newTChanIO
       chanState <- unsafeBlockingIO newTChanIO
       chanQEv <- unsafeBlockingIO newTQueueIO
-      let newCS = ClientSession uiRef chanEv chanState chanQEv
+
+      let cliSess = ClientSession uiRef chanEv chanState chanQEv
           newUIChan = UIChannel chanEv chanState chanQEv
-      unsafeBlockingIO $ Session.main servSess newCS (pure ()) Control.main
+      -- prepare runner
+      -- TODO: make common initialization function (but backend-dep)
+      counterRef <- unsafeBlockingIO $ newIORef 0
+      let runner =
+            RunnerEnv
+              { runnerCounter = counterRef
+              , runnerUIState = cliSess ^. csUIStateRef
+              , runnerServerState = servSess ^. ssServerStateRef
+              , runnerQEvent = cliSess ^. csPublisherEvent
+              , runnerSignalChan = servSess ^. ssSubscriberSignal
+              , runnerRefreshAction = pure ()
+              , runnerHitScene = (\_ -> pure Nothing)
+              }
+      unsafeBlockingIO $ Session.main runner servSess cliSess Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)
   where
     -- A single step of the outer loop (See Note [Control Loops]).
