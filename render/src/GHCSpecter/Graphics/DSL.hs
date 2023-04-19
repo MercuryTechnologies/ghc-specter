@@ -48,17 +48,17 @@ data TextPosition = UpperLeft | LowerLeft
 data TextFontFace = Sans | Mono
   deriving (Show)
 
-data HitEvent = HitEvent
-  { hitEventHover :: Maybe Text
+data HitEvent e = HitEvent
+  { hitEventHover :: Maybe e
   -- ^ event message when hovered
-  , hitEventClick :: (Bool, Maybe Text)
+  , hitEventClick :: (Bool, Maybe e)
   -- ^ *current* activation status (toggle on/off), and event message when clicked
   }
   deriving (Show)
 
-data Primitive
+data Primitive e
   = -- | (x, y) w h line_color background_color line_width handle_hovering
-    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe HitEvent)
+    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe (HitEvent e))
   | -- | start [bend_point] end line_color line_width
     Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
   | -- | (x, y) text_pos font_size text
@@ -72,18 +72,18 @@ data ViewPort = ViewPort
   deriving (Show)
 
 -- scene has local view port matched with global canvas
-data Scene = Scene
+data Scene e = Scene
   { sceneId :: Text
   , sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
-  , sceneElements :: [Primitive]
+  , sceneElements :: [Primitive e]
   }
   deriving (Show)
 
-data EventMap = EventMap
+data EventMap e = EventMap
   { eventMapId :: Text
   , eventMapGlobalViewPort :: ViewPort
   , eventMapLocalViewPort :: ViewPort
-  , eventMapElements :: [(HitEvent, ViewPort)]
+  , eventMapElements :: [(HitEvent e, ViewPort)]
   }
   deriving (Show)

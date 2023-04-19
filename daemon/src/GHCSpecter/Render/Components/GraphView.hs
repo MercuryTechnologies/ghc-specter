@@ -64,7 +64,7 @@ compileModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Scene
+  Scene Text
 compileModuleGraph
   nameMap
   valueFor
@@ -131,7 +131,7 @@ compileModuleGraph
           }
 
 -- | compile graph more simply to graphics DSL
-compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive]
+compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive Text]
 compileGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       nodeLayoutMap =

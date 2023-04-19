@@ -60,7 +60,7 @@ leftOfBox j = charSize * fromIntegral (j - 1)
 rightOfBox :: Int -> Double
 rightOfBox j = charSize * fromIntegral j
 
-compileTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene
+compileTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene Text
 compileTextView txt highlighted =
   Scene
     { sceneId = "text-view"

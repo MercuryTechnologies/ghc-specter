@@ -30,6 +30,7 @@ import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (
   NominalDiffTime,
@@ -118,7 +119,7 @@ compileRules ::
   TimingTable ->
   Int ->
   NominalDiffTime ->
-  [Primitive]
+  [Primitive Text]
 compileRules showParallel table totalHeight totalTime =
   ( if showParallel
       then fmap box rangesWithCPUUsage
@@ -164,7 +165,7 @@ compileTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene
+  Scene Text
 compileTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
@@ -278,7 +279,7 @@ compileTimingChart drvModMap tui ttable =
           mkLine hoveredMod upMod
     linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
       where
-        mkLinesToDownstream :: ModuleName -> Maybe [Primitive]
+        mkLinesToDownstream :: ModuleName -> Maybe [Primitive Text]
         mkLinesToDownstream hoveredMod = do
           downMods <-
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
@@ -288,7 +289,7 @@ compileMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene
+  Scene Text
 compileMemChart drvModMap tui ttable =
   Scene
     { sceneId = "mem-chart"
@@ -345,7 +346,7 @@ compileMemChart drvModMap tui ttable =
 compileTimingRange ::
   TimingUI ->
   TimingTable ->
-  Scene
+  Scene Text
 compileTimingRange tui ttable =
   Scene
     { sceneId = "timing-range"
@@ -392,7 +393,7 @@ compileTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-compileBlockers :: ModuleName -> TimingTable -> Scene
+compileBlockers :: ModuleName -> TimingTable -> Scene Text
 compileBlockers hoveredMod ttable =
   Scene
     { sceneId = "blockers"

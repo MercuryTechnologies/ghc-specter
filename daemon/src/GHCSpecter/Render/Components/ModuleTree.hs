@@ -46,7 +46,7 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-compileModuleTree :: SourceViewUI -> ServerState -> Scene
+compileModuleTree :: SourceViewUI -> ServerState -> Scene Text
 compileModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"
@@ -81,7 +81,7 @@ compileModuleTree srcUI ss =
 
     indentLevel = flatten . foldTree annotateLevel . fmap renderNode
 
-    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive]
+    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive Text]
     render (i, (j, (matched, color, modu, txt))) =
       let x = fromIntegral j * 20
           y = fromIntegral i * 14

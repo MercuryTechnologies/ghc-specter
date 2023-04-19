@@ -89,7 +89,7 @@ setColor ColorRedLevel3 = lift $ R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: Primitive -> GtkRender ()
+renderPrimitive :: Primitive e -> GtkRender ()
 renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
@@ -117,7 +117,7 @@ renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
 
-renderScene :: Scene -> GtkRender ()
+renderScene :: Scene Text -> GtkRender ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
       ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
@@ -145,7 +145,7 @@ resetWidget = do
       TabSourceView -> pure (model ^. modelWidgetConfig . wcfgSourceView)
       TabTiming -> pure (model ^. modelWidgetConfig . wcfgTiming)
 
-addEventMap :: Scene -> GtkRender ()
+addEventMap :: Scene Text -> GtkRender ()
 addEventMap scene = do
   uiRef <- (^. _2) <$> ask
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =

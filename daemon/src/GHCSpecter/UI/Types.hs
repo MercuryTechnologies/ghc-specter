@@ -229,7 +229,7 @@ data UIViewRaw = UIViewRaw
   { _uiTransientBanner :: Maybe Double
   -- ^ progress bar status.
   -- TODO: This will be handled more properly with typed transition.
-  , _uiRawEventMap :: [EventMap]
+  , _uiRawEventMap :: [EventMap Text]
   -- ^ event name -> bounding box map
   }
 

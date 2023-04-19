@@ -205,7 +205,7 @@ appendNewCommand drvId newMsg = do
         ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
      in ss'
 
-scroll :: EventMap -> Lens' UIModel ViewPortInfo -> (ScrollDirection, (Double, Double)) -> UIModel -> UIModel
+scroll :: EventMap Text -> Lens' UIModel ViewPortInfo -> (ScrollDirection, (Double, Double)) -> UIModel -> UIModel
 scroll emap lensViewPort (dir, (dx, dy)) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
       vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
@@ -213,7 +213,7 @@ scroll emap lensViewPort (dir, (dx, dy)) model =
       vp' = transformScroll dir scale (dx, dy) vp
    in (lensViewPort .~ ViewPortInfo vp' Nothing) model
 
-zoom :: EventMap -> Lens' UIModel ViewPortInfo -> ((Double, Double), Double) -> UIModel -> UIModel
+zoom :: EventMap Text -> Lens' UIModel ViewPortInfo -> ((Double, Double), Double) -> UIModel -> UIModel
 zoom emap lensViewPort ((x, y), scale) model =
   let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
       -- NOTE: While zooming is in progress, the scaling is always relative to
