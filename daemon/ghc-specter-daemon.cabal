@@ -96,11 +96,14 @@ library
     , errors
     , extra
     , fficxx-runtime
+    -- this free libray dep is still needed due to concur-replica
     , free
     , ghc
     , ghc-specter-plugin
     , ghc-specter-render
     , http-types
+    , indexed
+    , indexed-free
     , lens
     , optparse-applicative
     , pretty-simple

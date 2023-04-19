@@ -1,4 +1,5 @@
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Control.Runner (
@@ -23,8 +24,8 @@ import Control.Concurrent.STM (
 import Control.Lens ((.~), (^.))
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
-import Control.Monad.Free (Free (..))
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Indexed.Free (IxFree (..))
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
