@@ -16,10 +16,13 @@ import Control.Concurrent.STM (
   readTChan,
   readTVar,
   retry,
+  takeTMVar,
   writeTChan,
   writeTQueue,
+  writeTVar,
  )
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
+import Control.Monad (join)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -33,6 +36,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
+import Data.Typeable (gcast)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
   Config (..),
@@ -53,6 +57,7 @@ import GHCSpecter.Driver.Session.Types (
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
   Color (Black),
+  EventMap,
   TextFontFace (Sans),
   ViewPort (..),
  )
@@ -105,7 +110,12 @@ import Render.Session (renderSession)
 import Render.SourceView (renderSourceView)
 import Render.Timing (renderTiming)
 import Renderer (drawText, setColor)
-import Types (GtkRender, ViewBackend (..))
+import Types (
+  GtkRender,
+  ViewBackend (..),
+  ViewBackendResource (..),
+  WrappedViewBackend (..),
+ )
 
 detailLevel :: DetailLevel
 detailLevel = UpTo30
@@ -120,9 +130,8 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-initViewBackend :: IO (Maybe (ViewBackend Text))
-initViewBackend = do
-  emapRef <- atomically $ newTVar []
+initViewBackendResource :: IO (Maybe ViewBackendResource)
+initViewBackendResource = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
   familySans <- #getFamily fontMap "FreeSans"
@@ -133,12 +142,11 @@ initViewBackend = do
     descSans <- #describe faceSans
     descMono <- #describe faceMono
     pure $
-      ViewBackend
-        { vbPangoContext = pangoCtxt
-        , vbFontDescSans = descSans
-        , vbFontDescMono = descMono
-        , vbWidgetConfig = appWidgetConfig
-        , vbEventMap = emapRef
+      ViewBackendResource
+        { vbrPangoContext = pangoCtxt
+        , vbrFontDescSans = descSans
+        , vbrFontDescMono = descMono
+        , vbrWidgetConfig = appWidgetConfig
         }
 
 renderNotConnected :: GtkRender e ()
@@ -281,11 +289,14 @@ main =
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
-    mvb <- initViewBackend
+    mvb <- initViewBackendResource
     case mvb of
       Nothing -> error "cannot initialize pango"
-      Just vb0 -> do
-        vbRef <- atomically $ newTVar vb0
+      Just vbr -> do
+        vbRef <- atomically $ do
+          emapRef <- newTVar ([] :: [EventMap Text])
+          let vb = ViewBackend vbr emapRef
+          newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
         -- main canvas
@@ -303,7 +314,13 @@ main =
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (vb, ui, ss) <- liftIO $ atomically ((,,) <$> readTVar vbRef <*> readTVar uiRef <*> readTVar ssRef)
+            (vb, ui, ss) <- liftIO $ atomically $ do
+              ui <- readTVar uiRef
+              ss <- readTVar ssRef
+              emapRef <- newTVar []
+              let vb = ViewBackend vbr emapRef
+              writeTVar vbRef (WrappedViewBackend vb)
+              pure (vb, ui, ss)
             runReaderT (renderAction ui ss) vb
             pure True
 
@@ -354,13 +371,12 @@ main =
                 , runnerQEvent = cliSess ^. csPublisherEvent
                 , runnerSignalChan = servSess ^. ssSubscriberSignal
                 , runnerRefreshAction = refreshAction
-                , runnerHitScene = \xy -> do
-                    emaps <-
-                      atomically $ do
-                        emapRef <- vbEventMap <$> readTVar vbRef
-                        readTVar emapRef
+                , runnerHitScene = \xy -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure memap
+                    pure (join (gcast @_ @Text <$> memap))
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

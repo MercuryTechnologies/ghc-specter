@@ -35,10 +35,10 @@ import GHCSpecter.UI.Types.Event (
  )
 
 main ::
-  RunnerEnv ->
+  RunnerEnv e ->
   ServerSession ->
   ClientSession ->
-  Control () ->
+  Control e () ->
   IO ()
 main runner servSess cs controlMain = do
   -- start chanDriver

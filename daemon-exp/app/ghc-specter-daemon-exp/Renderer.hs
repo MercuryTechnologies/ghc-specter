@@ -18,7 +18,7 @@ import Control.Concurrent.STM (
   atomically,
   modifyTVar',
  )
-import Control.Lens (to, (^.))
+import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
@@ -44,15 +44,15 @@ import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
-import Types (GtkRender, ViewBackend (..))
+import Types (GtkRender, ViewBackend (..), ViewBackendResource (..))
 
 drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender e ()
 drawText face sz (x, y) msg = do
-  vb <- ask
-  let pangoCtxt = vbPangoContext vb
+  vbr <- vbResource <$> ask
+  let pangoCtxt = vbrPangoContext vbr
       desc = case face of
-        Sans -> vbFontDescSans vb
-        Mono -> vbFontDescMono vb
+        Sans -> vbrFontDescSans vbr
+        Mono -> vbrFontDescMono vbr
   lift $ do
     layout :: P.Layout <- P.layoutNew pangoCtxt
     #setSize desc (sz * P.SCALE)
@@ -132,14 +132,16 @@ renderScene scene = do
 resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
 resetWidget tab = do
   vb <- ask
-  let emapRef = vbEventMap vb
+  let vbr = vbResource vb
+      wcfg = vbrWidgetConfig vbr
+      emapRef = vbEventMap vb
   liftIO $ atomically $ do
     modifyTVar' emapRef (const [])
     case tab of
-      TabSession -> pure (vb ^. to vbWidgetConfig . wcfgSession)
-      TabModuleGraph -> pure (vb ^. to vbWidgetConfig . wcfgModuleGraph)
-      TabSourceView -> pure (vb ^. to vbWidgetConfig . wcfgSourceView)
-      TabTiming -> pure (vb ^. to vbWidgetConfig . wcfgTiming)
+      TabSession -> pure (wcfg ^. wcfgSession)
+      TabModuleGraph -> pure (wcfg ^. wcfgModuleGraph)
+      TabSourceView -> pure (wcfg ^. wcfgSourceView)
+      TabTiming -> pure (wcfg ^. wcfgTiming)
 
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do

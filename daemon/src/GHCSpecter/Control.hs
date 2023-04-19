@@ -124,7 +124,7 @@ defaultUpdateModel topEv =
     _ ->
       id
 
-updateLastUpdated :: Control ()
+updateLastUpdated :: Control e ()
 updateLastUpdated = do
   now <- getCurrentTime
   modifyUI $ \ui ->
@@ -132,7 +132,7 @@ updateLastUpdated = do
       then ui & uiLastUpdated .~ now
       else ui
 
-checkIfUpdatable :: Control ()
+checkIfUpdatable :: Control e ()
 checkIfUpdatable = do
   lastUpdatedUI <- getLastUpdatedUI
   stepStartTime <- getCurrentTime
@@ -142,7 +142,7 @@ checkIfUpdatable = do
     else shouldUpdate False
 
 -- | showing ghc-specter banner in the beginning
-showBanner :: Control ()
+showBanner :: Control e ()
 showBanner = do
   startTime <- getCurrentTime
   ui <- getUI
@@ -166,7 +166,7 @@ showBanner = do
           go start
         else pure ()
 
-handleConsoleCommand :: DriverId -> Text -> Control ()
+handleConsoleCommand :: (e ~ Text) => DriverId -> Text -> Control e ()
 handleConsoleCommand drvId msg
   | msg == ":next" = sendRequest $ ConsoleReq drvId NextBreakpoint
   | msg == ":show-renamed" = sendRequest $ ConsoleReq drvId ShowRenamed
@@ -195,7 +195,7 @@ handleConsoleCommand drvId msg
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
   | otherwise = sendRequest $ ConsoleReq drvId (Ping msg)
 
-appendNewCommand :: DriverId -> Text -> Control ()
+appendNewCommand :: DriverId -> Text -> Control e ()
 appendNewCommand drvId newMsg = do
   modifySS $ \ss ->
     let newCmd = ConsoleCommand newMsg
@@ -225,9 +225,10 @@ zoom emap lensViewPort ((x, y), scale) model =
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
 goHoverScrollZoom ::
+  (e ~ Text) =>
   HandlerHoverScrollZoom ->
   Event ->
-  Control ()
+  Control e ()
 goHoverScrollZoom handlers ev = do
   case ev of
     MouseEv (MouseMove (x, y)) -> do
@@ -280,7 +281,7 @@ goHoverScrollZoom handlers ev = do
     _ -> pure ()
 
 -- NOTE: This function should not exist forever.
-goCommon :: Event -> Control ()
+goCommon :: (e ~ Text) => Event -> Control e ()
 goCommon ev = do
   case ev of
     ConsoleEv (ConsoleTab i) -> do
@@ -321,7 +322,7 @@ goCommon ev = do
     BkgEv RefreshUI -> refresh
     _ -> pure ()
 
-goSession :: Event -> Control ()
+goSession :: (e ~ Text) => Event -> Control e ()
 goSession ev = do
   case ev of
     SessionEv SaveSessionEv -> do
@@ -396,7 +397,7 @@ goSession ev = do
     ev
   goCommon ev
 
-goModuleGraph :: Event -> Control ()
+goModuleGraph :: (e ~ Text) => Event -> Control e ()
 goModuleGraph ev = do
   case ev of
     MainModuleEv mev -> do
@@ -472,7 +473,7 @@ goModuleGraph ev = do
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-goSourceView :: Event -> Control ()
+goSourceView :: (e ~ Text) => Event -> Control e ()
 goSourceView ev = do
   case ev of
     SourceViewEv (SelectModule expandedModu') -> do
@@ -553,7 +554,7 @@ goSourceView ev = do
     ev
   goCommon ev
 
-goTiming :: Event -> Control ()
+goTiming :: (e ~ Text) => Event -> Control e ()
 goTiming ev = do
   case ev of
     TimingEv ToCurrentTime -> do
@@ -668,12 +669,12 @@ goTiming ev = do
           onDraggingInTimingView (x, y) vp
         _ -> onDraggingInTimingView (x, y) vp
 
-initializeMainView :: Control ()
+initializeMainView :: Control e ()
 initializeMainView =
   modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
 -- | top-level loop, branching according to tab event
-mainLoop :: Control ()
+mainLoop :: (e ~ Text) => Control e ()
 mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
@@ -727,7 +728,7 @@ mainLoop = do
             _ ->
               go ev >> loop
 
-main :: Control ()
+main :: (e ~ Text) => Control e ()
 main = do
   clientSessionStartTime <- getCurrentTime
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)
