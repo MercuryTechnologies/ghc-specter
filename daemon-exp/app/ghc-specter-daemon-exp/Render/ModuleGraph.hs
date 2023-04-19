@@ -4,7 +4,6 @@ module Render.ModuleGraph (
   renderModuleGraph,
 ) where
 
-import Control.Concurrent.STM (TVar)
 import Control.Error.Util (note)
 import Control.Lens ((^.))
 import Data.Foldable (for_)
@@ -19,7 +18,7 @@ import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
-import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Tab (topLevelTab)
@@ -27,18 +26,16 @@ import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasViewPortInfo (..),
   ModuleGraphUI,
-  UIState,
  )
 import GHCSpecter.UI.Types.Event (DetailLevel, Tab (..))
 import GI.Cairo.Render qualified as R
+import Render.Common (hruleTop)
 import Renderer (addEventMap, renderScene, resetWidget)
 import Text.Printf (printf)
-import Types (ViewBackend (..))
+import Types (GtkRender)
 
 -- TODO: tidy up the parameters
 renderModuleGraph ::
-  TVar UIState ->
-  ViewBackend ->
   (ModuleGraphUI, (DetailLevel, ModuleGraphUI)) ->
   [(DetailLevel, [(ModuleName, GraphVisInfo)])] ->
   IntMap ModuleName ->
@@ -46,10 +43,8 @@ renderModuleGraph ::
   KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  R.Render ()
+  GtkRender ()
 renderModuleGraph
-  uiRef
-  vb
   (mgrui, (detailLevel, sgrui))
   subgraphs
   nameMap
@@ -57,7 +52,7 @@ renderModuleGraph
   timing
   clustering
   grVisInfo = do
-    wcfg <- R.liftIO $ resetWidget uiRef
+    wcfg <- resetWidget
     let valueFor name =
           fromMaybe 0 $ do
             cluster <- L.lookup name clustering
@@ -82,8 +77,8 @@ renderModuleGraph
             sceneTab
               { sceneGlobalViewPort = vpCvs
               }
-      renderScene vb sceneTab'
-      R.liftIO $ addEventMap uiRef sceneTab
+      renderScene sceneTab'
+      addEventMap sceneTab'
     -- main module graph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
       let sceneMain =
@@ -93,12 +88,11 @@ renderModuleGraph
               { sceneGlobalViewPort = vpCvs
               , sceneLocalViewPort = vpMain
               }
-      renderScene vb sceneMain'
-      R.liftIO $ addEventMap uiRef sceneMain'
+      renderScene sceneMain'
+      addEventMap sceneMain'
     -- sub module graph
     for_ (Map.lookup "sub-module-graph" wcfg) $ \vpCvs -> do
-      let ViewPort (cx0, cy0) (cx1, _cy1) = vpCvs
-          esubgraph = do
+      let esubgraph = do
             selected <-
               note "no module cluster is selected" mainModuleClicked
             subgraphsAtTheLevel <-
@@ -124,10 +118,6 @@ renderModuleGraph
                   , sceneLocalViewPort = vpSub
                   }
           -- separator rule
-          R.setSourceRGBA 0 0 0 1
-          R.setLineWidth 1.0
-          R.moveTo cx0 cy0
-          R.lineTo cx1 cy0
-          R.stroke
-          renderScene vb sceneSub'
-          R.liftIO $ addEventMap uiRef sceneSub'
+          hruleTop vpCvs
+          renderScene sceneSub'
+          addEventMap sceneSub'

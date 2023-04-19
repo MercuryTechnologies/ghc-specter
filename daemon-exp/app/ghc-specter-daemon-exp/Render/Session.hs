@@ -2,8 +2,8 @@
 
 module Render.Session (renderSession) where
 
-import Control.Concurrent.STM (TVar)
 import Control.Lens ((^.))
+import Control.Monad.Trans.Class (lift)
 import Data.Foldable (for_)
 import Data.List (partition)
 import Data.Map qualified as Map
@@ -27,7 +27,6 @@ import GHCSpecter.UI.Types (
   HasSessionUI (..),
   HasViewPortInfo (..),
   SessionUI,
-  UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
@@ -39,26 +38,22 @@ import Renderer (
   resetWidget,
   setColor,
  )
-import Types (ViewBackend)
+import Types (GtkRender)
 
--- TODO: TVar UIState should be unidirectional channel (only writing should be possible)
---       At minimum, wrap it in ReaderT monad.
 renderSession ::
-  TVar UIState ->
-  ViewBackend ->
   ServerState ->
   SessionUI ->
-  R.Render ()
-renderSession uiRef vb ss sessui = do
-  wcfg <- R.liftIO $ resetWidget uiRef
+  GtkRender ()
+renderSession ss sessui = do
+  wcfg <- resetWidget
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
     let sceneTab = compileTab topLevelTab (Just TabSession)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
             }
-    renderScene vb sceneTab'
-    R.liftIO $ addEventMap uiRef sceneTab
+    renderScene sceneTab'
+    addEventMap sceneTab'
   for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
     let vpiMain = sessui ^. sessionUIMainViewPort
         vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
@@ -68,13 +63,15 @@ renderSession uiRef vb ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpMain
             }
-    renderScene vb sceneMain'
-    R.liftIO $ addEventMap uiRef sceneMain'
+    renderScene sceneMain'
+    addEventMap sceneMain'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor Ivory
-    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-    R.fill
+    -- TODO: this should be wrapped in a function.
+    lift $ do
+      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+      R.fill
     boxRules vpCvs
 
     let vpiStatus = sessui ^. sessionUIModStatusViewPort
@@ -91,8 +88,8 @@ renderSession uiRef vb ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpStatus
             }
-    renderScene vb sceneModStatus'
-    R.liftIO $ addEventMap uiRef sceneModStatus'
+    renderScene sceneModStatus'
+    addEventMap sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
         scenePause = compilePauseResume sessionInfo
@@ -101,5 +98,5 @@ renderSession uiRef vb ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    renderScene vb scenePause'
-    R.liftIO $ addEventMap uiRef scenePause'
+    renderScene scenePause'
+    addEventMap scenePause'

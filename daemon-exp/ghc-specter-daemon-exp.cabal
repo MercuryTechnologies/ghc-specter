@@ -52,5 +52,6 @@ executable ghc-specter-daemon-exp
                  lens,
                  stm,
                  text,
+                 transformers,
                  time
   default-language: GHC2021

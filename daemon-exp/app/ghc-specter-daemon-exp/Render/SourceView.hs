@@ -2,7 +2,6 @@
 
 module Render.SourceView (renderSourceView) where
 
-import Control.Concurrent.STM (TVar)
 import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
@@ -25,35 +24,31 @@ import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   HasViewPortInfo (..),
   SourceViewUI,
-  UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
-import GI.Cairo.Render qualified as R
 import Render.Common (vruleLeft)
 import Renderer (
   addEventMap,
   renderScene,
   resetWidget,
  )
-import Types (ViewBackend)
+import Types (GtkRender)
 
 renderSourceView ::
-  TVar UIState ->
-  ViewBackend ->
   SourceViewUI ->
   ServerState ->
-  R.Render ()
-renderSourceView uiRef vb srcUI ss = do
-  wcfg <- R.liftIO $ resetWidget uiRef
+  GtkRender ()
+renderSourceView srcUI ss = do
+  wcfg <- resetWidget
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
     let sceneTab = compileTab topLevelTab (Just TabSourceView)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
             }
-    renderScene vb sceneTab'
-    R.liftIO $ addEventMap uiRef sceneTab
+    renderScene sceneTab'
+    addEventMap sceneTab'
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
     let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
@@ -64,8 +59,8 @@ renderSourceView uiRef vb srcUI ss = do
             , sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
-    renderScene vb sceneModTree'
-    R.liftIO $ addEventMap uiRef sceneModTree'
+    renderScene sceneModTree'
+    addEventMap sceneModTree'
   -- source text view
   for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
     for_ (Map.lookup "supple-view" wcfg) $ \vpCvsSupp -> do
@@ -87,8 +82,8 @@ renderSourceView uiRef vb srcUI ss = do
                   , sceneGlobalViewPort = vpCvs
                   , sceneLocalViewPort = vp
                   }
-          renderScene vb sceneSrcView'
-          R.liftIO $ addEventMap uiRef sceneSrcView'
+          renderScene sceneSrcView'
+          addEventMap sceneSrcView'
         -- supplementary view
         vruleLeft vpCvsSupp
         for_ ((,) <$> Map.lookup "supple-view-tab" wcfg <*> Map.lookup "supple-view-contents" wcfg) $
@@ -105,7 +100,7 @@ renderSourceView uiRef vb srcUI ss = do
                     { sceneGlobalViewPort = vpCvsSuppContents
                     , sceneLocalViewPort = vp
                     }
-            renderScene vb sceneSuppTab'
-            R.liftIO $ addEventMap uiRef sceneSuppTab'
-            renderScene vb sceneSuppContents'
-            R.liftIO $ addEventMap uiRef sceneSuppContents'
+            renderScene sceneSuppTab'
+            addEventMap sceneSuppTab'
+            renderScene sceneSuppContents'
+            addEventMap sceneSuppContents'

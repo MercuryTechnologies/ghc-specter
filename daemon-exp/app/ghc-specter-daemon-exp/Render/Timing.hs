@@ -4,7 +4,6 @@ module Render.Timing (
   renderTiming,
 ) where
 
-import Control.Concurrent.STM (TVar)
 import Control.Lens ((^.))
 import Data.Foldable (for_)
 import Data.Map qualified as Map
@@ -32,26 +31,22 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasViewPortInfo (..),
   TimingUI,
-  UIState,
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
-import GI.Cairo.Render qualified as R
 import Renderer (
   addEventMap,
   renderScene,
   resetWidget,
  )
-import Types (ViewBackend)
+import Types (GtkRender)
 
 renderTiming ::
-  TVar UIState ->
-  ViewBackend ->
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  R.Render ()
-renderTiming uiRef vb drvModMap tui ttable = do
-  wcfg <- R.liftIO $ resetWidget uiRef
+  GtkRender ()
+renderTiming drvModMap tui ttable = do
+  wcfg <- resetWidget
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -61,8 +56,8 @@ renderTiming uiRef vb drvModMap tui ttable = do
           sceneTab
             { sceneGlobalViewPort = vpCvs
             }
-    renderScene vb sceneTab'
-    R.liftIO $ addEventMap uiRef sceneTab
+    renderScene sceneTab'
+    addEventMap sceneTab
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
     let sceneTimingChart = compileTimingChart drvModMap tui ttable
@@ -71,8 +66,8 @@ renderTiming uiRef vb drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
-    renderScene vb sceneTimingChart'
-    R.liftIO $ addEventMap uiRef sceneTimingChart'
+    renderScene sceneTimingChart'
+    addEventMap sceneTimingChart'
   -- mem chart
   for_ (Map.lookup "mem-chart" wcfg) $ \vpCvs -> do
     let sceneMemChart = compileMemChart drvModMap tui ttable
@@ -81,7 +76,7 @@ renderTiming uiRef vb drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = ViewPort (0, vy0) (300, vy1)
             }
-    renderScene vb sceneMemChart'
+    renderScene sceneMemChart'
   -- timing range bar
   for_ (Map.lookup "timing-range" wcfg) $ \vpCvs -> do
     let sceneTimingRange = compileTimingRange tui ttable
@@ -90,7 +85,7 @@ renderTiming uiRef vb drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
             }
-    renderScene vb sceneTimingRange'
+    renderScene sceneTimingRange'
   -- blocker lines
   let minfo = do
         hoveredMod <- tui ^. timingUIHoveredModule
@@ -108,4 +103,4 @@ renderTiming uiRef vb drvModMap tui ttable = do
           sceneBlockers
             { sceneGlobalViewPort = ViewPort (offsetX, offsetY) (w + offsetX, h + offsetY)
             }
-    renderScene vb sceneBlockers'
+    renderScene sceneBlockers'
