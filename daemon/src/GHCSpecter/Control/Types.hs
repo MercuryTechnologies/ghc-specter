@@ -26,6 +26,7 @@ module GHCSpecter.Control.Types (
 ) where
 
 import Control.Concurrent.STM (TVar)
+import Control.Monad.Indexed (IxFunctor (..))
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
@@ -37,7 +38,7 @@ import GHCSpecter.UI.Types.Event (Event)
 -- | Pattern functor for effects of Control DSL.
 -- TODO: remove PutUI and PutSS in the end
 -- to guarantee atomic updates.
-data ControlF r
+data ControlF i j r
   = GetUI (UIState -> r)
   | PutUI UIState r
   | ModifyUI (UIState -> UIState) r
@@ -59,9 +60,32 @@ data ControlF r
   | Refresh r
   | RefreshUIAfter Double r
   | AsyncWork (TVar ServerState -> IO ()) r
-  deriving (Functor)
 
-type Control = Free ControlF
+instance IxFunctor ControlF where
+  imap f (GetUI cont) = GetUI (f . cont)
+  imap f (PutUI x next) = PutUI x (f next)
+  imap f (ModifyUI g next) = ModifyUI g (f next)
+  imap f (GetSS cont) = GetSS (f . cont)
+  imap f (PutSS x next) = PutSS x (f next)
+  imap f (ModifySS g next) = ModifySS g (f next)
+  imap f (ModifyUISS g next) = ModifyUISS g (f next)
+  imap f (ModifyAndReturn g cont) = ModifyAndReturn g (f . cont)
+  imap f (ModifyAndReturnBoth g cont) = ModifyAndReturnBoth g (f . cont)
+  imap f (SendRequest x next) = SendRequest x (f next)
+  imap f (NextEvent cont) = NextEvent (f . cont)
+  imap f (PrintMsg x next) = PrintMsg x (f next)
+  imap f (GetCurrentTime cont) = GetCurrentTime (f . cont)
+  imap f (GetLastUpdatedUI cont) = GetLastUpdatedUI (f . cont)
+  imap f (ShouldUpdate x next) = ShouldUpdate x (f next)
+  imap f (SaveSession next) = SaveSession (f next)
+  imap f (Refresh next) = Refresh (f next)
+  imap f (RefreshUIAfter x next) = RefreshUIAfter x (f next)
+  imap f (AsyncWork g next) = AsyncWork g (f next)
+
+instance Functor (ControlF () ()) where
+  fmap = imap
+
+type Control = Free (ControlF () ())
 
 getUI :: Control UIState
 getUI = liftF (GetUI id)

@@ -236,7 +236,7 @@ data UIViewRaw = UIViewRaw
 makeClassy ''UIViewRaw
 
 {- NOTE: [UI state and model]
-
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~
    State is UI backend dependent and model is not, i.e. pertained to logical model of
    view. The candidates for subfields which is only in state are likely to be related
    to cache and rendering optimization. This line is naturally not very clear in the
