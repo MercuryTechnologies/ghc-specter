@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 module GHCSpecter.Control.Types (
   -- * eDSL Types
   ControlF (..),
@@ -27,10 +29,12 @@ module GHCSpecter.Control.Types (
 
 import Control.Concurrent.STM (TVar)
 import Control.Monad.Indexed (IxFunctor (..))
+import Control.Monad.Indexed.Free (IxFree (..))
+import Control.Monad.Indexed.Free.Class (iliftFree)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
-import GHCSpecter.Control.Free (Free (..), liftF)
+-- import GHCSpecter.Control.Free (Free (..), liftF)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
@@ -38,28 +42,32 @@ import GHCSpecter.UI.Types.Event (Event)
 -- | Pattern functor for effects of Control DSL.
 -- TODO: remove PutUI and PutSS in the end
 -- to guarantee atomic updates.
-data ControlF i j r
-  = GetUI (UIState -> r)
-  | PutUI UIState r
-  | ModifyUI (UIState -> UIState) r
-  | GetSS (ServerState -> r)
-  | PutSS ServerState r
-  | ModifySS (ServerState -> ServerState) r
-  | ModifyUISS ((UIState, ServerState) -> (UIState, ServerState)) r
-  | ModifyAndReturn ((UIState, ServerState) -> (UIState, ServerState)) ((UIState, ServerState) -> r)
-  | ModifyAndReturnBoth
-      ((UIState, ServerState) -> (UIState, ServerState))
-      (((UIState, ServerState), (UIState, ServerState)) -> r)
-  | SendRequest Request r
-  | NextEvent (Event -> r)
-  | PrintMsg Text r
-  | GetCurrentTime (UTCTime -> r)
-  | GetLastUpdatedUI (UTCTime -> r)
-  | ShouldUpdate Bool r
-  | SaveSession r
-  | Refresh r
-  | RefreshUIAfter Double r
-  | AsyncWork (TVar ServerState -> IO ()) r
+data ControlF i j r where
+  GetUI :: (UIState -> r) -> ControlF i i r
+  PutUI :: UIState -> r -> ControlF i i r
+  ModifyUI :: (UIState -> UIState) -> r -> ControlF i i r
+  GetSS :: (ServerState -> r) -> ControlF i i r
+  PutSS :: ServerState -> r -> ControlF i i r
+  ModifySS :: (ServerState -> ServerState) -> r -> ControlF i i r
+  ModifyUISS :: ((UIState, ServerState) -> (UIState, ServerState)) -> r -> ControlF i i r
+  ModifyAndReturn ::
+    ((UIState, ServerState) -> (UIState, ServerState)) ->
+    ((UIState, ServerState) -> r) ->
+    ControlF i i r
+  ModifyAndReturnBoth ::
+    ((UIState, ServerState) -> (UIState, ServerState)) ->
+    (((UIState, ServerState), (UIState, ServerState)) -> r) ->
+    ControlF i i r
+  SendRequest :: Request -> r -> ControlF i i r
+  NextEvent :: (Event -> r) -> ControlF i i r
+  PrintMsg :: Text -> r -> ControlF i i r
+  GetCurrentTime :: (UTCTime -> r) -> ControlF i i r
+  GetLastUpdatedUI :: (UTCTime -> r) -> ControlF i i r
+  ShouldUpdate :: Bool -> r -> ControlF i i r
+  SaveSession :: r -> ControlF i i r
+  Refresh :: r -> ControlF i i r
+  RefreshUIAfter :: Double -> r -> ControlF i i r
+  AsyncWork :: (TVar ServerState -> IO ()) -> r -> ControlF i i r
 
 instance IxFunctor ControlF where
   imap f (GetUI cont) = GetUI (f . cont)
@@ -85,7 +93,11 @@ instance IxFunctor ControlF where
 instance Functor (ControlF () ()) where
   fmap = imap
 
-type Control = Free (ControlF () ())
+type Control' = IxFree ControlF
+
+type Control = Control' () ()
+
+liftF = iliftFree
 
 getUI :: Control UIState
 getUI = liftF (GetUI id)

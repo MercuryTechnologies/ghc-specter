@@ -2,10 +2,14 @@
 
 module GHCSpecter.Control.Free (
   -- * regular
-  Free (..),
-  liftF,
+  -- Free (..),
+  -- liftF,
 ) where
 
+import Control.Monad.Indexed (IxFunctor (..))
+import Control.Monad.Indexed.Free (IxFree (..))
+
+{-
 data Free f a = Pure a | Free (f (Free f a))
   deriving (Functor)
 
@@ -21,7 +25,12 @@ instance (Functor f) => Monad (Free f) where
   {-# INLINE return #-}
   Pure a >>= f = f a
   Free m >>= f = Free ((>>= f) <$> m)
+-}
+
 
 -- NOTE: a specialized version until we need general monad m that replaces Free f.
-liftF :: (Functor f) => f a -> Free f a
-liftF fa = Free (fmap pure fa)
+-- liftF :: (Functor f) => f a -> Free f a
+-- liftF fa = Free (fmap pure fa)
+
+-- liftF :: (IxFunctor f) => f i j a -> IxFree f i j a
+-- ift
