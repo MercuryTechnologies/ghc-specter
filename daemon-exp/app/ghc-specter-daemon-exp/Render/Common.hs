@@ -11,7 +11,7 @@ import GHCSpecter.Graphics.DSL (
 import GI.Cairo.Render qualified as R
 import Types (GtkRender)
 
-hruleTop :: ViewPort -> GtkRender ()
+hruleTop :: ViewPort -> GtkRender e ()
 hruleTop (ViewPort (cx0, cy0) (cx1, _)) = lift $ do
   R.setSourceRGBA 0 0 0 1
   R.setLineWidth 1.0
@@ -19,7 +19,7 @@ hruleTop (ViewPort (cx0, cy0) (cx1, _)) = lift $ do
   R.lineTo cx1 cy0
   R.stroke
 
-vruleLeft :: ViewPort -> GtkRender ()
+vruleLeft :: ViewPort -> GtkRender e ()
 vruleLeft (ViewPort (cx0, cy0) (_cx1, cy1)) = lift $ do
   R.setSourceRGBA 0 0 0 1
   R.setLineWidth 1.0
@@ -27,7 +27,7 @@ vruleLeft (ViewPort (cx0, cy0) (_cx1, cy1)) = lift $ do
   R.lineTo cx0 cy1
   R.stroke
 
-boxRules :: ViewPort -> GtkRender ()
+boxRules :: ViewPort -> GtkRender e ()
 boxRules (ViewPort (cx0, cy0) (cx1, cy1)) = lift $ do
   R.setSourceRGBA 0 0 0 1
   R.setLineWidth 1.0

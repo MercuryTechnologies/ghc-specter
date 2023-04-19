@@ -11,12 +11,12 @@ import GHCSpecter.UI.Types (WidgetConfig)
 import GI.Cairo.Render qualified as R
 import GI.Pango qualified as P
 
-data ViewBackend = ViewBackend
+data ViewBackend e = ViewBackend
   { vbPangoContext :: P.Context
   , vbFontDescSans :: P.FontDescription
   , vbFontDescMono :: P.FontDescription
   , vbWidgetConfig :: WidgetConfig
-  , vbEventMap :: TVar [EventMap Text]
+  , vbEventMap :: TVar [EventMap e]
   }
 
-type GtkRender = ReaderT ViewBackend R.Render
+type GtkRender e = ReaderT (ViewBackend e) R.Render

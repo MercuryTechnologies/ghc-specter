@@ -8,6 +8,7 @@ import Data.Foldable (for_)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
+import Data.Text (Text)
 import GHCSpecter.Channel.Outbound.Types (getEnd)
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
@@ -43,7 +44,7 @@ import Types (GtkRender)
 renderSession ::
   ServerState ->
   SessionUI ->
-  GtkRender ()
+  GtkRender Text ()
 renderSession ss sessui = do
   wcfg <- resetWidget TabSession
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do

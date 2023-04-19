@@ -30,6 +30,7 @@ import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -119,7 +120,7 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-initViewBackend :: IO (Maybe ViewBackend)
+initViewBackend :: IO (Maybe (ViewBackend Text))
 initViewBackend = do
   emapRef <- atomically $ newTVar []
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
@@ -140,7 +141,7 @@ initViewBackend = do
         , vbEventMap = emapRef
         }
 
-renderNotConnected :: GtkRender ()
+renderNotConnected :: GtkRender e ()
 renderNotConnected = do
   lift R.save
   setColor Black
@@ -150,7 +151,7 @@ renderNotConnected = do
 renderAction ::
   UIState ->
   ServerState ->
-  GtkRender ()
+  GtkRender Text ()
 renderAction ui ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap

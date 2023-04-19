@@ -46,7 +46,7 @@ import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 import Types (GtkRender, ViewBackend (..))
 
-drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender ()
+drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender e ()
 drawText face sz (x, y) msg = do
   vb <- ask
   let pangoCtxt = vbPangoContext vb
@@ -62,7 +62,7 @@ drawText face sz (x, y) msg = do
     ctxt <- RC.getContext
     PC.showLayout ctxt layout
 
-setColor :: Color -> GtkRender ()
+setColor :: Color -> GtkRender e ()
 setColor Black = lift $ R.setSourceRGBA 0 0 0 1
 setColor White = lift $ R.setSourceRGBA 1 1 1 1
 setColor Red = lift $ R.setSourceRGBA 1 0 0 1
@@ -85,7 +85,7 @@ setColor ColorRedLevel3 = lift $ R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: Primitive e -> GtkRender ()
+renderPrimitive :: Primitive e -> GtkRender e ()
 renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
@@ -113,7 +113,7 @@ renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
 
-renderScene :: Scene e -> GtkRender ()
+renderScene :: Scene e -> GtkRender e ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
       ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
@@ -129,7 +129,7 @@ renderScene scene = do
   traverse_ renderPrimitive (sceneElements scene)
   lift R.restore
 
-resetWidget :: Tab -> GtkRender (Map Text ViewPort)
+resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
 resetWidget tab = do
   vb <- ask
   let emapRef = vbEventMap vb
@@ -141,7 +141,7 @@ resetWidget tab = do
       TabSourceView -> pure (vb ^. to vbWidgetConfig . wcfgSourceView)
       TabTiming -> pure (vb ^. to vbWidgetConfig . wcfgTiming)
 
-addEventMap :: Scene Text -> GtkRender ()
+addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =

@@ -6,6 +6,7 @@ import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
@@ -38,7 +39,7 @@ import Types (GtkRender)
 renderSourceView ::
   SourceViewUI ->
   ServerState ->
-  GtkRender ()
+  GtkRender Text ()
 renderSourceView srcUI ss = do
   wcfg <- resetWidget TabSourceView
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do

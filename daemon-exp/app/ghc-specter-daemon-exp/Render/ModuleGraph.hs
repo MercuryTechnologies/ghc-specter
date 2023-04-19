@@ -43,7 +43,7 @@ renderModuleGraph ::
   KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  GtkRender ()
+  GtkRender Text ()
 renderModuleGraph
   (mgrui, (detailLevel, sgrui))
   subgraphs
