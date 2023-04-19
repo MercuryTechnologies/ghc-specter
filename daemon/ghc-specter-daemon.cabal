@@ -25,7 +25,6 @@ source-repository head
 library
   exposed-modules:
       GHCSpecter.Control
-      GHCSpecter.Control.Free
       GHCSpecter.Control.Runner
       GHCSpecter.Control.Types
       GHCSpecter.Data.Assets

@@ -34,7 +34,6 @@ import Control.Monad.Indexed.Free.Class (iliftFree)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
--- import GHCSpecter.Control.Free (Free (..), liftF)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
@@ -97,6 +96,8 @@ type Control' = IxFree ControlF
 
 type Control = Control' () ()
 
+-- use this as synonym
+liftF :: ControlF () () a -> Control a
 liftF = iliftFree
 
 getUI :: Control UIState
