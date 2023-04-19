@@ -48,7 +48,6 @@ import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasUIModel (..),
   HasUIState (..),
-  HasUIViewRaw (..),
   UIModel (..),
   UIState (..),
  )

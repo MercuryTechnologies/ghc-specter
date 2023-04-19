@@ -31,6 +31,7 @@ import GHCSpecter.Control.Types (
   getCurrentTime,
   getLastUpdatedUI,
   getUI,
+  hitScene,
   modifyAndReturn,
   modifyAndReturnBoth,
   modifySS,
@@ -73,7 +74,6 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
-  HasUIViewRaw (..),
   HasViewPortInfo (..),
   ModuleGraphUI (..),
   UIModel,
@@ -95,7 +95,6 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
-  hitScene,
   transformScroll,
   transformZoom,
  )
@@ -232,13 +231,13 @@ goHoverScrollZoom ::
 goHoverScrollZoom handlers ev = do
   case ev of
     MouseEv (MouseMove (x, y)) -> do
+      memap <- hitScene (x, y)
       rs <-
         for (handlerHover handlers) $ \(component, hoverLens) -> do
           ((ui, _), (ui', _)) <-
             modifyAndReturnBoth $ \(ui, ss) ->
-              let emaps = ui ^. uiViewRaw . uiRawEventMap
-                  mupdated = do
-                    emap <- hitScene (x, y) emaps
+              let mupdated = do
+                    emap <- memap
                     guard (eventMapId emap == component)
                     let mprevHit = ui ^. uiModel . hoverLens
                         mnowHit = hitEventHover =<< hitItem (x, y) emap
@@ -251,21 +250,21 @@ goHoverScrollZoom handlers ev = do
           pure (mnowHit /= mprevHit)
       when (or rs) refresh
     MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
+      memap <- hitScene (x, y)
       for_ (handlerScroll handlers) $ \(component, scrollLens) ->
         modifyUI $ \ui ->
-          let emaps = ui ^. uiViewRaw . uiRawEventMap
-              mupdated = do
-                emap <- hitScene (x, y) emaps
+          let mupdated = do
+                emap <- memap
                 guard (eventMapId emap == component)
                 pure $ (uiModel %~ scroll emap scrollLens (dir', (dx, dy))) ui
            in fromMaybe ui mupdated
       refresh
     MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+      memap <- hitScene (xcenter, ycenter)
       for_ (handlerZoom handlers) $ \(component, zoomLens) ->
         modifyUI $ \ui ->
-          let emaps = ui ^. uiViewRaw . uiRawEventMap
-              mupdated = do
-                emap <- hitScene (xcenter, ycenter) emaps
+          let mupdated = do
+                emap <- memap
                 guard (eventMapId emap == component)
                 pure $ (uiModel %~ zoom emap zoomLens ((xcenter, ycenter), scale)) ui
            in fromMaybe ui mupdated
@@ -350,15 +349,14 @@ goSession ev = do
       sendRequest (SessionReq Pause)
       refresh
     MouseEv (MouseClick (x, y)) -> do
-      -- TODO: we need to make the whole Control transactional in updating the state
-      ui0 <- getUI
-      let emaps0 = ui0 ^. uiViewRaw . uiRawEventMap
-          mhit0 = do
-            emap0 <- L.find (\m -> eventMapId m == "session-button") emaps0
-            hitEvent <- hitItem (x, y) emap0
+      memap <- hitScene (x, y)
+      let mhit = do
+            emap <- memap
+            guard (eventMapId emap == "session-button")
+            hitEvent <- hitItem (x, y) emap
             eventMsg <- snd (hitEventClick hitEvent)
             pure eventMsg
-      case mhit0 of
+      case mhit of
         Just hit ->
           if
               | hit == "ResumeSession" -> do
@@ -426,13 +424,14 @@ goModuleGraph ev = do
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
     MouseEv (MouseClick (x, y)) -> do
+      memap <- hitScene (x, y)
       ((ui, _), (ui', _)) <-
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
-              emaps = ui ^. uiViewRaw . uiRawEventMap
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
               mnowHit = do
-                emap <- L.find (\m -> eventMapId m == "main-module-graph") emaps
+                emap <- memap
+                guard (eventMapId emap == "main-module-graph")
                 hitEvent <- hitItem (x, y) emap
                 click <- snd $ hitEventClick hitEvent
                 pure click
@@ -507,39 +506,36 @@ goSourceView ev = do
       refresh
     MouseEv (MouseClick (x, y)) -> do
       -- TODO: we need to make the whole Control transactional in updating the state
-      ui0 <- getUI
-      let memap0 = hitScene (x, y) (ui0 ^. uiViewRaw . uiRawEventMap)
-          mscene = eventMapId <$> memap0
-      printMsg (T.pack (show mscene))
-      modifyUISS $ \(ui, ss) ->
-        let emaps = ui ^. uiViewRaw . uiRawEventMap
-         in case hitScene (x, y) emaps of
-              Just emap ->
-                if
-                    | eventMapId emap == "module-tree" ->
-                        let mnowHit = hitEventClick <$> hitItem (x, y) emap
-                         in case mnowHit of
-                              Just (wasActive, Just nowHit)
-                                | not wasActive ->
-                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
-                                        ss' = (serverShouldUpdate .~ False) ss
-                                     in (ui', ss')
-                                | otherwise ->
-                                    let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
-                                        ss' = (serverShouldUpdate .~ False) ss
-                                     in (ui', ss')
-                              _ -> (ui, ss)
-                    | eventMapId emap == "supple-view-tab" ->
-                        -- TODO: This text parsing should be eliminated after implementing typed events.
-                        let mhitTab = do
-                              hitEvent <- hitItem (x, y) emap
-                              eventMsg <- snd (hitEventClick hitEvent)
-                              readMaybe (T.unpack eventMsg)
-                            ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
-                         in (ui', ss)
-                    | otherwise -> (ui, ss)
-              Nothing -> (ui, ss)
-      refresh
+      memap <- hitScene (x, y)
+      case memap of
+        Just emap ->
+          if
+              | eventMapId emap == "module-tree" -> do
+                  modifyUISS $ \(ui, ss) ->
+                    let mnowHit = hitEventClick <$> hitItem (x, y) emap
+                     in case mnowHit of
+                          Just (wasActive, Just nowHit)
+                            | not wasActive ->
+                                let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
+                                    ss' = (serverShouldUpdate .~ False) ss
+                                 in (ui', ss')
+                            | otherwise ->
+                                let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+                                    ss' = (serverShouldUpdate .~ False) ss
+                                 in (ui', ss')
+                          _ -> (ui, ss)
+                  refresh
+              | eventMapId emap == "supple-view-tab" -> do
+                  modifyUISS $ \(ui, ss) ->
+                    let mhitTab = do
+                          hitEvent <- hitItem (x, y) emap
+                          eventMsg <- snd (hitEventClick hitEvent)
+                          readMaybe (T.unpack eventMsg)
+                        ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
+                     in (ui', ss)
+                  refresh
+              | otherwise -> pure ()
+        Nothing -> pure ()
     _ -> pure ()
   goHoverScrollZoom
     HandlerHoverScrollZoom
@@ -703,9 +699,10 @@ mainLoop = do
                   mainLoop
                 else loop
             MouseEv (MouseClick (x, y)) -> do
-              emaps <- (^. uiViewRaw . uiRawEventMap) <$> getUI
+              memap <- hitScene (x, y)
               let mhitTab = do
-                    emap <- L.find (\m -> eventMapId m == "tab") emaps
+                    emap <- memap
+                    guard (eventMapId emap == "tab")
                     hitEvent <- hitItem (x, y) emap
                     eventMsg <- snd (hitEventClick hitEvent)
                     pure eventMsg

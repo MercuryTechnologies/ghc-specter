@@ -85,6 +85,7 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
+import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
@@ -119,6 +120,7 @@ withConfig mconfigFile action = do
 
 initViewBackend :: IO (Maybe ViewBackend)
 initViewBackend = do
+  emapRef <- atomically $ newTVar []
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
   familySans <- #getFamily fontMap "FreeSans"
@@ -128,7 +130,7 @@ initViewBackend = do
   for ((,) <$> mfaceSans <*> mfaceMono) $ \(faceSans, faceMono) -> do
     descSans <- #describe faceSans
     descMono <- #describe faceMono
-    pure (ViewBackend pangoCtxt descSans descMono)
+    pure (ViewBackend pangoCtxt descSans descMono emapRef)
 
 renderNotConnected :: GtkRender ()
 renderNotConnected = do
@@ -344,7 +346,13 @@ main =
                 , runnerQEvent = cliSess ^. csPublisherEvent
                 , runnerSignalChan = servSess ^. ssSubscriberSignal
                 , runnerRefreshAction = refreshAction
-                , runnerHitScene = (\_ -> pure Nothing)
+                , runnerHitScene = \xy -> do
+                    emaps <-
+                      atomically $ do
+                        emapRef <- vbEventMap <$> readTVar vbRef
+                        readTVar emapRef
+                    let memap = Transformation.hitScene xy emaps
+                    pure memap
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

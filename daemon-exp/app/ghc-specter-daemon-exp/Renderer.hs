@@ -19,7 +19,7 @@ import Control.Concurrent.STM (
   modifyTVar',
   readTVar,
  )
-import Control.Lens ((%~), (.~), (^.), _1, _2)
+import Control.Lens (to, (^.), _1, _2)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
@@ -40,7 +40,6 @@ import GHCSpecter.Graphics.DSL (
 import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
-  HasUIViewRaw (..),
   HasWidgetConfig (..),
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
@@ -135,9 +134,11 @@ renderScene scene = do
 
 resetWidget :: GtkRender (Map Text ViewPort)
 resetWidget = do
+  emapRef <- (^. _1 . to vbEventMap) <$> ask
+  -- TODO: this should be removed
   uiRef <- (^. _2) <$> ask
   liftIO $ atomically $ do
-    modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
+    modifyTVar' emapRef (const [])
     model <- (^. uiModel) <$> readTVar uiRef
     case model ^. modelTab of
       TabSession -> pure (model ^. modelWidgetConfig . wcfgSession)
@@ -147,7 +148,7 @@ resetWidget = do
 
 addEventMap :: Scene Text -> GtkRender ()
 addEventMap scene = do
-  uiRef <- (^. _2) <$> ask
+  emapRef <- (^. _1 . to vbEventMap) <$> ask
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
         Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
@@ -161,5 +162,4 @@ addEventMap scene = do
           }
   liftIO $
     atomically $
-      modifyTVar' uiRef $
-        uiViewRaw . uiRawEventMap %~ (\emaps -> emap : emaps)
+      modifyTVar' emapRef (\emaps -> emap : emaps)

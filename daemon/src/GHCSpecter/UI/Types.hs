@@ -41,10 +41,6 @@ module GHCSpecter.UI.Types (
   HasUIModel (..),
   emptyUIModel,
 
-  -- * UIViewRaw
-  UIViewRaw (..),
-  HasUIViewRaw (..),
-
   -- * UIState
   UIState (..),
   HasUIState (..),
@@ -229,13 +225,6 @@ emptyUIModel =
     , _modelTransientBanner = Nothing
     }
 
-data UIViewRaw = UIViewRaw
-  { _uiRawEventMap :: [EventMap Text]
-  -- ^ event name -> bounding box map
-  }
-
-makeClassy ''UIViewRaw
-
 {- NOTE: [UI state and model]
    ~~~~~~~~~~~~~~~~~~~~~~~~~~
    State is UI backend dependent and model is not, i.e. pertained to logical model of
@@ -252,8 +241,6 @@ data UIState = UIState
   -- ^ last updated time
   , _uiModel :: UIModel
   -- ^ main UI state
-  , _uiViewRaw :: UIViewRaw
-  -- ^ view state in the raw
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
   }
@@ -266,6 +253,5 @@ emptyUIState assets now =
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
     , _uiModel = emptyUIModel
-    , _uiViewRaw = UIViewRaw []
     , _uiAssets = assets
     }
