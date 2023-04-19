@@ -18,6 +18,7 @@ import Control.Lens (to, (^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import GHC.RTS.Flags (RTSFlags)
@@ -42,6 +43,7 @@ import GHCSpecter.Data.Map (
  )
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  HitEvent (..),
   Primitive (..),
   Scene (..),
   TextFontFace (Sans),
@@ -76,7 +78,7 @@ compileModuleInProgress ::
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  Scene
+  Scene Text
 compileModuleInProgress drvModMap pausedMap timingInProg =
   scene {sceneId = "module-status"}
   where
@@ -93,7 +95,7 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
 
 compileSession ::
   ServerState ->
-  Scene
+  Scene Text
 compileSession ss =
   scene {sceneId = "session-main"}
   where
@@ -170,7 +172,7 @@ compileSession ss =
 
     scene = compileTextView txt []
 
-compilePauseResume :: SessionInfo -> Scene
+compilePauseResume :: SessionInfo -> Scene Text
 compilePauseResume session =
   Scene
     { sceneId = "session-button"
@@ -182,11 +184,19 @@ compilePauseResume session =
     buttonTxt
       | sessionIsPaused session = "Resume Session"
       | otherwise = "Pause Session"
-    eventTxt
-      | sessionIsPaused session = "ResumeSession"
-      | otherwise = "PauseSession"
+    hitEvent
+      | sessionIsPaused session =
+          HitEvent
+            { hitEventHover = Nothing
+            , hitEventClick = (False, Just "ResumeSession")
+            }
+      | otherwise =
+          HitEvent
+            { hitEventHover = Nothing
+            , hitEventClick = (False, Just "PauseSession")
+            }
     contents =
-      [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just eventTxt)
+      [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
       , DrawText (5, 0) UpperLeft Sans Black 8 buttonTxt
       ]
 

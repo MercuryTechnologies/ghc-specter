@@ -7,7 +7,6 @@ module Main where
 import Config (appWidgetConfig)
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
-  TVar,
   atomically,
   flushTQueue,
   newTChanIO,
@@ -23,6 +22,8 @@ import Control.Concurrent.STM (
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ask, runReaderT)
 import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
@@ -45,7 +46,11 @@ import GHCSpecter.Driver.Session.Types (
   UIChannel (..),
  )
 import GHCSpecter.Driver.Worker qualified as Worker
-import GHCSpecter.Graphics.DSL (TextFontFace (Sans), ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  Color (Black),
+  TextFontFace (Sans),
+  ViewPort (..),
+ )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -66,7 +71,6 @@ import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
   HasWidgetConfig (..),
-  UIState (..),
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -93,8 +97,8 @@ import Render.ModuleGraph (renderModuleGraph)
 import Render.Session (renderSession)
 import Render.SourceView (renderSourceView)
 import Render.Timing (renderTiming)
-import Renderer (drawText)
-import Types (ViewBackend (..))
+import Renderer (drawText, setColor)
+import Types (GtkRender, ViewBackend (..))
 
 detailLevel :: DetailLevel
 detailLevel = UpTo30
@@ -122,19 +126,18 @@ initViewBackend = do
     descMono <- #describe faceMono
     pure (ViewBackend pangoCtxt descSans descMono)
 
-renderNotConnected :: ViewBackend -> R.Render ()
-renderNotConnected vb = do
-  R.save
-  R.setSourceRGBA 0 0 0 1
-  drawText vb Sans 36 (100, 100) "GHC is not connected yet"
-  R.restore
+renderNotConnected :: GtkRender ()
+renderNotConnected = do
+  lift R.save
+  setColor Black
+  drawText Sans 36 (100, 100) "GHC is not connected yet"
+  lift R.restore
 
 renderAction ::
-  ViewBackend ->
   ServerState ->
-  TVar UIState ->
-  R.Render ()
-renderAction vb ss uiRef = do
+  GtkRender ()
+renderAction ss = do
+  (_, uiRef) <- ask
   ui <- liftIO $ atomically $ readTVar uiRef
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
@@ -149,19 +152,15 @@ renderAction vb ss uiRef = do
       sessui = ui ^. uiModel . modelSession
 
   case mgrvis of
-    Nothing -> renderNotConnected vb
+    Nothing -> renderNotConnected
     Just grVisInfo ->
       case ui ^. uiModel . modelTab of
         TabSession ->
           renderSession
-            uiRef
-            vb
             ss
             sessui
         TabModuleGraph ->
           renderModuleGraph
-            uiRef
-            vb
             (mgrui, sgrui)
             subgraphs
             nameMap
@@ -171,11 +170,11 @@ renderAction vb ss uiRef = do
             grVisInfo
         TabSourceView -> do
           let srcUI = ui ^. uiModel . modelSourceView
-          renderSourceView uiRef vb srcUI ss
+          renderSourceView srcUI ss
         TabTiming -> do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
-          renderTiming uiRef vb drvModMap tui ttable
+          renderTiming drvModMap tui ttable
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
@@ -291,7 +290,7 @@ main =
           $ RC.renderWithContext
           $ do
             (vb, ss) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar ssRef)
-            renderAction vb ss uiRef
+            runReaderT (renderAction ss) (vb, uiRef)
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)

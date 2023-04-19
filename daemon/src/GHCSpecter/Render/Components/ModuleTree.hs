@@ -15,6 +15,7 @@ import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  HitEvent (..),
   Primitive (..),
   Scene (..),
   TextFontFace (..),
@@ -45,7 +46,7 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-compileModuleTree :: SourceViewUI -> ServerState -> Scene
+compileModuleTree :: SourceViewUI -> ServerState -> Scene Text
 compileModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"
@@ -80,20 +81,25 @@ compileModuleTree srcUI ss =
 
     indentLevel = flatten . foldTree annotateLevel . fmap renderNode
 
-    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive]
+    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive Text]
     render (i, (j, (matched, color, modu, txt))) =
       let x = fromIntegral j * 20
           y = fromIntegral i * 14
-       in if matched
-            then
-              [ Rectangle (x, y) 100 10 Nothing (Just Gray) Nothing (Just ("Unsele_" <> modu))
-              , DrawText (x, y) UpperLeft Sans color 8 txt
-              ]
-            else -- TODO: we use ugly unsafe Select_ and Unsele_ prefix here. We will introduce
-            -- proper typing mechanism later on.
-
-              [ Rectangle (x, y) 100 10 Nothing (Just White) Nothing (Just ("Select_" <> modu))
-              , DrawText (x, y) UpperLeft Sans color 8 txt
-              ]
-
+          colorBox
+            | matched = Just Gray
+            | otherwise = Just White
+          hitEvent
+            | matched =
+                HitEvent
+                  { hitEventHover = Nothing
+                  , hitEventClick = (True, Just modu)
+                  }
+            | otherwise =
+                HitEvent
+                  { hitEventHover = Nothing
+                  , hitEventClick = (False, Just modu)
+                  }
+       in [ Rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
+          , DrawText (x, y) UpperLeft Sans color 8 txt
+          ]
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')

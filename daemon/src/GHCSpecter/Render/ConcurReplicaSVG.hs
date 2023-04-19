@@ -17,7 +17,11 @@ import Concur.Replica.SVG.Props qualified as SP
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
-import GHCSpecter.Graphics.DSL (Color (..), Primitive (..))
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  HitEvent (..),
+  Primitive (..),
+ )
 import GHCSpecter.UI.ConcurReplica.DOM (text)
 import GHCSpecter.UI.ConcurReplica.SVG qualified as S
 import GHCSpecter.UI.ConcurReplica.Types (IHTML)
@@ -53,17 +57,17 @@ renderColor ColorRedLevel3 = "#F5B7B1"
 renderColor ColorRedLevel4 = "#F1948A"
 renderColor ColorRedLevel5 = "#EC7063"
 
-renderPrimitive :: (Text -> [Props ev]) -> Primitive -> Widget IHTML ev
-renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth handleHover) =
+renderPrimitive :: (Text -> [Props ev]) -> Primitive Text -> Widget IHTML ev
+renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent) =
   S.rect
-    ( maybe [] (\name -> handlers name) handleHover
+    ( maybe [] handlers (hitEventHover =<< mhitEvent)
         ++ [ SP.x (T.pack $ show x)
            , SP.y (T.pack $ show y)
            , width (T.pack $ show w)
            , height (T.pack $ show h)
            , SP.stroke (maybe "none" renderColor mline)
            , SP.fill (maybe "none" renderColor mbkg)
-           , SP.pointerEvents (if isJust handleHover then "visible" else "none")
+           , SP.pointerEvents (if isJust mhitEvent then "visible" else "none")
            ]
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )

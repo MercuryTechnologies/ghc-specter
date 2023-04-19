@@ -170,7 +170,7 @@ renderModuleTree srcUI ss =
                   ]
        in modItem
 
-compileSuppView :: Maybe SupplementaryView -> Scene
+compileSuppView :: Maybe SupplementaryView -> Scene Text
 compileSuppView Nothing =
   Scene
     { sceneId = "supple-view-contents"
@@ -193,7 +193,7 @@ compileSuppView (Just (SuppViewText _)) =
     , sceneElements = []
     }
 
-compileSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> (Scene, Scene)
+compileSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> (Scene Text, Scene Text)
 compileSuppViewPanel modu srcUI ss =
   (Tab.compileTab tabCfg mtab, compileSuppView msuppView)
   where

@@ -11,8 +11,11 @@ module GHCSpecter.Util.Transformation (
 ) where
 
 import Data.List qualified as L
-import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  EventMap (..),
+  HitEvent,
+  ViewPort (..),
+ )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
 -- | scroll
@@ -53,10 +56,10 @@ isInside :: (Double, Double) -> ViewPort -> Bool
 isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
   x >= x0 && x <= x1 && y >= y0 && y <= y1
 
-hitScene :: (Double, Double) -> [EventMap] -> Maybe EventMap
+hitScene :: (Double, Double) -> [EventMap e] -> Maybe (EventMap e)
 hitScene (x, y) emaps = L.find (\emap -> (x, y) `isInside` eventMapGlobalViewPort emap) emaps
 
-hitItem :: (Double, Double) -> EventMap -> Maybe Text
+hitItem :: (Double, Double) -> EventMap e -> Maybe (HitEvent e)
 hitItem (x, y) emap
   | (x, y) `isInside` cvp =
       fst
