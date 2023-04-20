@@ -42,9 +42,6 @@ library
       GHCSpecter.GraphLayout.OGDF
       GHCSpecter.GraphLayout.Sugiyama
       GHCSpecter.GraphLayout.Types
-      GHCSpecter.Render.Components.Console
-      GHCSpecter.Render.Components.ConsoleItem
-      GHCSpecter.Render.Components.GHCCore
       GHCSpecter.Render.Components.GraphView
       GHCSpecter.Render.Components.ModuleTree
       GHCSpecter.Render.Components.Tab
@@ -54,7 +51,7 @@ library
       GHCSpecter.Render.Session
       GHCSpecter.Render.SourceView
       GHCSpecter.Render.Tab
-      GHCSpecter.Render.Util
+      GHCSpecter.Render.Util            
       GHCSpecter.Server.Types
       GHCSpecter.UI.ConcurReplica.DOM
       GHCSpecter.UI.ConcurReplica.DOM.Events
@@ -135,9 +132,13 @@ executable ghc-specter-daemon
   other-modules:
       GHCSpecter.Driver.Web
       GHCSpecter.Render.Web
+      GHCSpecter.Render.Web.Console
+      GHCSpecter.Render.Web.ConsoleItem
+      GHCSpecter.Render.Web.GHCCore      
       GHCSpecter.Render.Web.ModuleGraph
       GHCSpecter.Render.Web.Session
-      GHCSpecter.Render.Web.Timing            
+      GHCSpecter.Render.Web.SourceView
+      GHCSpecter.Render.Web.Timing
       Paths_ghc_specter_daemon
   hs-source-dirs:
       app

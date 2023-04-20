@@ -31,7 +31,7 @@ import GHCSpecter.Data.Timing.Types (
   HasPipelineInfo (..),
   HasTimingTable (..),
  )
-import GHCSpecter.Render.Components.GraphView qualified as GraphView
+import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Components.TimingView qualified as TimingView
 import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
@@ -187,7 +187,7 @@ renderBlockerGraph ss =
                   t <- L.lookup i (ttable ^. ttableTimingInfos)
                   pure $ realToFrac ((t ^. plEnd . _1 - t ^. plStart . _1) / maxTime)
            in [ TimingEv . BlockerModuleGraphEv . BMGGraph
-                  <$> GraphView.renderModuleGraph
+                  <$> ModuleGraph.renderModuleGraph
                     nameMap
                     valueFor
                     blockerGraphViz

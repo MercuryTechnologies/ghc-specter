@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.GHCCore (
+module GHCSpecter.Render.Web.GHCCore (
   renderTopBind,
 ) where
 

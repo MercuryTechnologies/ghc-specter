@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.Console (
+module GHCSpecter.Render.Web.Console (
   render,
 ) where
 
@@ -22,8 +22,8 @@ import GHCSpecter.Data.Map (
   KeyMap,
   lookupKey,
  )
-import GHCSpecter.Render.Components.ConsoleItem qualified as CI (render)
 import GHCSpecter.Render.Util (divClass)
+import GHCSpecter.Render.Web.ConsoleItem qualified as CI (render)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.ConcurReplica.DOM (
   button,
