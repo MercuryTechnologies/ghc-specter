@@ -30,27 +30,7 @@ import GHCSpecter.Channel.Outbound.Types (
   Channel (..),
   SessionInfo (..),
  )
-import GHCSpecter.Data.GHC.Hie (
-  HasDeclRow' (..),
-  HasModuleHieInfo (..),
-  ModuleHieInfo,
- )
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
-import GHCSpecter.Render.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
-import GHCSpecter.Render.Components.TextView qualified as TextView
-import GHCSpecter.Render.Util (divClass, xmlns)
-import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
-import GHCSpecter.Server.Types (
-  HasHieState (..),
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  Inbox,
-  ServerState (..),
-  SupplementaryView (..),
- )
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   div,
   el,
   input,
@@ -62,8 +42,28 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   text,
   ul,
  )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.SVG qualified as S
+import GHCSpecter.ConcurReplica.Types (IHTML)
+import GHCSpecter.Data.GHC.Hie (
+  HasDeclRow' (..),
+  HasModuleHieInfo (..),
+  ModuleHieInfo,
+ )
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
+import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
+import GHCSpecter.Render.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
+import GHCSpecter.Render.Components.TextView qualified as TextView
+import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Render.Web.Util (divClass, xmlns)
+import GHCSpecter.Server.Types (
+  HasHieState (..),
+  HasModuleGraphState (..),
+  HasServerState (..),
+  HasTimingState (..),
+  Inbox,
+  ServerState (..),
+  SupplementaryView (..),
+ )
 import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),

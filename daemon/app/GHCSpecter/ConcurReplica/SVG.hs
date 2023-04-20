@@ -7,7 +7,7 @@
 --   SVG elements
 --
 -- See: <https://developer.mozilla.org/en-US/docs/Web/SVG/Element>
-module GHCSpecter.UI.ConcurReplica.SVG (
+module GHCSpecter.ConcurReplica.SVG (
   el,
   animate,
   animateMotion,
@@ -88,7 +88,7 @@ module GHCSpecter.UI.ConcurReplica.SVG (
 
 import Concur.Replica.DOM.Props (Props)
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.DOM (WidgetConstraints, elWithNamespace)
+import GHCSpecter.ConcurReplica.DOM (WidgetConstraints, elWithNamespace)
 import Replica.VDOM.Types (Namespace (Namespace))
 import Prelude hiding (filter)
 

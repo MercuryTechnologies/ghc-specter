@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Util (
+module GHCSpecter.Render.Web.Util (
   xmlns,
   divClass,
   spanClass,
@@ -14,12 +14,12 @@ import Concur.Replica (
   textProp,
  )
 import Data.Text (Text)
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   div,
   link,
   span,
  )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
 
 xmlns :: Props a

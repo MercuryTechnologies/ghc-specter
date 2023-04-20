@@ -20,19 +20,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Data.Assets (HasAssets (..))
-import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
-import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Render.Web.Console qualified as Console
-import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
-import GHCSpecter.Render.Web.Session qualified as Session
-import GHCSpecter.Render.Web.SourceView qualified as SourceView
-import GHCSpecter.Render.Web.Timing qualified as Timing
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  ServerState (..),
- )
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   div,
   el,
   img,
@@ -42,7 +30,19 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   section,
   text,
  )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.Types (IHTML)
+import GHCSpecter.Data.Assets (HasAssets (..))
+import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
+import GHCSpecter.Render.Web.Console qualified as Console
+import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Render.Web.Session qualified as Session
+import GHCSpecter.Render.Web.SourceView qualified as SourceView
+import GHCSpecter.Render.Web.Timing qualified as Timing
+import GHCSpecter.Render.Web.Util (divClass)
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  ServerState (..),
+ )
 import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),

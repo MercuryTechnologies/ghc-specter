@@ -30,6 +30,14 @@ import GHCSpecter.Channel.Outbound.Types (
   Timer,
   getEnd,
  )
+import GHCSpecter.ConcurReplica.DOM (
+  button,
+  div,
+  p,
+  pre,
+  text,
+ )
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Map (
   BiKeyMap,
   KeyMap,
@@ -37,21 +45,13 @@ import GHCSpecter.Data.Map (
   keyMapToList,
   lookupKey,
  )
-import GHCSpecter.Render.Util (divClass, spanClass)
+import GHCSpecter.Render.Web.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
  )
-import GHCSpecter.UI.ConcurReplica.DOM (
-  button,
-  div,
-  p,
-  pre,
-  text,
- )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event (
   Event (..),

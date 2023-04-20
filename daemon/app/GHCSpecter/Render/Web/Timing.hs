@@ -32,6 +32,22 @@ import GHCSpecter.Channel.Outbound.Types (
   ModuleGraphInfo (..),
   SessionInfo (..),
  )
+import GHCSpecter.ConcurReplica.DOM (
+  button,
+  div,
+  hr,
+  input,
+  label,
+  p,
+  text,
+ )
+import GHCSpecter.ConcurReplica.DOM.Events (
+  onMouseDown,
+  onMouseMove,
+  onMouseUp,
+ )
+import GHCSpecter.ConcurReplica.SVG qualified as S
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Map (
   BiKeyMap,
   backwardLookup,
@@ -47,9 +63,9 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.Render.Components.TimingView qualified as TimingView
-import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
-import GHCSpecter.Render.Util (divClass, xmlns)
+import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Render.Web.Util (divClass, xmlns)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -57,22 +73,6 @@ import GHCSpecter.Server.Types (
   ServerState (..),
   TimingState (..),
  )
-import GHCSpecter.UI.ConcurReplica.DOM (
-  button,
-  div,
-  hr,
-  input,
-  label,
-  p,
-  text,
- )
-import GHCSpecter.UI.ConcurReplica.DOM.Events (
-  onMouseDown,
-  onMouseMove,
-  onMouseUp,
- )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (
   timingHeight,
   timingRangeHeight,

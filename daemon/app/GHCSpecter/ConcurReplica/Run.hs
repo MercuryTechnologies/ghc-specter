@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | This module is originated from Concur.Replica.Run. However, we use IHTML instead of HTML.
-module GHCSpecter.UI.ConcurReplica.Run (
+module GHCSpecter.ConcurReplica.Run (
   run,
   runDefault,
   runDefaultWithStyle,
@@ -11,8 +11,8 @@ import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Wi
 import Control.Concurrent.STM (atomically)
 import Control.Monad.Free (Free (Free, Pure))
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..), project)
-import GHCSpecter.UI.ConcurReplica.WaiHandler qualified as R
+import GHCSpecter.ConcurReplica.Types (IHTML (..), project)
+import GHCSpecter.ConcurReplica.WaiHandler qualified as R
 import Network.Wai (Middleware)
 import Network.Wai.Handler.Warp qualified as W
 import Network.WebSockets.Connection (ConnectionOptions, defaultConnectionOptions)

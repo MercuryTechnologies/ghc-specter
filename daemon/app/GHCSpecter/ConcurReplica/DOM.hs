@@ -5,7 +5,7 @@
 
 -- | This module is originated from Concur.Replica.DOM and tailored
 -- for IHTML.
-module GHCSpecter.UI.ConcurReplica.DOM (
+module GHCSpecter.ConcurReplica.DOM (
   WidgetConstraints,
   el,
   elWithNamespace,
@@ -129,7 +129,7 @@ import Control.Concurrent (newEmptyMVar, putMVar, takeMVar)
 import Control.ShiftMap (ShiftMap (shiftMap))
 import Data.Map qualified as M
 import Data.Text qualified as T
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.ConcurReplica.Types (IHTML (..))
 import Replica.VDOM (
   Attr (ABool, AEvent, AMap, AText),
   Namespace,

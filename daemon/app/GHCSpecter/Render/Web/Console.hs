@@ -17,15 +17,7 @@ import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Text (Text)
-import GHCSpecter.Data.Map (
-  IsKey (..),
-  KeyMap,
-  lookupKey,
- )
-import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Render.Web.ConsoleItem qualified as CI (render)
-import GHCSpecter.Server.Types (ConsoleItem (..))
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   button,
   div,
   el,
@@ -35,7 +27,15 @@ import GHCSpecter.UI.ConcurReplica.DOM (
   script,
   text,
  )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.Types (IHTML)
+import GHCSpecter.Data.Map (
+  IsKey (..),
+  KeyMap,
+  lookupKey,
+ )
+import GHCSpecter.Render.Web.ConsoleItem qualified as CI (render)
+import GHCSpecter.Render.Web.Util (divClass)
+import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 

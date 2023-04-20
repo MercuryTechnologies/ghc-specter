@@ -36,6 +36,15 @@ import GHCSpecter.Channel.Outbound.Types (
   SessionInfo (..),
   Timer,
  )
+import GHCSpecter.ConcurReplica.DOM (
+  div,
+  input,
+  label,
+  pre,
+  text,
+ )
+import GHCSpecter.ConcurReplica.SVG qualified as S
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (
@@ -51,23 +60,14 @@ import GHCSpecter.Render.Components.GraphView (
   compileGraph,
   compileModuleGraph,
  )
-import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
-import GHCSpecter.Render.Util (xmlns)
+import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
+import GHCSpecter.Render.Web.Util (xmlns)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
  )
-import GHCSpecter.UI.ConcurReplica.DOM (
-  div,
-  input,
-  label,
-  pre,
-  text,
- )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.ConcurReplica.DOM.Events (
+module GHCSpecter.ConcurReplica.DOM.Events (
   onMouseMove,
   onMouseDown,
   onMouseUp,

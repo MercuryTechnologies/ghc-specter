@@ -20,6 +20,12 @@ import Control.Lens ((.~), (^.))
 import Control.Monad.Extra (loopM)
 import Data.IORef (newIORef)
 import Data.Time.Clock (getCurrentTime)
+import GHCSpecter.ConcurReplica.Run (runDefaultWithStyle)
+import GHCSpecter.ConcurReplica.Types (
+  IHTML,
+  blockDOMUpdate,
+  unblockDOMUpdate,
+ )
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Control qualified as Control (main)
 import GHCSpecter.Control.Runner (RunnerEnv (..))
@@ -34,12 +40,6 @@ import GHCSpecter.Driver.Session.Types (
  )
 import GHCSpecter.Render.Web (render)
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.ConcurReplica.Run (runDefaultWithStyle)
-import GHCSpecter.UI.ConcurReplica.Types (
-  IHTML,
-  blockDOMUpdate,
-  unblockDOMUpdate,
- )
 import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
