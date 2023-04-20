@@ -16,7 +16,6 @@ import Control.Concurrent.STM (
   readTChan,
   readTVar,
   retry,
-  takeTMVar,
   writeTChan,
   writeTQueue,
   writeTVar,
@@ -33,7 +32,6 @@ import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Typeable (gcast)
@@ -159,7 +157,7 @@ renderNotConnected = do
 renderAction ::
   UIState ->
   ServerState ->
-  GtkRender Text ()
+  GtkRender Event ()
 renderAction ui ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
@@ -294,7 +292,7 @@ main =
       Nothing -> error "cannot initialize pango"
       Just vbr -> do
         vbRef <- atomically $ do
-          emapRef <- newTVar ([] :: [EventMap Text])
+          emapRef <- newTVar ([] :: [EventMap Event])
           let vb = ViewBackend vbr emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
@@ -376,7 +374,7 @@ main =
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @Text <$> memap))
+                    pure (join (gcast @_ @Event <$> memap))
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

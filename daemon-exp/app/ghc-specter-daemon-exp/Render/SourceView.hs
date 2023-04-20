@@ -6,7 +6,6 @@ import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
@@ -26,7 +25,7 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   SourceViewUI,
  )
-import GHCSpecter.UI.Types.Event (Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Render.Common (vruleLeft)
 import Renderer (
@@ -39,11 +38,11 @@ import Types (GtkRender)
 renderSourceView ::
   SourceViewUI ->
   ServerState ->
-  GtkRender Text ()
+  GtkRender Event ()
 renderSourceView srcUI ss = do
   wcfg <- resetWidget TabSourceView
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab (Just TabSourceView)
+    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabSourceView)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -53,7 +52,7 @@ renderSourceView srcUI ss = do
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
     let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
-        sceneModTree = compileModuleTree srcUI ss
+        sceneModTree = SourceViewEv <$> compileModuleTree srcUI ss
         sceneModTree' =
           sceneModTree
             { sceneId = "module-tree"
@@ -93,14 +92,16 @@ renderSourceView srcUI ss = do
                 vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
                 (sceneSuppTab, sceneSuppContents) = compileSuppViewPanel modu srcUI ss
                 sceneSuppTab' =
-                  sceneSuppTab
-                    { sceneGlobalViewPort = vpCvsSuppTab
-                    }
+                  SourceViewEv
+                    <$> sceneSuppTab
+                      { sceneGlobalViewPort = vpCvsSuppTab
+                      }
                 sceneSuppContents' =
-                  sceneSuppContents
-                    { sceneGlobalViewPort = vpCvsSuppContents
-                    , sceneLocalViewPort = vp
-                    }
+                  DummyEv
+                    <$ sceneSuppContents
+                      { sceneGlobalViewPort = vpCvsSuppContents
+                      , sceneLocalViewPort = vp
+                      }
             renderScene sceneSuppTab'
             addEventMap sceneSuppTab'
             renderScene sceneSuppContents'

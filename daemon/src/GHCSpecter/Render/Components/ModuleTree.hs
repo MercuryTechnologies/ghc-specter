@@ -33,6 +33,7 @@ import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   SourceViewUI (..),
  )
+import GHCSpecter.UI.Types.Event (SourceViewEvent (..))
 import GHCSpecter.Util.SourceTree (
   accumPrefix,
   expandFocusOnly,
@@ -46,7 +47,7 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-compileModuleTree :: SourceViewUI -> ServerState -> Scene Text
+compileModuleTree :: SourceViewUI -> ServerState -> Scene SourceViewEvent
 compileModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"
@@ -81,7 +82,7 @@ compileModuleTree srcUI ss =
 
     indentLevel = flatten . foldTree annotateLevel . fmap renderNode
 
-    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive Text]
+    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive SourceViewEvent]
     render (i, (j, (matched, color, modu, txt))) =
       let x = fromIntegral j * 20
           y = fromIntegral i * 14
@@ -91,13 +92,15 @@ compileModuleTree srcUI ss =
           hitEvent
             | matched =
                 HitEvent
-                  { hitEventHover = Nothing
-                  , hitEventClick = (True, Just modu)
+                  { hitEventHoverOn = Nothing
+                  , hitEventHoverOff = Nothing
+                  , hitEventClick = Just (Left UnselectModule)
                   }
             | otherwise =
                 HitEvent
-                  { hitEventHover = Nothing
-                  , hitEventClick = (False, Just modu)
+                  { hitEventHoverOn = Nothing
+                  , hitEventHoverOff = Nothing
+                  , hitEventClick = Just (Right (SelectModule modu))
                   }
        in [ Rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
           , DrawText (x, y) UpperLeft Sans color 8 txt

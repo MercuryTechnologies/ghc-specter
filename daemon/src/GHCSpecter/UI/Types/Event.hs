@@ -138,4 +138,5 @@ data Event
   | MouseEv MouseEvent
   | ConsoleEv (ConsoleEvent DriverId)
   | BkgEv BackgroundEvent
+  | DummyEv
   deriving (Show, Eq)

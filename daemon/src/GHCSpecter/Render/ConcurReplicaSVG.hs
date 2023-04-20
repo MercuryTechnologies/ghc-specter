@@ -57,10 +57,13 @@ renderColor ColorRedLevel3 = "#F5B7B1"
 renderColor ColorRedLevel4 = "#F1948A"
 renderColor ColorRedLevel5 = "#EC7063"
 
-renderPrimitive :: (Text -> [Props ev]) -> Primitive Text -> Widget IHTML ev
+renderPrimitive ::
+  (HitEvent e -> [Props ev]) ->
+  Primitive e ->
+  Widget IHTML ev
 renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent) =
   S.rect
-    ( maybe [] handlers (hitEventHover =<< mhitEvent)
+    ( maybe [] handlers mhitEvent
         ++ [ SP.x (T.pack $ show x)
            , SP.y (T.pack $ show y)
            , width (T.pack $ show w)

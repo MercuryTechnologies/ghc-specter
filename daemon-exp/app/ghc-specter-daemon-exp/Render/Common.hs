@@ -1,13 +1,14 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Render.Common (
+  -- * drawing rules
   hruleTop,
   vruleLeft,
   boxRules,
 ) where
 
 import Control.Monad.Trans.Class (lift)
-import GHCSpecter.Graphics.DSL (
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GI.Cairo.Render qualified as R
 import Types (GtkRender)
 

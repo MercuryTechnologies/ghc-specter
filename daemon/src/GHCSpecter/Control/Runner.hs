@@ -30,12 +30,9 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
-import Data.Proxy (Proxy (..))
-import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
-import Data.Typeable (Typeable)
 import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Control.Types (
   ControlF (..),

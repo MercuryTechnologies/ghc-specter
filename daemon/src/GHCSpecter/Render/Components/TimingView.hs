@@ -29,8 +29,7 @@ import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
-import Data.Text (Text)
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe, maybeToList)
 import Data.Text qualified as T
 import Data.Time.Clock (
   NominalDiffTime,
@@ -119,7 +118,7 @@ compileRules ::
   TimingTable ->
   Int ->
   NominalDiffTime ->
-  [Primitive Text]
+  [Primitive e]
 compileRules showParallel table totalHeight totalTime =
   ( if showParallel
       then fmap box rangesWithCPUUsage
@@ -165,7 +164,7 @@ compileTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene Text
+  Scene TimingEvent
 compileTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
@@ -214,8 +213,9 @@ compileTimingChart drvModMap tui ttable =
             modu <- mmodu
             pure
               HitEvent
-                { hitEventHover = Just modu
-                , hitEventClick = (False, Nothing)
+                { hitEventHoverOn = Just (HoverOnModule modu)
+                , hitEventHoverOff = Just (HoverOffModule modu)
+                , hitEventClick = Nothing
                 }
        in Rectangle
             (leftOfBox item, module2Y i)
@@ -279,7 +279,7 @@ compileTimingChart drvModMap tui ttable =
           mkLine hoveredMod upMod
     linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
       where
-        mkLinesToDownstream :: ModuleName -> Maybe [Primitive Text]
+        mkLinesToDownstream :: ModuleName -> Maybe [Primitive TimingEvent]
         mkLinesToDownstream hoveredMod = do
           downMods <-
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
@@ -289,7 +289,7 @@ compileMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene Text
+  Scene e
 compileMemChart drvModMap tui ttable =
   Scene
     { sceneId = "mem-chart"
@@ -346,7 +346,7 @@ compileMemChart drvModMap tui ttable =
 compileTimingRange ::
   TimingUI ->
   TimingTable ->
-  Scene Text
+  Scene e
 compileTimingRange tui ttable =
   Scene
     { sceneId = "timing-range"
@@ -393,7 +393,7 @@ compileTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-compileBlockers :: ModuleName -> TimingTable -> Scene Text
+compileBlockers :: ModuleName -> TimingTable -> Scene e
 compileBlockers hoveredMod ttable =
   Scene
     { sceneId = "blockers"
@@ -438,13 +438,14 @@ renderTimingChart drvModMap tui ttable =
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive handler2) rexp)
+    , S.g [] (fmap (renderPrimitive handler) rexp)
     ]
   where
-    handler2 modu =
-      [ TimingEv (HoverOnModule modu) <$ onMouseEnter
-      , TimingEv (HoverOffModule modu) <$ onMouseLeave
-      ]
+    handler hitEvent =
+      catMaybes
+        [ fmap (\ev -> TimingEv ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
+        , fmap (\ev -> TimingEv ev <$ onMouseLeave) (hitEventHoverOn hitEvent)
+        ]
     scene = compileTimingChart drvModMap tui ttable
     rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort

@@ -170,7 +170,7 @@ renderModuleTree srcUI ss =
                   ]
        in modItem
 
-compileSuppView :: Maybe SupplementaryView -> Scene Text
+compileSuppView :: Maybe SupplementaryView -> Scene ()
 compileSuppView Nothing =
   Scene
     { sceneId = "supple-view-contents"
@@ -183,7 +183,8 @@ compileSuppView (Just (SuppViewCallgraph grVis)) =
     { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-    , sceneElements = GraphView.compileGraph (isJust . T.find (== '.')) grVis
+    , sceneElements =
+        fmap (() <$) $ GraphView.compileGraph (isJust . T.find (== '.')) grVis
     }
 compileSuppView (Just (SuppViewText _)) =
   Scene
@@ -193,9 +194,15 @@ compileSuppView (Just (SuppViewText _)) =
     , sceneElements = []
     }
 
-compileSuppViewPanel :: ModuleName -> SourceViewUI -> ServerState -> (Scene Text, Scene Text)
+compileSuppViewPanel ::
+  ModuleName ->
+  SourceViewUI ->
+  ServerState ->
+  (Scene SourceViewEvent, Scene ())
 compileSuppViewPanel modu srcUI ss =
-  (Tab.compileTab tabCfg mtab, compileSuppView msuppView)
+  ( fmap SourceViewTab (Tab.compileTab tabCfg mtab)
+  , compileSuppView msuppView
+  )
   where
     mtab = srcUI ^. srcViewSuppViewTab
     suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))

@@ -27,7 +27,12 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI,
  )
-import GHCSpecter.UI.Types.Event (DetailLevel, Tab (..))
+import GHCSpecter.UI.Types.Event (
+  DetailLevel,
+  Event (..),
+  SubModuleEvent (..),
+  Tab (..),
+ )
 import GI.Cairo.Render qualified as R
 import Render.Common (hruleTop)
 import Renderer (addEventMap, renderScene, resetWidget)
@@ -43,7 +48,7 @@ renderModuleGraph ::
   KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  GtkRender Text ()
+  GtkRender Event ()
 renderModuleGraph
   (mgrui, (detailLevel, sgrui))
   subgraphs
@@ -72,7 +77,7 @@ renderModuleGraph
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- tab
     for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-      let sceneTab = compileTab topLevelTab (Just TabModuleGraph)
+      let sceneTab = TabEv <$> compileTab topLevelTab (Just TabModuleGraph)
           sceneTab' =
             sceneTab
               { sceneGlobalViewPort = vpCvs
@@ -82,7 +87,12 @@ renderModuleGraph
     -- main module graph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
       let sceneMain =
-            compileModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered)
+            fmap MainModuleEv $
+              compileModuleGraph
+                nameMap
+                valueFor
+                grVisInfo
+                (mainModuleClicked, mainModuleHovered)
           sceneMain' =
             sceneMain
               { sceneGlobalViewPort = vpCvs
@@ -109,7 +119,12 @@ renderModuleGraph
                 | isModuleCompilationDone drvModMap timing name = 1
                 | otherwise = 0
               sceneSub =
-                compileModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
+                SubModuleEv . SubModuleGraphEv
+                  <$> compileModuleGraph
+                    nameMap
+                    valueForSub
+                    subgraph
+                    (mainModuleClicked, subModuleHovered)
               sceneSub' =
                 sceneSub
                   { -- TODO: this should be set up from compileModuleGraph

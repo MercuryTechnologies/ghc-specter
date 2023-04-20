@@ -16,6 +16,7 @@ module GHCSpecter.Graphics.DSL (
   EventMap (..),
 ) where
 
+import Data.Bifunctor (bimap)
 import Data.Text (Text)
 
 data Color
@@ -49,12 +50,15 @@ data TextFontFace = Sans | Mono
   deriving (Show)
 
 data HitEvent e = HitEvent
-  { hitEventHover :: Maybe e
-  -- ^ event message when hovered
-  , hitEventClick :: (Bool, Maybe e)
-  -- ^ *current* activation status (toggle on/off), and event message when clicked
+  { hitEventHoverOn :: Maybe e
+  , hitEventHoverOff :: Maybe e
+  , hitEventClick :: Maybe (Either e e)
+  -- ^ Left: on -> off, Right: off -> on. If no toggle state, it's always Right.
   }
   deriving (Show)
+
+instance Functor HitEvent where
+  fmap f (HitEvent mx my mz) = HitEvent (fmap f mx) (fmap f my) (fmap (bimap f f) mz)
 
 data Primitive e
   = -- | (x, y) w h line_color background_color line_width handle_hovering
@@ -63,7 +67,7 @@ data Primitive e
     Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
   | -- | (x, y) text_pos font_size text
     DrawText (Double, Double) TextPosition TextFontFace Color Int Text
-  deriving (Show)
+  deriving (Show, Functor)
 
 data ViewPort = ViewPort
   { topLeft :: (Double, Double)
@@ -78,7 +82,7 @@ data Scene e = Scene
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [Primitive e]
   }
-  deriving (Show)
+  deriving (Show, Functor)
 
 data EventMap e = EventMap
   { eventMapId :: Text
@@ -86,4 +90,4 @@ data EventMap e = EventMap
   , eventMapLocalViewPort :: ViewPort
   , eventMapElements :: [(HitEvent e, ViewPort)]
   }
-  deriving (Show)
+  deriving (Show, Functor)

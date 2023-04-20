@@ -5,7 +5,6 @@ module GHCSpecter.Render.Components.Tab (
 
 import Data.List qualified as L
 import Data.Text (Text)
-import Data.Text qualified as T
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
@@ -16,15 +15,15 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 
-data TabConfig a = TabConfig
+data TabConfig tab = TabConfig
   { tabCfgId :: Text
   , tabCfgSpacing :: Double
   , tabCfgWidth :: Double
   , tabCfgHeight :: Double
-  , tabCfgItems :: [(a, Text)]
+  , tabCfgItems :: [(tab, Text)]
   }
 
-compileTab :: (Eq a, Show a) => TabConfig a -> Maybe a -> Scene Text
+compileTab :: (Eq tab, Show tab) => TabConfig tab -> Maybe tab -> Scene tab
 compileTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg
@@ -38,19 +37,19 @@ compileTab cfg mtab =
     items = zip [0 ..] (tabCfgItems cfg)
     mselected = do
       tab <- mtab
-      L.find (\(_, (t', _)) -> tab == t') items
+      L.find (\(_, (tab', _)) -> tab == tab') items
 
-    tabPos n = 5 + spacing * n
+    tabPos n = 5 + spacing * fromIntegral n
     end = tabCfgWidth cfg
     vp = ViewPort (0, 0) (end, height)
     fontSize = 8
-    mkTab (n, (t, txt)) =
-      let x = tabPos n
+    mkTab (n, (tab, txt)) =
+      let x = tabPos (n :: Int)
           hitEvent =
             HitEvent
-              { hitEventHover = Nothing
-              , hitEventClick =
-                  (False, Just (T.pack (show t)))
+              { hitEventHoverOn = Nothing
+              , hitEventHoverOff = Nothing
+              , hitEventClick = Just (Right tab)
               }
        in [ Rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
           , DrawText (x, 2) UpperLeft Sans Black fontSize txt
