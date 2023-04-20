@@ -29,7 +29,7 @@ import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe, maybeToList)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (
@@ -214,8 +214,9 @@ compileTimingChart drvModMap tui ttable =
             modu <- mmodu
             pure
               HitEvent
-                { hitEventHover = Just modu
-                , hitEventClick = (False, Nothing)
+                { hitEventHoverOn = Just modu
+                , hitEventHoverOff = Just modu
+                , hitEventClick = Nothing
                 }
        in Rectangle
             (leftOfBox item, module2Y i)
@@ -438,13 +439,14 @@ renderTimingChart drvModMap tui ttable =
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive handler2) rexp)
+    , S.g [] (fmap (renderPrimitive handler) rexp)
     ]
   where
-    handler2 modu =
-      [ TimingEv (HoverOnModule modu) <$ onMouseEnter
-      , TimingEv (HoverOffModule modu) <$ onMouseLeave
-      ]
+    handler hitEvent =
+      catMaybes
+        [ fmap (\modu -> TimingEv (HoverOnModule modu) <$ onMouseEnter) (hitEventHoverOn hitEvent)
+        , fmap (\modu -> TimingEv (HoverOffModule modu) <$ onMouseLeave) (hitEventHoverOn hitEvent)
+        ]
     scene = compileTimingChart drvModMap tui ttable
     rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort

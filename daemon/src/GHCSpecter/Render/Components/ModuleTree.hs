@@ -91,13 +91,15 @@ compileModuleTree srcUI ss =
           hitEvent
             | matched =
                 HitEvent
-                  { hitEventHover = Nothing
-                  , hitEventClick = (True, Just modu)
+                  { hitEventHoverOn = Nothing
+                  , hitEventHoverOff = Nothing
+                  , hitEventClick = Just (Left modu)
                   }
             | otherwise =
                 HitEvent
-                  { hitEventHover = Nothing
-                  , hitEventClick = (False, Just modu)
+                  { hitEventHoverOn = Nothing
+                  , hitEventHoverOff = Nothing
+                  , hitEventClick = Just (Right modu)
                   }
        in [ Rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
           , DrawText (x, y) UpperLeft Sans color 8 txt

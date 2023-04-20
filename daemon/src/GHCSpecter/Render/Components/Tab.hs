@@ -48,9 +48,9 @@ compileTab cfg mtab =
       let x = tabPos n
           hitEvent =
             HitEvent
-              { hitEventHover = Nothing
-              , hitEventClick =
-                  (False, Just (T.pack (show t)))
+              { hitEventHoverOn = Nothing
+              , hitEventHoverOff = Nothing
+              , hitEventClick = Just (Right (T.pack (show t)))
               }
        in [ Rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
           , DrawText (x, 2) UpperLeft Sans Black fontSize txt

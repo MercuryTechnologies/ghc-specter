@@ -187,13 +187,15 @@ compilePauseResume session =
     hitEvent
       | sessionIsPaused session =
           HitEvent
-            { hitEventHover = Nothing
-            , hitEventClick = (False, Just "ResumeSession")
+            { hitEventHoverOn = Nothing
+            , hitEventHoverOff = Nothing
+            , hitEventClick = Just (Right "ResumeSession")
             }
       | otherwise =
           HitEvent
-            { hitEventHover = Nothing
-            , hitEventClick = (False, Just "PauseSession")
+            { hitEventHoverOn = Nothing
+            , hitEventHoverOff = Nothing
+            , hitEventClick = Just (Right "PauseSession")
             }
     contents =
       [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)

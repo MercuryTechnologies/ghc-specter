@@ -49,10 +49,10 @@ data TextFontFace = Sans | Mono
   deriving (Show)
 
 data HitEvent e = HitEvent
-  { hitEventHover :: Maybe e
-  -- ^ event message when hovered
-  , hitEventClick :: (Bool, Maybe e)
-  -- ^ *current* activation status (toggle on/off), and event message when clicked
+  { hitEventHoverOn :: Maybe e
+  , hitEventHoverOff :: Maybe e
+  , hitEventClick :: Maybe (Either e e)
+  -- ^ Left: on -> off, Right: off -> on. If no toggle state, it's always Right.
   }
   deriving (Show)
 

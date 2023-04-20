@@ -242,7 +242,7 @@ goHoverScrollZoom handlers ev = do
                     emap <- memap
                     guard (eventMapId emap == component)
                     let mprevHit = ui ^. uiModel . hoverLens
-                        mnowHit = hitEventHover =<< hitItem (x, y) emap
+                        mnowHit = hitEventHoverOn =<< hitItem (x, y) emap
                     if mnowHit /= mprevHit
                       then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
                       else Nothing
@@ -356,7 +356,7 @@ goSession ev = do
             emap <- memap
             guard (eventMapId emap == "session-button")
             hitEvent <- hitItem (x, y) emap
-            eventMsg <- snd (hitEventClick hitEvent)
+            Right eventMsg <- hitEventClick hitEvent
             pure eventMsg
       case mhit of
         Just hit ->
@@ -435,7 +435,7 @@ goModuleGraph ev = do
                 emap <- memap
                 guard (eventMapId emap == "main-module-graph")
                 hitEvent <- hitItem (x, y) emap
-                click <- snd $ hitEventClick hitEvent
+                Right click <- hitEventClick hitEvent
                 pure click
               (ui', ss')
                 | mnowHit /= mprevHit =
@@ -514,24 +514,25 @@ goSourceView ev = do
           if
               | eventMapId emap == "module-tree" -> do
                   modifyUISS $ \(ui, ss) ->
-                    let mnowHit = hitEventClick <$> hitItem (x, y) emap
+                    let mnowHit = hitEventClick =<< hitItem (x, y) emap
                      in case mnowHit of
-                          Just (wasActive, Just nowHit)
-                            | not wasActive ->
-                                let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
-                                    ss' = (serverShouldUpdate .~ False) ss
-                                 in (ui', ss')
-                            | otherwise ->
-                                let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
-                                    ss' = (serverShouldUpdate .~ False) ss
-                                 in (ui', ss')
-                          _ -> (ui, ss)
+                          -- on -> off
+                          Just (Right nowHit) ->
+                            let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
+                                ss' = (serverShouldUpdate .~ False) ss
+                             in (ui', ss')
+                          -- off -> on
+                          Just (Left _nowHit) ->
+                            let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
+                                ss' = (serverShouldUpdate .~ False) ss
+                             in (ui', ss')
+                          Nothing -> (ui, ss)
                   refresh
               | eventMapId emap == "supple-view-tab" -> do
                   modifyUISS $ \(ui, ss) ->
                     let mhitTab = do
                           hitEvent <- hitItem (x, y) emap
-                          eventMsg <- snd (hitEventClick hitEvent)
+                          Right eventMsg <- hitEventClick hitEvent
                           readMaybe (T.unpack eventMsg)
                         ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
                      in (ui', ss)
@@ -706,7 +707,7 @@ mainLoop = do
                     emap <- memap
                     guard (eventMapId emap == "tab")
                     hitEvent <- hitItem (x, y) emap
-                    eventMsg <- snd (hitEventClick hitEvent)
+                    Right eventMsg <- hitEventClick hitEvent
                     pure eventMsg
               let mtab' = case mhitTab of
                     Just "TabSession" -> Just TabSession

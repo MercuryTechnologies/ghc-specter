@@ -19,10 +19,11 @@ import Concur.Replica (
  )
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens ((^.), _1)
+import Data.Either.Extra (fromEither)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map qualified as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
@@ -112,8 +113,9 @@ compileModuleGraph
                 | otherwise = Ivory
               hitEvent =
                 HitEvent
-                  { hitEventHover = Just name
-                  , hitEventClick = (False, Just name)
+                  { hitEventHoverOn = Just name
+                  , hitEventHoverOff = Just name
+                  , hitEventClick = Just (Right name)
                   }
            in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
@@ -187,11 +189,12 @@ renderModuleGraph
   grVisInfo
   (mfocused, mhinted) =
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
-        handlers name =
-          [ HoverOnModuleEv (Just name) <$ onMouseEnter
-          , HoverOnModuleEv Nothing <$ onMouseLeave
-          , ClickOnModuleEv (Just name) <$ onClick
-          ]
+        handlers hitEvent =
+          catMaybes
+            [ fmap (\name -> HoverOnModuleEv (Just name) <$ onMouseEnter) (hitEventHoverOn hitEvent)
+            , fmap (\_ -> HoverOnModuleEv Nothing <$ onMouseLeave) (hitEventHoverOff hitEvent)
+            , fmap (\e -> ClickOnModuleEv (Just (fromEither e)) <$ onClick) (hitEventClick hitEvent)
+            ]
         scene = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
         rexp = sceneElements scene
         svgProps =
