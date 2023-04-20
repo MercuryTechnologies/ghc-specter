@@ -1,4 +1,5 @@
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
