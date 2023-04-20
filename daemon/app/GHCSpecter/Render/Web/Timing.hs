@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Timing (
+module GHCSpecter.Render.Web.Timing (
   render,
 ) where
 
@@ -163,8 +163,8 @@ renderBlockerGraph :: ServerState -> Widget IHTML Event
 renderBlockerGraph ss =
   divClass
     "box"
-    [ width (T.pack (show timingWidth))
-    , height (T.pack (show timingHeight))
+    [ width (T.pack (show (timingWidth :: Int)))
+    , height (T.pack (show (timingHeight :: Int)))
     , style [("overflow", "scroll")]
     ]
     contents

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Driver (
+module GHCSpecter.Driver.Web (
   webServer,
 ) where
 
@@ -32,7 +32,7 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
-import GHCSpecter.Render (render)
+import GHCSpecter.Render.Web (render)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.ConcurReplica.Run (runDefaultWithStyle)
 import GHCSpecter.UI.ConcurReplica.Types (

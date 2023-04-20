@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Render.ModuleGraph (
+module GHCSpecter.Render.Web.ModuleGraph (
   -- * Render HTML for the Module Graph tab
   render,
 ) where
