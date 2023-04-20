@@ -34,7 +34,6 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
-import Render.Common (convertTopLevelTab)
 import Renderer (
   addEventMap,
   renderScene,
@@ -53,7 +52,7 @@ renderTiming drvModMap tui ttable = do
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabTiming)
+    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabTiming)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

@@ -6,7 +6,6 @@ import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
@@ -28,7 +27,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
-import Render.Common (convertTopLevelTab, vruleLeft)
+import Render.Common (vruleLeft)
 import Renderer (
   addEventMap,
   renderScene,
@@ -43,7 +42,7 @@ renderSourceView ::
 renderSourceView srcUI ss = do
   wcfg <- resetWidget TabSourceView
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabSourceView)
+    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabSourceView)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

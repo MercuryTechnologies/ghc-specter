@@ -5,18 +5,10 @@ module Render.Common (
   hruleTop,
   vruleLeft,
   boxRules,
-
-  -- * conversion
-  convertTopLevelTab,
 ) where
 
 import Control.Monad.Trans.Class (lift)
-import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (
-  Scene,
-  ViewPort (..),
- )
-import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GI.Cairo.Render qualified as R
 import Types (GtkRender)
 
@@ -42,14 +34,3 @@ boxRules (ViewPort (cx0, cy0) (cx1, cy1)) = lift $ do
   R.setLineWidth 1.0
   R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
   R.stroke
-
--- TODO: generalize compileTab further so that we do not need this.
-convertTopLevelTab :: Scene (Text, Int) -> Scene Event
-convertTopLevelTab s = fmap f s
-  where
-    f (txt, _)
-      | txt == "TabSession" = TabEv TabSession
-      | txt == "TabModuleGraph" = TabEv TabModuleGraph
-      | txt == "TabSourceView" = TabEv TabSourceView
-      | txt == "TabTiming" = TabEv TabTiming
-      | otherwise = DummyEv

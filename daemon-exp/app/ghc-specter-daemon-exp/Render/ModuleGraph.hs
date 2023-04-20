@@ -34,7 +34,7 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GI.Cairo.Render qualified as R
-import Render.Common (convertTopLevelTab, hruleTop)
+import Render.Common (hruleTop)
 import Renderer (addEventMap, renderScene, resetWidget)
 import Text.Printf (printf)
 import Types (GtkRender)
@@ -77,7 +77,7 @@ renderModuleGraph
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- tab
     for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-      let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabModuleGraph)
+      let sceneTab = TabEv <$> compileTab topLevelTab (Just TabModuleGraph)
           sceneTab' =
             sceneTab
               { sceneGlobalViewPort = vpCvs

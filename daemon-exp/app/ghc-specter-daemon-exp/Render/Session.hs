@@ -31,7 +31,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Common (boxRules, convertTopLevelTab)
+import Render.Common (boxRules)
 import Renderer (
   addEventMap,
   renderScene,
@@ -47,7 +47,7 @@ renderSession ::
 renderSession ss sessui = do
   wcfg <- resetWidget TabSession
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabSession)
+    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabSession)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs

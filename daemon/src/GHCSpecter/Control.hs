@@ -371,8 +371,8 @@ goSession ev = do
             emap <- memap
             guard (eventMapId emap == "session-button")
             hitEvent <- hitItem (x, y) emap
-            Right ev <- hitEventClick hitEvent
-            pure ev
+            Right ev' <- hitEventClick hitEvent
+            pure ev'
       case mhit of
         Just ev'@(SessionEv _sev) -> goSession ev'
         _ -> pure ()
@@ -528,13 +528,12 @@ goSourceView ev = do
                           _ -> (ui, ss)
                   refresh
               | eventMapId emap == "supple-view-tab" -> do
-                  modifyUISS $ \(ui, ss) ->
-                    let mhitTab = do
-                          hitEvent <- hitItem (x, y) emap
-                          Right (SourceViewEv (SourceViewTab tab)) <- hitEventClick hitEvent
-                          pure tab
-                        ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
-                     in (ui', ss)
+                  let mhitTab = do
+                        hitEvent <- hitItem (x, y) emap
+                        Right (SourceViewEv (SourceViewTab tab)) <- hitEventClick hitEvent
+                        pure tab
+                  printMsg ("hitTab: " <> T.pack (show mhitTab))
+                  modifyUI (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab)
                   refresh
               | otherwise -> pure ()
         Nothing -> pure ()

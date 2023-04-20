@@ -16,7 +16,6 @@ import Control.Concurrent.STM (
   readTChan,
   readTVar,
   retry,
-  takeTMVar,
   writeTChan,
   writeTQueue,
   writeTVar,
@@ -33,7 +32,6 @@ import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Typeable (gcast)
