@@ -17,9 +17,8 @@ module Renderer (
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
-  readTVar,
  )
-import Control.Lens ((%~), (.~), (^.), _1, _2)
+import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
@@ -38,9 +37,6 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.UI.Types (
-  HasUIModel (..),
-  HasUIState (..),
-  HasUIViewRaw (..),
   HasWidgetConfig (..),
  )
 import GHCSpecter.UI.Types.Event (Tab (..))
@@ -48,15 +44,15 @@ import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
-import Types (GtkRender, ViewBackend (..))
+import Types (GtkRender, ViewBackend (..), ViewBackendResource (..))
 
-drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender ()
+drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender e ()
 drawText face sz (x, y) msg = do
-  vb <- (^. _1) <$> ask
-  let pangoCtxt = vbPangoContext vb
+  vbr <- vbResource <$> ask
+  let pangoCtxt = vbrPangoContext vbr
       desc = case face of
-        Sans -> vbFontDescSans vb
-        Mono -> vbFontDescMono vb
+        Sans -> vbrFontDescSans vbr
+        Mono -> vbrFontDescMono vbr
   lift $ do
     layout :: P.Layout <- P.layoutNew pangoCtxt
     #setSize desc (sz * P.SCALE)
@@ -66,7 +62,7 @@ drawText face sz (x, y) msg = do
     ctxt <- RC.getContext
     PC.showLayout ctxt layout
 
-setColor :: Color -> GtkRender ()
+setColor :: Color -> GtkRender e ()
 setColor Black = lift $ R.setSourceRGBA 0 0 0 1
 setColor White = lift $ R.setSourceRGBA 1 1 1 1
 setColor Red = lift $ R.setSourceRGBA 1 0 0 1
@@ -89,7 +85,7 @@ setColor ColorRedLevel3 = lift $ R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: Primitive e -> GtkRender ()
+renderPrimitive :: Primitive e -> GtkRender e ()
 renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
@@ -117,7 +113,7 @@ renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
 
-renderScene :: Scene Text -> GtkRender ()
+renderScene :: Scene e -> GtkRender e ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
       ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
@@ -133,21 +129,23 @@ renderScene scene = do
   traverse_ renderPrimitive (sceneElements scene)
   lift R.restore
 
-resetWidget :: GtkRender (Map Text ViewPort)
-resetWidget = do
-  uiRef <- (^. _2) <$> ask
+resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
+resetWidget tab = do
+  vb <- ask
+  let vbr = vbResource vb
+      wcfg = vbrWidgetConfig vbr
+      emapRef = vbEventMap vb
   liftIO $ atomically $ do
-    modifyTVar' uiRef (uiViewRaw . uiRawEventMap .~ [])
-    model <- (^. uiModel) <$> readTVar uiRef
-    case model ^. modelTab of
-      TabSession -> pure (model ^. modelWidgetConfig . wcfgSession)
-      TabModuleGraph -> pure (model ^. modelWidgetConfig . wcfgModuleGraph)
-      TabSourceView -> pure (model ^. modelWidgetConfig . wcfgSourceView)
-      TabTiming -> pure (model ^. modelWidgetConfig . wcfgTiming)
+    modifyTVar' emapRef (const [])
+    case tab of
+      TabSession -> pure (wcfg ^. wcfgSession)
+      TabModuleGraph -> pure (wcfg ^. wcfgModuleGraph)
+      TabSourceView -> pure (wcfg ^. wcfgSourceView)
+      TabTiming -> pure (wcfg ^. wcfgTiming)
 
-addEventMap :: Scene Text -> GtkRender ()
+addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do
-  uiRef <- (^. _2) <$> ask
+  emapRef <- vbEventMap <$> ask
   let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
         Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
@@ -161,5 +159,4 @@ addEventMap scene = do
           }
   liftIO $
     atomically $
-      modifyTVar' uiRef $
-        uiViewRaw . uiRawEventMap %~ (\emaps -> emap : emaps)
+      modifyTVar' emapRef (\emaps -> emap : emaps)

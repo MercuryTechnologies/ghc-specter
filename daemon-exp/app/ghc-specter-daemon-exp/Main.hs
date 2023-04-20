@@ -16,21 +16,27 @@ import Control.Concurrent.STM (
   readTChan,
   readTVar,
   retry,
+  takeTMVar,
   writeTChan,
   writeTQueue,
+  writeTVar,
  )
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
+import Control.Monad (join)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ask, runReaderT)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
+import Data.Typeable (gcast)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
   Config (..),
@@ -38,16 +44,20 @@ import GHCSpecter.Config (
   loadConfig,
  )
 import GHCSpecter.Control qualified as Control
+import GHCSpecter.Control.Runner (RunnerEnv (..))
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
+  HasClientSession (..),
+  HasServerSession (..),
   ServerSession (..),
   UIChannel (..),
  )
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
   Color (Black),
+  EventMap,
   TextFontFace (Sans),
   ViewPort (..),
  )
@@ -71,6 +81,7 @@ import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
   HasWidgetConfig (..),
+  UIState,
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -81,6 +92,7 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
+import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
@@ -98,7 +110,12 @@ import Render.Session (renderSession)
 import Render.SourceView (renderSourceView)
 import Render.Timing (renderTiming)
 import Renderer (drawText, setColor)
-import Types (GtkRender, ViewBackend (..))
+import Types (
+  GtkRender,
+  ViewBackend (..),
+  ViewBackendResource (..),
+  WrappedViewBackend (..),
+ )
 
 detailLevel :: DetailLevel
 detailLevel = UpTo30
@@ -113,8 +130,8 @@ withConfig mconfigFile action = do
       print cfg
       action cfg
 
-initViewBackend :: IO (Maybe ViewBackend)
-initViewBackend = do
+initViewBackendResource :: IO (Maybe ViewBackendResource)
+initViewBackendResource = do
   fontMap :: PC.FontMap <- PC.fontMapGetDefault
   pangoCtxt <- #createContext fontMap
   familySans <- #getFamily fontMap "FreeSans"
@@ -124,9 +141,15 @@ initViewBackend = do
   for ((,) <$> mfaceSans <*> mfaceMono) $ \(faceSans, faceMono) -> do
     descSans <- #describe faceSans
     descMono <- #describe faceMono
-    pure (ViewBackend pangoCtxt descSans descMono)
+    pure $
+      ViewBackendResource
+        { vbrPangoContext = pangoCtxt
+        , vbrFontDescSans = descSans
+        , vbrFontDescMono = descMono
+        , vbrWidgetConfig = appWidgetConfig
+        }
 
-renderNotConnected :: GtkRender ()
+renderNotConnected :: GtkRender e ()
 renderNotConnected = do
   lift R.save
   setColor Black
@@ -134,11 +157,10 @@ renderNotConnected = do
   lift R.restore
 
 renderAction ::
+  UIState ->
   ServerState ->
-  GtkRender ()
-renderAction ss = do
-  (_, uiRef) <- ask
-  ui <- liftIO $ atomically $ readTVar uiRef
+  GtkRender Text ()
+renderAction ui ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
       drvModMap = ss ^. serverDriverModuleMap
@@ -267,11 +289,14 @@ main =
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
-    mvb <- initViewBackend
+    mvb <- initViewBackendResource
     case mvb of
       Nothing -> error "cannot initialize pango"
-      Just vb0 -> do
-        vbRef <- atomically $ newTVar vb0
+      Just vbr -> do
+        vbRef <- atomically $ do
+          emapRef <- newTVar ([] :: [EventMap Text])
+          let vb = ViewBackend vbr emapRef
+          newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
         -- main canvas
@@ -289,8 +314,14 @@ main =
           `on` #draw
           $ RC.renderWithContext
           $ do
-            (vb, ss) <- liftIO $ atomically ((,) <$> readTVar vbRef <*> readTVar ssRef)
-            runReaderT (renderAction ss) (vb, uiRef)
+            (vb, ui, ss) <- liftIO $ atomically $ do
+              ui <- readTVar uiRef
+              ss <- readTVar ssRef
+              emapRef <- newTVar []
+              let vb = ViewBackend vbr emapRef
+              writeTVar vbRef (WrappedViewBackend vb)
+              pure (vb, ui, ss)
+            runReaderT (renderAction ui ss) vb
             pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
@@ -329,14 +360,32 @@ main =
         #setDefaultSize mainWindow (canvasDim ^. _1) (canvasDim ^. _2)
         #showAll mainWindow
 
+        -- prepare runner
+        -- TODO: make common initialization function (but backend-dep)
+        counterRef <- newIORef 0
+        let runner =
+              RunnerEnv
+                { runnerCounter = counterRef
+                , runnerUIState = cliSess ^. csUIStateRef
+                , runnerServerState = servSess ^. ssServerStateRef
+                , runnerQEvent = cliSess ^. csPublisherEvent
+                , runnerSignalChan = servSess ^. ssSubscriberSignal
+                , runnerRefreshAction = refreshAction
+                , runnerHitScene = \xy -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = Transformation.hitScene xy emaps
+                    pure (join (gcast @_ @Text <$> memap))
+                }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ
         _ <-
           forkOS $
             Session.main
+              runner
               servSess
               cliSess
-              refreshAction
               Control.mainLoop
         _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main

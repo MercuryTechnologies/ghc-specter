@@ -1,18 +1,30 @@
 module Types (
+  ViewBackendResource (..),
   ViewBackend (..),
+  WrappedViewBackend (..),
   GtkRender,
 ) where
 
 import Control.Concurrent.STM (TVar)
 import Control.Monad.Trans.Reader (ReaderT)
-import GHCSpecter.UI.Types (UIState)
+import Data.Typeable (Typeable)
+import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.UI.Types (WidgetConfig)
 import GI.Cairo.Render qualified as R
 import GI.Pango qualified as P
 
-data ViewBackend = ViewBackend
-  { vbPangoContext :: P.Context
-  , vbFontDescSans :: P.FontDescription
-  , vbFontDescMono :: P.FontDescription
+data ViewBackendResource = ViewBackendResource
+  { vbrPangoContext :: P.Context
+  , vbrFontDescSans :: P.FontDescription
+  , vbrFontDescMono :: P.FontDescription
+  , vbrWidgetConfig :: WidgetConfig
   }
 
-type GtkRender = ReaderT (ViewBackend, TVar UIState) R.Render
+data ViewBackend e = ViewBackend
+  { vbResource :: ViewBackendResource
+  , vbEventMap :: TVar [EventMap e]
+  }
+
+data WrappedViewBackend = forall e. (Typeable e) => WrappedViewBackend (ViewBackend e)
+
+type GtkRender e = ReaderT (ViewBackend e) R.Render

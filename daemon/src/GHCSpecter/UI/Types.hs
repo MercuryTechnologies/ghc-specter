@@ -41,10 +41,6 @@ module GHCSpecter.UI.Types (
   HasUIModel (..),
   emptyUIModel,
 
-  -- * UIViewRaw
-  UIViewRaw (..),
-  HasUIViewRaw (..),
-
   -- * UIState
   UIState (..),
   HasUIState (..),
@@ -59,7 +55,7 @@ import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.Graphics.DSL (EventMap (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Constants (
   canvasDim,
   modGraphHeight,
@@ -208,6 +204,9 @@ data UIModel = UIModel
   -- ^ UI model of console uI
   , _modelWidgetConfig :: WidgetConfig
   -- ^ widget config. to support dynamic configuration change
+  , _modelTransientBanner :: Maybe Double
+  -- ^ progress bar status.
+  -- TODO: This will be handled more properly with typed transition.
   }
 
 makeClassy ''UIModel
@@ -223,17 +222,8 @@ emptyUIModel =
     , _modelTiming = emptyTimingUI
     , _modelConsole = emptyConsoleUI
     , _modelWidgetConfig = emptyWidgetConfig
+    , _modelTransientBanner = Nothing
     }
-
-data UIViewRaw = UIViewRaw
-  { _uiTransientBanner :: Maybe Double
-  -- ^ progress bar status.
-  -- TODO: This will be handled more properly with typed transition.
-  , _uiRawEventMap :: [EventMap Text]
-  -- ^ event name -> bounding box map
-  }
-
-makeClassy ''UIViewRaw
 
 {- NOTE: [UI state and model]
    ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -251,8 +241,6 @@ data UIState = UIState
   -- ^ last updated time
   , _uiModel :: UIModel
   -- ^ main UI state
-  , _uiViewRaw :: UIViewRaw
-  -- ^ view state in the raw
   , _uiAssets :: Assets
   -- ^ additional assets (such as png files)
   }
@@ -265,6 +253,5 @@ emptyUIState assets now =
     { _uiShouldUpdate = True
     , _uiLastUpdated = now
     , _uiModel = emptyUIModel
-    , _uiViewRaw = UIViewRaw Nothing []
     , _uiAssets = assets
     }

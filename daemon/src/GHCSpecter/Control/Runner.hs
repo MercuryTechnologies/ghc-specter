@@ -30,14 +30,18 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
+import Data.Proxy (Proxy (..))
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
+import Data.Typeable (Typeable)
 import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Control.Types (
   ControlF (..),
   type Control,
  )
+import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (
   HasUIState (..),
@@ -49,50 +53,54 @@ import GHCSpecter.UI.Types.Event (
  )
 import System.IO (IOMode (..), withFile)
 
-data RunnerEnv = RunnerEnv
+-- | mutating state and a few handlers
+data RunnerEnv e = RunnerEnv
   { runnerCounter :: IORef Int
   , runnerUIState :: TVar UIState
   , runnerServerState :: TVar ServerState
   , runnerQEvent :: TQueue Event
   , runnerSignalChan :: TChan Request
   , runnerRefreshAction :: IO ()
+  , runnerHitScene ::
+      (Double, Double) ->
+      IO (Maybe (EventMap e))
   }
 
-type Runner = ReaderT RunnerEnv IO
+type Runner e = ReaderT (RunnerEnv e) IO
 
-getUI' :: Runner UIState
+getUI' :: Runner e UIState
 getUI' = do
   uiRef <- runnerUIState <$> ask
   liftIO $ atomically $ readTVar uiRef
 
-putUI' :: UIState -> Runner ()
+putUI' :: UIState -> Runner e ()
 putUI' ui = do
   uiRef <- runnerUIState <$> ask
   liftIO $ atomically $ writeTVar uiRef ui
 
-modifyUI' :: (UIState -> UIState) -> Runner ()
+modifyUI' :: (UIState -> UIState) -> Runner e ()
 modifyUI' f = do
   uiRef <- runnerUIState <$> ask
   liftIO $ atomically $ modifyTVar' uiRef f
 
-getSS' :: Runner ServerState
+getSS' :: Runner e ServerState
 getSS' = do
   ssRef <- runnerServerState <$> ask
   liftIO $ atomically $ readTVar ssRef
 
-putSS' :: ServerState -> Runner ()
+putSS' :: ServerState -> Runner e ()
 putSS' ss = do
   ssRef <- runnerServerState <$> ask
   liftIO $ atomically $ writeTVar ssRef ss
 
-modifySS' :: (ServerState -> ServerState) -> Runner ()
+modifySS' :: (ServerState -> ServerState) -> Runner e ()
 modifySS' f = do
   ssRef <- runnerServerState <$> ask
   liftIO $ atomically $ modifyTVar' ssRef f
 
 modifyUISS' ::
   ((UIState, ServerState) -> (UIState, ServerState)) ->
-  Runner ((UIState, ServerState), (UIState, ServerState))
+  Runner e ((UIState, ServerState), (UIState, ServerState))
 modifyUISS' f = do
   (uiRef, ssRef) <- ((,) <$> runnerUIState <*> runnerServerState) <$> ask
   liftIO $ atomically $ do
@@ -102,7 +110,7 @@ modifyUISS' f = do
     ui' `seq` ss' `seq` (writeTVar uiRef ui' >> writeTVar ssRef ss')
     pure ((ui, ss), (ui', ss'))
 
-sendRequest' :: Request -> Runner ()
+sendRequest' :: Request -> Runner e ()
 sendRequest' req = do
   signalChan <- runnerSignalChan <$> ask
   liftIO $ atomically $ writeTChan signalChan req
@@ -126,17 +134,18 @@ and the inner loop is to process non-event-poking steps.
 
 -- | A single primitive step for the inner loop. See Note [Control Loops].
 stepControl ::
-  Control r ->
+  Control e r ->
   -- | What the result means:
   -- Left _: continuation in the inner loop.
   -- Right (Left _): continuation that waits for a new event in the outer loop
   -- Right (Right _): final result as the business logic reaches its end.
   -- TODO: Use more descriptive custom types.
   Runner
+    e
     ( Either
-        (Control r)
+        (Control e r)
         ( Either
-            (Event -> Control r)
+            (Event -> Control e r)
             r
         )
     )
@@ -168,6 +177,10 @@ stepControl (Free (ModifyAndReturn upd cont)) = do
 stepControl (Free (ModifyAndReturnBoth upd cont)) = do
   (before, after) <- modifyUISS' upd
   pure (Left (cont (before, after)))
+stepControl (Free (HitScene xy cont)) = do
+  hitScene' <- runnerHitScene <$> ask
+  memap <- liftIO $ hitScene' xy
+  pure (Left (cont memap))
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)
@@ -214,6 +227,6 @@ stepControl (Free (AsyncWork worker next)) = do
 -- | The inner loop described in the Note [Control Loops].
 stepControlUpToEvent ::
   Event ->
-  (Event -> Control r) ->
-  Runner (Either (Event -> Control r) r)
+  (Event -> Control e r) ->
+  Runner e (Either (Event -> Control e r) r)
 stepControlUpToEvent ev cont0 = loopM stepControl (cont0 ev)
