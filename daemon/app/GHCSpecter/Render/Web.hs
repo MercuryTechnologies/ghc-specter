@@ -22,12 +22,12 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Data.Assets (HasAssets (..))
 import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
+import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Render.Web.Console qualified as Console
 import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Web.Session qualified as Session
 import GHCSpecter.Render.Web.SourceView qualified as SourceView
 import GHCSpecter.Render.Web.Timing qualified as Timing
-import GHCSpecter.Render.Util (divClass)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
@@ -182,4 +182,3 @@ render (ui, ss) =
   case ui ^. uiModel . modelTransientBanner of
     Just fraction -> renderBanner (ui ^. uiAssets . assetsGhcSpecterPng) fraction
     Nothing -> renderMainView (ui ^. uiModel, ss)
-

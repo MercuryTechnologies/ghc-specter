@@ -228,4 +228,3 @@ render ss =
       partition (\(_, t) -> isJust (getEnd t)) timingList
     nDone = length timingDone
     nInProg = length timingInProg
-

@@ -5,7 +5,7 @@
 module GHCSpecter.Render.Web.ModuleGraph (
   renderModuleGraph,
   renderGraph,
-  
+
   -- * Render HTML for the Module Graph tab
   render,
 ) where
@@ -14,14 +14,14 @@ import Concur.Core (Widget)
 import Concur.Replica (
   classList,
   onClick,
-  onMouseEnter,
-  onMouseLeave,  
   onInput,
+  onMouseEnter,
+  onMouseLeave,
   style,
-  width,  
+  width,
  )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
-import Concur.Replica.SVG.Props qualified as SP  
+import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
 import Control.Lens (to, (^.), _1)
 import Data.Either.Extra (fromEither)
@@ -38,19 +38,19 @@ import GHCSpecter.Channel.Outbound.Types (
  )
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.GraphLayout.Types
-  ( Dimension (..),
-    GraphVisInfo (..),
-    HasGraphVisInfo (..),
-  )
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
+ )
 import GHCSpecter.Graphics.DSL (
   HitEvent (..),
   Scene (..),
  )
-import GHCSpecter.Render.Components.GraphView
-  ( compileGraph,
-    compileModuleGraph,
-  )
+import GHCSpecter.Render.Components.GraphView (
+  compileGraph,
+  compileModuleGraph,
+ )
 import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Util (xmlns)
 import GHCSpecter.Server.Types (
@@ -78,7 +78,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   DetailLevel (..),
   Event (..),
-  ModuleGraphEvent (..),  
+  ModuleGraphEvent (..),
   SubModuleEvent (..),
  )
 import Text.Printf (printf)

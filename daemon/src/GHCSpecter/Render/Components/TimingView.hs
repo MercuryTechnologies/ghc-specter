@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.TimingView (
@@ -11,26 +10,13 @@ module GHCSpecter.Render.Components.TimingView (
   compileMemChart,
   compileTimingRange,
   compileBlockers,
-
-  -- * render
-  render,
 ) where
 
-import Concur.Core (Widget)
-import Concur.Replica (
-  height,
-  onMouseEnter,
-  onMouseLeave,
-  style,
-  width,
- )
-import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
-import Data.Maybe (catMaybes, fromMaybe, mapMaybe, maybeToList)
-import Data.Text qualified as T
+import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Time.Clock (
   NominalDiffTime,
   nominalDiffTimeToSeconds,
@@ -57,21 +43,6 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.ConcurReplicaSVG (renderPrimitive)
-import GHCSpecter.Render.Util (divClass, xmlns)
-import GHCSpecter.UI.ConcurReplica.DOM (
-  div,
-  hr,
-  p,
-  text,
- )
-import GHCSpecter.UI.ConcurReplica.DOM.Events (
-  onMouseDown,
-  onMouseMove,
-  onMouseUp,
- )
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import GHCSpecter.UI.Constants (
   timingHeight,
   timingMaxWidth,
@@ -84,9 +55,6 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (RefreshUI),
-  Event (..),
-  MouseEvent (..),
   TimingEvent (..),
  )
 import Prelude hiding (div)
@@ -428,171 +396,3 @@ compileBlockers hoveredMod ttable =
     (size, contents) =
       L.mapAccumL placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     box = Rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
-
-renderTimingChart ::
-  BiKeyMap DriverId ModuleName ->
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderTimingChart drvModMap tui ttable =
-  S.svg
-    svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive handler) rexp)
-    ]
-  where
-    handler hitEvent =
-      catMaybes
-        [ fmap (\ev -> TimingEv ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
-        , fmap (\ev -> TimingEv ev <$ onMouseLeave) (hitEventHoverOn hitEvent)
-        ]
-    scene = compileTimingChart drvModMap tui ttable
-    rexp = sceneElements scene
-    vpi = tui ^. timingUIViewPort
-    vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-    svgProps =
-      let viewboxProp =
-            SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @Double @Int) $
-              [ topLeft vp ^. _1
-              , topLeft vp ^. _2
-              , timingWidth
-              , timingHeight
-              ]
-          prop1 =
-            [ MouseEv . MouseDown <$> onMouseDown
-            , MouseEv . MouseUp <$> onMouseUp
-            , width (T.pack (show (timingWidth :: Int)))
-            , height (T.pack (show (timingHeight :: Int)))
-            , viewboxProp
-            , SP.version "1.1"
-            , xmlns
-            ]
-          mouseMove
-            | tui ^. timingUIHandleMouseMove =
-                [(\case Nothing -> BkgEv RefreshUI; Just xy -> MouseEv (MouseMove xy)) <$> onMouseMove]
-            | otherwise = []
-       in mouseMove ++ prop1
-
-renderMemChart ::
-  BiKeyMap DriverId ModuleName ->
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderMemChart drvModMap tui ttable =
-  S.svg
-    svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive (const [])) rexp)
-    ]
-  where
-    scene = compileMemChart drvModMap tui ttable
-    rexp = sceneElements scene
-    vpi = tui ^. timingUIViewPort
-    vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-    viewboxProp =
-      SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @_ @Int) $
-        [ 0
-        , topLeft vp ^. _2
-        , 300
-        , timingHeight
-        ]
-    svgProps =
-      [ width "300"
-      , height (T.pack (show (timingHeight :: Int)))
-      , viewboxProp
-      , SP.version "1.1"
-      , xmlns
-      ]
-
-renderTimingRange ::
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-renderTimingRange tui ttable =
-  div [] [svgElement]
-  where
-    scene = compileTimingRange tui ttable
-    rexp = sceneElements scene
-    svgProps =
-      [ width (T.pack (show (timingWidth :: Int)))
-      , height (T.pack (show (timingRangeHeight :: Int)))
-      , SP.version "1.1"
-      , xmlns
-      ]
-    svgElement =
-      S.svg
-        svgProps
-        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , S.g [] (fmap (renderPrimitive (const [])) rexp)
-        ]
-
-renderBlockers :: ModuleName -> TimingTable -> Widget IHTML Event
-renderBlockers hoveredMod ttable =
-  divClass "blocker" [] [selected, upstream, hr [], downstreams]
-  where
-    upMods =
-      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
-    downMods =
-      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
-
-    selected =
-      divClass "box" [] [p [] [text hoveredMod]]
-    upstream =
-      div
-        []
-        ( divClass "blocker title" [] [text "blocked by"]
-            : fmap (\modu -> p [] [text modu]) upMods
-        )
-    downstreams =
-      div
-        []
-        ( divClass "blocker title" [] [text "blocking"]
-            : fmap (\modu -> p [] [text modu]) downMods
-        )
-
-render ::
-  BiKeyMap DriverId ModuleName ->
-  TimingUI ->
-  TimingTable ->
-  Widget IHTML Event
-render drvModMap tui ttable =
-  divClass
-    "box"
-    []
-    ( [ divClass
-          "columns"
-          []
-          [ divClass
-              "box column is-four-fifths"
-              [style [("overflow", "hidden")]]
-              [ renderTimingChart drvModMap tui ttable
-              ]
-          , divClass
-              "box column is-one-fifth"
-              [style [("overflow", "hidden")]]
-              [renderMemChart drvModMap tui ttable]
-          ]
-      , renderTimingRange tui ttable
-      ]
-        ++ hoverInfo
-    )
-  where
-    mhoveredMod = tui ^. timingUIHoveredModule
-    hoverInfo =
-      case mhoveredMod of
-        Nothing -> []
-        Just hoveredMod ->
-          [ divClass
-              "box"
-              [ style
-                  [ ("width", "150px")
-                  , ("height", "120px")
-                  , ("position", "absolute")
-                  , ("bottom", "0")
-                  , ("left", "0")
-                  , ("background", "ivory")
-                  , ("overflow", "hidden")
-                  ]
-              ]
-              [renderBlockers hoveredMod ttable]
-          ]

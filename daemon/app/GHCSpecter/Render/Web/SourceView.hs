@@ -13,7 +13,7 @@ import Concur.Replica (
   onChange,
   onClick,
   style,
-  width,  
+  width,
  )
 import Concur.Replica.DOM.Props qualified as DP
 import Concur.Replica.SVG.Props qualified as SP
@@ -37,7 +37,7 @@ import GHCSpecter.Data.GHC.Hie (
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
-import GHCSpecter.Render.Components.TextView (topOfBox, leftOfBox, rowSize, bottomOfBox, charSize)
+import GHCSpecter.Render.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
 import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Render.Util (divClass, xmlns)
 import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
