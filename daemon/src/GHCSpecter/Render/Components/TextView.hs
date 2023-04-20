@@ -60,7 +60,7 @@ leftOfBox j = charSize * fromIntegral (j - 1)
 rightOfBox :: Int -> Double
 rightOfBox j = charSize * fromIntegral j
 
-compileTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene Text
+compileTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene e
 compileTextView txt highlighted =
   Scene
     { sceneId = "text-view"
@@ -90,8 +90,8 @@ compileTextView txt highlighted =
         (Just Yellow)
         (Just 1.0)
         Nothing
-    mkText (i, txt) =
-      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 txt
+    mkText (i, t) =
+      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
     contents =
       fmap highlightBox highlighted
         ++ fmap mkText ls

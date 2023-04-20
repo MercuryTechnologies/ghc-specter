@@ -78,7 +78,7 @@ compileModuleInProgress ::
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  Scene Text
+  Scene e
 compileModuleInProgress drvModMap pausedMap timingInProg =
   scene {sceneId = "module-status"}
   where
@@ -95,7 +95,7 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
 
 compileSession ::
   ServerState ->
-  Scene Text
+  Scene e
 compileSession ss =
   scene {sceneId = "session-main"}
   where
@@ -172,7 +172,7 @@ compileSession ss =
 
     scene = compileTextView txt []
 
-compilePauseResume :: SessionInfo -> Scene Text
+compilePauseResume :: SessionInfo -> Scene SessionEvent
 compilePauseResume session =
   Scene
     { sceneId = "session-button"
@@ -189,13 +189,13 @@ compilePauseResume session =
           HitEvent
             { hitEventHoverOn = Nothing
             , hitEventHoverOff = Nothing
-            , hitEventClick = Just (Right "ResumeSession")
+            , hitEventClick = Just (Right ResumeSessionEv)
             }
       | otherwise =
           HitEvent
             { hitEventHoverOn = Nothing
             , hitEventHoverOff = Nothing
-            , hitEventClick = Just (Right "PauseSession")
+            , hitEventClick = Just (Right PauseSessionEv)
             }
     contents =
       [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)

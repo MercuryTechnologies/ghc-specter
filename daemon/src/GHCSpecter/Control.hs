@@ -1,6 +1,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -103,7 +104,6 @@ import GHCSpecter.Worker.Timing (
   timingBlockerGraphWorker,
   timingWorker,
  )
-import Text.Read (readMaybe)
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))]
@@ -167,7 +167,7 @@ showBanner = do
           go start
         else pure ()
 
-handleConsoleCommand :: (e ~ Text) => DriverId -> Text -> Control e ()
+handleConsoleCommand :: (e ~ Event) => DriverId -> Text -> Control e ()
 handleConsoleCommand drvId msg
   | msg == ":next" = sendRequest $ ConsoleReq drvId NextBreakpoint
   | msg == ":show-renamed" = sendRequest $ ConsoleReq drvId ShowRenamed
@@ -205,7 +205,12 @@ appendNewCommand drvId newMsg = do
         ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
      in ss'
 
-scroll :: EventMap Text -> Lens' UIModel ViewPortInfo -> (ScrollDirection, (Double, Double)) -> UIModel -> UIModel
+scroll ::
+  EventMap e ->
+  Lens' UIModel ViewPortInfo ->
+  (ScrollDirection, (Double, Double)) ->
+  UIModel ->
+  UIModel
 scroll emap lensViewPort (dir, (dx, dy)) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
       vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
@@ -213,7 +218,12 @@ scroll emap lensViewPort (dir, (dx, dy)) model =
       vp' = transformScroll dir scale (dx, dy) vp
    in (lensViewPort .~ ViewPortInfo vp' Nothing) model
 
-zoom :: EventMap Text -> Lens' UIModel ViewPortInfo -> ((Double, Double), Double) -> UIModel -> UIModel
+zoom ::
+  EventMap e ->
+  Lens' UIModel ViewPortInfo ->
+  ((Double, Double), Double) ->
+  UIModel ->
+  UIModel
 zoom emap lensViewPort ((x, y), scale) model =
   let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
       -- NOTE: While zooming is in progress, the scaling is always relative to
@@ -225,12 +235,14 @@ zoom emap lensViewPort ((x, y), scale) model =
       vp' = (transformZoom (rx, ry) scale vp)
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
+-- TODO: this function should handle MouseEvent.
 goHoverScrollZoom ::
-  (e ~ Text) =>
+  (e ~ Event) =>
+  (Event -> Maybe Text) ->
   HandlerHoverScrollZoom ->
   Event ->
   Control e ()
-goHoverScrollZoom handlers ev = do
+goHoverScrollZoom hitWho handlers ev = do
   case ev of
     MouseEv (MouseMove (x, y)) -> do
       memap <- hitScene (x, y)
@@ -242,7 +254,10 @@ goHoverScrollZoom handlers ev = do
                     emap <- memap
                     guard (eventMapId emap == component)
                     let mprevHit = ui ^. uiModel . hoverLens
-                        mnowHit = hitEventHoverOn =<< hitItem (x, y) emap
+                        mnowHit = do
+                          hitEvent <- hitItem (x, y) emap
+                          ev' <- hitEventHoverOn hitEvent
+                          hitWho ev'
                     if mnowHit /= mprevHit
                       then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
                       else Nothing
@@ -282,7 +297,7 @@ goHoverScrollZoom handlers ev = do
     _ -> pure ()
 
 -- NOTE: This function should not exist forever.
-goCommon :: (e ~ Text) => Event -> Control e ()
+goCommon :: (e ~ Event) => Event -> Control e ()
 goCommon ev = do
   case ev of
     ConsoleEv (ConsoleTab i) -> do
@@ -323,7 +338,7 @@ goCommon ev = do
     BkgEv RefreshUI -> refresh
     _ -> pure ()
 
-goSession :: (e ~ Text) => Event -> Control e ()
+goSession :: (e ~ Event) => Event -> Control e ()
 goSession ev = do
   case ev of
     SessionEv SaveSessionEv -> do
@@ -356,36 +371,14 @@ goSession ev = do
             emap <- memap
             guard (eventMapId emap == "session-button")
             hitEvent <- hitItem (x, y) emap
-            Right eventMsg <- hitEventClick hitEvent
-            pure eventMsg
+            Right ev <- hitEventClick hitEvent
+            pure ev
       case mhit of
-        Just hit ->
-          if
-              | hit == "ResumeSession" -> do
-                  modifyUISS $ \(ui, ss) ->
-                    let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
-                        sinfo = ss ^. serverSessionInfo
-                        sinfo' = sinfo {sessionIsPaused = False}
-                        ss' =
-                          (serverSessionInfo .~ sinfo')
-                            . (serverPaused .~ emptyKeyMap)
-                            . (serverShouldUpdate .~ True)
-                            $ ss
-                     in (ui', ss')
-                  sendRequest (SessionReq Resume)
-                  refresh
-              | hit == "PauseSession" -> do
-                  modifySS $ \ss ->
-                    let sinfo = ss ^. serverSessionInfo
-                        sinfo' = sinfo {sessionIsPaused = True}
-                     in ss
-                          & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
-                  sendRequest (SessionReq Pause)
-                  refresh
-              | otherwise -> pure ()
+        Just ev'@(SessionEv _sev) -> goSession ev'
         _ -> pure ()
     _ -> pure ()
   goHoverScrollZoom
+    (\_ -> Nothing)
     HandlerHoverScrollZoom
       { handlerHover = []
       , handlerScroll =
@@ -398,7 +391,7 @@ goSession ev = do
     ev
   goCommon ev
 
-goModuleGraph :: (e ~ Text) => Event -> Control e ()
+goModuleGraph :: (e ~ Event) => Event -> Control e ()
 goModuleGraph ev = do
   case ev of
     MainModuleEv mev -> do
@@ -431,12 +424,15 @@ goModuleGraph ev = do
         modifyAndReturnBoth $ \(ui, ss) ->
           let model = ui ^. uiModel
               mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
-              mnowHit = do
+              mmev = do
                 emap <- memap
                 guard (eventMapId emap == "main-module-graph")
                 hitEvent <- hitItem (x, y) emap
-                Right click <- hitEventClick hitEvent
+                Right (MainModuleEv click) <- hitEventClick hitEvent
                 pure click
+              mnowHit = do
+                ClickOnModuleEv mmodu <- mmev
+                mmodu
               (ui', ss')
                 | mnowHit /= mprevHit =
                     let mev = ClickOnModuleEv mnowHit
@@ -451,6 +447,7 @@ goModuleGraph ev = do
       when (mnowHit /= mprevHit) refresh
     _ -> pure ()
   goHoverScrollZoom
+    (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
     HandlerHoverScrollZoom
       { handlerHover =
           [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
@@ -474,7 +471,7 @@ goModuleGraph ev = do
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-goSourceView :: (e ~ Text) => Event -> Control e ()
+goSourceView :: (e ~ Event) => Event -> Control e ()
 goSourceView ev = do
   case ev of
     SourceViewEv (SelectModule expandedModu') -> do
@@ -514,26 +511,28 @@ goSourceView ev = do
           if
               | eventMapId emap == "module-tree" -> do
                   modifyUISS $ \(ui, ss) ->
-                    let mnowHit = hitEventClick =<< hitItem (x, y) emap
+                    let mnowHit = do
+                          hitEvent <- hitItem (x, y) emap
+                          hitEventClick hitEvent
                      in case mnowHit of
                           -- on -> off
-                          Just (Right nowHit) ->
+                          Just (Right (SourceViewEv (SelectModule nowHit))) ->
                             let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
                                 ss' = (serverShouldUpdate .~ False) ss
                              in (ui', ss')
                           -- off -> on
-                          Just (Left _nowHit) ->
+                          Just (Left (SourceViewEv UnselectModule)) ->
                             let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
                                 ss' = (serverShouldUpdate .~ False) ss
                              in (ui', ss')
-                          Nothing -> (ui, ss)
+                          _ -> (ui, ss)
                   refresh
               | eventMapId emap == "supple-view-tab" -> do
                   modifyUISS $ \(ui, ss) ->
                     let mhitTab = do
                           hitEvent <- hitItem (x, y) emap
-                          Right eventMsg <- hitEventClick hitEvent
-                          readMaybe (T.unpack eventMsg)
+                          Right (SourceViewEv (SourceViewTab tab)) <- hitEventClick hitEvent
+                          pure tab
                         ui' = (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab) ui
                      in (ui', ss)
                   refresh
@@ -541,6 +540,7 @@ goSourceView ev = do
         Nothing -> pure ()
     _ -> pure ()
   goHoverScrollZoom
+    (\_ -> Nothing)
     HandlerHoverScrollZoom
       { handlerHover = []
       , handlerScroll =
@@ -556,7 +556,7 @@ goSourceView ev = do
     ev
   goCommon ev
 
-goTiming :: (e ~ Text) => Event -> Control e ()
+goTiming :: (e ~ Event) => Event -> Control e ()
 goTiming ev = do
   case ev of
     TimingEv ToCurrentTime -> do
@@ -640,6 +640,7 @@ goTiming ev = do
       onDraggingInTimingView (x, y) vp
     _ -> pure ()
   goHoverScrollZoom
+    (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
     HandlerHoverScrollZoom
       { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
       , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
@@ -676,7 +677,7 @@ initializeMainView =
   modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
 -- | top-level loop, branching according to tab event
-mainLoop :: (e ~ Text) => Control e ()
+mainLoop :: (e ~ Event) => Control e ()
 mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
@@ -707,16 +708,10 @@ mainLoop = do
                     emap <- memap
                     guard (eventMapId emap == "tab")
                     hitEvent <- hitItem (x, y) emap
-                    Right eventMsg <- hitEventClick hitEvent
-                    pure eventMsg
-              let mtab' = case mhitTab of
-                    Just "TabSession" -> Just TabSession
-                    Just "TabModuleGraph" -> Just TabModuleGraph
-                    Just "TabSourceView" -> Just TabSourceView
-                    Just "TabTiming" -> Just TabTiming
-                    _ -> Nothing
+                    Right (TabEv tab') <- hitEventClick hitEvent
+                    pure tab'
               tab <- (^. uiModel . modelTab) <$> getUI
-              case mtab' of
+              case mhitTab of
                 Nothing ->
                   -- Handling downstream
                   go ev >> loop
@@ -730,7 +725,7 @@ mainLoop = do
             _ ->
               go ev >> loop
 
-main :: (e ~ Text) => Control e ()
+main :: (e ~ Event) => Control e ()
 main = do
   clientSessionStartTime <- getCurrentTime
   printMsg $ "client session starts at " <> T.pack (show clientSessionStartTime)

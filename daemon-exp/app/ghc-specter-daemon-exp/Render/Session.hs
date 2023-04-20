@@ -8,7 +8,6 @@ import Data.Foldable (for_)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
-import Data.Text (Text)
 import GHCSpecter.Channel.Outbound.Types (getEnd)
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
@@ -29,10 +28,10 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   SessionUI,
  )
-import GHCSpecter.UI.Types.Event (Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Common (boxRules)
+import Render.Common (boxRules, convertTopLevelTab)
 import Renderer (
   addEventMap,
   renderScene,
@@ -44,11 +43,11 @@ import Types (GtkRender)
 renderSession ::
   ServerState ->
   SessionUI ->
-  GtkRender Text ()
+  GtkRender Event ()
 renderSession ss sessui = do
   wcfg <- resetWidget TabSession
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab (Just TabSession)
+    let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabSession)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -93,7 +92,7 @@ renderSession ss sessui = do
     addEventMap sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
-        scenePause = compilePauseResume sessionInfo
+        scenePause = SessionEv <$> compilePauseResume sessionInfo
         scenePause' =
           scenePause
             { sceneGlobalViewPort = vpCvs

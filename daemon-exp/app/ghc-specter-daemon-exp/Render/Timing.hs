@@ -33,7 +33,8 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   TimingUI,
  )
-import GHCSpecter.UI.Types.Event (Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
+import Render.Common (convertTopLevelTab)
 import Renderer (
   addEventMap,
   renderScene,
@@ -45,23 +46,23 @@ renderTiming ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  GtkRender Text ()
+  GtkRender Event ()
 renderTiming drvModMap tui ttable = do
   wcfg <- resetWidget TabTiming
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = compileTab topLevelTab (Just TabTiming)
+    let sceneTab = convertTopLevelTab $ compileTab topLevelTab (Just TabTiming)
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
             }
     renderScene sceneTab'
-    addEventMap sceneTab
+    addEventMap sceneTab'
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
-    let sceneTimingChart = compileTimingChart drvModMap tui ttable
+    let sceneTimingChart = TimingEv <$> compileTimingChart drvModMap tui ttable
         sceneTimingChart' =
           sceneTimingChart
             { sceneGlobalViewPort = vpCvs

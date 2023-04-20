@@ -65,7 +65,7 @@ compileModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Scene Text
+  Scene ModuleGraphEvent
 compileModuleGraph
   nameMap
   valueFor
@@ -113,9 +113,9 @@ compileModuleGraph
                 | otherwise = Ivory
               hitEvent =
                 HitEvent
-                  { hitEventHoverOn = Just name
-                  , hitEventHoverOff = Just name
-                  , hitEventClick = Just (Right name)
+                  { hitEventHoverOn = Just (HoverOnModuleEv (Just name))
+                  , hitEventHoverOff = Just (HoverOnModuleEv Nothing)
+                  , hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
            in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
               , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
@@ -133,7 +133,7 @@ compileModuleGraph
           }
 
 -- | compile graph more simply to graphics DSL
-compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive Text]
+compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive ModuleGraphEvent]
 compileGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       nodeLayoutMap =
@@ -191,9 +191,9 @@ renderModuleGraph
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
         handlers hitEvent =
           catMaybes
-            [ fmap (\name -> HoverOnModuleEv (Just name) <$ onMouseEnter) (hitEventHoverOn hitEvent)
-            , fmap (\_ -> HoverOnModuleEv Nothing <$ onMouseLeave) (hitEventHoverOff hitEvent)
-            , fmap (\e -> ClickOnModuleEv (Just (fromEither e)) <$ onClick) (hitEventClick hitEvent)
+            [ fmap (\ev -> ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
+            , fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent)
+            , fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
             ]
         scene = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
         rexp = sceneElements scene

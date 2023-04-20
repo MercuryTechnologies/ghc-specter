@@ -24,7 +24,7 @@ data TabConfig a = TabConfig
   , tabCfgItems :: [(a, Text)]
   }
 
-compileTab :: (Eq a, Show a) => TabConfig a -> Maybe a -> Scene Text
+compileTab :: (Eq a, Show a) => TabConfig a -> Maybe a -> Scene (Text, Int)
 compileTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg
@@ -40,7 +40,7 @@ compileTab cfg mtab =
       tab <- mtab
       L.find (\(_, (t', _)) -> tab == t') items
 
-    tabPos n = 5 + spacing * n
+    tabPos n = 5 + spacing * fromIntegral n
     end = tabCfgWidth cfg
     vp = ViewPort (0, 0) (end, height)
     fontSize = 8
@@ -50,7 +50,7 @@ compileTab cfg mtab =
             HitEvent
               { hitEventHoverOn = Nothing
               , hitEventHoverOff = Nothing
-              , hitEventClick = Just (Right (T.pack (show t)))
+              , hitEventClick = Just (Right (T.pack (show t), n))
               }
        in [ Rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
           , DrawText (x, 2) UpperLeft Sans Black fontSize txt
