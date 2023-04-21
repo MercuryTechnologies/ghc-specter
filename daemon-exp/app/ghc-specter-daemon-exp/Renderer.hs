@@ -36,9 +36,7 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
-import GHCSpecter.UI.Types (
-  HasWidgetConfig (..),
- )
+import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC

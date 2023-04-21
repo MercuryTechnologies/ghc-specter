@@ -9,7 +9,7 @@ import Control.Concurrent.STM (TVar)
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Typeable (Typeable)
 import GHCSpecter.Graphics.DSL (EventMap)
-import GHCSpecter.UI.Types (WidgetConfig)
+import GHCSpecter.UI.Constants (WidgetConfig)
 import GI.Cairo.Render qualified as R
 import GI.Pango qualified as P
 

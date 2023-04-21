@@ -4,7 +4,6 @@
 
 module Main where
 
-import Config (appWidgetConfig)
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
   atomically,
@@ -67,6 +66,8 @@ import GHCSpecter.Server.Types (
   initServerState,
  )
 import GHCSpecter.UI.Constants (
+  HasWidgetConfig (..),
+  appWidgetConfig,
   canvasDim,
   modGraphHeight,
   modGraphWidth,
@@ -78,7 +79,6 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
-  HasWidgetConfig (..),
   UIState,
   ViewPortInfo (..),
   emptyUIState,
