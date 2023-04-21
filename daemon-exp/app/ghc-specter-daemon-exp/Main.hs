@@ -67,7 +67,7 @@ import GHCSpecter.Server.Types (
  )
 import GHCSpecter.UI.Constants (
   HasWidgetConfig (..),
-  appWidgetConfig,
+  appWidgetConfigWithoutConsole,
   canvasDim,
   modGraphHeight,
   modGraphWidth,
@@ -233,19 +233,20 @@ main =
     -- TODO: Until necessary, we just put undefined assets. Later, change this properly.
     let assets = undefined
     initTime <- getCurrentTime
+    -- TODO: This should be refactored out.
     let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
         vpSessionMain =
-          appWidgetConfig ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
         vpMainModGraph =
-          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
-          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
         vpSrcModTree =
-          appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
         vpSrcSource =
-          appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
         vpSrcSupp =
-          appWidgetConfig ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
+          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -260,7 +261,7 @@ main =
               . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
                     .~ ViewPortInfo vpSubModGraph Nothing
                 )
-              . (uiModel . modelWidgetConfig .~ appWidgetConfig)
+              . (uiModel . modelWidgetConfig .~ appWidgetConfigWithoutConsole)
               . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
                     .~ ViewPortInfo vpSrcModTree Nothing
                 )

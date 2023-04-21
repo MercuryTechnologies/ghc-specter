@@ -33,7 +33,8 @@ module GHCSpecter.UI.Constants (
   emptyWidgetConfig,
 
   -- * default widget config
-  appWidgetConfig,
+  appWidgetConfigWithoutConsole,
+  appWidgetConfigWithConsole,
 ) where
 
 import Control.Lens (makeClassy, to, (^.), _1, _2)
@@ -79,6 +80,9 @@ canvasDim = (1440, 768)
 tabHeight :: (Num a) => a
 tabHeight = 15
 
+consolePanelHeight :: (Num a) => a
+consolePanelHeight = 368
+
 -- TODO: this web-specific code should be located elsewhere.
 widgetHeight :: Bool -> Text
 widgetHeight isPaused
@@ -106,8 +110,9 @@ emptyWidgetConfig =
 
 -- TODO: use type-level literal or something to be more safe.
 
-appWidgetConfig :: WidgetConfig
-appWidgetConfig =
+-- this ad hoc distinction between w/o console and w/ console should go away on proper implementation.
+appWidgetConfigWithoutConsole :: WidgetConfig
+appWidgetConfigWithoutConsole =
   WidgetConfig
     { _wcfgSession =
         Map.fromList
@@ -149,5 +154,67 @@ appWidgetConfig =
           , ("mem-chart", ViewPort (0.8 * timingWidth, tabHeight) (timingWidth, timingHeight + tabHeight))
           , ("timing-range", ViewPort (0, timingHeight + tabHeight) (timingWidth, timingHeight + timingRangeHeight + tabHeight))
           , ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+          ]
+    }
+
+appWidgetConfigWithConsole :: WidgetConfig
+appWidgetConfigWithConsole =
+  WidgetConfig
+    { _wcfgSession =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          ,
+            ( "module-status"
+            , ViewPort
+                (canvasDim ^. _1 - sessionModStatusDim ^. _1, tabHeight)
+                (canvasDim ^. _1, sessionModStatusDim ^. _2 + tabHeight)
+            )
+          ,
+            ( "session-main"
+            , ViewPort (5, tabHeight + 5) canvasDim
+            )
+          ,
+            ( "session-button"
+            , ViewPort (1000, tabHeight) (1100, tabHeight + 15)
+            )
+          ,
+            ( "console-panel"
+            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) canvasDim
+            )
+          ]
+    , _wcfgModuleGraph =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          , ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight))
+          , ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          ,
+            ( "console-panel"
+            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) canvasDim
+            )
+          ]
+    , _wcfgSourceView =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          , ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2))
+          , ("source-view", ViewPort (canvasDim ^. _1 . to (* 0.2), tabHeight) (canvasDim ^. _1 . to (* 0.6), canvasDim ^. _2))
+          , ("supple-view", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          , ("supple-view-tab", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, tabHeight + tabHeight))
+          , ("supple-view-contents", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          ,
+            ( "console-panel"
+            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) canvasDim
+            )
+          ]
+    , _wcfgTiming =
+        Map.fromList
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
+          , ("timing-chart", ViewPort (0, tabHeight) (0.8 * timingWidth, timingHeight + tabHeight))
+          , ("mem-chart", ViewPort (0.8 * timingWidth, tabHeight) (timingWidth, timingHeight + tabHeight))
+          , ("timing-range", ViewPort (0, timingHeight + tabHeight) (timingWidth, timingHeight + timingRangeHeight + tabHeight))
+          , ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+          ,
+            ( "console-panel"
+            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) canvasDim
+            )
           ]
     }

@@ -2,13 +2,17 @@
 
 module Render.Session (renderSession) where
 
-import Control.Lens ((^.))
+import Control.Lens (to, (^.))
+import Control.Monad (when)
 import Control.Monad.Trans.Class (lift)
 import Data.Foldable (for_)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
-import GHCSpecter.Channel.Outbound.Types (getEnd)
+import GHCSpecter.Channel.Outbound.Types (
+  SessionInfo (..),
+  getEnd,
+ )
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.Tab (compileTab)
@@ -100,3 +104,12 @@ renderSession ss sessui = do
             }
     renderScene scenePause'
     addEventMap scenePause'
+  when (ss ^. serverSessionInfo . to sessionIsPaused) $ do
+    for_ (Map.lookup "console-panel" wcfg) $ \vpCvs -> do
+      let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+      setColor White
+      -- TODO: this should be wrapped in a function.
+      lift $ do
+        R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+        R.fill
+      boxRules vpCvs

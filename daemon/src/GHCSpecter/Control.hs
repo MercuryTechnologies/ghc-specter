@@ -63,6 +63,8 @@ import GHCSpecter.Server.Types (
   ServerState,
  )
 import GHCSpecter.UI.Constants (
+  appWidgetConfigWithConsole,
+  appWidgetConfigWithoutConsole,
   timingHeight,
   timingMaxWidth,
   timingWidth,
@@ -79,6 +81,7 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   ModuleGraphUI (..),
   UIModel,
+  UIState,
   ViewPortInfo (..),
  )
 import GHCSpecter.UI.Types.Event (
@@ -114,16 +117,21 @@ data HandlerHoverScrollZoom = HandlerHoverScrollZoom
 -- TODO: this function does almost nothing. remove.
 defaultUpdateModel ::
   Event ->
-  ServerState ->
-  ServerState
-defaultUpdateModel topEv =
+  (UIState, ServerState) ->
+  (UIState, ServerState)
+defaultUpdateModel topEv (ui, ss) =
   case topEv of
     TabEv _tab' ->
-      serverShouldUpdate .~ False
+      let ss' = (serverShouldUpdate .~ False) ss
+       in (ui, ss')
     BkgEv MessageChanUpdated ->
-      serverShouldUpdate .~ True
-    _ ->
-      id
+      let ss' = (serverShouldUpdate .~ True) ss
+          isPaused = ss' ^. serverSessionInfo . to sessionIsPaused
+          ui'
+            | isPaused = (uiModel . modelWidgetConfig .~ appWidgetConfigWithConsole) ui
+            | otherwise = ui
+       in (ui', ss')
+    _ -> (ui, ss)
 
 updateLastUpdated :: Control e ()
 updateLastUpdated = do
@@ -332,7 +340,7 @@ goCommon ev = do
           modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
           refresh
     _ -> pure ()
-  modifySS $ \ss -> defaultUpdateModel ev ss
+  modifyUISS $ defaultUpdateModel ev
   case ev of
     BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
     BkgEv RefreshUI -> refresh
@@ -346,7 +354,10 @@ goSession ev = do
       modifySS (serverShouldUpdate .~ False)
     SessionEv ResumeSessionEv -> do
       modifyUISS $ \(ui, ss) ->
-        let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
+        let ui' =
+              ui
+                & (uiModel . modelConsole . consoleFocus .~ Nothing)
+                  . (uiModel . modelWidgetConfig .~ appWidgetConfigWithoutConsole)
             sinfo = ss ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = False}
             ss' =
@@ -358,11 +369,16 @@ goSession ev = do
       sendRequest (SessionReq Resume)
       refresh
     SessionEv PauseSessionEv -> do
-      modifySS $ \ss ->
-        let sinfo = ss ^. serverSessionInfo
+      modifyUISS $ \(ui, ss) ->
+        let ui' =
+              ui
+                & (uiModel . modelWidgetConfig .~ appWidgetConfigWithConsole)
+            sinfo = ss ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = True}
-         in ss
-              & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+            ss' =
+              ss
+                & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+         in (ui', ss')
       sendRequest (SessionReq Pause)
       refresh
     MouseEv (MouseClick (x, y)) -> do
