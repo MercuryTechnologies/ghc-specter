@@ -1,12 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.Console (
-  compileConsoleHelp,
+  compileConsoleTab,
+  compileConsoleHelp,  
 ) where
 
+import Control.Lens ((^.), _1)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import GHCSpecter.Data.Map (
+  IsKey (..),
+ )
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Primitive (..),
@@ -15,8 +20,29 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
+import GHCSpecter.Render.Components.Tab (
+  TabConfig (..),
+  compileTab,
+ )
+import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
+
+compileConsoleTab ::
+  (IsKey k, Eq k) =>
+  [(k, Text)] ->
+  Maybe k ->
+  Scene (ConsoleEvent k)
+compileConsoleTab tabs mfocus = ConsoleTab <$> compileTab tabCfg mfocus
+  where
+    tabCfg =
+      TabConfig
+        { tabCfgId = "console-tab"
+        , tabCfgSpacing = 80
+        , tabCfgWidth = canvasDim ^. _1
+        , tabCfgHeight = 15
+        , tabCfgItems = tabs
+        }
 
 compileConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text

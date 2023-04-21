@@ -15,13 +15,11 @@ import Control.Concurrent.STM (
   atomically,
   modifyTVar',
  )
-import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
-import Data.Map (Map)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
@@ -33,7 +31,6 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P

@@ -24,7 +24,6 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
   TextFontFace (Sans),
-  ViewPort (..),
  )
 import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Tab (topLevelTab)
@@ -45,11 +44,11 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GI.Cairo.Render qualified as R
+import Render.Parts.Console (renderConsole)
 import Render.Parts.ModuleGraph (renderModuleGraph)
 import Render.Parts.Session (renderSession)
 import Render.Parts.SourceView (renderSourceView)
 import Render.Parts.Timing (renderTiming)
-import Render.Util.Rules (boxRules)
 import Renderer (
   addEventMap,
   drawText,
@@ -130,11 +129,4 @@ renderAction ui ss = do
           renderTiming drvModMap tui ttable
       -- console
       when (ss ^. serverSessionInfo . to sessionIsPaused) $ do
-        for_ (Map.lookup "console-panel" wcfg) $ \vpCvs -> do
-          let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-          setColor White
-          -- TODO: this should be wrapped in a function.
-          lift $ do
-            R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-            R.fill
-          boxRules vpCvs
+        renderConsole ui ss

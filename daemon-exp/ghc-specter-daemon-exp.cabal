@@ -23,6 +23,7 @@ executable ghc-specter-daemon-exp
   other-modules: Handler
                  Renderer
                  Render.Main
+                 Render.Parts.Console
                  Render.Parts.ModuleGraph
                  Render.Parts.Session
                  Render.Parts.SourceView
