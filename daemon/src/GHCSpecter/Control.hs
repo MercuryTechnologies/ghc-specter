@@ -708,6 +708,8 @@ mainLoop = do
               -- top-level tab
               memap <- hitScene (x, y)
               case memap of
+                -- TODO: Now that this part is quite general enough, so we can have
+                --       middleware control for such raw mouse events.
                 Just emap
                   | eventMapId emap == "tab" -> do
                       let mhitTab = do
@@ -731,6 +733,17 @@ mainLoop = do
                             hitEvent <- hitItem (x, y) emap
                             Right ev' <- hitEventClick hitEvent
                             pure ev'
+                      case mev of
+                        Nothing ->
+                          -- cascade down
+                          go ev >> loop
+                        Just ev' -> go ev' >> loop
+                  | eventMapId emap == "console-help" -> do
+                      let mev = do
+                            hitEvent <- hitItem (x, y) emap
+                            Right ev' <- hitEventClick hitEvent
+                            pure ev'
+                      printMsg $ "console-help : mev = " <> T.pack (show mev)
                       case mev of
                         Nothing ->
                           -- cascade down
