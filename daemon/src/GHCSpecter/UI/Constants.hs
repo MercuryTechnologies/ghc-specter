@@ -125,6 +125,10 @@ appWidgetConfig =
             ( "console-main"
             , ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) canvasDim
             )
+          ,
+            ( "console-help"
+            , ViewPort (canvasDim ^. _1 - 200, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight + 200)
+            )
           ]
     , _wcfgSession =
         Map.fromList

@@ -116,7 +116,7 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
     consoleMap = ss ^. serverConsole
     mconsoleFocus = model ^. modelConsole . consoleFocus
     inputEntry = model ^. modelConsole . consoleInputEntry
-    -- TODO: refactor this out
+    -- TODO: refactor these out
     getTabName k =
       let ktxt = T.pack $ show (unDriverId k)
           mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
