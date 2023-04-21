@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Common (
+module Render.Util.Rules (
   -- * drawing rules
   hruleTop,
   vruleLeft,

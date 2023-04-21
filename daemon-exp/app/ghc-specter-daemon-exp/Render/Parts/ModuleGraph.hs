@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.ModuleGraph (
+module Render.Parts.ModuleGraph (
   renderModuleGraph,
 ) where
 
@@ -34,7 +34,7 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GI.Cairo.Render qualified as R
-import Render.Common (hruleTop)
+import Render.Util.Rules (hruleTop)
 import Renderer (addEventMap, renderScene, resetWidget)
 import Text.Printf (printf)
 import Types (GtkRender)

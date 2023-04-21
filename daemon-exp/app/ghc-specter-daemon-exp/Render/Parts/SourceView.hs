@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.SourceView (renderSourceView) where
+module Render.Parts.SourceView (renderSourceView) where
 
 import Control.Lens (at, (^.), (^?), _Just)
 import Data.Foldable (for_)
@@ -27,7 +27,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
-import Render.Common (vruleLeft)
+import Render.Util.Rules (vruleLeft)
 import Renderer (
   addEventMap,
   renderScene,

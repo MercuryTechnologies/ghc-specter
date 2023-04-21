@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Timing (
+module Render.Parts.Timing (
   renderTiming,
 ) where
 

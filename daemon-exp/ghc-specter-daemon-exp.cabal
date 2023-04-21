@@ -22,11 +22,11 @@ executable ghc-specter-daemon-exp
   main-is:       Main.hs
   other-modules: Handler
                  Renderer
-                 Render.Common
-                 Render.ModuleGraph                 
-                 Render.Session
-                 Render.SourceView
-                 Render.Timing
+                 Render.Parts.ModuleGraph
+                 Render.Parts.Session
+                 Render.Parts.SourceView
+                 Render.Parts.Timing
+                 Render.Util.Rules
                  Types
 
   hs-source-dirs:

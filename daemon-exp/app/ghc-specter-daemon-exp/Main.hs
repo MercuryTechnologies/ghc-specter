@@ -103,10 +103,10 @@ import Handler (
   handleZoomEnd,
   handleZoomUpdate,
  )
-import Render.ModuleGraph (renderModuleGraph)
-import Render.Session (renderSession)
-import Render.SourceView (renderSourceView)
-import Render.Timing (renderTiming)
+import Render.Parts.ModuleGraph (renderModuleGraph)
+import Render.Parts.Session (renderSession)
+import Render.Parts.SourceView (renderSourceView)
+import Render.Parts.Timing (renderTiming)
 import Renderer (drawText, setColor)
 import Types (
   GtkRender,

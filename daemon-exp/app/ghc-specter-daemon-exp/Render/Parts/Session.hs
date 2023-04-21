@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Session (renderSession) where
+module Render.Parts.Session (renderSession) where
 
 import Control.Lens (to, (^.))
 import Control.Monad (when)
@@ -35,7 +35,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Common (boxRules)
+import Render.Util.Rules (boxRules)
 import Renderer (
   addEventMap,
   renderScene,
