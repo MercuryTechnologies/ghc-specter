@@ -32,7 +32,6 @@ library
       GHCSpecter.Data.GHC.Hie
       GHCSpecter.Data.Timing.Types
       GHCSpecter.Data.Timing.Util
-      GHCSpecter.Driver
       GHCSpecter.Driver.Comm
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
@@ -43,29 +42,15 @@ library
       GHCSpecter.GraphLayout.OGDF
       GHCSpecter.GraphLayout.Sugiyama
       GHCSpecter.GraphLayout.Types
-      GHCSpecter.Render
-      GHCSpecter.Render.Components.Console
-      GHCSpecter.Render.Components.ConsoleItem
-      GHCSpecter.Render.Components.GHCCore
       GHCSpecter.Render.Components.GraphView
       GHCSpecter.Render.Components.ModuleTree
       GHCSpecter.Render.Components.Tab
       GHCSpecter.Render.Components.TextView
       GHCSpecter.Render.Components.TimingView
-      GHCSpecter.Render.ConcurReplicaSVG
-      GHCSpecter.Render.ModuleGraph
       GHCSpecter.Render.Session
       GHCSpecter.Render.SourceView
       GHCSpecter.Render.Tab
-      GHCSpecter.Render.Timing
-      GHCSpecter.Render.Util
       GHCSpecter.Server.Types
-      GHCSpecter.UI.ConcurReplica.DOM
-      GHCSpecter.UI.ConcurReplica.DOM.Events
-      GHCSpecter.UI.ConcurReplica.Run
-      GHCSpecter.UI.ConcurReplica.SVG
-      GHCSpecter.UI.ConcurReplica.Types
-      GHCSpecter.UI.ConcurReplica.WaiHandler
       GHCSpecter.UI.Constants
       GHCSpecter.UI.Help
       GHCSpecter.UI.Types
@@ -89,37 +74,25 @@ library
     , base >=4.15 && <5
     , base64-bytestring
     , bytestring
-    , concur-core
-    , concur-replica
     , containers
     , discrimination
     , errors
     , extra
     , fficxx-runtime
-    -- this free libray dep is still needed due to concur-replica
-    , free
     , ghc
     , ghc-specter-plugin
     , ghc-specter-render
-    , http-types
     , indexed
     , indexed-free
     , lens
-    , optparse-applicative
     , pretty-simple
-    , replica
-    , resourcet
-    , scientific
+    , resourcet    
     , stdcxx
     , stm
     , text
     , time
     , transformers
     , unliftio
-    , wai
-    , wai-websockets
-    , warp
-    , websockets
   default-language: GHC2021
   if impl (ghc >= 9.7)
     hs-source-dirs:
@@ -137,6 +110,23 @@ library
 executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
+      GHCSpecter.ConcurReplica.DOM
+      GHCSpecter.ConcurReplica.DOM.Events
+      GHCSpecter.ConcurReplica.Run
+      GHCSpecter.ConcurReplica.SVG
+      GHCSpecter.ConcurReplica.Types
+      GHCSpecter.ConcurReplica.WaiHandler
+      GHCSpecter.Driver.Web
+      GHCSpecter.Render.Web
+      GHCSpecter.Render.Web.ConcurReplicaSVG
+      GHCSpecter.Render.Web.Console
+      GHCSpecter.Render.Web.ConsoleItem
+      GHCSpecter.Render.Web.GHCCore
+      GHCSpecter.Render.Web.ModuleGraph
+      GHCSpecter.Render.Web.Session
+      GHCSpecter.Render.Web.SourceView
+      GHCSpecter.Render.Web.Timing
+      GHCSpecter.Render.Web.Util
       Paths_ghc_specter_daemon
   hs-source-dirs:
       app
@@ -145,11 +135,29 @@ executable ghc-specter-daemon
       aeson
     , base >=4.15 && <5
     , bytestring
+    , concur-core
+    , concur-replica
+    , containers
+    , errors
+    , extra
+    -- this free libray dep is still needed due to concur-replica
+    , free
     , ghc-specter-daemon
     , ghc-specter-plugin
+    , ghc-specter-render
+    , http-types
+    , lens
     , optparse-applicative
+    , pretty-simple
+    , replica
+    , scientific
     , stm
     , text
+    , time
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test

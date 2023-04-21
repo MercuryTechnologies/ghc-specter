@@ -10,7 +10,7 @@
 -- | This module is originated from Network.Wai.Handler.Replica.
 -- When IHTML can be marked with the non-update (the Left case) directive,
 -- the DOM diff updating is bypassed.
-module GHCSpecter.UI.ConcurReplica.WaiHandler (
+module GHCSpecter.ConcurReplica.WaiHandler (
   Event (..),
   Callback (..),
   Context (..),
@@ -31,7 +31,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder qualified as TB
 import Debug.Trace (traceIO)
-import GHCSpecter.UI.ConcurReplica.Types (IHTML (..))
+import GHCSpecter.ConcurReplica.Types (IHTML (..))
 import Network.HTTP.Types (status200)
 import Network.Wai (Application, Middleware, responseLBS)
 import Network.Wai.Handler.WebSockets (websocketsOr)

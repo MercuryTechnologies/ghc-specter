@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.ConcurReplicaSVG (
+module GHCSpecter.Render.Web.ConcurReplicaSVG (
   makePolylineText,
   renderColor,
   renderPrimitive,
@@ -17,14 +17,14 @@ import Concur.Replica.SVG.Props qualified as SP
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.ConcurReplica.DOM (text)
+import GHCSpecter.ConcurReplica.SVG qualified as S
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
   Primitive (..),
  )
-import GHCSpecter.UI.ConcurReplica.DOM (text)
-import GHCSpecter.UI.ConcurReplica.SVG qualified as S
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

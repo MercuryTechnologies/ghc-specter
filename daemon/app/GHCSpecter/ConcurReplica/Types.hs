@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module GHCSpecter.UI.ConcurReplica.Types (
+module GHCSpecter.ConcurReplica.Types (
   -- * IHTML type
   IHTML (..),
 

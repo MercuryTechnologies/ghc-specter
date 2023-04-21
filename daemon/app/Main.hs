@@ -15,9 +15,9 @@ import GHCSpecter.Config (
   defaultGhcSpecterConfigFile,
   loadConfig,
  )
-import GHCSpecter.Driver (webServer)
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
+import GHCSpecter.Driver.Web (webServer)
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Server.Types (initServerState)
 import Options.Applicative qualified as OA

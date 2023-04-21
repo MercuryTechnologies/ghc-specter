@@ -2,7 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Render.ModuleGraph (
+module GHCSpecter.Render.Web.ModuleGraph (
+  renderModuleGraph,
+  renderGraph,
+
   -- * Render HTML for the Module Graph tab
   render,
 ) where
@@ -10,15 +13,21 @@ module GHCSpecter.Render.ModuleGraph (
 import Concur.Core (Widget)
 import Concur.Replica (
   classList,
+  onClick,
   onInput,
+  onMouseEnter,
+  onMouseLeave,
   style,
+  width,
  )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
+import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
 import Control.Lens (to, (^.), _1)
+import Data.Either.Extra (fromEither)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId, type ModuleName)
@@ -27,24 +36,38 @@ import GHCSpecter.Channel.Outbound.Types (
   SessionInfo (..),
   Timer,
  )
-import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
-import GHCSpecter.Render.Components.GraphView qualified as GraphView
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
- )
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   div,
   input,
   label,
   pre,
   text,
  )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.SVG qualified as S
+import GHCSpecter.ConcurReplica.Types (IHTML)
+import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
+ )
+import GHCSpecter.Graphics.DSL (
+  HitEvent (..),
+  Scene (..),
+ )
+import GHCSpecter.Render.Components.GraphView (
+  compileGraph,
+  compileModuleGraph,
+ )
+import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
+import GHCSpecter.Render.Web.Util (xmlns)
+import GHCSpecter.Server.Types (
+  HasModuleGraphState (..),
+  HasServerState (..),
+  HasTimingState (..),
+  ServerState (..),
+ )
 import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
@@ -55,10 +78,79 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   DetailLevel (..),
   Event (..),
+  ModuleGraphEvent (..),
   SubModuleEvent (..),
  )
 import Text.Printf (printf)
 import Prelude hiding (div)
+
+renderModuleGraph ::
+  -- | key = graph id
+  IntMap ModuleName ->
+  -- | For each module, assign a double type value in [0, 1],
+  -- which will be shown as bar below the module node.
+  (ModuleName -> Double) ->
+  -- | Graph layout information
+  GraphVisInfo ->
+  -- | (focused (clicked), hinted (hovered))
+  (Maybe Text, Maybe Text) ->
+  Widget IHTML ModuleGraphEvent
+renderModuleGraph
+  nameMap
+  valueFor
+  grVisInfo
+  (mfocused, mhinted) =
+    let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+        handlers hitEvent =
+          catMaybes
+            [ fmap (\ev -> ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
+            , fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent)
+            , fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
+            ]
+        scene = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
+        rexp = sceneElements scene
+        svgProps =
+          [ width (T.pack (show (canvasWidth + 100)))
+          , SP.viewBox
+              ( "0 0 "
+                  <> T.pack (show (canvasWidth + 100))
+                  <> " "
+                  <> T.pack (show (canvasHeight + 100))
+              )
+          , SP.version "1.1"
+          , xmlns
+          ]
+        svgElement =
+          S.svg
+            svgProps
+            ( S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"]
+                : fmap (renderPrimitive handlers) rexp
+            )
+     in div [classList [("is-fullwidth", True)]] [svgElement]
+
+-- | render graph more simply
+renderGraph :: (Text -> Bool) -> GraphVisInfo -> Widget IHTML a
+renderGraph cond grVisInfo =
+  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+      rexp = compileGraph cond grVisInfo
+      svgProps =
+        [ width (T.pack (show (canvasWidth + 100)))
+        , SP.viewBox
+            ( "0 0 "
+                <> T.pack (show (canvasWidth + 100))
+                <> " "
+                <> T.pack (show (canvasHeight + 100))
+            )
+        , SP.version "1.1"
+        , xmlns
+        ]
+      svgElement =
+        S.svg
+          svgProps
+          ( S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"]
+              : fmap (renderPrimitive (\_ -> [])) rexp
+          )
+   in div [classList [("is-fullwidth", True)]] [svgElement]
 
 renderMainModuleGraph ::
   -- | key = graph id
@@ -82,7 +174,7 @@ renderMainModuleGraph
       , style [("overflow", "scroll")]
       ]
       [ MainModuleEv
-          <$> GraphView.renderModuleGraph
+          <$> renderModuleGraph
             nameMap
             valueFor
             grVisInfo
@@ -140,7 +232,7 @@ renderSubModuleGraph
                   , style [("overflow", "scroll")]
                   ]
                   [ SubModuleEv . SubModuleGraphEv
-                      <$> GraphView.renderModuleGraph
+                      <$> renderModuleGraph
                         nameMap
                         valueFor
                         subgraph

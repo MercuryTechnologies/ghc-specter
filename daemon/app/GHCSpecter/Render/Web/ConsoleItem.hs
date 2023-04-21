@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.ConsoleItem (
+module GHCSpecter.Render.Web.ConsoleItem (
   render,
 ) where
 
@@ -8,17 +8,17 @@ import Concur.Core (Widget)
 import Concur.Replica (onClick, style)
 import Data.Text qualified as T
 import Data.Tree (drawTree)
-import GHCSpecter.Data.GHC.Core (toBind)
-import GHCSpecter.Render.Components.GHCCore (renderTopBind)
-import GHCSpecter.Render.Util (divClass)
-import GHCSpecter.Server.Types (ConsoleItem (..))
-import GHCSpecter.UI.ConcurReplica.DOM (
+import GHCSpecter.ConcurReplica.DOM (
   button,
   div,
   pre,
   text,
  )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.ConcurReplica.Types (IHTML)
+import GHCSpecter.Data.GHC.Core (toBind)
+import GHCSpecter.Render.Web.GHCCore (renderTopBind)
+import GHCSpecter.Render.Web.Util (divClass)
+import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 

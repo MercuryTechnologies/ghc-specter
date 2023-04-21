@@ -1,12 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.GHCCore (
+module GHCSpecter.Render.Web.GHCCore (
   renderTopBind,
 ) where
 
 import Concur.Core (Widget)
 import Data.List qualified as L
 import Data.Text qualified as T
+import GHCSpecter.ConcurReplica.DOM (
+  pre,
+  span,
+  text,
+ )
+import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.GHC.Core (
   Alt (..),
   AltCon (..),
@@ -15,13 +21,7 @@ import GHCSpecter.Data.GHC.Core (
   Id (..),
   Literal (..),
  )
-import GHCSpecter.Render.Util (divClass, spanClass)
-import GHCSpecter.UI.ConcurReplica.DOM (
-  pre,
-  span,
-  text,
- )
-import GHCSpecter.UI.ConcurReplica.Types (IHTML)
+import GHCSpecter.Render.Web.Util (divClass, spanClass)
 import Prelude hiding (div, span)
 
 isType :: Expr -> Bool
