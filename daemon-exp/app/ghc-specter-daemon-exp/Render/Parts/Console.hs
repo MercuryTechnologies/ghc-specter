@@ -36,13 +36,19 @@ import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
 import Render.Util.Rules (boxRules)
-import Renderer (addEventMap, setColor, renderScene)
+import Renderer (addEventMap, renderScene, setColor)
 import Types (GtkRender, ViewBackend (..))
 
 renderConsole :: UIState -> ServerState -> GtkRender Event ()
 renderConsole ui ss = do
   wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
   for_ (Map.lookup "console-tab" wcfg) $ \vpCvs -> do
+    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+    setColor Ivory
+    -- TODO: this should be wrapped in a function.
+    lift $ do
+      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+      R.fill
     let pausedMap = ss ^. serverPaused
         mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
         -- TODO: refactor this out
@@ -59,14 +65,6 @@ renderConsole ui ss = do
             }
     renderScene sceneTab'
     addEventMap sceneTab'
-{-    
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-    setColor Ivory
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
-    boxRules vpCvs  -}
   for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor Ivory

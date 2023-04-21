@@ -2,7 +2,7 @@
 
 module GHCSpecter.Render.Components.Console (
   compileConsoleTab,
-  compileConsoleHelp,  
+  compileConsoleHelp,
 ) where
 
 import Control.Lens ((^.), _1)
@@ -38,7 +38,7 @@ compileConsoleTab tabs mfocus = ConsoleTab <$> compileTab tabCfg mfocus
     tabCfg =
       TabConfig
         { tabCfgId = "console-tab"
-        , tabCfgSpacing = 80
+        , tabCfgSpacing = 150
         , tabCfgWidth = canvasDim ^. _1
         , tabCfgHeight = 15
         , tabCfgItems = tabs

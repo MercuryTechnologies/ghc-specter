@@ -117,7 +117,8 @@ appWidgetConfig =
     { _wcfgTopLevel =
         Map.fromList
           [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
-          , ( "console-tab"
+          ,
+            ( "console-tab"
             , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
             )
           ,
