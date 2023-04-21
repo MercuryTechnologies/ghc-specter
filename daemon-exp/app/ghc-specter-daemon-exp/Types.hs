@@ -17,11 +17,11 @@ data ViewBackendResource = ViewBackendResource
   { vbrPangoContext :: P.Context
   , vbrFontDescSans :: P.FontDescription
   , vbrFontDescMono :: P.FontDescription
-  , vbrWidgetConfig :: WidgetConfig
   }
 
 data ViewBackend e = ViewBackend
   { vbResource :: ViewBackendResource
+  , vbWidgetConfig :: WidgetConfig
   , vbEventMap :: TVar [EventMap e]
   }
 

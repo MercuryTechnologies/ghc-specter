@@ -144,7 +144,6 @@ initViewBackendResource = do
         { vbrPangoContext = pangoCtxt
         , vbrFontDescSans = descSans
         , vbrFontDescMono = descMono
-        , vbrWidgetConfig = appWidgetConfig
         }
 
 renderNotConnected :: GtkRender e ()
@@ -293,7 +292,8 @@ main =
       Just vbr -> do
         vbRef <- atomically $ do
           emapRef <- newTVar ([] :: [EventMap Event])
-          let vb = ViewBackend vbr emapRef
+          wcfg <- (^. uiModel . modelWidgetConfig) <$> readTVar uiRef
+          let vb = ViewBackend vbr wcfg emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -316,7 +316,8 @@ main =
               ui <- readTVar uiRef
               ss <- readTVar ssRef
               emapRef <- newTVar []
-              let vb = ViewBackend vbr emapRef
+              let wcfg = ui ^. uiModel . modelWidgetConfig
+                  vb = ViewBackend vbr wcfg emapRef
               writeTVar vbRef (WrappedViewBackend vb)
               pure (vb, ui, ss)
             runReaderT (renderAction ui ss) vb

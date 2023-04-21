@@ -8,7 +8,6 @@ import Control.Lens ((^.))
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)

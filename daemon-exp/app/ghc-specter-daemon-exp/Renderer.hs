@@ -132,8 +132,7 @@ renderScene scene = do
 resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
 resetWidget tab = do
   vb <- ask
-  let vbr = vbResource vb
-      wcfg = vbrWidgetConfig vbr
+  let wcfg = vbWidgetConfig vb
       emapRef = vbEventMap vb
   liftIO $ atomically $ do
     modifyTVar' emapRef (const [])
