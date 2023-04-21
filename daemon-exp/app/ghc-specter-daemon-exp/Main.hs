@@ -23,7 +23,6 @@ import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad (join)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (runReaderT)
 import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), new, on)
@@ -34,7 +33,6 @@ import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Typeable (gcast)
-import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Config (
   Config (..),
   defaultGhcSpecterConfigFile,
@@ -53,16 +51,10 @@ import GHCSpecter.Driver.Session.Types (
  )
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
-  Color (Black),
   EventMap,
-  TextFontFace (Sans),
   ViewPort (..),
  )
 import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
   initServerState,
  )
 import GHCSpecter.UI.Constants (
@@ -79,7 +71,6 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   HasUIModel (..),
   HasUIState (..),
-  UIState,
   ViewPortInfo (..),
   emptyUIState,
  )
@@ -91,7 +82,6 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
-import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
@@ -103,13 +93,8 @@ import Handler (
   handleZoomEnd,
   handleZoomUpdate,
  )
-import Render.Parts.ModuleGraph (renderModuleGraph)
-import Render.Parts.Session (renderSession)
-import Render.Parts.SourceView (renderSourceView)
-import Render.Parts.Timing (renderTiming)
-import Renderer (drawText, setColor)
+import Render.Main (renderAction)
 import Types (
-  GtkRender,
   ViewBackend (..),
   ViewBackendResource (..),
   WrappedViewBackend (..),
@@ -145,55 +130,6 @@ initViewBackendResource = do
         , vbrFontDescSans = descSans
         , vbrFontDescMono = descMono
         }
-
-renderNotConnected :: GtkRender e ()
-renderNotConnected = do
-  lift R.save
-  setColor Black
-  drawText Sans 36 (100, 100) "GHC is not connected yet"
-  lift R.restore
-
-renderAction ::
-  UIState ->
-  ServerState ->
-  GtkRender Event ()
-renderAction ui ss = do
-  let nameMap =
-        ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap
-      drvModMap = ss ^. serverDriverModuleMap
-      timing = ss ^. serverTiming . tsTimingMap
-      mgs = ss ^. serverModuleGraphState
-      clustering = mgs ^. mgsClustering
-      mgrvis = mgs ^. mgsClusterGraph
-      mgrui = ui ^. uiModel . modelMainModuleGraph
-      sgrui = ui ^. uiModel . modelSubModuleGraph
-      subgraphs = mgs ^. mgsSubgraph
-      sessui = ui ^. uiModel . modelSession
-
-  case mgrvis of
-    Nothing -> renderNotConnected
-    Just grVisInfo ->
-      case ui ^. uiModel . modelTab of
-        TabSession ->
-          renderSession
-            ss
-            sessui
-        TabModuleGraph ->
-          renderModuleGraph
-            (mgrui, sgrui)
-            subgraphs
-            nameMap
-            drvModMap
-            timing
-            clustering
-            grVisInfo
-        TabSourceView -> do
-          let srcUI = ui ^. uiModel . modelSourceView
-          renderSourceView srcUI ss
-        TabTiming -> do
-          let tui = ui ^. uiModel . modelTiming
-              ttable = ss ^. serverTiming . tsTimingTable
-          renderTiming drvModMap tui ttable
 
 simpleEventLoop :: UIChannel -> IO ()
 simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
