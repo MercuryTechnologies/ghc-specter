@@ -35,7 +35,6 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Util.Rules (boxRules)
 import Renderer (addEventMap, renderScene, setColor)
 import Types (GtkRender, ViewBackend (..))
 
@@ -72,4 +71,3 @@ renderConsole ui ss = do
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
-    boxRules vpCvs
