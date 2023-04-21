@@ -5,19 +5,36 @@ module Render.Main (
   renderAction,
 ) where
 
-import Control.Lens (to, (^.))
-import Control.Monad.Trans.Class (lift)
-import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
-import GHCSpecter.Graphics.DSL (
-  Color (Black),
-  TextFontFace (Sans),
+import Control.Concurrent.STM (
+  atomically,
+  modifyTVar',
  )
+import Control.Lens (to, (^.))
+import Control.Monad (when)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ask)
+import Data.Foldable (for_)
+import Data.Map qualified as Map
+import GHCSpecter.Channel.Outbound.Types (
+  ModuleGraphInfo (..),
+  SessionInfo (..),
+ )
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Scene (..),
+  TextFontFace (Sans),
+  ViewPort (..),
+ )
+import GHCSpecter.Render.Components.Tab (compileTab)
+import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
  )
+import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),
@@ -32,10 +49,24 @@ import Render.Parts.ModuleGraph (renderModuleGraph)
 import Render.Parts.Session (renderSession)
 import Render.Parts.SourceView (renderSourceView)
 import Render.Parts.Timing (renderTiming)
-import Renderer (drawText, setColor)
+import Render.Util.Rules (boxRules)
+import Renderer (
+  addEventMap,
+  drawText,
+  renderScene,
+  setColor,
+ )
 import Types (
   GtkRender,
+  ViewBackend (..),
  )
+
+resetWidget :: GtkRender e ()
+resetWidget = do
+  vb <- ask
+  let emapRef = vbEventMap vb
+  liftIO $ atomically $ do
+    modifyTVar' emapRef (const [])
 
 renderNotConnected :: GtkRender e ()
 renderNotConnected = do
@@ -63,7 +94,19 @@ renderAction ui ss = do
 
   case mgrvis of
     Nothing -> renderNotConnected
-    Just grVisInfo ->
+    Just grVisInfo -> do
+      resetWidget
+      wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
+      -- tab
+      for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
+        let sceneTab = TabEv <$> compileTab topLevelTab (Just (ui ^. uiModel . modelTab))
+            sceneTab' =
+              sceneTab
+                { sceneGlobalViewPort = vpCvs
+                }
+        renderScene sceneTab'
+        addEventMap sceneTab'
+      -- main
       case ui ^. uiModel . modelTab of
         TabSession ->
           renderSession
@@ -85,3 +128,13 @@ renderAction ui ss = do
           let tui = ui ^. uiModel . modelTiming
               ttable = ss ^. serverTiming . tsTimingTable
           renderTiming drvModMap tui ttable
+      -- console
+      when (ss ^. serverSessionInfo . to sessionIsPaused) $ do
+        for_ (Map.lookup "console-panel" wcfg) $ \vpCvs -> do
+          let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+          setColor White
+          -- TODO: this should be wrapped in a function.
+          lift $ do
+            R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+            R.fill
+          boxRules vpCvs

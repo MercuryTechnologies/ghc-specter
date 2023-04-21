@@ -7,9 +7,6 @@ module Renderer (
   renderPrimitive,
   renderScene,
 
-  -- * reset
-  resetWidget,
-
   -- * event map
   addEventMap,
 ) where
@@ -37,7 +34,6 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
-import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
@@ -126,19 +122,6 @@ renderScene scene = do
     R.translate (-vx0) (-vy0)
   traverse_ renderPrimitive (sceneElements scene)
   lift R.restore
-
-resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
-resetWidget tab = do
-  vb <- ask
-  let wcfg = vbWidgetConfig vb
-      emapRef = vbEventMap vb
-  liftIO $ atomically $ do
-    modifyTVar' emapRef (const [])
-    case tab of
-      TabSession -> pure (wcfg ^. wcfgSession)
-      TabModuleGraph -> pure (wcfg ^. wcfgModuleGraph)
-      TabSourceView -> pure (wcfg ^. wcfgSourceView)
-      TabTiming -> pure (wcfg ^. wcfgTiming)
 
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do

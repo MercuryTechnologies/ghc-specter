@@ -5,7 +5,8 @@ module Render.Parts.ModuleGraph (
 ) where
 
 import Control.Error.Util (note)
-import Control.Lens ((^.))
+import Control.Lens (to, (^.))
+import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
@@ -20,8 +21,7 @@ import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
-import GHCSpecter.Render.Components.Tab (compileTab)
-import GHCSpecter.Render.Tab (topLevelTab)
+import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
   HasViewPortInfo (..),
@@ -31,13 +31,12 @@ import GHCSpecter.UI.Types.Event (
   DetailLevel,
   Event (..),
   SubModuleEvent (..),
-  Tab (..),
  )
 import GI.Cairo.Render qualified as R
 import Render.Util.Rules (hruleTop)
-import Renderer (addEventMap, renderScene, resetWidget)
+import Renderer (addEventMap, renderScene)
 import Text.Printf (printf)
-import Types (GtkRender)
+import Types (GtkRender, ViewBackend (..))
 
 -- TODO: tidy up the parameters
 renderModuleGraph ::
@@ -57,7 +56,7 @@ renderModuleGraph
   timing
   clustering
   grVisInfo = do
-    wcfg <- resetWidget TabModuleGraph
+    wcfg <- (^. to vbWidgetConfig . wcfgModuleGraph) <$> ask
     let valueFor name =
           fromMaybe 0 $ do
             cluster <- L.lookup name clustering
@@ -75,15 +74,6 @@ renderModuleGraph
         vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
         vpiSub = sgrui ^. modGraphViewPort
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
-    -- tab
-    for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-      let sceneTab = TabEv <$> compileTab topLevelTab (Just TabModuleGraph)
-          sceneTab' =
-            sceneTab
-              { sceneGlobalViewPort = vpCvs
-              }
-      renderScene sceneTab'
-      addEventMap sceneTab'
     -- main module graph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
       let sceneMain =

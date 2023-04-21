@@ -59,7 +59,7 @@ import GHCSpecter.Server.Types (
  )
 import GHCSpecter.UI.Constants (
   HasWidgetConfig (..),
-  appWidgetConfigWithoutConsole,
+  appWidgetConfig,
   canvasDim,
   modGraphHeight,
   modGraphWidth,
@@ -172,17 +172,17 @@ main =
     -- TODO: This should be refactored out.
     let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
         vpSessionMain =
-          appWidgetConfigWithoutConsole ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
         vpMainModGraph =
-          appWidgetConfigWithoutConsole ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
-          appWidgetConfigWithoutConsole ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgModuleGraph . at "sub-module-graph" . to (maybe defVP translateToOrigin)
         vpSrcModTree =
-          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgSourceView . at "module-tree" . to (maybe defVP translateToOrigin)
         vpSrcSource =
-          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
         vpSrcSupp =
-          appWidgetConfigWithoutConsole ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
+          appWidgetConfig ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -197,7 +197,7 @@ main =
               . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
                     .~ ViewPortInfo vpSubModGraph Nothing
                 )
-              . (uiModel . modelWidgetConfig .~ appWidgetConfigWithoutConsole)
+              . (uiModel . modelWidgetConfig .~ appWidgetConfig)
               . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
                     .~ ViewPortInfo vpSrcModTree Nothing
                 )
