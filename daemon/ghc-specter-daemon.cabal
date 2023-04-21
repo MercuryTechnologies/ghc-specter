@@ -42,6 +42,7 @@ library
       GHCSpecter.GraphLayout.OGDF
       GHCSpecter.GraphLayout.Sugiyama
       GHCSpecter.GraphLayout.Types
+      GHCSpecter.Render.Components.Console
       GHCSpecter.Render.Components.GraphView
       GHCSpecter.Render.Components.ModuleTree
       GHCSpecter.Render.Components.Tab
