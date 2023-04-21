@@ -23,7 +23,7 @@ data TabConfig tab = TabConfig
   , tabCfgItems :: [(tab, Text)]
   }
 
-compileTab :: (Eq tab, Show tab) => TabConfig tab -> Maybe tab -> Scene tab
+compileTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene tab
 compileTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg

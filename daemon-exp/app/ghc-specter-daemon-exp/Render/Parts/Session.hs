@@ -1,59 +1,52 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Session (renderSession) where
+module Render.Parts.Session (renderSession) where
 
-import Control.Lens ((^.))
+import Control.Lens (to, (^.))
 import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
-import GHCSpecter.Channel.Outbound.Types (getEnd)
+import GHCSpecter.Channel.Outbound.Types (
+  getEnd,
+ )
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
-import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Session (
   compileModuleInProgress,
   compilePauseResume,
   compileSession,
  )
-import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   HasTimingState (..),
   ServerState,
  )
+import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasSessionUI (..),
   HasViewPortInfo (..),
   SessionUI,
  )
-import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Common (boxRules)
+import Render.Util.Rules (boxRules)
 import Renderer (
   addEventMap,
   renderScene,
-  resetWidget,
   setColor,
  )
-import Types (GtkRender)
+import Types (GtkRender, ViewBackend (..))
 
 renderSession ::
   ServerState ->
   SessionUI ->
   GtkRender Event ()
 renderSession ss sessui = do
-  wcfg <- resetWidget TabSession
-  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabSession)
-        sceneTab' =
-          sceneTab
-            { sceneGlobalViewPort = vpCvs
-            }
-    renderScene sceneTab'
-    addEventMap sceneTab'
+  wcfg <- (^. to vbWidgetConfig . wcfgSession) <$> ask
   for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
     let vpiMain = sessui ^. sessionUIMainViewPort
         vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)

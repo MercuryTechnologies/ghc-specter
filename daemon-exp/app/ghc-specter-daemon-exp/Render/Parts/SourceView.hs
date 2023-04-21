@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.SourceView (renderSourceView) where
+module Render.Parts.SourceView (renderSourceView) where
 
-import Control.Lens (at, (^.), (^?), _Just)
+import Control.Lens (at, to, (^.), (^?), _Just)
+import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -11,44 +12,34 @@ import GHCSpecter.Data.GHC.Hie (
  )
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
-import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TextView (compileTextView)
 import GHCSpecter.Render.SourceView (compileSuppViewPanel)
-import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasServerState (..),
   ServerState,
  )
+import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   HasViewPortInfo (..),
   SourceViewUI,
  )
-import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
-import Render.Common (vruleLeft)
+import Render.Util.Rules (vruleLeft)
 import Renderer (
   addEventMap,
   renderScene,
-  resetWidget,
  )
-import Types (GtkRender)
+import Types (GtkRender, ViewBackend (..))
 
 renderSourceView ::
   SourceViewUI ->
   ServerState ->
   GtkRender Event ()
 renderSourceView srcUI ss = do
-  wcfg <- resetWidget TabSourceView
-  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabSourceView)
-        sceneTab' =
-          sceneTab
-            { sceneGlobalViewPort = vpCvs
-            }
-    renderScene sceneTab'
-    addEventMap sceneTab'
+  wcfg <- (^. to vbWidgetConfig . wcfgSourceView) <$> ask
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
     let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort

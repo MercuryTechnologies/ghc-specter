@@ -7,9 +7,6 @@ module Renderer (
   renderPrimitive,
   renderScene,
 
-  -- * reset
-  resetWidget,
-
   -- * event map
   addEventMap,
 ) where
@@ -18,13 +15,11 @@ import Control.Concurrent.STM (
   atomically,
   modifyTVar',
  )
-import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
-import Data.Map (Map)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
@@ -36,10 +31,6 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
-import GHCSpecter.UI.Types (
-  HasWidgetConfig (..),
- )
-import GHCSpecter.UI.Types.Event (Tab (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
@@ -128,20 +119,6 @@ renderScene scene = do
     R.translate (-vx0) (-vy0)
   traverse_ renderPrimitive (sceneElements scene)
   lift R.restore
-
-resetWidget :: Tab -> GtkRender e (Map Text ViewPort)
-resetWidget tab = do
-  vb <- ask
-  let vbr = vbResource vb
-      wcfg = vbrWidgetConfig vbr
-      emapRef = vbEventMap vb
-  liftIO $ atomically $ do
-    modifyTVar' emapRef (const [])
-    case tab of
-      TabSession -> pure (wcfg ^. wcfgSession)
-      TabModuleGraph -> pure (wcfg ^. wcfgModuleGraph)
-      TabSourceView -> pure (wcfg ^. wcfgSourceView)
-      TabTiming -> pure (wcfg ^. wcfgTiming)
 
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do

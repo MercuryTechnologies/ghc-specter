@@ -57,7 +57,7 @@ compileSuppViewPanel ::
   ServerState ->
   (Scene SourceViewEvent, Scene ())
 compileSuppViewPanel modu srcUI ss =
-  ( fmap SourceViewTab (Tab.compileTab tabCfg mtab)
+  ( SourceViewTab <$> Tab.compileTab tabCfg mtab
   , compileSuppView msuppView
   )
   where

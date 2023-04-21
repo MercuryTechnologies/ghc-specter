@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Timing (
+module Render.Parts.Timing (
   renderTiming,
 ) where
 
-import Control.Lens ((^.))
+import Control.Lens (to, (^.))
+import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
-import Data.Text (Text)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)
@@ -16,15 +16,14 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Components.Tab (compileTab)
 import GHCSpecter.Render.Components.TimingView (
   compileBlockers,
   compileMemChart,
   compileTimingChart,
   compileTimingRange,
  )
-import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.UI.Constants (
+  HasWidgetConfig (..),
   timingRangeHeight,
   timingWidth,
  )
@@ -33,13 +32,12 @@ import GHCSpecter.UI.Types (
   HasViewPortInfo (..),
   TimingUI,
  )
-import GHCSpecter.UI.Types.Event (Event (..), Tab (..))
+import GHCSpecter.UI.Types.Event (Event (..))
 import Renderer (
   addEventMap,
   renderScene,
-  resetWidget,
  )
-import Types (GtkRender)
+import Types (GtkRender, ViewBackend (..))
 
 renderTiming ::
   BiKeyMap DriverId ModuleName ->
@@ -47,18 +45,10 @@ renderTiming ::
   TimingTable ->
   GtkRender Event ()
 renderTiming drvModMap tui ttable = do
-  wcfg <- resetWidget TabTiming
+  wcfg <- (^. to vbWidgetConfig . wcfgTiming) <$> ask
   let vpi = tui ^. timingUIViewPort
       vp@(ViewPort (_, vy0) (_, vy1)) =
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-  for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-    let sceneTab = TabEv <$> compileTab topLevelTab (Just TabTiming)
-        sceneTab' =
-          sceneTab
-            { sceneGlobalViewPort = vpCvs
-            }
-    renderScene sceneTab'
-    addEventMap sceneTab'
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
     let sceneTimingChart = TimingEv <$> compileTimingChart drvModMap tui ttable

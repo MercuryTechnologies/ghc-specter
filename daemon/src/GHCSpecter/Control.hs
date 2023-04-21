@@ -119,9 +119,9 @@ defaultUpdateModel ::
 defaultUpdateModel topEv =
   case topEv of
     TabEv _tab' ->
-      serverShouldUpdate .~ False
+      (serverShouldUpdate .~ False)
     BkgEv MessageChanUpdated ->
-      serverShouldUpdate .~ True
+      (serverShouldUpdate .~ True)
     _ ->
       id
 
@@ -303,6 +303,7 @@ goCommon ev = do
     ConsoleEv (ConsoleTab i) -> do
       printMsg ("console tab: " <> T.pack (show i))
       modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
+      refresh
     ConsoleEv (ConsoleKey key) -> do
       model0 <- (^. uiModel) <$> getUI
       if key == "Enter"
@@ -332,7 +333,7 @@ goCommon ev = do
           modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
           refresh
     _ -> pure ()
-  modifySS $ \ss -> defaultUpdateModel ev ss
+  modifySS $ defaultUpdateModel ev
   case ev of
     BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
     BkgEv RefreshUI -> refresh
@@ -346,7 +347,9 @@ goSession ev = do
       modifySS (serverShouldUpdate .~ False)
     SessionEv ResumeSessionEv -> do
       modifyUISS $ \(ui, ss) ->
-        let ui' = (uiModel . modelConsole . consoleFocus .~ Nothing) ui
+        let ui' =
+              ui
+                & (uiModel . modelConsole . consoleFocus .~ Nothing)
             sinfo = ss ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = False}
             ss' =
@@ -702,25 +705,38 @@ mainLoop = do
                   mainLoop
                 else loop
             MouseEv (MouseClick (x, y)) -> do
+              -- top-level tab
               memap <- hitScene (x, y)
-              let mhitTab = do
-                    emap <- memap
-                    guard (eventMapId emap == "tab")
-                    hitEvent <- hitItem (x, y) emap
-                    Right (TabEv tab') <- hitEventClick hitEvent
-                    pure tab'
-              tab <- (^. uiModel . modelTab) <$> getUI
-              case mhitTab of
-                Nothing ->
-                  -- Handling downstream
-                  go ev >> loop
-                Just tab' ->
-                  if (tab /= tab')
-                    then do
-                      modifyUI (uiModel . modelTab .~ tab')
-                      refresh
-                      mainLoop
-                    else loop
+              case memap of
+                Just emap
+                  | eventMapId emap == "tab" -> do
+                      let mhitTab = do
+                            hitEvent <- hitItem (x, y) emap
+                            Right (TabEv tab') <- hitEventClick hitEvent
+                            pure tab'
+                      tab <- (^. uiModel . modelTab) <$> getUI
+                      case mhitTab of
+                        Nothing ->
+                          -- cascade down
+                          go ev >> loop
+                        Just tab' ->
+                          if (tab /= tab')
+                            then do
+                              modifyUI (uiModel . modelTab .~ tab')
+                              refresh
+                              mainLoop
+                            else loop
+                  | eventMapId emap == "console-tab" -> do
+                      let mev = do
+                            hitEvent <- hitItem (x, y) emap
+                            Right ev' <- hitEventClick hitEvent
+                            pure ev'
+                      case mev of
+                        Nothing ->
+                          -- cascade down
+                          go ev >> loop
+                        Just ev' -> go ev' >> loop
+                _ -> go ev >> loop
             _ ->
               go ev >> loop
 

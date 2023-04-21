@@ -9,7 +9,7 @@ import Control.Concurrent.STM (TVar)
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Typeable (Typeable)
 import GHCSpecter.Graphics.DSL (EventMap)
-import GHCSpecter.UI.Types (WidgetConfig)
+import GHCSpecter.UI.Constants (WidgetConfig)
 import GI.Cairo.Render qualified as R
 import GI.Pango qualified as P
 
@@ -17,11 +17,11 @@ data ViewBackendResource = ViewBackendResource
   { vbrPangoContext :: P.Context
   , vbrFontDescSans :: P.FontDescription
   , vbrFontDescMono :: P.FontDescription
-  , vbrWidgetConfig :: WidgetConfig
   }
 
 data ViewBackend e = ViewBackend
   { vbResource :: ViewBackendResource
+  , vbWidgetConfig :: WidgetConfig
   , vbEventMap :: TVar [EventMap e]
   }
 
