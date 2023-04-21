@@ -14,6 +14,7 @@ import GHCSpecter.Data.Map (
  )
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  HitEvent (..),
   Primitive (..),
   Scene (..),
   TextFontFace (Mono, Sans),
@@ -60,20 +61,36 @@ compileConsoleHelp getHelp mfocus =
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
     titleElem = DrawText (0, 0) UpperLeft Sans Black 8 title
-    renderItem (Left (txt, _ev)) = DrawText (0, 0) UpperLeft Mono Black 8 txt
-    renderItem (Right txt) = DrawText (0, 0) UpperLeft Mono Gray 8 txt
+    renderItem (Left (txt, ev)) =
+      let hitEvent =
+            HitEvent
+              { hitEventHoverOn = Nothing
+              , hitEventHoverOff = Nothing
+              , hitEventClick = Just (Right ev)
+              }
+       in [ Rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+          , DrawText (0, 0) UpperLeft Mono Black 8 txt
+          ]
+    renderItem (Right txt) = [DrawText (0, 0) UpperLeft Mono Gray 8 txt]
     helpElems = fmap renderItem items
-    placing !offset item =
-      case item of
-        DrawText (x, y) p' ff c fs t ->
-          let doffset = fromIntegral fs + 4
-           in (offset + doffset, DrawText (x, y + offset) p' ff c fs t)
-        Polyline (x0, y0) xs (x1, y1) c w ->
-          let doffset = 5
-              f (x, y) = (x, y + offset + 3)
-           in (offset + doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
-        Rectangle (x, y) w h ms mf mw me ->
-          let doffset = h
-           in (offset + doffset, Rectangle (x, y + offset) w h ms mf mw me)
+    placing !offset itms =
+      let shifted = fmap forEach itms
+          itms' = fmap snd shifted
+          doffset = maximum (fmap fst shifted)
+       in (doffset, itms')
+      where
+        forEach item =
+          case item of
+            DrawText (x, y) p' ff c fs t ->
+              let doffset = fromIntegral fs + 4
+               in (offset + doffset, DrawText (x, y + offset) p' ff c fs t)
+            Polyline (x0, y0) xs (x1, y1) c w ->
+              let doffset = 5
+                  f (x, y) = (x, y + offset + 3)
+               in (doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
+            Rectangle (x, y) w h ms mf mw me ->
+              let doffset = h
+               in (doffset, Rectangle (x, y + offset) w h ms mf mw me)
     --
-    (size, contents) = L.mapAccumL placing 0 (titleElem : helpElems)
+    (size, contentss) = L.mapAccumL placing 0 ([titleElem] : helpElems)
+    contents = concat contentss
