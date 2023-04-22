@@ -368,17 +368,6 @@ goSession ev = do
               & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
       sendRequest (SessionReq Pause)
       refresh
-    MouseEv (MouseClick (x, y)) -> do
-      memap <- hitScene (x, y)
-      let mhit = do
-            emap <- memap
-            guard (eventMapId emap == "session-button")
-            hitEvent <- hitItem (x, y) emap
-            Right ev' <- hitEventClick hitEvent
-            pure ev'
-      case mhit of
-        Just ev'@(SessionEv _sev) -> goSession ev'
-        _ -> pure ()
     _ -> pure ()
   goHoverScrollZoom
     (\_ -> Nothing)
@@ -421,33 +410,6 @@ goModuleGraph ev = do
             ui' = (uiModel .~ model') ui
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
-    MouseEv (MouseClick (x, y)) -> do
-      memap <- hitScene (x, y)
-      ((ui, _), (ui', _)) <-
-        modifyAndReturnBoth $ \(ui, ss) ->
-          let model = ui ^. uiModel
-              mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
-              mmev = do
-                emap <- memap
-                guard (eventMapId emap == "main-module-graph")
-                hitEvent <- hitItem (x, y) emap
-                Right (MainModuleEv click) <- hitEventClick hitEvent
-                pure click
-              mnowHit = do
-                ClickOnModuleEv mmodu <- mmev
-                mmodu
-              (ui', ss')
-                | mnowHit /= mprevHit =
-                    let mev = ClickOnModuleEv mnowHit
-                        mgui = model ^. modelMainModuleGraph
-                        mgui' = handleModuleGraphEv mev mgui
-                        model' = (modelMainModuleGraph .~ mgui') model
-                     in ((uiModel .~ model') ui, (serverShouldUpdate .~ False) ss)
-                | otherwise = (ui, ss)
-           in (ui', ss')
-      let mprevHit = ui ^. uiModel . modelMainModuleGraph . modGraphUIClick
-          mnowHit = ui' ^. uiModel . modelMainModuleGraph . modGraphUIClick
-      when (mnowHit /= mprevHit) refresh
     _ -> pure ()
   goHoverScrollZoom
     (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
@@ -506,40 +468,6 @@ goSourceView ev = do
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
       refresh
-    MouseEv (MouseClick (x, y)) -> do
-      -- TODO: we need to make the whole Control transactional in updating the state
-      memap <- hitScene (x, y)
-      case memap of
-        Just emap ->
-          if
-              | eventMapId emap == "module-tree" -> do
-                  modifyUISS $ \(ui, ss) ->
-                    let mnowHit = do
-                          hitEvent <- hitItem (x, y) emap
-                          hitEventClick hitEvent
-                     in case mnowHit of
-                          -- on -> off
-                          Just (Right (SourceViewEv (SelectModule nowHit))) ->
-                            let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Just nowHit) ui
-                                ss' = (serverShouldUpdate .~ False) ss
-                             in (ui', ss')
-                          -- off -> on
-                          Just (Left (SourceViewEv UnselectModule)) ->
-                            let ui' = (uiModel . modelSourceView . srcViewExpandedModule .~ Nothing) ui
-                                ss' = (serverShouldUpdate .~ False) ss
-                             in (ui', ss')
-                          _ -> (ui, ss)
-                  refresh
-              | eventMapId emap == "supple-view-tab" -> do
-                  let mhitTab = do
-                        hitEvent <- hitItem (x, y) emap
-                        Right (SourceViewEv (SourceViewTab tab)) <- hitEventClick hitEvent
-                        pure tab
-                  printMsg ("hitTab: " <> T.pack (show mhitTab))
-                  modifyUI (uiModel . modelSourceView . srcViewSuppViewTab .~ mhitTab)
-                  refresh
-              | otherwise -> pure ()
-        Nothing -> pure ()
     _ -> pure ()
   goHoverScrollZoom
     (\_ -> Nothing)
@@ -690,11 +618,25 @@ mainLoop = do
   where
     branchLoop go = loop
       where
-        loop = do
-          checkIfUpdatable
-          printMsg "wait for the next event"
-          ev <- nextEvent
-          printMsg $ "event received: " <> T.pack (show ev)
+        handleClick ev0 =
+          case ev0 of
+            MouseEv (MouseClick (x, y)) -> do
+              memap <- hitScene (x, y)
+              let ev1 =
+                    case memap of
+                      Just emap ->
+                        let mev = do
+                              hitEvent <- hitItem (x, y) emap
+                              Right ev' <- hitEventClick hitEvent
+                              pure ev'
+                         in case mev of
+                              Nothing -> ev0
+                              Just ev' -> ev'
+                      _ -> ev0
+              pure ev1
+            _ -> pure ev0
+
+        afterClick ev = do
           case ev of
             TabEv tab' -> do
               tab <- (^. uiModel . modelTab) <$> getUI
@@ -704,41 +646,16 @@ mainLoop = do
                   refresh
                   mainLoop
                 else loop
-            MouseEv (MouseClick (x, y)) -> do
-              -- top-level tab
-              memap <- hitScene (x, y)
-              case memap of
-                Just emap
-                  | eventMapId emap == "tab" -> do
-                      let mhitTab = do
-                            hitEvent <- hitItem (x, y) emap
-                            Right (TabEv tab') <- hitEventClick hitEvent
-                            pure tab'
-                      tab <- (^. uiModel . modelTab) <$> getUI
-                      case mhitTab of
-                        Nothing ->
-                          -- cascade down
-                          go ev >> loop
-                        Just tab' ->
-                          if (tab /= tab')
-                            then do
-                              modifyUI (uiModel . modelTab .~ tab')
-                              refresh
-                              mainLoop
-                            else loop
-                  | eventMapId emap == "console-tab" -> do
-                      let mev = do
-                            hitEvent <- hitItem (x, y) emap
-                            Right ev' <- hitEventClick hitEvent
-                            pure ev'
-                      case mev of
-                        Nothing ->
-                          -- cascade down
-                          go ev >> loop
-                        Just ev' -> go ev' >> loop
-                _ -> go ev >> loop
-            _ ->
-              go ev >> loop
+            _ -> go ev >> loop
+
+        loop = do
+          checkIfUpdatable
+          printMsg "wait for the next event"
+          ev <- nextEvent
+          printMsg $ "event received: " <> T.pack (show ev)
+          -- click first
+          ev' <- handleClick ev
+          afterClick ev'
 
 main :: (e ~ Event) => Control e ()
 main = do
