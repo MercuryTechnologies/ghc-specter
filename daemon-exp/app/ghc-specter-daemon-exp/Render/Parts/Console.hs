@@ -49,7 +49,7 @@ renderConsole ui ss = do
   wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
   let pausedMap = ss ^. serverPaused
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
-      -- TODO: refactor this out
+      -- TODO: refactor this out and this should be out of Render.*
       getTabName k =
         let ktxt = T.pack $ show (unDriverId k)
             mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)

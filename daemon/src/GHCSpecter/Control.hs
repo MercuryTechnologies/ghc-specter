@@ -191,6 +191,8 @@ handleConsoleCommand drvId msg
                 & (uiModel . modelSourceView . srcViewExpandedModule .~ mmod)
                   . (uiModel . modelTab .~ TabSourceView)
          in (ui', ss)
+      -- TODO: this goes back to top-level. this should be taken out of this function's scope.
+      refresh
       mainLoop
   | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
@@ -301,7 +303,6 @@ goCommon :: (e ~ Event) => Event -> Control e ()
 goCommon ev = do
   case ev of
     ConsoleEv (ConsoleTab i) -> do
-      printMsg ("console tab: " <> T.pack (show i))
       modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
       refresh
     ConsoleEv (ConsoleKey key) -> do
@@ -314,11 +315,11 @@ goCommon ev = do
             appendNewCommand drvId msg
             modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
             handleConsoleCommand drvId msg
+            refresh
         else pure ()
     ConsoleEv (ConsoleInput content) -> do
       modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
     ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
-      printMsg msg
       if isImmediate
         then do
           model0 <- (^. uiModel) <$> getUI
@@ -334,6 +335,7 @@ goCommon ev = do
           refresh
     _ -> pure ()
   modifySS $ defaultUpdateModel ev
+  -- TODO: this should be separated out with session type.
   case ev of
     BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
     BkgEv RefreshUI -> refresh
