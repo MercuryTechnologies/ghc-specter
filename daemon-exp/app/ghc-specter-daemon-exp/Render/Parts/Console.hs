@@ -62,7 +62,7 @@ renderConsole ui ss = do
               let mpaused = lookupKey k pausedMap
                in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
             classify txt =
-              if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug"
+              if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug" || txt == ":list-core"
                 then Left (txt, ConsoleButtonPressed True txt)
                 else Right txt
             helpMsgs =
