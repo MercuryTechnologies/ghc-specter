@@ -90,6 +90,7 @@ handleKeyPressed chanQEv (v, mtxt) = do
               name <- mname
               if
                   | name == "Return" -> pure (KeyEv (SpecialKeyPressed KeyEnter))
+                  | name == "BackSpace" -> pure (KeyEv (SpecialKeyPressed KeyBackspace))
                   | otherwise -> Nothing
             )
             <|> ( do

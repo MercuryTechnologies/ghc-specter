@@ -13,7 +13,6 @@ module GHCSpecter.Control (
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
-import Data.Char (isPrint)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -90,7 +89,7 @@ import GHCSpecter.UI.Types.Event (
   ScrollDirection (..),
   SessionEvent (..),
   SourceViewEvent (..),
-  SpecialKey (KeyEnter),
+  SpecialKey (KeyBackspace, KeyEnter),
   SubModuleEvent (..),
   Tab (..),
   TimingEvent (..),
@@ -648,6 +647,9 @@ mainLoop = do
             KeyEv (SpecialKeyPressed KeyEnter) -> do
               -- TODO: should use enum, not text
               pure $ ConsoleEv (ConsoleKey "Enter")
+            KeyEv (SpecialKeyPressed KeyBackspace) -> do
+              currInput <- (^. uiModel . modelConsole . consoleInputEntry) <$> getUI
+              pure $ ConsoleEv (ConsoleInput (T.dropEnd 1 currInput))
             _ -> pure ev
         handleConsoleHoverScrollZoom ev =
           case ev of
@@ -679,11 +681,11 @@ mainLoop = do
                       Just emap ->
                         let mev = do
                               hitEvent <- hitItem (x, y) emap
-                              Right ev' <- hitEventClick hitEvent
-                              pure ev'
+                              Right ev_ <- hitEventClick hitEvent
+                              pure ev_
                          in case mev of
                               Nothing -> ev0
-                              Just ev' -> ev'
+                              Just ev_ -> ev_
                       _ -> ev0
               pure ev'
             _ -> pure ev0
