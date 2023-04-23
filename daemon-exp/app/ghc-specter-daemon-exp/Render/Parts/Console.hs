@@ -9,6 +9,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map (
@@ -22,8 +23,9 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.Render.Components.Console (
-  compileConsoleHelp,
-  compileConsoleTab,
+  buildConsoleHelp,
+  buildConsoleMain,
+  buildConsoleTab,
  )
 import GHCSpecter.Server.Types (
   HasServerState (..),
@@ -35,6 +37,7 @@ import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasViewPortInfo (..),
   UIState,
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
@@ -48,8 +51,9 @@ renderConsole :: UIState -> ServerState -> GtkRender Event ()
 renderConsole ui ss = do
   wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
   let pausedMap = ss ^. serverPaused
+      consoleMap = ss ^. serverConsole
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
-      -- TODO: refactor this out
+      -- TODO: refactor this out and this should be out of Render.*
       getTabName k =
         let ktxt = T.pack $ show (unDriverId k)
             mlookedup = forwardLookup k (ss ^. serverDriverModuleMap)
@@ -60,7 +64,7 @@ renderConsole ui ss = do
               let mpaused = lookupKey k pausedMap
                in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
             classify txt =
-              if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug"
+              if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug" || txt == ":list-core"
                 then Left (txt, ConsoleButtonPressed True txt)
                 else Right txt
             helpMsgs =
@@ -76,7 +80,7 @@ renderConsole ui ss = do
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
-    let sceneTab = ConsoleEv <$> compileConsoleTab tabs mconsoleFocus
+    let sceneTab = ConsoleEv <$> buildConsoleTab tabs mconsoleFocus
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -86,11 +90,21 @@ renderConsole ui ss = do
     addEventMap sceneTab'
   for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+        vpi = ui ^. uiModel . modelConsole . consoleViewPort
+        vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     setColor Ivory
     -- TODO: this should be wrapped in a function.
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
+    let sceneMain = ConsoleEv <$> buildConsoleMain consoleMap mconsoleFocus
+        sceneMain' =
+          sceneMain
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vp
+            }
+    renderScene sceneMain'
+    addEventMap sceneMain'
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor HoneyDew
@@ -99,7 +113,7 @@ renderConsole ui ss = do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
     boxRules vpCvs
-    let sceneHelp = ConsoleEv <$> compileConsoleHelp getHelp mconsoleFocus
+    let sceneHelp = ConsoleEv <$> buildConsoleHelp getHelp mconsoleFocus
         sceneHelp' =
           sceneHelp
             { sceneGlobalViewPort = vpCvs

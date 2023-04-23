@@ -20,7 +20,7 @@ import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Render.Components.GraphView (compileModuleGraph)
+import GHCSpecter.Render.Components.GraphView (buildModuleGraph)
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
@@ -78,7 +78,7 @@ renderModuleGraph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
       let sceneMain =
             fmap MainModuleEv $
-              compileModuleGraph
+              buildModuleGraph
                 nameMap
                 valueFor
                 grVisInfo
@@ -110,14 +110,14 @@ renderModuleGraph
                 | otherwise = 0
               sceneSub =
                 SubModuleEv . SubModuleGraphEv
-                  <$> compileModuleGraph
+                  <$> buildModuleGraph
                     nameMap
                     valueForSub
                     subgraph
                     (mainModuleClicked, subModuleHovered)
               sceneSub' =
                 sceneSub
-                  { -- TODO: this should be set up from compileModuleGraph
+                  { -- TODO: this should be set up from buildModuleGraph
                     sceneId = "sub-module-graph"
                   , sceneGlobalViewPort = vpCvs
                   , sceneLocalViewPort = vpSub

@@ -99,7 +99,7 @@ renderUnqualifiedImports modu inbox =
     mmsg = inbox ^? at (CheckImports, modu) . _Just
     rendered = maybe "" (\msg -> "\n----- unqualified imports -----\n" <> msg) mmsg
 
--- TODO: use compileTextView
+-- TODO: use buildTextView
 renderTextView :: Bool -> Text -> [((Int, Int), (Int, Int))] -> Widget IHTML a
 renderTextView showCharBox txt highlighted =
   -- NOTE: white-space: pre to preserve white-space occurrences in the source code.

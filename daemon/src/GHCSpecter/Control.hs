@@ -12,15 +12,13 @@ module GHCSpecter.Control (
 ) where
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
-import Control.Monad (guard, when)
-import Data.Foldable (for_)
+import Control.Monad (guard, void, when)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import Data.Traversable (for)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -60,7 +58,6 @@ import GHCSpecter.Server.Types (
   ConsoleItem (..),
   HasServerState (..),
   HasTimingState (..),
-  ServerState,
  )
 import GHCSpecter.UI.Constants (
   timingHeight,
@@ -110,20 +107,6 @@ data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   , handlerScroll :: [(Text, Lens' UIModel ViewPortInfo)]
   , handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
   }
-
--- TODO: this function does almost nothing. remove.
-defaultUpdateModel ::
-  Event ->
-  ServerState ->
-  ServerState
-defaultUpdateModel topEv =
-  case topEv of
-    TabEv _tab' ->
-      (serverShouldUpdate .~ False)
-    BkgEv MessageChanUpdated ->
-      (serverShouldUpdate .~ True)
-    _ ->
-      id
 
 updateLastUpdated :: Control e ()
 updateLastUpdated = do
@@ -191,6 +174,8 @@ handleConsoleCommand drvId msg
                 & (uiModel . modelSourceView . srcViewExpandedModule .~ mmod)
                   . (uiModel . modelTab .~ TabSourceView)
          in (ui', ss)
+      -- TODO: this goes back to top-level. this should be taken out of this function's scope.
+      refresh
       mainLoop
   | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
@@ -236,108 +221,128 @@ zoom emap lensViewPort ((x, y), scale) model =
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
 -- TODO: this function should handle MouseEvent.
-goHoverScrollZoom ::
+handleHoverScrollZoom ::
   (e ~ Event) =>
   (Event -> Maybe Text) ->
   HandlerHoverScrollZoom ->
-  Event ->
-  Control e ()
-goHoverScrollZoom hitWho handlers ev = do
-  case ev of
-    MouseEv (MouseMove (x, y)) -> do
+  MouseEvent ->
+  -- | returns whether event was handled
+  Control e Bool
+handleHoverScrollZoom hitWho handlers mev =
+  case mev of
+    MouseMove (x, y) -> do
       memap <- hitScene (x, y)
-      rs <-
-        for (handlerHover handlers) $ \(component, hoverLens) -> do
-          ((ui, _), (ui', _)) <-
-            modifyAndReturnBoth $ \(ui, ss) ->
+      handleFor handlerHover $ \(component, hoverLens) -> do
+        ((ui, _), (ui', _)) <-
+          modifyAndReturnBoth $ \(ui, ss) ->
+            let mupdated = do
+                  emap <- memap
+                  guard (eventMapId emap == component)
+                  let mprevHit = ui ^. uiModel . hoverLens
+                      mnowHit = do
+                        hitEvent <- hitItem (x, y) emap
+                        ev' <- hitEventHoverOn hitEvent
+                        hitWho ev'
+                  if mnowHit /= mprevHit
+                    then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
+                    else Nothing
+             in fromMaybe (ui, ss) mupdated
+        let mprevHit = ui ^. uiModel . hoverLens
+            mnowHit = ui' ^. uiModel . hoverLens
+        pure (mnowHit /= mprevHit)
+    Scroll dir' (x, y) (dx, dy) -> do
+      memap <- hitScene (x, y)
+      case memap of
+        Nothing -> pure False
+        Just emap -> do
+          handleFor handlerScroll $ \(component, scrollLens) -> do
+            let isHandled = eventMapId emap == component
+            modifyUI $ \ui ->
               let mupdated = do
-                    emap <- memap
-                    guard (eventMapId emap == component)
-                    let mprevHit = ui ^. uiModel . hoverLens
-                        mnowHit = do
-                          hitEvent <- hitItem (x, y) emap
-                          ev' <- hitEventHoverOn hitEvent
-                          hitWho ev'
-                    if mnowHit /= mprevHit
-                      then pure ((uiModel . hoverLens .~ mnowHit) ui, (serverShouldUpdate .~ False) ss)
-                      else Nothing
-               in fromMaybe (ui, ss) mupdated
-          let mprevHit = ui ^. uiModel . hoverLens
-              mnowHit = ui' ^. uiModel . hoverLens
-          pure (mnowHit /= mprevHit)
-      when (or rs) refresh
-    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
-      memap <- hitScene (x, y)
-      for_ (handlerScroll handlers) $ \(component, scrollLens) ->
-        modifyUI $ \ui ->
-          let mupdated = do
-                emap <- memap
-                guard (eventMapId emap == component)
-                pure $ (uiModel %~ scroll emap scrollLens (dir', (dx, dy))) ui
-           in fromMaybe ui mupdated
-      refresh
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+                    guard isHandled
+                    pure $ (uiModel %~ scroll emap scrollLens (dir', (dx, dy))) ui
+               in fromMaybe ui mupdated
+            pure isHandled
+    ZoomUpdate (xcenter, ycenter) scale -> do
       memap <- hitScene (xcenter, ycenter)
-      for_ (handlerZoom handlers) $ \(component, zoomLens) ->
-        modifyUI $ \ui ->
-          let mupdated = do
-                emap <- memap
-                guard (eventMapId emap == component)
-                pure $ (uiModel %~ zoom emap zoomLens ((xcenter, ycenter), scale)) ui
-           in fromMaybe ui mupdated
+      case memap of
+        Nothing -> pure False
+        Just emap -> do
+          handleFor handlerZoom $ \(component, zoomLens) -> do
+            let isHandled = eventMapId emap == component
+            modifyUI $ \ui ->
+              let mupdated = do
+                    guard isHandled
+                    pure $ (uiModel %~ zoom emap zoomLens ((xcenter, ycenter), scale)) ui
+               in fromMaybe ui mupdated
+            pure isHandled
+    -- TODO: this should have pointer info.
+    ZoomEnd -> do
+      _ <-
+        handleFor handlerZoom $ \(_component, zoomLens) -> do
+          modifyUI $ \ui ->
+            let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
+                  Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
+                  Nothing -> ui
+             in ui'
+          -- TODO: This is because it cannot distinguish components unfortunately.
+          pure False
       refresh
-    MouseEv ZoomEnd -> do
-      for_ (handlerZoom handlers) $ \(_component, zoomLens) ->
-        modifyUI $ \ui ->
-          let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
-                Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
-                Nothing -> ui
-           in ui'
-      refresh
-    _ -> pure ()
+      pure False
+    MouseClick {} -> pure False
+    MouseDown {} -> pure False
+    MouseUp {} -> pure False
+  where
+    handleFor ::
+      (HandlerHoverScrollZoom -> [(Text, Lens' UIModel a)]) ->
+      ((Text, Lens' UIModel a) -> Control e Bool) ->
+      Control e Bool
+    handleFor getHandler go = do
+      rs <- traverse go (getHandler handlers)
+      let isHandled = or rs
+      when isHandled refresh
+      pure isHandled
 
--- NOTE: This function should not exist forever.
-goCommon :: (e ~ Event) => Event -> Control e ()
-goCommon ev = do
-  case ev of
-    ConsoleEv (ConsoleTab i) -> do
-      printMsg ("console tab: " <> T.pack (show i))
-      modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
-      refresh
-    ConsoleEv (ConsoleKey key) -> do
+handleConsole :: (e ~ Event) => ConsoleEvent DriverId -> Control e ()
+handleConsole (ConsoleTab i) = do
+  modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
+  refresh
+handleConsole (ConsoleKey key) = do
+  model0 <- (^. uiModel) <$> getUI
+  if key == "Enter"
+    then case model0 ^. modelConsole . consoleFocus of
+      Nothing -> pure ()
+      Just drvId -> do
+        let msg = model0 ^. modelConsole . consoleInputEntry
+        appendNewCommand drvId msg
+        modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+        handleConsoleCommand drvId msg
+        refresh
+    else pure ()
+handleConsole (ConsoleInput content) = do
+  modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
+handleConsole (ConsoleButtonPressed isImmediate msg) = do
+  if isImmediate
+    then do
       model0 <- (^. uiModel) <$> getUI
-      if key == "Enter"
-        then case model0 ^. modelConsole . consoleFocus of
-          Nothing -> pure ()
-          Just drvId -> do
-            let msg = model0 ^. modelConsole . consoleInputEntry
-            appendNewCommand drvId msg
-            modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
-            handleConsoleCommand drvId msg
-        else pure ()
-    ConsoleEv (ConsoleInput content) -> do
-      modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
-    ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
-      printMsg msg
-      if isImmediate
-        then do
-          model0 <- (^. uiModel) <$> getUI
-          case model0 ^. modelConsole . consoleFocus of
-            Nothing -> pure ()
-            Just drvId -> do
-              appendNewCommand drvId msg
-              modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
-              handleConsoleCommand drvId msg
-              refresh
-        else do
-          modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
+      case model0 ^. modelConsole . consoleFocus of
+        Nothing -> pure ()
+        Just drvId -> do
+          appendNewCommand drvId msg
+          modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+          handleConsoleCommand drvId msg
           refresh
-    _ -> pure ()
-  modifySS $ defaultUpdateModel ev
-  case ev of
-    BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
-    BkgEv RefreshUI -> refresh
-    _ -> pure ()
+    else do
+      modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
+      refresh
+
+-- TODO: this should be separated out with session type.
+handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()
+handleBackground MessageChanUpdated = do
+  asyncWork timingWorker
+  modifySS (serverShouldUpdate .~ True)
+  refresh
+handleBackground RefreshUI = refresh
 
 goSession :: (e ~ Event) => Event -> Control e ()
 goSession ev = do
@@ -369,19 +374,22 @@ goSession ev = do
       sendRequest (SessionReq Pause)
       refresh
     _ -> pure ()
-  goHoverScrollZoom
-    (\_ -> Nothing)
-    HandlerHoverScrollZoom
-      { handlerHover = []
-      , handlerScroll =
-          [ ("module-status", modelSession . sessionUIModStatusViewPort)
-          , ("session-main", modelSession . sessionUIMainViewPort)
-          ]
-      , handlerZoom =
-          [("session-main", modelSession . sessionUIMainViewPort)]
-      }
-    ev
-  goCommon ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\_ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = []
+            , handlerScroll =
+                [ ("module-status", modelSession . sessionUIModStatusViewPort)
+                , ("session-main", modelSession . sessionUIMainViewPort)
+                ]
+            , handlerZoom =
+                [("session-main", modelSession . sessionUIMainViewPort)]
+            }
+          mev
+    _ -> pure ()
 
 goModuleGraph :: (e ~ Event) => Event -> Control e ()
 goModuleGraph ev = do
@@ -411,23 +419,26 @@ goModuleGraph ev = do
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
     _ -> pure ()
-  goHoverScrollZoom
-    (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
-    HandlerHoverScrollZoom
-      { handlerHover =
-          [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
-          ]
-      , handlerScroll =
-          [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-          , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-          ]
-      , handlerZoom =
-          [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-          , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-          ]
-      }
-    ev
-  goCommon ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
+                ]
+            , handlerScroll =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ]
+            , handlerZoom =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ]
+            }
+          mev
+    _ -> pure ()
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -469,22 +480,25 @@ goSourceView ev = do
          in (ui', ss')
       refresh
     _ -> pure ()
-  goHoverScrollZoom
-    (\_ -> Nothing)
-    HandlerHoverScrollZoom
-      { handlerHover = []
-      , handlerScroll =
-          [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
-          , ("source-view", modelSourceView . srcViewSourceViewPort)
-          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-          ]
-      , handlerZoom =
-          [ ("source-view", modelSourceView . srcViewSourceViewPort)
-          , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-          ]
-      }
-    ev
-  goCommon ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\_ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = []
+            , handlerScroll =
+                [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
+                , ("source-view", modelSourceView . srcViewSourceViewPort)
+                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                ]
+            , handlerZoom =
+                [ ("source-view", modelSourceView . srcViewSourceViewPort)
+                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                ]
+            }
+          mev
+    _ -> pure ()
 
 goTiming :: (e ~ Event) => Event -> Control e ()
 goTiming ev = do
@@ -569,15 +583,18 @@ goTiming ev = do
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
       onDraggingInTimingView (x, y) vp
     _ -> pure ()
-  goHoverScrollZoom
-    (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
-    HandlerHoverScrollZoom
-      { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
-      , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
-      , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
-      }
-    ev
-  goCommon ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
+            , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
+            , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+            }
+          mev
+    _ -> pure ()
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
     addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
@@ -607,7 +624,7 @@ initializeMainView =
   modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
 -- | top-level loop, branching according to tab event
-mainLoop :: (e ~ Event) => Control e ()
+mainLoop :: forall e r. (e ~ Event) => Control e r
 mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
@@ -616,8 +633,32 @@ mainLoop = do
     TabSourceView -> branchLoop goSourceView
     TabTiming -> branchLoop goTiming
   where
+    branchLoop :: (Event -> Control e ()) -> Control e r
     branchLoop go = loop
       where
+        handleConsoleHoverScrollZoom ev0 =
+          case ev0 of
+            MouseEv mev -> do
+              isHandled <-
+                handleHoverScrollZoom
+                  (\_ -> Nothing)
+                  HandlerHoverScrollZoom
+                    { handlerHover = []
+                    , handlerScroll =
+                        [ ("console-main", modelConsole . consoleViewPort)
+                        ]
+                    , handlerZoom =
+                        [ ("console-main", modelConsole . consoleViewPort)
+                        ]
+                    }
+                  mev
+              if isHandled
+                then do
+                  ev1 <- nextEvent
+                  pure ev1
+                else pure ev0
+            _ -> pure ev0
+
         handleClick ev0 =
           case ev0 of
             MouseEv (MouseClick (x, y)) -> do
@@ -646,16 +687,21 @@ mainLoop = do
                   refresh
                   mainLoop
                 else loop
+            ConsoleEv cev -> handleConsole cev >> loop
+            BkgEv bev -> handleBackground bev >> loop
             _ -> go ev >> loop
 
+        loop :: Control Event r
         loop = do
           checkIfUpdatable
           printMsg "wait for the next event"
-          ev <- nextEvent
-          printMsg $ "event received: " <> T.pack (show ev)
-          -- click first
-          ev' <- handleClick ev
-          afterClick ev'
+          ev0 <- nextEvent
+          printMsg $ "event received: " <> T.pack (show ev0)
+          -- handle console hover/scroll/zoom
+          ev1 <- handleConsoleHoverScrollZoom ev0
+          -- handle click
+          ev2 <- handleClick ev1
+          afterClick ev2
 
 main :: (e ~ Event) => Control e ()
 main = do

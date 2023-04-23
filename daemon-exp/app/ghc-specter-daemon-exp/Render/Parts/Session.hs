@@ -15,9 +15,9 @@ import GHCSpecter.Channel.Outbound.Types (
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
 import GHCSpecter.Render.Session (
-  compileModuleInProgress,
-  compilePauseResume,
-  compileSession,
+  buildModuleInProgress,
+  buildPauseResume,
+  buildSession,
  )
 import GHCSpecter.Server.Types (
   HasServerState (..),
@@ -50,7 +50,7 @@ renderSession ss sessui = do
   for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
     let vpiMain = sessui ^. sessionUIMainViewPort
         vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
-        sceneMain = compileSession ss
+        sceneMain = buildSession ss
         sceneMain' =
           sceneMain
             { sceneGlobalViewPort = vpCvs
@@ -75,7 +75,7 @@ renderSession ss sessui = do
         timingList = keyMapToList timing
         (_timingDone, timingInProg) =
           partition (\(_, t) -> isJust (getEnd t)) timingList
-        sceneModStatus = compileModuleInProgress drvModMap pausedMap timingInProg
+        sceneModStatus = buildModuleInProgress drvModMap pausedMap timingInProg
         sceneModStatus' =
           sceneModStatus
             { sceneGlobalViewPort = vpCvs
@@ -85,7 +85,7 @@ renderSession ss sessui = do
     addEventMap sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
-        scenePause = SessionEv <$> compilePauseResume sessionInfo
+        scenePause = SessionEv <$> buildPauseResume sessionInfo
         scenePause' =
           scenePause
             { sceneGlobalViewPort = vpCvs

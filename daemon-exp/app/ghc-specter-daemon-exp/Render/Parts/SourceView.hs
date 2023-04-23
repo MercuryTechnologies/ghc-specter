@@ -11,9 +11,9 @@ import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Render.Components.ModuleTree (compileModuleTree)
-import GHCSpecter.Render.Components.TextView (compileTextView)
-import GHCSpecter.Render.SourceView (compileSuppViewPanel)
+import GHCSpecter.Render.Components.ModuleTree (buildModuleTree)
+import GHCSpecter.Render.Components.TextView (buildTextView)
+import GHCSpecter.Render.SourceView (buildSuppViewPanel)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasServerState (..),
@@ -43,7 +43,7 @@ renderSourceView srcUI ss = do
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
     let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
-        sceneModTree = SourceViewEv <$> compileModuleTree srcUI ss
+        sceneModTree = SourceViewEv <$> buildModuleTree srcUI ss
         sceneModTree' =
           sceneModTree
             { sceneId = "module-tree"
@@ -66,7 +66,7 @@ renderSourceView srcUI ss = do
               src = modHieInfo ^. modHieSource
               vpi = srcUI ^. srcViewSourceViewPort
               vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-              sceneSrcView = compileTextView src (fmap fst topLevelDecls)
+              sceneSrcView = buildTextView src (fmap fst topLevelDecls)
               sceneSrcView' =
                 sceneSrcView
                   { sceneId = "source-view"
@@ -81,7 +81,7 @@ renderSourceView srcUI ss = do
           \(vpCvsSuppTab, vpCvsSuppContents) -> do
             let vpi = srcUI ^. srcViewSuppViewPort
                 vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-                (sceneSuppTab, sceneSuppContents) = compileSuppViewPanel modu srcUI ss
+                (sceneSuppTab, sceneSuppContents) = buildSuppViewPanel modu srcUI ss
                 sceneSuppTab' =
                   SourceViewEv
                     <$> sceneSuppTab

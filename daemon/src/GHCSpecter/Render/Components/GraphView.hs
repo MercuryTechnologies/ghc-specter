@@ -3,8 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.GraphView (
-  compileModuleGraph,
-  compileGraph,
+  buildModuleGraph,
+  buildGraph,
 ) where
 
 import Control.Lens ((^.), _1)
@@ -37,7 +37,7 @@ import GHCSpecter.Graphics.DSL (
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)
 
-compileModuleGraph ::
+buildModuleGraph ::
   -- | key = graph id
   IntMap ModuleName ->
   -- | For each module, assign a double type value in [0, 1],
@@ -48,7 +48,7 @@ compileModuleGraph ::
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
   Scene ModuleGraphEvent
-compileModuleGraph
+buildModuleGraph
   nameMap
   valueFor
   grVisInfo
@@ -114,9 +114,9 @@ compileModuleGraph
                 ++ concatMap node (grVisInfo ^. gviNodes)
           }
 
--- | compile graph more simply to graphics DSL
-compileGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive ModuleGraphEvent]
-compileGraph cond grVisInfo =
+-- | build graph more simply to graphics DSL
+buildGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive ModuleGraphEvent]
+buildGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)

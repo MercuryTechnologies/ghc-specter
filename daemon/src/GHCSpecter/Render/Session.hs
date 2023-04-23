@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Session (
-  compileModuleInProgress,
-  compileSession,
-  compilePauseResume,
+  buildModuleInProgress,
+  buildSession,
+  buildPauseResume,
 ) where
 
 import Control.Lens ((^.))
@@ -40,7 +40,7 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Components.TextView (compileTextView)
+import GHCSpecter.Render.Components.TextView (buildTextView)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -53,12 +53,12 @@ import GHCSpecter.UI.Types.Event (
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
-compileModuleInProgress ::
+buildModuleInProgress ::
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
   Scene e
-compileModuleInProgress drvModMap pausedMap timingInProg =
+buildModuleInProgress drvModMap pausedMap timingInProg =
   scene {sceneId = "module-status"}
   where
     msgs =
@@ -70,12 +70,12 @@ compileModuleInProgress drvModMap pausedMap timingInProg =
                 msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
-    scene = compileTextView (T.unlines msgs) []
+    scene = buildTextView (T.unlines msgs) []
 
-compileSession ::
+buildSession ::
   ServerState ->
   Scene e
-compileSession ss =
+buildSession ss =
   scene {sceneId = "session-main"}
   where
     sessionInfo = ss ^. serverSessionInfo
@@ -149,10 +149,10 @@ compileSession ss =
             ++ msgsRTSInfo
         )
 
-    scene = compileTextView txt []
+    scene = buildTextView txt []
 
-compilePauseResume :: SessionInfo -> Scene SessionEvent
-compilePauseResume session =
+buildPauseResume :: SessionInfo -> Scene SessionEvent
+buildPauseResume session =
   Scene
     { sceneId = "session-button"
     , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)

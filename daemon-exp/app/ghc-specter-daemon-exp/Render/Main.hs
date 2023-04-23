@@ -25,7 +25,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   TextFontFace (Sans),
  )
-import GHCSpecter.Render.Components.Tab (compileTab)
+import GHCSpecter.Render.Components.Tab (buildTab)
 import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -98,7 +98,7 @@ renderAction ui ss = do
       wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
       -- tab
       for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-        let sceneTab = TabEv <$> compileTab topLevelTab (Just (ui ^. uiModel . modelTab))
+        let sceneTab = TabEv <$> buildTab topLevelTab (Just (ui ^. uiModel . modelTab))
             sceneTab' =
               sceneTab
                 { sceneGlobalViewPort = vpCvs

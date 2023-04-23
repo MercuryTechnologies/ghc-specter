@@ -17,10 +17,10 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.Render.Components.TimingView (
-  compileBlockers,
-  compileMemChart,
-  compileTimingChart,
-  compileTimingRange,
+  buildBlockers,
+  buildMemChart,
+  buildTimingChart,
+  buildTimingRange,
  )
 import GHCSpecter.UI.Constants (
   HasWidgetConfig (..),
@@ -51,7 +51,7 @@ renderTiming drvModMap tui ttable = do
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
-    let sceneTimingChart = TimingEv <$> compileTimingChart drvModMap tui ttable
+    let sceneTimingChart = TimingEv <$> buildTimingChart drvModMap tui ttable
         sceneTimingChart' =
           sceneTimingChart
             { sceneGlobalViewPort = vpCvs
@@ -61,7 +61,7 @@ renderTiming drvModMap tui ttable = do
     addEventMap sceneTimingChart'
   -- mem chart
   for_ (Map.lookup "mem-chart" wcfg) $ \vpCvs -> do
-    let sceneMemChart = compileMemChart drvModMap tui ttable
+    let sceneMemChart = buildMemChart drvModMap tui ttable
         sceneMemChart' =
           sceneMemChart
             { sceneGlobalViewPort = vpCvs
@@ -70,7 +70,7 @@ renderTiming drvModMap tui ttable = do
     renderScene sceneMemChart'
   -- timing range bar
   for_ (Map.lookup "timing-range" wcfg) $ \vpCvs -> do
-    let sceneTimingRange = compileTimingRange tui ttable
+    let sceneTimingRange = buildTimingRange tui ttable
         sceneTimingRange' =
           sceneTimingRange
             { sceneGlobalViewPort = vpCvs
@@ -85,7 +85,7 @@ renderTiming drvModMap tui ttable = do
   -- NOTE: the size information from vpCvs is ignored as dynamic size overrides it.
   -- TODO: clipping is still valid. we need two-layer viewport system.
   for_ minfo $ \(hoveredMod, vpCvs) -> do
-    let sceneBlockers = compileBlockers hoveredMod ttable
+    let sceneBlockers = buildBlockers hoveredMod ttable
         ViewPort (offsetX, offsetY) _ = vpCvs
         ViewPort (vx0', vy0') (vx1', vy1') = sceneLocalViewPort sceneBlockers
         w = vx1' - vx0'

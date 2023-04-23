@@ -4,12 +4,12 @@ module GHCSpecter.Render.Components.TimingView (
   diffTime2X,
   module2Y,
 
-  -- * compile renderer
-  compileRules,
-  compileTimingChart,
-  compileMemChart,
-  compileTimingRange,
-  compileBlockers,
+  -- * build renderer
+  buildRules,
+  buildTimingChart,
+  buildMemChart,
+  buildTimingRange,
+  buildBlockers,
 ) where
 
 import Control.Lens (to, (%~), (^.), _1, _2)
@@ -43,6 +43,7 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
  )
+import GHCSpecter.Render.Components.Util (flowLineByLine)
 import GHCSpecter.UI.Constants (
   timingHeight,
   timingMaxWidth,
@@ -81,13 +82,13 @@ colorCodes =
   , ColorRedLevel0
   ]
 
-compileRules ::
+buildRules ::
   Bool ->
   TimingTable ->
   Int ->
   NominalDiffTime ->
   [Primitive e]
-compileRules showParallel table totalHeight totalTime =
+buildRules showParallel table totalHeight totalTime =
   ( if showParallel
       then fmap box rangesWithCPUUsage
       else []
@@ -128,18 +129,18 @@ compileRules showParallel table totalHeight totalTime =
         Nothing
         Nothing
 
-compileTimingChart ::
+buildTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   Scene TimingEvent
-compileTimingChart drvModMap tui ttable =
+buildTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
     , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
     , sceneElements =
-        compileRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+        buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
           ++ (concatMap makeItem filteredItems)
           ++ lineToUpstream
           ++ linesToDownstream
@@ -253,12 +254,12 @@ compileTimingChart drvModMap tui ttable =
             M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
-compileMemChart ::
+buildMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   Scene e
-compileMemChart drvModMap tui ttable =
+buildMemChart drvModMap tui ttable =
   Scene
     { sceneId = "mem-chart"
     , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
@@ -311,11 +312,11 @@ compileMemChart drvModMap tui ttable =
           box LightSlateGray plEnd x
             ++ [moduleText x]
 
-compileTimingRange ::
+buildTimingRange ::
   TimingUI ->
   TimingTable ->
   Scene e
-compileTimingRange tui ttable =
+buildTimingRange tui ttable =
   Scene
     { sceneId = "timing-range"
     , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
@@ -361,13 +362,13 @@ compileTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-compileBlockers :: ModuleName -> TimingTable -> Scene e
-compileBlockers hoveredMod ttable =
+buildBlockers :: ModuleName -> TimingTable -> Scene e
+buildBlockers hoveredMod ttable =
   Scene
     { sceneId = "blockers"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = box : contents
+    , sceneElements = box : concat contentss
     }
   where
     upMods =
@@ -375,24 +376,11 @@ compileBlockers hoveredMod ttable =
     downMods =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
-    selected = DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod
-    line = Polyline (0, 0) [] (200, 0) Black 1
-    blockedBy = DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By"
-    upstreams = fmap (DrawText (0, 0) UpperLeft Sans Black 8) upMods
-    blocking = DrawText (0, 0) UpperLeft Sans Black 8 "Blocking"
-    downstreams = fmap (DrawText (0, 0) UpperLeft Sans Black 8) downMods
-    --
-    placing !offset item =
-      case item of
-        DrawText (x, y) p' ff c fs t ->
-          let doffset = fromIntegral fs + 4
-           in (offset + doffset, DrawText (x, y + offset) p' ff c fs t)
-        Polyline (x0, y0) [] (x1, y1) c w ->
-          let doffset = 5
-           in (offset + doffset, Polyline (x0, y0 + offset + 3) [] (x1, y1 + offset + 3) c w)
-        -- for now
-        _ -> (offset, item)
-    --
-    (size, contents) =
-      L.mapAccumL placing 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+    selected = [DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod]
+    line = [Polyline (0, 0) [] (200, 0) Black 1]
+    blockedBy = [DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By"]
+    upstreams = fmap (\t -> [DrawText (0, 0) UpperLeft Sans Black 8 t]) upMods
+    blocking = [DrawText (0, 0) UpperLeft Sans Black 8 "Blocking"]
+    downstreams = fmap (\t -> [DrawText (0, 0) UpperLeft Sans Black 8 t]) downMods
+    (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     box = Rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
