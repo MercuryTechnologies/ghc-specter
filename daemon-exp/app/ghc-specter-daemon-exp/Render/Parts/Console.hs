@@ -5,7 +5,6 @@ module Render.Parts.Console (
 ) where
 
 import Control.Lens (to, (^.))
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
@@ -20,10 +19,10 @@ import GHCSpecter.Data.Map (
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
-  ViewPort (..),
  )
 import GHCSpecter.Render.Components.Console (
   buildConsoleHelp,
+  buildConsoleInput,
   buildConsoleMain,
   buildConsoleTab,
  )
@@ -42,8 +41,7 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
-import GI.Cairo.Render qualified as R
-import Render.Util.Rules (boxRules)
+import Render.Util.Rules (boxFill, boxRules)
 import Renderer (addEventMap, renderScene, setColor)
 import Types (GtkRender, ViewBackend (..))
 
@@ -53,6 +51,7 @@ renderConsole ui ss = do
   let pausedMap = ss ^. serverPaused
       consoleMap = ss ^. serverConsole
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
+      inputEntry = ui ^. uiModel ^. modelConsole . consoleInputEntry
       -- TODO: refactor this out and this should be out of Render.*
       getTabName k =
         let ktxt = T.pack $ show (unDriverId k)
@@ -74,12 +73,8 @@ renderConsole ui ss = do
                 (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
          in (title, helpMsgs)
   for_ (Map.lookup "console-tab" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+    boxFill Ivory vpCvs
     setColor Ivory
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
     let sceneTab = ConsoleEv <$> buildConsoleTab tabs mconsoleFocus
         sceneTab' =
           sceneTab
@@ -89,14 +84,9 @@ renderConsole ui ss = do
     renderScene sceneTab'
     addEventMap sceneTab'
   for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-        vpi = ui ^. uiModel . modelConsole . consoleViewPort
+    let vpi = ui ^. uiModel . modelConsole . consoleViewPort
         vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-    setColor Ivory
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
+    boxFill Ivory vpCvs
     let sceneMain = ConsoleEv <$> buildConsoleMain consoleMap mconsoleFocus
         sceneMain' =
           sceneMain
@@ -106,12 +96,7 @@ renderConsole ui ss = do
     renderScene sceneMain'
     addEventMap sceneMain'
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-    setColor HoneyDew
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
+    boxFill HoneyDew vpCvs
     boxRules vpCvs
     let sceneHelp = ConsoleEv <$> buildConsoleHelp getHelp mconsoleFocus
         sceneHelp' =
@@ -121,3 +106,14 @@ renderConsole ui ss = do
             }
     renderScene sceneHelp'
     addEventMap sceneHelp'
+  for_ (Map.lookup "console-input" wcfg) $ \vpCvs -> do
+    boxFill HoneyDew vpCvs
+    boxRules vpCvs
+    let sceneInput = buildConsoleInput inputEntry
+        sceneInput' =
+          sceneInput
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = translateToOrigin vpCvs
+            }
+    renderScene sceneInput'
+    addEventMap sceneInput'

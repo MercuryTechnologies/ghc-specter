@@ -25,7 +25,7 @@ import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
 import Data.Foldable (traverse_)
-import Data.GI.Base (AttrOp ((:=)), new, on)
+import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
 import Data.List (partition)
@@ -89,6 +89,7 @@ import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
 import Handler (
   handleClick,
+  handleKeyPressed,
   handleMotion,
   handleScroll,
   handleZoomEnd,
@@ -244,6 +245,8 @@ main =
           drawingArea
           [ Gdk.EventMaskButtonPressMask
           , Gdk.EventMaskButtonReleaseMask
+          , Gdk.EventMaskKeyPressMask
+          , Gdk.EventMaskKeyReleaseMask
           , Gdk.EventMaskPointerMotionMask
           , Gdk.EventMaskScrollMask
           , Gdk.EventMaskTouchpadGestureMask
@@ -276,7 +279,7 @@ main =
             handleMotion chanQEv ev
             pure True
         _ <- drawingArea
-          `on` #scrollEvent
+          `after` #scrollEvent
           $ \ev -> do
             handleScroll chanQEv ev
             pure True
@@ -291,7 +294,16 @@ main =
           $ \_ -> do
             handleZoomEnd chanQEv
         #setPropagationPhase gzoom Gtk.PropagationPhaseBubble
-
+        _ <- drawingArea
+          `on` #keyPressEvent
+          $ \ev -> do
+            v <- get ev #keyval
+            mtxt <- get ev #string
+            print (v, mtxt)
+            handleKeyPressed chanQEv (v, mtxt)
+            pure True
+        #setCanFocus drawingArea True
+        #grabFocus drawingArea
         layout <- do
           vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]
           #packStart vbox drawingArea True True 0
