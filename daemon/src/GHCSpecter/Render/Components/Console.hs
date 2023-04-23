@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.Console (
-  compileConsoleTab,
-  compileConsoleHelp,
+  buildConsoleTab,
+  buildConsoleHelp,
 ) where
 
 import Control.Lens ((^.), _1)
@@ -23,18 +23,18 @@ import GHCSpecter.Graphics.DSL (
  )
 import GHCSpecter.Render.Components.Tab (
   TabConfig (..),
-  compileTab,
+  buildTab,
  )
 import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
-compileConsoleTab ::
+buildConsoleTab ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   Maybe k ->
   Scene (ConsoleEvent k)
-compileConsoleTab tabs mfocus = ConsoleTab <$> compileTab tabCfg mfocus
+buildConsoleTab tabs mfocus = ConsoleTab <$> buildTab tabCfg mfocus
   where
     tabCfg =
       TabConfig
@@ -45,12 +45,12 @@ compileConsoleTab tabs mfocus = ConsoleTab <$> compileTab tabCfg mfocus
         , tabCfgItems = tabs
         }
 
-compileConsoleHelp ::
+buildConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
   Scene (ConsoleEvent k)
-compileConsoleHelp getHelp mfocus =
+buildConsoleHelp getHelp mfocus =
   Scene
     { sceneId = "console-help"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)

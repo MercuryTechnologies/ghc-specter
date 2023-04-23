@@ -10,8 +10,8 @@ module GHCSpecter.Render.Components.TextView (
   leftOfBox,
   rightOfBox,
 
-  -- * compile
-  compileTextView,
+  -- * build
+  buildTextView,
 ) where
 
 import Data.Text (Text)
@@ -47,8 +47,8 @@ leftOfBox j = charSize * fromIntegral (j - 1)
 rightOfBox :: Int -> Double
 rightOfBox j = charSize * fromIntegral j
 
-compileTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene e
-compileTextView txt highlighted =
+buildTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene e
+buildTextView txt highlighted =
   Scene
     { sceneId = "text-view"
     , sceneGlobalViewPort = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)

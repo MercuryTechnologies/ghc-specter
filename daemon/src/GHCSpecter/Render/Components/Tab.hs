@@ -1,6 +1,6 @@
 module GHCSpecter.Render.Components.Tab (
   TabConfig (..),
-  compileTab,
+  buildTab,
 ) where
 
 import Data.List qualified as L
@@ -23,8 +23,8 @@ data TabConfig tab = TabConfig
   , tabCfgItems :: [(tab, Text)]
   }
 
-compileTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene tab
-compileTab cfg mtab =
+buildTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene tab
+buildTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg
     , sceneGlobalViewPort = vp

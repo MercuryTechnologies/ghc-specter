@@ -113,7 +113,7 @@ renderTimingChart drvModMap tui ttable =
         [ fmap (\ev -> TimingEv ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
         , fmap (\ev -> TimingEv ev <$ onMouseLeave) (hitEventHoverOn hitEvent)
         ]
-    scene = TimingView.compileTimingChart drvModMap tui ttable
+    scene = TimingView.buildTimingChart drvModMap tui ttable
     rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -152,7 +152,7 @@ renderMemChart drvModMap tui ttable =
     , S.g [] (fmap (renderPrimitive (const [])) rexp)
     ]
   where
-    scene = TimingView.compileMemChart drvModMap tui ttable
+    scene = TimingView.buildMemChart drvModMap tui ttable
     rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -178,7 +178,7 @@ renderTimingRange ::
 renderTimingRange tui ttable =
   div [] [svgElement]
   where
-    scene = TimingView.compileTimingRange tui ttable
+    scene = TimingView.buildTimingRange tui ttable
     rexp = sceneElements scene
     svgProps =
       [ width (T.pack (show (timingWidth :: Int)))

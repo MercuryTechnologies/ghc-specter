@@ -22,8 +22,8 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.Render.Components.Console (
-  compileConsoleHelp,
-  compileConsoleTab,
+  buildConsoleHelp,
+  buildConsoleTab,
  )
 import GHCSpecter.Server.Types (
   HasServerState (..),
@@ -76,7 +76,7 @@ renderConsole ui ss = do
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
-    let sceneTab = ConsoleEv <$> compileConsoleTab tabs mconsoleFocus
+    let sceneTab = ConsoleEv <$> buildConsoleTab tabs mconsoleFocus
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -99,7 +99,7 @@ renderConsole ui ss = do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
     boxRules vpCvs
-    let sceneHelp = ConsoleEv <$> compileConsoleHelp getHelp mconsoleFocus
+    let sceneHelp = ConsoleEv <$> buildConsoleHelp getHelp mconsoleFocus
         sceneHelp' =
           sceneHelp
             { sceneGlobalViewPort = vpCvs

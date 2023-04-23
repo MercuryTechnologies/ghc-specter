@@ -57,8 +57,8 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
  )
 import GHCSpecter.Render.Components.GraphView (
-  compileGraph,
-  compileModuleGraph,
+  buildGraph,
+  buildModuleGraph,
  )
 import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Web.Util (xmlns)
@@ -107,7 +107,7 @@ renderModuleGraph
             , fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent)
             , fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
             ]
-        scene = compileModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
+        scene = buildModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
         rexp = sceneElements scene
         svgProps =
           [ width (T.pack (show (canvasWidth + 100)))
@@ -132,7 +132,7 @@ renderModuleGraph
 renderGraph :: (Text -> Bool) -> GraphVisInfo -> Widget IHTML a
 renderGraph cond grVisInfo =
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
-      rexp = compileGraph cond grVisInfo
+      rexp = buildGraph cond grVisInfo
       svgProps =
         [ width (T.pack (show (canvasWidth + 100)))
         , SP.viewBox

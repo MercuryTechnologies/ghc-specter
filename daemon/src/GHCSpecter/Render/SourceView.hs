@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.SourceView (
-  compileSuppViewPanel,
+  buildSuppViewPanel,
 ) where
 
 import Control.Lens ((^.))
@@ -27,23 +27,23 @@ import GHCSpecter.UI.Types.Event (
   SourceViewEvent (..),
  )
 
-compileSuppView :: Maybe SupplementaryView -> Scene ()
-compileSuppView Nothing =
+buildSuppView :: Maybe SupplementaryView -> Scene ()
+buildSuppView Nothing =
   Scene
     { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = []
     }
-compileSuppView (Just (SuppViewCallgraph grVis)) =
+buildSuppView (Just (SuppViewCallgraph grVis)) =
   Scene
     { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements =
-        fmap (() <$) $ GraphView.compileGraph (isJust . T.find (== '.')) grVis
+        fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
     }
-compileSuppView (Just (SuppViewText _)) =
+buildSuppView (Just (SuppViewText _)) =
   Scene
     { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
@@ -51,14 +51,14 @@ compileSuppView (Just (SuppViewText _)) =
     , sceneElements = []
     }
 
-compileSuppViewPanel ::
+buildSuppViewPanel ::
   ModuleName ->
   SourceViewUI ->
   ServerState ->
   (Scene SourceViewEvent, Scene ())
-compileSuppViewPanel modu srcUI ss =
-  ( SourceViewTab <$> Tab.compileTab tabCfg mtab
-  , compileSuppView msuppView
+buildSuppViewPanel modu srcUI ss =
+  ( SourceViewTab <$> Tab.buildTab tabCfg mtab
+  , buildSuppView msuppView
   )
   where
     mtab = srcUI ^. srcViewSuppViewTab

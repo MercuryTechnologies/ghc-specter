@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Render.Components.ModuleTree (
-  compileModuleTree,
+  buildModuleTree,
   expandableText,
 ) where
 
@@ -47,8 +47,8 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-compileModuleTree :: SourceViewUI -> ServerState -> Scene SourceViewEvent
-compileModuleTree srcUI ss =
+buildModuleTree :: SourceViewUI -> ServerState -> Scene SourceViewEvent
+buildModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
