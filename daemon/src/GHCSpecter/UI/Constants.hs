@@ -20,6 +20,9 @@ module GHCSpecter.UI.Constants (
   -- * session
   sessionModStatusDim,
 
+  -- * console
+  consoleInputHeight,
+
   -- * global
   canvasDim,
   tabHeight,

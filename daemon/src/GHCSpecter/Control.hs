@@ -13,6 +13,7 @@ module GHCSpecter.Control (
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
+import Data.Char (isPrint)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -83,6 +84,7 @@ import GHCSpecter.UI.Types.Event (
   BlockerModuleGraphEvent (..),
   ConsoleEvent (..),
   Event (..),
+  KeyEvent (..),
   ModuleGraphEvent (..),
   MouseEvent (..),
   ScrollDirection (..),
@@ -321,6 +323,7 @@ handleConsole (ConsoleKey key) = do
     else pure ()
 handleConsole (ConsoleInput content) = do
   modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
+  refresh
 handleConsole (ConsoleButtonPressed isImmediate msg) = do
   if isImmediate
     then do
@@ -636,8 +639,19 @@ mainLoop = do
     branchLoop :: (Event -> Control e ()) -> Control e r
     branchLoop go = loop
       where
-        handleConsoleHoverScrollZoom ev0 =
-          case ev0 of
+        handleConsoleKey ev =
+          case ev of
+            KeyEv (NormalKeyPressed txt) -> do
+              currInput <- (^. uiModel . modelConsole . consoleInputEntry) <$> getUI
+              if
+                  -- TODO: handle this more correctly.
+                  | "\r" `T.isPrefixOf` txt ->
+                      pure $ ConsoleEv (ConsoleKey "Enter")
+                  | otherwise ->
+                      pure $ ConsoleEv (ConsoleInput (currInput <> txt))
+            _ -> pure ev
+        handleConsoleHoverScrollZoom ev =
+          case ev of
             MouseEv mev -> do
               isHandled <-
                 handleHoverScrollZoom
@@ -653,17 +667,15 @@ mainLoop = do
                     }
                   mev
               if isHandled
-                then do
-                  ev1 <- nextEvent
-                  pure ev1
-                else pure ev0
-            _ -> pure ev0
+                then nextEvent
+                else pure ev
+            _ -> pure ev
 
         handleClick ev0 =
           case ev0 of
             MouseEv (MouseClick (x, y)) -> do
               memap <- hitScene (x, y)
-              let ev1 =
+              let ev' =
                     case memap of
                       Just emap ->
                         let mev = do
@@ -674,7 +686,7 @@ mainLoop = do
                               Nothing -> ev0
                               Just ev' -> ev'
                       _ -> ev0
-              pure ev1
+              pure ev'
             _ -> pure ev0
 
         afterClick ev = do
@@ -697,11 +709,13 @@ mainLoop = do
           printMsg "wait for the next event"
           ev0 <- nextEvent
           printMsg $ "event received: " <> T.pack (show ev0)
+          -- handle console key press event
+          ev1 <- handleConsoleKey ev0
           -- handle console hover/scroll/zoom
-          ev1 <- handleConsoleHoverScrollZoom ev0
+          ev2 <- handleConsoleHoverScrollZoom ev1
           -- handle click
-          ev2 <- handleClick ev1
-          afterClick ev2
+          ev3 <- handleClick ev2
+          afterClick ev3
 
 main :: (e ~ Event) => Control e ()
 main = do

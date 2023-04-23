@@ -4,6 +4,7 @@ module GHCSpecter.Render.Components.Console (
   buildConsoleTab,
   buildConsoleHelp,
   buildConsoleMain,
+  buildConsoleInput,
 ) where
 
 import Control.Lens ((^.), _1)
@@ -32,7 +33,10 @@ import GHCSpecter.Render.Components.Util (
   flowLineByLine,
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
-import GHCSpecter.UI.Constants (canvasDim)
+import GHCSpecter.UI.Constants (
+  canvasDim,
+  consoleInputHeight,
+ )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
@@ -106,3 +110,14 @@ buildConsoleMain contents mfocus =
     mtxts = mfocus >>= (`lookupKey` contents)
     (size, rendered) =
       flowLineByLine 0 (fmap buildConsoleItem (join (maybeToList mtxts)))
+
+buildConsoleInput :: Text -> Scene e
+buildConsoleInput inputEntry =
+  Scene
+    { sceneId = "console-input"
+    , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+    , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+    , sceneElements = rendered
+    }
+  where
+    rendered = [DrawText (0, 0) UpperLeft Mono Black 8 inputEntry]

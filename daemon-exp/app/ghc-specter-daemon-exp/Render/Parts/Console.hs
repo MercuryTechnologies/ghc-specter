@@ -22,6 +22,7 @@ import GHCSpecter.Graphics.DSL (
  )
 import GHCSpecter.Render.Components.Console (
   buildConsoleHelp,
+  buildConsoleInput,
   buildConsoleMain,
   buildConsoleTab,
  )
@@ -50,6 +51,7 @@ renderConsole ui ss = do
   let pausedMap = ss ^. serverPaused
       consoleMap = ss ^. serverConsole
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
+      inputEntry = ui ^. uiModel ^. modelConsole . consoleInputEntry
       -- TODO: refactor this out and this should be out of Render.*
       getTabName k =
         let ktxt = T.pack $ show (unDriverId k)
@@ -107,3 +109,11 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-input" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
+    let sceneInput = buildConsoleInput inputEntry
+        sceneInput' =
+          sceneInput
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = translateToOrigin vpCvs
+            }
+    renderScene sceneInput'
+    addEventMap sceneInput'

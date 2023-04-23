@@ -6,6 +6,7 @@ module Handler (
   handleScroll,
   handleZoomUpdate,
   handleZoomEnd,
+  handleKeyPressed,
 ) where
 
 import Control.Concurrent.STM (
@@ -15,8 +16,11 @@ import Control.Concurrent.STM (
  )
 import Data.Foldable (for_)
 import Data.GI.Base (get)
+import Data.Text (Text)
+import Data.Word (Word32)
 import GHCSpecter.UI.Types.Event (
   Event (..),
+  KeyEvent (..),
   MouseEvent (..),
   ScrollDirection (..),
  )
@@ -71,3 +75,10 @@ handleZoomEnd :: TQueue Event -> IO ()
 handleZoomEnd chanQEv =
   atomically $
     writeTQueue chanQEv (MouseEv ZoomEnd)
+
+handleKeyPressed :: TQueue Event -> (Word32, Maybe Text) -> IO ()
+handleKeyPressed chanQEv (v, mtxt) = do
+  atomically $ do
+    if v == 13
+      then writeTQueue chanQEv (KeyEv SpecialKeyEnter)
+      else for_ mtxt $ \txt -> writeTQueue chanQEv (KeyEv (NormalKeyPressed txt))

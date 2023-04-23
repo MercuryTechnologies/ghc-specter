@@ -15,6 +15,7 @@ module GHCSpecter.UI.Types.Event (
   BlockerModuleGraphEvent (..),
   TimingEvent (..),
   MouseEvent (..),
+  KeyEvent (..),
   ConsoleEvent (..),
   BackgroundEvent (..),
   Event (..),
@@ -115,6 +116,11 @@ data MouseEvent
   | ZoomEnd
   deriving (Show, Eq)
 
+data KeyEvent
+  = NormalKeyPressed Text
+  | SpecialKeyEnter
+  deriving (Show, Eq)
+
 data ConsoleEvent k
   = ConsoleTab k
   | ConsoleKey Text
@@ -136,6 +142,7 @@ data Event
   | SessionEv SessionEvent
   | TimingEv TimingEvent
   | MouseEv MouseEvent
+  | KeyEv KeyEvent
   | ConsoleEv (ConsoleEvent DriverId)
   | BkgEv BackgroundEvent
   | DummyEv
