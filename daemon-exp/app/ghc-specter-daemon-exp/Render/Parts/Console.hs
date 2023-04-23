@@ -23,6 +23,7 @@ import GHCSpecter.Graphics.DSL (
  )
 import GHCSpecter.Render.Components.Console (
   buildConsoleHelp,
+  buildConsoleMain,
   buildConsoleTab,
  )
 import GHCSpecter.Server.Types (
@@ -48,6 +49,7 @@ renderConsole :: UIState -> ServerState -> GtkRender Event ()
 renderConsole ui ss = do
   wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
   let pausedMap = ss ^. serverPaused
+      consoleMap = ss ^. serverConsole
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
       -- TODO: refactor this out and this should be out of Render.*
       getTabName k =
@@ -91,6 +93,14 @@ renderConsole ui ss = do
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
+    let sceneMain = ConsoleEv <$> buildConsoleMain consoleMap mconsoleFocus
+        sceneMain' =
+          sceneMain
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = translateToOrigin vpCvs
+            }
+    renderScene sceneMain'
+    addEventMap sceneMain'
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor HoneyDew
