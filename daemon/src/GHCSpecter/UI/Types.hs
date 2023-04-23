@@ -156,12 +156,19 @@ data ConsoleUI = ConsoleUI
   -- ^ focused console tab
   , _consoleInputEntry :: Text
   -- ^ console input entry
+  , _consoleViewPort :: ViewPortInfo
+  -- ^ console viewport
   }
 
 makeClassy ''ConsoleUI
 
 emptyConsoleUI :: ConsoleUI
-emptyConsoleUI = ConsoleUI Nothing ""
+emptyConsoleUI =
+  ConsoleUI
+    { _consoleFocus = Nothing
+    , _consoleInputEntry = ""
+    , _consoleViewPort = ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing
+    }
 
 data UIModel = UIModel
   { _modelTab :: Tab

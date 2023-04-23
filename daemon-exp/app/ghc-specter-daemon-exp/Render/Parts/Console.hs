@@ -9,6 +9,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map (
@@ -36,6 +37,7 @@ import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasUIModel (..),
   HasUIState (..),
+  HasViewPortInfo (..),
   UIState,
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
@@ -88,6 +90,8 @@ renderConsole ui ss = do
     addEventMap sceneTab'
   for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+        vpi = ui ^. uiModel . modelConsole . consoleViewPort
+        vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     setColor Ivory
     -- TODO: this should be wrapped in a function.
     lift $ do
@@ -97,7 +101,7 @@ renderConsole ui ss = do
         sceneMain' =
           sceneMain
             { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            , sceneLocalViewPort = vp
             }
     renderScene sceneMain'
     addEventMap sceneMain'

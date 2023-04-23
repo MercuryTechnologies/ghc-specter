@@ -65,6 +65,7 @@ import GHCSpecter.UI.Constants (
   modGraphWidth,
  )
 import GHCSpecter.UI.Types (
+  HasConsoleUI (..),
   HasModuleGraphUI (..),
   HasSessionUI (..),
   HasSourceViewUI (..),
@@ -183,6 +184,8 @@ main =
           appWidgetConfig ^. wcfgSourceView . at "source-view" . to (maybe defVP translateToOrigin)
         vpSrcSupp =
           appWidgetConfig ^. wcfgSourceView . at "supple-view-contents" . to (maybe defVP translateToOrigin)
+        vpConsole =
+          appWidgetConfig ^. wcfgTopLevel . at "console-main" . to (maybe defVP translateToOrigin)
 
     let ui0 = emptyUIState assets initTime
         ui0' =
@@ -209,6 +212,7 @@ main =
                 )
               . (uiModel . modelTiming . timingUIPartition .~ True)
               . (uiModel . modelTiming . timingUIHowParallel .~ False)
+              . (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vpConsole Nothing)
 
     uiRef <- newTVarIO ui0'
     chanEv <- newTChanIO

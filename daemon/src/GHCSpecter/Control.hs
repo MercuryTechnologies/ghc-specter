@@ -285,7 +285,7 @@ handleHoverScrollZoom hitWho handlers mev =
                   Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
                   Nothing -> ui
              in ui'
-           -- TODO: This is because it cannot distinguish components unfortunately.
+          -- TODO: This is because it cannot distinguish components unfortunately.
           pure False
       refresh
       pure False
@@ -624,7 +624,7 @@ initializeMainView =
   modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
 -- | top-level loop, branching according to tab event
-mainLoop :: (e ~ Event) => Control e ()
+mainLoop :: forall e r. (e ~ Event) => Control e r
 mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
@@ -633,8 +633,32 @@ mainLoop = do
     TabSourceView -> branchLoop goSourceView
     TabTiming -> branchLoop goTiming
   where
+    branchLoop :: (Event -> Control e ()) -> Control e r
     branchLoop go = loop
       where
+        handleConsoleHoverScrollZoom ev0 =
+          case ev0 of
+            MouseEv mev -> do
+              isHandled <-
+                handleHoverScrollZoom
+                  (\_ -> Nothing)
+                  HandlerHoverScrollZoom
+                    { handlerHover = []
+                    , handlerScroll =
+                        [ ("console-main", modelConsole . consoleViewPort)
+                        ]
+                    , handlerZoom =
+                        [ ("console-main", modelConsole . consoleViewPort)
+                        ]
+                    }
+                  mev
+              if isHandled
+                then do
+                  ev1 <- nextEvent
+                  pure ev1
+                else pure ev0
+            _ -> pure ev0
+
         handleClick ev0 =
           case ev0 of
             MouseEv (MouseClick (x, y)) -> do
@@ -667,14 +691,17 @@ mainLoop = do
             BkgEv bev -> handleBackground bev >> loop
             _ -> go ev >> loop
 
+        loop :: Control Event r
         loop = do
           checkIfUpdatable
           printMsg "wait for the next event"
-          ev <- nextEvent
-          printMsg $ "event received: " <> T.pack (show ev)
-          -- click first
-          ev' <- handleClick ev
-          afterClick ev'
+          ev0 <- nextEvent
+          printMsg $ "event received: " <> T.pack (show ev0)
+          -- handle console hover/scroll/zoom
+          ev1 <- handleConsoleHoverScrollZoom ev0
+          -- handle click
+          ev2 <- handleClick ev1
+          afterClick ev2
 
 main :: (e ~ Event) => Control e ()
 main = do
