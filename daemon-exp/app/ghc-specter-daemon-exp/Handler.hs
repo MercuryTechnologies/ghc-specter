@@ -1,4 +1,6 @@
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Handler (
   handleClick,
@@ -9,6 +11,7 @@ module Handler (
   handleKeyPressed,
 ) where
 
+import Control.Applicative ((<|>))
 import Control.Concurrent.STM (
   TQueue,
   atomically,
@@ -23,6 +26,7 @@ import GHCSpecter.UI.Types.Event (
   KeyEvent (..),
   MouseEvent (..),
   ScrollDirection (..),
+  SpecialKey (..),
  )
 import GI.Gdk qualified as Gdk
 
@@ -78,7 +82,18 @@ handleZoomEnd chanQEv =
 
 handleKeyPressed :: TQueue Event -> (Word32, Maybe Text) -> IO ()
 handleKeyPressed chanQEv (v, mtxt) = do
+  mname <- Gdk.keyvalName v
+  print mname
   atomically $ do
-    if v == 13
-      then writeTQueue chanQEv (KeyEv SpecialKeyEnter)
-      else for_ mtxt $ \txt -> writeTQueue chanQEv (KeyEv (NormalKeyPressed txt))
+    let mevent = do
+          ( do
+              name <- mname
+              if
+                  | name == "Return" -> pure (KeyEv (SpecialKeyPressed KeyEnter))
+                  | otherwise -> Nothing
+            )
+            <|> ( do
+                    txt <- mtxt
+                    pure (KeyEv (NormalKeyPressed txt))
+                )
+    for_ mevent (writeTQueue chanQEv)

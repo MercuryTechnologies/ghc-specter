@@ -299,6 +299,7 @@ main =
           $ \ev -> do
             v <- get ev #keyval
             mtxt <- get ev #string
+            print (v, mtxt)
             handleKeyPressed chanQEv (v, mtxt)
             pure True
         #setCanFocus drawingArea True

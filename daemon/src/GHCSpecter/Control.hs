@@ -90,6 +90,7 @@ import GHCSpecter.UI.Types.Event (
   ScrollDirection (..),
   SessionEvent (..),
   SourceViewEvent (..),
+  SpecialKey (KeyEnter),
   SubModuleEvent (..),
   Tab (..),
   TimingEvent (..),
@@ -643,12 +644,10 @@ mainLoop = do
           case ev of
             KeyEv (NormalKeyPressed txt) -> do
               currInput <- (^. uiModel . modelConsole . consoleInputEntry) <$> getUI
-              if
-                  -- TODO: handle this more correctly.
-                  | "\r" `T.isPrefixOf` txt ->
-                      pure $ ConsoleEv (ConsoleKey "Enter")
-                  | otherwise ->
-                      pure $ ConsoleEv (ConsoleInput (currInput <> txt))
+              pure $ ConsoleEv (ConsoleInput (currInput <> txt))
+            KeyEv (SpecialKeyPressed KeyEnter) -> do
+              -- TODO: should use enum, not text
+              pure $ ConsoleEv (ConsoleKey "Enter")
             _ -> pure ev
         handleConsoleHoverScrollZoom ev =
           case ev of

@@ -6,18 +6,21 @@ module GHCSpecter.UI.Types.Event (
   blockerThreshold,
   ComponentTag (..),
   ScrollDirection (..),
+  SpecialKey (..),
 
-  -- * Event types
+  -- * Low-level events
+  MouseEvent (..),
+  KeyEvent (..),
+  BackgroundEvent (..),
+
+  -- * High-level events
   SourceViewEvent (..),
   SubModuleEvent (..),
   ModuleGraphEvent (..),
   SessionEvent (..),
   BlockerModuleGraphEvent (..),
   TimingEvent (..),
-  MouseEvent (..),
-  KeyEvent (..),
   ConsoleEvent (..),
-  BackgroundEvent (..),
   Event (..),
 ) where
 
@@ -25,6 +28,10 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
+
+--
+-- Enums
+--
 
 data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
   deriving (Eq, Show)
@@ -61,6 +68,42 @@ data ScrollDirection
   | ScrollDirectionDown
   | ScrollDirectionUp
   deriving (Show, Eq)
+
+data SpecialKey
+  = KeyEnter
+  | KeyBackspace
+  deriving (Show, Eq)
+
+--
+-- Low-level events
+--
+
+data MouseEvent
+  = MouseClick (Double, Double)
+  | MouseMove (Double, Double)
+  | -- TODO: this will be deprecated
+    MouseDown (Maybe (Double, Double))
+  | -- TODO: this will be deprecated
+    MouseUp (Maybe (Double, Double))
+  | -- | dir, (x, y), (dx, dy)
+    Scroll ScrollDirection (Double, Double) (Double, Double)
+  | ZoomUpdate (Double, Double) Double
+  | ZoomEnd
+  deriving (Show, Eq)
+
+data KeyEvent
+  = NormalKeyPressed Text
+  | SpecialKeyPressed SpecialKey
+  deriving (Show, Eq)
+
+data BackgroundEvent
+  = MessageChanUpdated
+  | RefreshUI
+  deriving (Show, Eq)
+
+--
+-- High-level events
+--
 
 data SourceViewEvent
   = SelectModule ModuleName
@@ -103,35 +146,12 @@ data TimingEvent
   | BlockerModuleGraphEv BlockerModuleGraphEvent
   deriving (Show, Eq)
 
-data MouseEvent
-  = MouseClick (Double, Double)
-  | MouseMove (Double, Double)
-  | -- TODO: this will be deprecated
-    MouseDown (Maybe (Double, Double))
-  | -- TODO: this will be deprecated
-    MouseUp (Maybe (Double, Double))
-  | -- | dir, (x, y), (dx, dy)
-    Scroll ScrollDirection (Double, Double) (Double, Double)
-  | ZoomUpdate (Double, Double) Double
-  | ZoomEnd
-  deriving (Show, Eq)
-
-data KeyEvent
-  = NormalKeyPressed Text
-  | SpecialKeyEnter
-  deriving (Show, Eq)
-
 data ConsoleEvent k
   = ConsoleTab k
   | ConsoleKey Text
   | ConsoleInput Text
   | -- | True: send the command immediately, False: wait for user's Enter.
     ConsoleButtonPressed Bool Text
-  deriving (Show, Eq)
-
-data BackgroundEvent
-  = MessageChanUpdated
-  | RefreshUI
   deriving (Show, Eq)
 
 data Event
