@@ -82,6 +82,9 @@ tabHeight = 15
 consolePanelHeight :: (Num a) => a
 consolePanelHeight = 368
 
+consoleInputHeight :: (Num a) => a
+consoleInputHeight = 15
+
 -- TODO: this web-specific code should be located elsewhere.
 widgetHeight :: Bool -> Text
 widgetHeight isPaused
@@ -110,7 +113,7 @@ emptyWidgetConfig =
     }
 
 -- TODO: use type-level literal or something to be more safe.
-
+-- TODO: also replace each repeated values for adjacent elements with a single variable.
 appWidgetConfig :: WidgetConfig
 appWidgetConfig =
   WidgetConfig
@@ -123,7 +126,11 @@ appWidgetConfig =
             )
           ,
             ( "console-main"
-            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) canvasDim
+            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consoleInputHeight)
+            )
+          ,
+            ( "console-input"
+            , ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim
             )
           ,
             ( "console-help"
