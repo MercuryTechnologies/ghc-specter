@@ -13,14 +13,12 @@ module GHCSpecter.Control (
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
-import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
-import Data.Traversable (for)
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -60,7 +58,6 @@ import GHCSpecter.Server.Types (
   ConsoleItem (..),
   HasServerState (..),
   HasTimingState (..),
-  ServerState,
  )
 import GHCSpecter.UI.Constants (
   timingHeight,
@@ -224,16 +221,16 @@ zoom emap lensViewPort ((x, y), scale) model =
    in (lensViewPort . vpTempViewPort .~ Just vp') model
 
 -- TODO: this function should handle MouseEvent.
-goHoverScrollZoom ::
+handleHoverScrollZoom ::
   (e ~ Event) =>
   (Event -> Maybe Text) ->
   HandlerHoverScrollZoom ->
-  Event ->
+  MouseEvent ->
   -- | returns whether event was handled
   Control e Bool
-goHoverScrollZoom hitWho handlers ev = do
-  case ev of
-    MouseEv (MouseMove (x, y)) -> do
+handleHoverScrollZoom hitWho handlers mev =
+  case mev of
+    MouseMove (x, y) -> do
       memap <- hitScene (x, y)
       handleFor handlerHover $ \(component, hoverLens) -> do
         ((ui, _), (ui', _)) <-
@@ -253,7 +250,7 @@ goHoverScrollZoom hitWho handlers ev = do
         let mprevHit = ui ^. uiModel . hoverLens
             mnowHit = ui' ^. uiModel . hoverLens
         pure (mnowHit /= mprevHit)
-    MouseEv (Scroll dir' (x, y) (dx, dy)) -> do
+    Scroll dir' (x, y) (dx, dy) -> do
       memap <- hitScene (x, y)
       case memap of
         Nothing -> pure False
@@ -266,7 +263,7 @@ goHoverScrollZoom hitWho handlers ev = do
                     pure $ (uiModel %~ scroll emap scrollLens (dir', (dx, dy))) ui
                in fromMaybe ui mupdated
             pure isHandled
-    MouseEv (ZoomUpdate (xcenter, ycenter) scale) -> do
+    ZoomUpdate (xcenter, ycenter) scale -> do
       memap <- hitScene (xcenter, ycenter)
       case memap of
         Nothing -> pure False
@@ -280,18 +277,21 @@ goHoverScrollZoom hitWho handlers ev = do
                in fromMaybe ui mupdated
             pure isHandled
     -- TODO: this should have pointer info.
-    MouseEv ZoomEnd -> do
-      handleFor handlerZoom $ \(_component, zoomLens) -> do
-        modifyUI $ \ui ->
-          let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
-                Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
-                Nothing -> ui
-           in ui'
-        -- TODO: This is because it cannot distinguish components unfortunately.
-        pure False
+    ZoomEnd -> do
+      _ <-
+        handleFor handlerZoom $ \(_component, zoomLens) -> do
+          modifyUI $ \ui ->
+            let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
+                  Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
+                  Nothing -> ui
+             in ui'
+           -- TODO: This is because it cannot distinguish components unfortunately.
+          pure False
       refresh
       pure False
-    _ -> pure False
+    MouseClick {} -> pure False
+    MouseDown {} -> pure False
+    MouseUp {} -> pure False
   where
     handleFor ::
       (HandlerHoverScrollZoom -> [(Text, Lens' UIModel a)]) ->
@@ -374,19 +374,22 @@ goSession ev = do
       sendRequest (SessionReq Pause)
       refresh
     _ -> pure ()
-  void $
-    goHoverScrollZoom
-      (\_ -> Nothing)
-      HandlerHoverScrollZoom
-        { handlerHover = []
-        , handlerScroll =
-            [ ("module-status", modelSession . sessionUIModStatusViewPort)
-            , ("session-main", modelSession . sessionUIMainViewPort)
-            ]
-        , handlerZoom =
-            [("session-main", modelSession . sessionUIMainViewPort)]
-        }
-      ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\_ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = []
+            , handlerScroll =
+                [ ("module-status", modelSession . sessionUIModStatusViewPort)
+                , ("session-main", modelSession . sessionUIMainViewPort)
+                ]
+            , handlerZoom =
+                [("session-main", modelSession . sessionUIMainViewPort)]
+            }
+          mev
+    _ -> pure ()
 
 goModuleGraph :: (e ~ Event) => Event -> Control e ()
 goModuleGraph ev = do
@@ -416,23 +419,26 @@ goModuleGraph ev = do
             ss' = (serverShouldUpdate .~ False) ss
          in (ui', ss')
     _ -> pure ()
-  void $
-    goHoverScrollZoom
-      (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
-      HandlerHoverScrollZoom
-        { handlerHover =
-            [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
-            ]
-        , handlerScroll =
-            [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-            , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-            ]
-        , handlerZoom =
-            [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-            , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-            ]
-        }
-      ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
+                ]
+            , handlerScroll =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ]
+            , handlerZoom =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ]
+            }
+          mev
+    _ -> pure ()
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -474,22 +480,25 @@ goSourceView ev = do
          in (ui', ss')
       refresh
     _ -> pure ()
-  void $
-    goHoverScrollZoom
-      (\_ -> Nothing)
-      HandlerHoverScrollZoom
-        { handlerHover = []
-        , handlerScroll =
-            [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
-            , ("source-view", modelSourceView . srcViewSourceViewPort)
-            , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-            ]
-        , handlerZoom =
-            [ ("source-view", modelSourceView . srcViewSourceViewPort)
-            , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-            ]
-        }
-      ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\_ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = []
+            , handlerScroll =
+                [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
+                , ("source-view", modelSourceView . srcViewSourceViewPort)
+                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                ]
+            , handlerZoom =
+                [ ("source-view", modelSourceView . srcViewSourceViewPort)
+                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                ]
+            }
+          mev
+    _ -> pure ()
 
 goTiming :: (e ~ Event) => Event -> Control e ()
 goTiming ev = do
@@ -574,15 +583,18 @@ goTiming ev = do
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
       onDraggingInTimingView (x, y) vp
     _ -> pure ()
-  void $
-    goHoverScrollZoom
-      (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
-      HandlerHoverScrollZoom
-        { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
-        , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
-        , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
-        }
-      ev
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
+            , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
+            , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+            }
+          mev
+    _ -> pure ()
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
     addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
