@@ -48,6 +48,7 @@ library
       GHCSpecter.Render.Components.Tab
       GHCSpecter.Render.Components.TextView
       GHCSpecter.Render.Components.TimingView
+      GHCSpecter.Render.Components.Util
       GHCSpecter.Render.Session
       GHCSpecter.Render.SourceView
       GHCSpecter.Render.Tab
