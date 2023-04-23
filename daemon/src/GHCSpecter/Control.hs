@@ -111,20 +111,6 @@ data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   , handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
   }
 
--- TODO: this function does almost nothing. remove.
-defaultUpdateModel ::
-  Event ->
-  ServerState ->
-  ServerState
-defaultUpdateModel topEv =
-  case topEv of
-    TabEv _tab' ->
-      (serverShouldUpdate .~ False)
-    BkgEv MessageChanUpdated ->
-      (serverShouldUpdate .~ True)
-    _ ->
-      id
-
 updateLastUpdated :: Control e ()
 updateLastUpdated = do
   now <- getCurrentTime
@@ -298,48 +284,46 @@ goHoverScrollZoom hitWho handlers ev = do
       refresh
     _ -> pure ()
 
--- NOTE: This function should not exist forever.
-goCommon :: (e ~ Event) => Event -> Control e ()
-goCommon ev = do
-  case ev of
-    ConsoleEv (ConsoleTab i) -> do
-      modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
-      refresh
-    ConsoleEv (ConsoleKey key) -> do
+handleConsole :: (e ~ Event) => ConsoleEvent DriverId -> Control e ()
+handleConsole (ConsoleTab i) = do
+  modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
+  refresh
+handleConsole (ConsoleKey key) = do
+  model0 <- (^. uiModel) <$> getUI
+  if key == "Enter"
+    then case model0 ^. modelConsole . consoleFocus of
+      Nothing -> pure ()
+      Just drvId -> do
+        let msg = model0 ^. modelConsole . consoleInputEntry
+        appendNewCommand drvId msg
+        modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+        handleConsoleCommand drvId msg
+        refresh
+    else pure ()
+handleConsole (ConsoleInput content) = do
+  modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
+handleConsole (ConsoleButtonPressed isImmediate msg) = do
+  if isImmediate
+    then do
       model0 <- (^. uiModel) <$> getUI
-      if key == "Enter"
-        then case model0 ^. modelConsole . consoleFocus of
-          Nothing -> pure ()
-          Just drvId -> do
-            let msg = model0 ^. modelConsole . consoleInputEntry
-            appendNewCommand drvId msg
-            modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
-            handleConsoleCommand drvId msg
-            refresh
-        else pure ()
-    ConsoleEv (ConsoleInput content) -> do
-      modifyUI (uiModel . modelConsole . consoleInputEntry .~ content)
-    ConsoleEv (ConsoleButtonPressed isImmediate msg) -> do
-      if isImmediate
-        then do
-          model0 <- (^. uiModel) <$> getUI
-          case model0 ^. modelConsole . consoleFocus of
-            Nothing -> pure ()
-            Just drvId -> do
-              appendNewCommand drvId msg
-              modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
-              handleConsoleCommand drvId msg
-              refresh
-        else do
-          modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
+      case model0 ^. modelConsole . consoleFocus of
+        Nothing -> pure ()
+        Just drvId -> do
+          appendNewCommand drvId msg
+          modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
+          handleConsoleCommand drvId msg
           refresh
-    _ -> pure ()
-  modifySS $ defaultUpdateModel ev
-  -- TODO: this should be separated out with session type.
-  case ev of
-    BkgEv MessageChanUpdated -> asyncWork timingWorker >> refresh
-    BkgEv RefreshUI -> refresh
-    _ -> pure ()
+    else do
+      modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
+      refresh
+
+-- TODO: this should be separated out with session type.
+handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()
+handleBackground MessageChanUpdated = do
+  asyncWork timingWorker
+  modifySS (serverShouldUpdate .~ True)
+  refresh
+handleBackground RefreshUI = refresh
 
 goSession :: (e ~ Event) => Event -> Control e ()
 goSession ev = do
@@ -383,7 +367,6 @@ goSession ev = do
           [("session-main", modelSession . sessionUIMainViewPort)]
       }
     ev
-  goCommon ev
 
 goModuleGraph :: (e ~ Event) => Event -> Control e ()
 goModuleGraph ev = do
@@ -429,7 +412,6 @@ goModuleGraph ev = do
           ]
       }
     ev
-  goCommon ev
   where
     handleModuleGraphEv ::
       ModuleGraphEvent ->
@@ -486,7 +468,6 @@ goSourceView ev = do
           ]
       }
     ev
-  goCommon ev
 
 goTiming :: (e ~ Event) => Event -> Control e ()
 goTiming ev = do
@@ -579,7 +560,6 @@ goTiming ev = do
       , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
       }
     ev
-  goCommon ev
   where
     addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
     addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
@@ -648,6 +628,8 @@ mainLoop = do
                   refresh
                   mainLoop
                 else loop
+            ConsoleEv cev -> handleConsole cev >> loop
+            BkgEv bev -> handleBackground bev >> loop
             _ -> go ev >> loop
 
         loop = do
