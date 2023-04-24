@@ -3,6 +3,8 @@ module GHCSpecter.Render.Components.Util (
 ) where
 
 import Data.List qualified as L
+import Data.List.NonEmpty (NonEmpty)
+-- import Data.List.NonEmpty qualified as NE
 import GHCSpecter.Graphics.DSL (
   Primitive (..),
  )
@@ -11,9 +13,9 @@ flowLineByLine ::
   -- | initial y offset
   Double ->
   -- | rendered items grouped by each line
-  [[Primitive e]] ->
+  [NonEmpty (Primitive e)] ->
   -- | (final offset after placement, placed items)
-  (Double, [[Primitive e]])
+  (Double, [NonEmpty (Primitive e)])
 flowLineByLine offset0 = L.mapAccumL place offset0
   where
     place !offset itms =

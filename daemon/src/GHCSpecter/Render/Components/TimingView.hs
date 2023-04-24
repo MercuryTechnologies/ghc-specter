@@ -14,7 +14,9 @@ module GHCSpecter.Render.Components.TimingView (
 
 import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
+import Data.Foldable qualified as F
 import Data.List qualified as L
+import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Time.Clock (
@@ -368,7 +370,7 @@ buildBlockers hoveredMod ttable =
     { sceneId = "blockers"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = box : concat contentss
+    , sceneElements = box : concatMap F.toList contentss
     }
   where
     upMods =
@@ -376,11 +378,11 @@ buildBlockers hoveredMod ttable =
     downMods =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
-    selected = [DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod]
-    line = [Polyline (0, 0) [] (200, 0) Black 1]
-    blockedBy = [DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By"]
-    upstreams = fmap (\t -> [DrawText (0, 0) UpperLeft Sans Black 8 t]) upMods
-    blocking = [DrawText (0, 0) UpperLeft Sans Black 8 "Blocking"]
-    downstreams = fmap (\t -> [DrawText (0, 0) UpperLeft Sans Black 8 t]) downMods
+    selected = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
+    line = NE.singleton (Polyline (0, 0) [] (200, 0) Black 1)
+    blockedBy = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
+    upstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) upMods
+    blocking = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocking")
+    downstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) downMods
     (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     box = Rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
