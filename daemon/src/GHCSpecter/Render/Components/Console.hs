@@ -92,23 +92,31 @@ buildConsoleHelp getHelp mfocus =
     (size, contentss) = flowLineByLine 0 (NE.singleton titleElem : helpElems)
     contents = concatMap F.toList contentss
 
-buildConsoleItem :: forall e. ConsoleItem -> [Primitive e]
+buildConsoleItem :: forall k. ConsoleItem -> [Primitive (ConsoleEvent k)]
 buildConsoleItem (ConsoleCommand txt) = [DrawText (0, 0) UpperLeft Mono Black 8 txt]
 buildConsoleItem (ConsoleText txt) = [DrawText (0, 0) UpperLeft Mono Black 8 txt]
 buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
   where
     mkButton (label, cmd) =
-      Rectangle (0, 0) 120 10 (Just Black) Nothing (Just 1.0) Nothing
-        :| [DrawText (0, 0) UpperLeft Mono Black 8 label]
-    mkRow :: [(Text, Text)] -> Maybe (NonEmpty (Primitive e))
+      let hitEvent =
+            HitEvent
+              { hitEventHoverOn = Nothing
+              , hitEventHoverOff = Nothing
+              , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
+              }
+       in Rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+            :| [DrawText (0, 0) UpperLeft Mono Black 8 label]
+
+    mkRow :: [(Text, Text)] -> Maybe (NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
       let placed = snd $ flowInline 0 $ fmap mkButton buttons
        in -- concat the horizontally placed items into a single NonEmpty list
           -- so to group them as a single line.
           sconcat <$> NE.nonEmpty placed
-    lines :: [NonEmpty (Primitive e)]
-    lines = mapMaybe mkRow buttonss
-    (size, contentss) = flowLineByLine 0 lines
+
+    ls :: [NonEmpty (Primitive (ConsoleEvent k))]
+    ls = mapMaybe mkRow buttonss
+    (size, contentss) = flowLineByLine 0 ls
 buildConsoleItem (ConsoleCore forest) = []
 
 buildConsoleMain ::
