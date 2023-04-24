@@ -36,6 +36,10 @@ moveShapeBy (dx, dy) (SRectangle (rect@Rectangle {})) =
   let (x, y) = rectXY rect
    in SRectangle (rect {rectXY = (x + dx, y + dy)})
 
+moveBoundingBoxBy :: (Double, Double) -> ViewPort -> ViewPort
+moveBoundingBoxBy (dx, dy) (ViewPort (vx0, vy0) (vx1, vy1)) =
+  ViewPort (vx0 + dx, vy0 + dy) (vx1 + dx, vy1 + dy)
+
 -- | place grouped items horizontally
 flowInline ::
   -- | initial x offset
@@ -52,13 +56,10 @@ flowInline offset0 = L.mapAccumL place offset0
           doffset = maximum (fmap fst shifted)
        in (offset + doffset, itms')
       where
-        moveBoundingBox (ViewPort (vx0, vy0) (vx1, vy1)) =
-          ViewPort (vx0 + offset, vy0) (vx1 + offset, vy1)
-
         forEach (Primitive shape vp hitEvent) =
           let shape' = moveShapeBy (offset, 0) shape
+              vp' = moveBoundingBoxBy (offset, 0) vp
               doffset = viewPortWidth vp
-              vp' = moveBoundingBox vp
            in (doffset, Primitive shape' vp' hitEvent)
 
 -- | place grouped items line by line
@@ -77,11 +78,8 @@ flowLineByLine offset0 = L.mapAccumL place offset0
           doffset = maximum (fmap fst shifted)
        in (offset + doffset, itms')
       where
-        moveBoundingBox (ViewPort (vx0, vy0) (vx1, vy1)) =
-          ViewPort (vx0, vy0 + offset) (vx1, vy1 + offset)
-
         forEach (Primitive shape vp hitEvent) =
           let shape' = moveShapeBy (0, offset) shape
+              vp' = moveBoundingBoxBy (0, offset) vp
               doffset = viewPortHeight vp
-              vp' = moveBoundingBox vp
            in (doffset, Primitive shape' vp' hitEvent)
