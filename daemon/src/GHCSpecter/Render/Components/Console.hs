@@ -15,6 +15,8 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
+--
+import Debug.Trace (trace)
 import GHCSpecter.Data.Map (
   IsKey (..),
   KeyMap,
@@ -109,16 +111,16 @@ buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
        in rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [drawText (0, 0) UpperLeft Mono Black 8 label]
 
-    mkRow :: [(Text, Text)] -> Maybe (NonEmpty (Primitive (ConsoleEvent k)))
+    mkRow :: [(Text, Text)] -> Maybe (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
-      let placed = snd $ flowInline 0 $ fmap mkButton buttons
+      let (mvp, placed) = flowInline 0 $ fmap mkButton buttons
        in -- concat the horizontally placed items into a single NonEmpty list
           -- so to group them as a single line.
-          sconcat <$> NE.nonEmpty placed
+          (,) <$> mvp <*> (sconcat <$> NE.nonEmpty placed)
 
-    ls :: [NonEmpty (Primitive (ConsoleEvent k))]
+    ls :: [(ViewPort, NonEmpty (Primitive (ConsoleEvent k)))]
     ls = mapMaybe mkRow buttonss
-    (size, contentss) = flowLineByLine 0 ls
+    (size, contentss) = flowLineByLine 0 (fmap snd ls)
 buildConsoleItem (ConsoleCore forest) = []
 
 buildConsoleMain ::
