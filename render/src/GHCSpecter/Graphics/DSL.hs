@@ -4,6 +4,11 @@ module GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
 
+  -- * view port
+  ViewPort (..),
+  viewPortWidth,
+  viewPortHeight,
+
   -- * event type
   HitEvent (..),
 
@@ -13,7 +18,6 @@ module GHCSpecter.Graphics.DSL (
   DrawText (..),
   Shape (..),
   Primitive (..),
-  ViewPort (..),
   Scene (..),
 
   -- * smart constructors
@@ -57,6 +61,26 @@ data TextPosition = UpperLeft | LowerLeft
 
 data TextFontFace = Sans | Mono
   deriving (Show)
+
+--
+-- ViewPort
+--
+
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
+  }
+  deriving (Show)
+
+viewPortWidth :: ViewPort -> Double
+viewPortWidth (ViewPort (x0, _) (x1, _)) = x1 - x0
+
+viewPortHeight :: ViewPort -> Double
+viewPortHeight (ViewPort (_, y0) (_, y1)) = y1 - y0
+
+--
+-- HitEvent
+--
 
 data HitEvent e = HitEvent
   { hitEventHoverOn :: Maybe e
@@ -148,12 +172,6 @@ drawText (x, y) text_pos font_face font_color font_size txt =
     (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
     (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
     Nothing
-
-data ViewPort = ViewPort
-  { topLeft :: (Double, Double)
-  , bottomRight :: (Double, Double)
-  }
-  deriving (Show)
 
 -- scene has local view port matched with global canvas
 data Scene e = Scene

@@ -80,8 +80,8 @@ setColor ColorRedLevel3 = lift $ R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: Primitive e -> GtkRender e ()
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _) = do
+renderShape :: Shape -> GtkRender e ()
+renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
     lift $ do
@@ -93,7 +93,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
       R.setLineWidth lwidth
       R.rectangle x y w h
       R.stroke
-renderPrimitive (Primitive (SPolyline (Polyline start xys end line width)) _ _) = do
+renderShape (SPolyline (Polyline start xys end line width)) = do
   setColor line
   lift $ do
     R.setLineWidth width
@@ -101,12 +101,15 @@ renderPrimitive (Primitive (SPolyline (Polyline start xys end line width)) _ _) 
     traverse_ (uncurry R.lineTo) xys
     uncurry R.lineTo end
     R.stroke
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) _ _) = do
+renderShape (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
+
+renderPrimitive :: Primitive e -> GtkRender e ()
+renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene e -> GtkRender e ()
 renderScene scene = do

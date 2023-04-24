@@ -12,7 +12,29 @@ import GHCSpecter.Graphics.DSL (
   Rectangle (..),
   Shape (..),
   ViewPort (..),
+  viewPortHeight,
+  viewPortWidth,
  )
+
+moveShapeBy :: (Double, Double) -> Shape -> Shape
+moveShapeBy (dx, dy) (SDrawText (txt@DrawText {})) =
+  let (x, y) = dtextXY txt
+   in SDrawText (txt {dtextXY = (x + dx, y + dy)})
+moveShapeBy (dx, dy) (SPolyline (poly@Polyline {})) =
+  let (x0, y0) = plineStart poly
+      xs = plineBends poly
+      (x1, y1) = plineEnd poly
+      f (x, y) = (x + dx, y + dy)
+      poly' =
+        poly
+          { plineStart = f (x0, y0)
+          , plineBends = fmap f xs
+          , plineEnd = f (x1, y1)
+          }
+   in SPolyline poly'
+moveShapeBy (dx, dy) (SRectangle (rect@Rectangle {})) =
+  let (x, y) = rectXY rect
+   in SRectangle (rect {rectXY = (x + dx, y + dy)})
 
 -- | place grouped items horizontally
 flowInline ::
@@ -30,36 +52,12 @@ flowInline offset0 = L.mapAccumL place offset0
           doffset = maximum (fmap fst shifted)
        in (offset + doffset, itms')
       where
-        forEachShape (SDrawText (txt@DrawText {})) =
-          let
-            -- this should use proper layout engine
-            doffset = 120
-            (x, y) = dtextXY txt
-           in
-            (doffset, SDrawText (txt {dtextXY = (x + offset, y)}))
-        forEachShape (SPolyline (poly@Polyline {})) =
-          let (x0, y0) = plineStart poly
-              xs = plineBends poly
-              (x1, y1) = plineEnd poly
-              doffset = x1 - x0
-              f (x, y) = (x + offset, y)
-              poly' =
-                poly
-                  { plineStart = f (x0, y0)
-                  , plineBends = fmap f xs
-                  , plineEnd = f (x1, y1)
-                  }
-           in (doffset, SPolyline poly')
-        forEachShape (SRectangle (rect@Rectangle {})) =
-          let (x, y) = rectXY rect
-              doffset = rectWidth rect
-           in (doffset, SRectangle (rect {rectXY = (x + offset, y)}))
-
         moveBoundingBox (ViewPort (vx0, vy0) (vx1, vy1)) =
           ViewPort (vx0 + offset, vy0) (vx1 + offset, vy1)
 
         forEach (Primitive shape vp hitEvent) =
-          let (doffset, shape') = forEachShape shape
+          let shape' = moveShapeBy (offset, 0) shape
+              doffset = viewPortWidth vp
               vp' = moveBoundingBox vp
            in (doffset, Primitive shape' vp' hitEvent)
 
@@ -79,33 +77,11 @@ flowLineByLine offset0 = L.mapAccumL place offset0
           doffset = maximum (fmap fst shifted)
        in (offset + doffset, itms')
       where
-        forEachShape (SDrawText (txt@DrawText {})) =
-          let (x, y) = dtextXY txt
-              fs = dtextFontSize txt
-              doffset = fromIntegral fs + 4
-           in (doffset, SDrawText (txt {dtextXY = (x, y + offset)}))
-        forEachShape (SPolyline (poly@Polyline {})) =
-          let doffset = 5
-              (x0, y0) = plineStart poly
-              xs = plineBends poly
-              (x1, y1) = plineEnd poly
-              f (x, y) = (x, y + offset + 3)
-              poly' =
-                poly
-                  { plineStart = f (x0, y0)
-                  , plineBends = fmap f xs
-                  , plineEnd = f (x1, y1)
-                  }
-           in (doffset, SPolyline poly')
-        forEachShape (SRectangle (rect@Rectangle {})) =
-          let (x, y) = rectXY rect
-              doffset = rectHeight rect
-           in (doffset, SRectangle (rect {rectXY = (x, y + offset)}))
-
         moveBoundingBox (ViewPort (vx0, vy0) (vx1, vy1)) =
           ViewPort (vx0, vy0 + offset) (vx1, vy1 + offset)
 
         forEach (Primitive shape vp hitEvent) =
-          let (doffset, shape') = forEachShape shape
+          let shape' = moveShapeBy (0, offset) shape
+              doffset = viewPortHeight vp
               vp' = moveBoundingBox vp
            in (doffset, Primitive shape' vp' hitEvent)
