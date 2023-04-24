@@ -69,7 +69,7 @@ data HitEvent e = HitEvent
 instance Functor HitEvent where
   fmap f (HitEvent mx my mz) = HitEvent (fmap f mx) (fmap f my) (fmap (bimap f f) mz)
 
-data Rectangle e = Rectangle
+data Rectangle = Rectangle
   { rectXY :: (Double, Double)
   -- ^ (x, y)
   , rectWidth :: Double
@@ -82,12 +82,10 @@ data Rectangle e = Rectangle
   -- ^ fill_color
   , rectLineWidth :: Maybe Double
   -- ^ line_width
-  , rectHitEvent :: Maybe (HitEvent e)
-  -- ^ associated events
   }
-  deriving (Show, Functor)
+  deriving (Show)
 
-data Polyline e = Polyline
+data Polyline = Polyline
   { plineStart :: (Double, Double)
   -- ^ start
   , plineBends :: [(Double, Double)]
@@ -99,9 +97,9 @@ data Polyline e = Polyline
   , plineWidth :: Double
   -- ^ line_width
   }
-  deriving (Show, Functor)
+  deriving (Show)
 
-data DrawText e = DrawText
+data DrawText = DrawText
   { dtextXY :: (Double, Double)
   -- ^ (x, y)
   , dtextScheme :: TextPosition
@@ -115,37 +113,41 @@ data DrawText e = DrawText
   , dtextContent :: Text
   -- ^ text
   }
-  deriving (Show, Functor)
+  deriving (Show)
 
-data Shape e
-  = SRectangle (Rectangle e)
-  | SPolyline (Polyline e)
-  | SDrawText (DrawText e)
-  deriving (Show, Functor)
+data Shape
+  = SRectangle Rectangle
+  | SPolyline Polyline
+  | SDrawText DrawText
+  deriving (Show)
 
 data Primitive e = Primitive
-  { primShape :: Shape e
+  { primShape :: Shape
   , primBoundingBox :: ViewPort
+  , primHitEvent :: Maybe (HitEvent e)
   }
   deriving (Show, Functor)
 
 rectangle :: (Double, Double) -> Double -> Double -> Maybe Color -> Maybe Color -> Maybe Double -> Maybe (HitEvent e) -> Primitive e
 rectangle (x, y) w h line_color fill_color line_width hitEvent =
   Primitive
-    (SRectangle $ Rectangle (x, y) w h line_color fill_color line_width hitEvent)
+    (SRectangle $ Rectangle (x, y) w h line_color fill_color line_width)
     (ViewPort (x, y) (x + w, y + h))
+    hitEvent
 
 polyline :: (Double, Double) -> [(Double, Double)] -> (Double, Double) -> Color -> Double -> Primitive e
 polyline start bends end color width =
   Primitive
     (SPolyline $ Polyline start bends end color width)
     (ViewPort start end) -- TODO: this is not correct
+    Nothing
 
 drawText :: (Double, Double) -> TextPosition -> TextFontFace -> Color -> Int -> Text -> Primitive e
 drawText (x, y) text_pos font_face font_color font_size txt =
   Primitive
     (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
     (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
+    Nothing
 
 data ViewPort = ViewPort
   { topLeft :: (Double, Double)

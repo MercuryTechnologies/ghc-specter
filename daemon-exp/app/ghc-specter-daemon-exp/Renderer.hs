@@ -81,7 +81,7 @@ setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
 renderPrimitive :: Primitive e -> GtkRender e ()
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth _mname)) _) = do
+renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
     lift $ do
@@ -93,7 +93,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth 
       R.setLineWidth lwidth
       R.rectangle x y w h
       R.stroke
-renderPrimitive (Primitive (SPolyline (Polyline start xys end line width)) _) = do
+renderPrimitive (Primitive (SPolyline (Polyline start xys end line width)) _ _) = do
   setColor line
   lift $ do
     R.setLineWidth width
@@ -101,7 +101,7 @@ renderPrimitive (Primitive (SPolyline (Polyline start xys end line width)) _) = 
     traverse_ (uncurry R.lineTo) xys
     uncurry R.lineTo end
     R.stroke
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) _) = do
+renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) _ _) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1
@@ -127,17 +127,19 @@ renderScene scene = do
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
-  let extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _ (Just hitEvent))) _) =
-        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
-      extractEvent _ = Nothing
-      eitms = mapMaybe extractEvent (sceneElements scene)
-      emap =
-        EventMap
-          { eventMapId = sceneId scene
-          , eventMapGlobalViewPort = sceneGlobalViewPort scene
-          , eventMapLocalViewPort = sceneLocalViewPort scene
-          , eventMapElements = eitms
-          }
+  let
+    -- TODO: handle events for other shapes
+    extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
+      Just (hitEvent, ViewPort (x, y) (x + w, y + h))
+    extractEvent _ = Nothing
+    eitms = mapMaybe extractEvent (sceneElements scene)
+    emap =
+      EventMap
+        { eventMapId = sceneId scene
+        , eventMapGlobalViewPort = sceneGlobalViewPort scene
+        , eventMapLocalViewPort = sceneLocalViewPort scene
+        , eventMapElements = eitms
+        }
   liftIO $
     atomically $
       modifyTVar' emapRef (\emaps -> emap : emaps)
