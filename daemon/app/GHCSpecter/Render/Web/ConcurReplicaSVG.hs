@@ -65,7 +65,7 @@ renderPrimitive ::
   (HitEvent e -> [Props ev]) ->
   Primitive e ->
   Widget IHTML ev
-renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent)) _) =
+renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ mhitEvent) =
   S.rect
     ( maybe [] handlers mhitEvent
         ++ [ SP.x (T.pack $ show x)
@@ -79,7 +79,7 @@ renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )
     []
-renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _) =
+renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _ _) =
   S.polyline
     [ SP.points (makePolylineText (start, end) xys)
     , SP.stroke (renderColor color)
@@ -87,7 +87,7 @@ renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _
     , SP.fill "none"
     ]
     []
-renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _) =
+renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _ _) =
   S.text
     [ SP.x (T.pack $ show x)
     , SP.y (T.pack $ show y)
