@@ -13,6 +13,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  polyline,
   rectangle,
  )
 
@@ -56,7 +57,7 @@ buildTab cfg mtab =
           , DrawText (x, 2) UpperLeft Sans Black fontSize txt
           ]
     mkLine (Just (n, _)) =
-      Polyline
+      polyline
         (0, height)
         [ (tabPos n - 2, height)
         , (tabPos n - 2, 1)
@@ -66,7 +67,7 @@ buildTab cfg mtab =
         (end, height)
         Black
         1.0
-    mkLine Nothing = Polyline (0, height) [] (end, height) Black 1.0
+    mkLine Nothing = polyline (0, height) [] (end, height) Black 1.0
     rexp =
       concat $
         fmap mkTab items ++ [[mkLine mselected]]

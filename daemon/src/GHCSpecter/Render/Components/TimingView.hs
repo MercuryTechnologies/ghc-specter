@@ -44,6 +44,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  polyline,
   rectangle,
  )
 import GHCSpecter.Render.Components.Util (flowLineByLine)
@@ -119,7 +120,7 @@ buildRules showParallel table totalHeight totalTime =
       | otherwise = colorCodes !! 5
     line sec =
       let x = sec2X sec
-       in Polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25
+       in polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25
     sec2X sec =
       diffTime2X totalTime (secondsToNominalDiffTime sec)
     box ((sec1, _), n) =
@@ -236,7 +237,7 @@ buildTimingChart drvModMap tui ttable =
       (tgtIdx, tgtItem) <-
         L.find (\(_, (mname, _)) -> mname == Just tgt) allItems
       let line =
-            Polyline
+            polyline
               (leftOfBox srcItem, module2Y srcIdx)
               []
               (rightOfBox tgtItem, module2Y tgtIdx)
@@ -380,7 +381,7 @@ buildBlockers hoveredMod ttable =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
     selected = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
-    line = NE.singleton (Polyline (0, 0) [] (200, 0) Black 1)
+    line = NE.singleton (polyline (0, 0) [] (200, 0) Black 1)
     blockedBy = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
     upstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) upMods
     blocking = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocking")

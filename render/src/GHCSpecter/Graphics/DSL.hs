@@ -9,10 +9,14 @@ module GHCSpecter.Graphics.DSL (
 
   -- * graphics primitives
   Rectangle (..),
+  Polyline (..),
   Primitive (..),
   ViewPort (..),
   Scene (..),
+
+  -- * smart constructors
   rectangle,
+  polyline,
 
   -- * event primitives
   EventMap (..),
@@ -80,10 +84,23 @@ data Rectangle e = Rectangle
   }
   deriving (Show, Functor)
 
+data Polyline e = Polyline
+  { plineStart :: (Double, Double)
+  -- ^ start
+  , plineBends :: [(Double, Double)]
+  -- ^ bend_point
+  , plineEnd :: (Double, Double)
+  -- ^ end
+  , plineColor :: Color
+  -- ^ line_color
+  , plineWidth :: Double
+  -- ^ line_width
+  }
+  deriving (Show, Functor)
+
 data Primitive e
   = PRectangle (Rectangle e)
-  | -- | start [bend_point] end line_color line_width
-    Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
+  | PPolyline (Polyline e)
   | -- | (x, y) text_pos font_size text
     DrawText (Double, Double) TextPosition TextFontFace Color Int Text
   deriving (Show, Functor)
@@ -91,6 +108,10 @@ data Primitive e
 rectangle :: (Double, Double) -> Double -> Double -> Maybe Color -> Maybe Color -> Maybe Double -> Maybe (HitEvent e) -> Primitive e
 rectangle xy w h line_color fill_color line_width hitEvent =
   PRectangle $ Rectangle xy w h line_color fill_color line_width hitEvent
+
+polyline :: (Double, Double) -> [(Double, Double)] -> (Double, Double) -> Color -> Double -> Primitive e
+polyline start bends end color width =
+  PPolyline $ Polyline start bends end color width
 
 data ViewPort = ViewPort
   { topLeft :: (Double, Double)

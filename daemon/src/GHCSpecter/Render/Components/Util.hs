@@ -6,6 +6,7 @@ module GHCSpecter.Render.Components.Util (
 import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty)
 import GHCSpecter.Graphics.DSL (
+  Polyline (..),
   Primitive (..),
   Rectangle (..),
  )
@@ -34,10 +35,19 @@ flowInline offset0 = L.mapAccumL place offset0
                 doffset = 120
                in
                 (doffset, DrawText (x + offset, y) p' ff c fs t)
-            Polyline (x0, y0) xs (x1, y1) c w ->
-              let doffset = x1 - x0
+            PPolyline (poly@Polyline {}) ->
+              let (x0, y0) = plineStart poly
+                  xs = plineBends poly
+                  (x1, y1) = plineEnd poly
+                  doffset = x1 - x0
                   f (x, y) = (x + offset, y)
-               in (doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
+                  poly' =
+                    poly
+                      { plineStart = f (x0, y0)
+                      , plineBends = fmap f xs
+                      , plineEnd = f (x1, y1)
+                      }
+               in (doffset, PPolyline poly')
             PRectangle (rect@Rectangle {}) ->
               let (x, y) = rectXY rect
                   doffset = rectWidth rect
@@ -64,10 +74,19 @@ flowLineByLine offset0 = L.mapAccumL place offset0
             DrawText (x, y) p' ff c fs t ->
               let doffset = fromIntegral fs + 4
                in (doffset, DrawText (x, y + offset) p' ff c fs t)
-            Polyline (x0, y0) xs (x1, y1) c w ->
+            PPolyline (poly@Polyline {}) ->
               let doffset = 5
+                  (x0, y0) = plineStart poly
+                  xs = plineBends poly
+                  (x1, y1) = plineEnd poly
                   f (x, y) = (x, y + offset + 3)
-               in (doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
+                  poly' =
+                    poly
+                      { plineStart = f (x0, y0)
+                      , plineBends = fmap f xs
+                      , plineEnd = f (x1, y1)
+                      }
+               in (doffset, PPolyline poly')
             PRectangle (rect@Rectangle {}) ->
               let (x, y) = rectXY rect
                   doffset = rectHeight rect

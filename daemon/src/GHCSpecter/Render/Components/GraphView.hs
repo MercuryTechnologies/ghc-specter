@@ -33,6 +33,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  polyline,
   rectangle,
  )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
@@ -85,7 +86,7 @@ buildModuleGraph
                 tgtNode <- IM.lookup tgt nodeLayoutMap
                 -- Left-to-right flow.
                 pure (rightCenter srcNode, leftCenter tgtNode)
-           in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+           in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
         node (NodeLayout (_, name) (Point x y) (Dim w h)) =
           let fontSize = 5
               ratio = valueFor name
@@ -141,7 +142,7 @@ buildGraph cond grVisInfo =
               tgtNode <- IM.lookup tgt nodeLayoutMap
               -- Left-to-right flow.
               pure (rightCenter srcNode, leftCenter tgtNode)
-         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+         in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
 
       node (NodeLayout (_, name) (Point x y) (Dim w h)) =
         let fontSize = 5

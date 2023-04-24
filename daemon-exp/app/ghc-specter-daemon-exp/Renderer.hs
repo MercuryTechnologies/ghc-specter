@@ -25,6 +25,7 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   EventMap (..),
+  Polyline (..),
   Primitive (..),
   Rectangle (..),
   Scene (..),
@@ -90,7 +91,7 @@ renderPrimitive (PRectangle (Rectangle (x, y) w h mline mbkg mlwidth _mname)) = 
       R.setLineWidth lwidth
       R.rectangle x y w h
       R.stroke
-renderPrimitive (Polyline start xys end line width) = do
+renderPrimitive (PPolyline (Polyline start xys end line width)) = do
   setColor line
   lift $ do
     R.setLineWidth width
