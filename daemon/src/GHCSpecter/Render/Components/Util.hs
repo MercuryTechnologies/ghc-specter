@@ -3,6 +3,7 @@ module GHCSpecter.Render.Components.Util (
   getLeastUpperBoundingBox,
 
   -- * flow
+  toSizedLine,
   flowInline,
   flowLineByLine,
 ) where
@@ -60,6 +61,9 @@ getLeastUpperBoundingBox itms =
       br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
    in ViewPort tl br
 
+toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
+toSizedLine xs = (getLeastUpperBoundingBox xs, xs)
+
 -- | place grouped items horizontally
 flowInline ::
   -- | initial x offset
@@ -105,7 +109,7 @@ flowLineByLine offset0 itms0 = (mvp1, itms1) -- L.mapAccumL place offset0 itms0
            in Primitive shape' vp_' hitEvent
 
     ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
-         
+
 --              doffset = viewPortHeight vp
 --           in (doffset, Primitive shape' vp' hitEvent)
 

@@ -41,7 +41,7 @@ import GHCSpecter.Render.Components.Tab (
 import GHCSpecter.Render.Components.Util (
   flowInline,
   flowLineByLine,
-  getLeastUpperBoundingBox,
+  toSizedLine,
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Constants (
@@ -66,9 +66,6 @@ buildConsoleTab tabs mfocus = ConsoleTab <$> buildTab tabCfg mfocus
         , tabCfgHeight = 15
         , tabCfgItems = tabs
         }
-
-toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
-toSizedLine xs = (getLeastUpperBoundingBox xs, xs)
 
 buildConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text

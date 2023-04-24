@@ -9,7 +9,7 @@ module GHCSpecter.Render.Components.TimingView (
   buildTimingChart,
   buildMemChart,
   buildTimingRange,
-  -- buildBlockers,
+  buildBlockers,
 ) where
 
 import Control.Lens (to, (%~), (^.), _1, _2)
@@ -47,8 +47,12 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   polyline,
   rectangle,
+  viewPortHeight,
  )
-import GHCSpecter.Render.Components.Util (flowLineByLine)
+import GHCSpecter.Render.Components.Util (
+  flowLineByLine,
+  toSizedLine,
+ )
 import GHCSpecter.UI.Constants (
   timingHeight,
   timingMaxWidth,
@@ -367,7 +371,6 @@ buildTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-{-
 buildBlockers :: ModuleName -> TimingTable -> Scene e
 buildBlockers hoveredMod ttable =
   Scene
@@ -382,12 +385,12 @@ buildBlockers hoveredMod ttable =
     downMods =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
-    selected = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
-    line = NE.singleton (polyline (0, 0) [] (200, 0) Black 1)
-    blockedBy = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
-    upstreams = fmap (\t -> NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) upMods
-    blocking = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocking")
-    downstreams = fmap (\t -> NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
-    (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+    selected = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
+    line = toSizedLine $ NE.singleton (polyline (0, 0) [] (200, 0) Black 1)
+    blockedBy = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
+    upstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) upMods
+    blocking = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocking")
+    downstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
+    (mvp, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+    size = maybe 200 viewPortHeight mvp
     box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
--}
