@@ -24,9 +24,13 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  DrawText (..),
   EventMap (..),
+  Polyline (..),
   Primitive (..),
+  Rectangle (..),
   Scene (..),
+  Shape (..),
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
@@ -76,8 +80,8 @@ setColor ColorRedLevel3 = lift $ R.setSourceRGBA 0.961 0.718 0.694 1 -- F5B7B1
 setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
-renderPrimitive :: Primitive e -> GtkRender e ()
-renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
+renderShape :: Shape -> GtkRender e ()
+renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
     lift $ do
@@ -89,7 +93,7 @@ renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
       R.setLineWidth lwidth
       R.rectangle x y w h
       R.stroke
-renderPrimitive (Polyline start xys end line width) = do
+renderShape (SPolyline (Polyline start xys end line width)) = do
   setColor line
   lift $ do
     R.setLineWidth width
@@ -97,12 +101,15 @@ renderPrimitive (Polyline start xys end line width) = do
     traverse_ (uncurry R.lineTo) xys
     uncurry R.lineTo end
     R.stroke
-renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
+renderShape (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1
   setColor color
   drawText fontFace (fromIntegral fontSize) (x, y') msg
+
+renderPrimitive :: Primitive e -> GtkRender e ()
+renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene e -> GtkRender e ()
 renderScene scene = do
@@ -123,17 +130,19 @@ renderScene scene = do
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
-  let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
-        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
-      extractEvent _ = Nothing
-      eitms = mapMaybe extractEvent (sceneElements scene)
-      emap =
-        EventMap
-          { eventMapId = sceneId scene
-          , eventMapGlobalViewPort = sceneGlobalViewPort scene
-          , eventMapLocalViewPort = sceneLocalViewPort scene
-          , eventMapElements = eitms
-          }
+  let
+    -- TODO: handle events for other shapes
+    extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
+      Just (hitEvent, ViewPort (x, y) (x + w, y + h))
+    extractEvent _ = Nothing
+    eitms = mapMaybe extractEvent (sceneElements scene)
+    emap =
+      EventMap
+        { eventMapId = sceneId scene
+        , eventMapGlobalViewPort = sceneGlobalViewPort scene
+        , eventMapLocalViewPort = sceneLocalViewPort scene
+        , eventMapElements = eitms
+        }
   liftIO $
     atomically $
       modifyTVar' emapRef (\emaps -> emap : emaps)

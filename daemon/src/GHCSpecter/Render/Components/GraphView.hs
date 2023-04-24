@@ -33,6 +33,9 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  drawText,
+  polyline,
+  rectangle,
  )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)
@@ -84,7 +87,7 @@ buildModuleGraph
                 tgtNode <- IM.lookup tgt nodeLayoutMap
                 -- Left-to-right flow.
                 pure (rightCenter srcNode, leftCenter tgtNode)
-           in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+           in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
         node (NodeLayout (_, name) (Point x y) (Dim w h)) =
           let fontSize = 5
               ratio = valueFor name
@@ -99,17 +102,17 @@ buildModuleGraph
                   , hitEventHoverOff = Just (HoverOnModuleEv Nothing)
                   , hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
-           in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
-              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
-              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
-              , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+           in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
+              , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
+              , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
+              , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
               ]
      in Scene
           { sceneId = "main-module-graph"
           , sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneLocalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneElements =
-              [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+              [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
                 ++ fmap edge (grVisInfo ^. gviEdges)
                 ++ concatMap node (grVisInfo ^. gviNodes)
           }
@@ -140,16 +143,16 @@ buildGraph cond grVisInfo =
               tgtNode <- IM.lookup tgt nodeLayoutMap
               -- Left-to-right flow.
               pure (rightCenter srcNode, leftCenter tgtNode)
-         in Polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
+         in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
 
       node (NodeLayout (_, name) (Point x y) (Dim w h)) =
         let fontSize = 5
             color
               | cond name = HoneyDew
               | otherwise = Ivory
-         in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
-            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+         in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
+            , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
             ]
-   in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+   in [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
         ++ fmap edge (grVisInfo ^. gviEdges)
         ++ concatMap node (grVisInfo ^. gviNodes)

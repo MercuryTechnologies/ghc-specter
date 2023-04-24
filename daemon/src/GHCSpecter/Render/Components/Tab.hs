@@ -8,11 +8,13 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
-  Primitive (..),
   Scene (..),
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  drawText,
+  polyline,
+  rectangle,
  )
 
 data TabConfig tab = TabConfig
@@ -51,11 +53,11 @@ buildTab cfg mtab =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right tab)
               }
-       in [ Rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
-          , DrawText (x, 2) UpperLeft Sans Black fontSize txt
+       in [ rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
+          , drawText (x, 2) UpperLeft Sans Black fontSize txt
           ]
     mkLine (Just (n, _)) =
-      Polyline
+      polyline
         (0, height)
         [ (tabPos n - 2, height)
         , (tabPos n - 2, 1)
@@ -65,7 +67,7 @@ buildTab cfg mtab =
         (end, height)
         Black
         1.0
-    mkLine Nothing = Polyline (0, height) [] (end, height) Black 1.0
+    mkLine Nothing = polyline (0, height) [] (end, height) Black 1.0
     rexp =
       concat $
         fmap mkTab items ++ [[mkLine mselected]]

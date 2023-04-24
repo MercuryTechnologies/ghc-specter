@@ -4,13 +4,26 @@ module GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
 
+  -- * view port
+  ViewPort (..),
+  viewPortWidth,
+  viewPortHeight,
+
   -- * event type
   HitEvent (..),
 
   -- * graphics primitives
+  Rectangle (..),
+  Polyline (..),
+  DrawText (..),
+  Shape (..),
   Primitive (..),
-  ViewPort (..),
   Scene (..),
+
+  -- * smart constructors
+  rectangle,
+  polyline,
+  drawText,
 
   -- * event primitives
   EventMap (..),
@@ -49,6 +62,26 @@ data TextPosition = UpperLeft | LowerLeft
 data TextFontFace = Sans | Mono
   deriving (Show)
 
+--
+-- ViewPort
+--
+
+data ViewPort = ViewPort
+  { topLeft :: (Double, Double)
+  , bottomRight :: (Double, Double)
+  }
+  deriving (Show)
+
+viewPortWidth :: ViewPort -> Double
+viewPortWidth (ViewPort (x0, _) (x1, _)) = x1 - x0
+
+viewPortHeight :: ViewPort -> Double
+viewPortHeight (ViewPort (_, y0) (_, y1)) = y1 - y0
+
+--
+-- HitEvent
+--
+
 data HitEvent e = HitEvent
   { hitEventHoverOn :: Maybe e
   , hitEventHoverOff :: Maybe e
@@ -60,20 +93,85 @@ data HitEvent e = HitEvent
 instance Functor HitEvent where
   fmap f (HitEvent mx my mz) = HitEvent (fmap f mx) (fmap f my) (fmap (bimap f f) mz)
 
-data Primitive e
-  = -- | (x, y) w h line_color background_color line_width handle_hovering
-    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe (HitEvent e))
-  | -- | start [bend_point] end line_color line_width
-    Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
-  | -- | (x, y) text_pos font_size text
-    DrawText (Double, Double) TextPosition TextFontFace Color Int Text
-  deriving (Show, Functor)
-
-data ViewPort = ViewPort
-  { topLeft :: (Double, Double)
-  , bottomRight :: (Double, Double)
+data Rectangle = Rectangle
+  { rectXY :: (Double, Double)
+  -- ^ (x, y)
+  , rectWidth :: Double
+  -- ^ w
+  , rectHeight :: Double
+  -- ^ h
+  , rectLineColor :: Maybe Color
+  -- ^ line_color
+  , rectFillColor :: Maybe Color
+  -- ^ fill_color
+  , rectLineWidth :: Maybe Double
+  -- ^ line_width
   }
   deriving (Show)
+
+data Polyline = Polyline
+  { plineStart :: (Double, Double)
+  -- ^ start
+  , plineBends :: [(Double, Double)]
+  -- ^ bend_point
+  , plineEnd :: (Double, Double)
+  -- ^ end
+  , plineColor :: Color
+  -- ^ line_color
+  , plineWidth :: Double
+  -- ^ line_width
+  }
+  deriving (Show)
+
+data DrawText = DrawText
+  { dtextXY :: (Double, Double)
+  -- ^ (x, y)
+  , dtextScheme :: TextPosition
+  -- ^ text_pos
+  , dtextFont :: TextFontFace
+  -- ^ font_face
+  , dtextColor :: Color
+  -- ^ font_color
+  , dtextFontSize :: Int
+  -- ^ font_size
+  , dtextContent :: Text
+  -- ^ text
+  }
+  deriving (Show)
+
+data Shape
+  = SRectangle Rectangle
+  | SPolyline Polyline
+  | SDrawText DrawText
+  deriving (Show)
+
+data Primitive e = Primitive
+  { primShape :: Shape
+  , primBoundingBox :: ViewPort
+  , primHitEvent :: Maybe (HitEvent e)
+  }
+  deriving (Show, Functor)
+
+rectangle :: (Double, Double) -> Double -> Double -> Maybe Color -> Maybe Color -> Maybe Double -> Maybe (HitEvent e) -> Primitive e
+rectangle (x, y) w h line_color fill_color line_width hitEvent =
+  Primitive
+    (SRectangle $ Rectangle (x, y) w h line_color fill_color line_width)
+    (ViewPort (x, y) (x + w, y + h))
+    hitEvent
+
+polyline :: (Double, Double) -> [(Double, Double)] -> (Double, Double) -> Color -> Double -> Primitive e
+polyline start bends end color width =
+  Primitive
+    (SPolyline $ Polyline start bends end color width)
+    (ViewPort start end) -- TODO: this is not correct
+    Nothing
+
+drawText :: (Double, Double) -> TextPosition -> TextFontFace -> Color -> Int -> Text -> Primitive e
+drawText (x, y) text_pos font_face font_color font_size txt =
+  Primitive
+    (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
+    (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
+    Nothing
 
 -- scene has local view port matched with global canvas
 data Scene e = Scene

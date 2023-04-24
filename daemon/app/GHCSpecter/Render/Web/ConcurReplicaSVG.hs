@@ -22,8 +22,12 @@ import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  DrawText (..),
   HitEvent (..),
+  Polyline (..),
   Primitive (..),
+  Rectangle (..),
+  Shape (..),
  )
 import Text.Printf (printf)
 import Prelude hiding (div)
@@ -61,7 +65,7 @@ renderPrimitive ::
   (HitEvent e -> [Props ev]) ->
   Primitive e ->
   Widget IHTML ev
-renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent) =
+renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ mhitEvent) =
   S.rect
     ( maybe [] handlers mhitEvent
         ++ [ SP.x (T.pack $ show x)
@@ -75,7 +79,7 @@ renderPrimitive handlers (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent) =
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )
     []
-renderPrimitive _ (Polyline start xys end color swidth) =
+renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _ _) =
   S.polyline
     [ SP.points (makePolylineText (start, end) xys)
     , SP.stroke (renderColor color)
@@ -83,7 +87,7 @@ renderPrimitive _ (Polyline start xys end color swidth) =
     , SP.fill "none"
     ]
     []
-renderPrimitive _ (DrawText (x, y) _pos _font color _fontSize msg) =
+renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _ _) =
   S.text
     [ SP.x (T.pack $ show x)
     , SP.y (T.pack $ show y)
