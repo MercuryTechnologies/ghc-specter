@@ -9,7 +9,7 @@ module GHCSpecter.Render.Components.TimingView (
   buildTimingChart,
   buildMemChart,
   buildTimingRange,
-  buildBlockers,
+  -- buildBlockers,
 ) where
 
 import Control.Lens (to, (%~), (^.), _1, _2)
@@ -367,6 +367,7 @@ buildTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
+{-
 buildBlockers :: ModuleName -> TimingTable -> Scene e
 buildBlockers hoveredMod ttable =
   Scene
@@ -389,3 +390,4 @@ buildBlockers hoveredMod ttable =
     downstreams = fmap (\t -> NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
     (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
+-}

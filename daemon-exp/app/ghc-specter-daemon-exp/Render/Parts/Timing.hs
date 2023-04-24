@@ -17,7 +17,7 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
  )
 import GHCSpecter.Render.Components.TimingView (
-  buildBlockers,
+  -- buildBlockers,
   buildMemChart,
   buildTimingChart,
   buildTimingRange,
@@ -78,6 +78,7 @@ renderTiming drvModMap tui ttable = do
             }
     renderScene sceneTimingRange'
   -- blocker lines
+  {-
   let minfo = do
         hoveredMod <- tui ^. timingUIHoveredModule
         vpCvs <- Map.lookup "blockers" wcfg
@@ -95,3 +96,4 @@ renderTiming drvModMap tui ttable = do
             { sceneGlobalViewPort = ViewPort (offsetX, offsetY) (w + offsetX, h + offsetY)
             }
     renderScene sceneBlockers'
+  -}

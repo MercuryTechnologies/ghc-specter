@@ -1,4 +1,8 @@
 module GHCSpecter.Render.Components.Util (
+  -- * ViewPort util
+  getLeastUpperBoundingBox,
+
+  -- * flow
   flowInline,
   flowLineByLine,
 ) where
@@ -49,6 +53,13 @@ viewPortSum (Just (ViewPort (x0, y0) (x1, y1))) (ViewPort (x0', y0') (x1', y1'))
       y1'' = max y1 y1'
    in ViewPort (x0'', y0'') (x1'', y1'')
 
+getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
+getLeastUpperBoundingBox itms =
+  let vps = fmap primBoundingBox itms
+      tl = (minimum $ fmap (fst . topLeft) vps, minimum $ fmap (snd . topLeft) vps)
+      br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
+   in ViewPort tl br
+
 -- | place grouped items horizontally
 flowInline ::
   -- | initial x offset
@@ -61,11 +72,7 @@ flowInline offset0 itms0 = (mvp1, itms1)
   where
     place (!offset, !mvp) itms =
       let itms' = fmap forEach itms
-          vp' =
-            let vps = fmap primBoundingBox itms'
-                tl = (minimum $ fmap (fst . topLeft) vps, minimum $ fmap (snd . topLeft) vps)
-                br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
-             in ViewPort tl br
+          vp' = getLeastUpperBoundingBox itms'
           w' = viewPortWidth vp'
        in ((offset + w', Just (viewPortSum mvp vp')), itms')
       where
@@ -81,19 +88,25 @@ flowLineByLine ::
   -- | initial y offset
   Double ->
   -- | rendered items grouped by each line
-  [NonEmpty (Primitive e)] ->
-  -- | (bounding box of the collection, placed items)
-  (Double, [NonEmpty (Primitive e)])
-flowLineByLine offset0 = L.mapAccumL place offset0
+  [(ViewPort, NonEmpty (Primitive e))] ->
+  -- | (final offset, placed items)
+  (Maybe ViewPort, [NonEmpty (Primitive e)])
+flowLineByLine offset0 itms0 = (mvp1, itms1) -- L.mapAccumL place offset0 itms0
   where
-    place !offset itms =
-      let shifted = fmap forEach itms
-          itms' = fmap snd shifted
-          doffset = maximum (fmap fst shifted)
-       in (offset + doffset, itms')
+    place (!offset, !mvp) (vp, itms) =
+      let itms' = fmap forEach itms
+          vp' = moveBoundingBoxBy (0, offset) vp -- getLeastUpperBoundingBox itms'
+          h' = viewPortHeight vp'
+       in ((offset + h', Just (viewPortSum mvp vp')), itms')
       where
-        forEach (Primitive shape vp hitEvent) =
+        forEach (Primitive shape vp_ hitEvent) =
           let shape' = moveShapeBy (0, offset) shape
-              vp' = moveBoundingBoxBy (0, offset) vp
-              doffset = viewPortHeight vp
-           in (doffset, Primitive shape' vp' hitEvent)
+              vp_' = moveBoundingBoxBy (0, offset) vp_
+           in Primitive shape' vp_' hitEvent
+
+    ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
+         
+--              doffset = viewPortHeight vp
+--           in (doffset, Primitive shape' vp' hitEvent)
+
+--          doffset = maximum (fmap fst shifted)

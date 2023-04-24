@@ -32,6 +32,7 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
   drawText,
   rectangle,
+  viewPortHeight,
  )
 import GHCSpecter.Render.Components.Tab (
   TabConfig (..),
@@ -40,6 +41,7 @@ import GHCSpecter.Render.Components.Tab (
 import GHCSpecter.Render.Components.Util (
   flowInline,
   flowLineByLine,
+  getLeastUpperBoundingBox,
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Constants (
@@ -65,6 +67,9 @@ buildConsoleTab tabs mfocus = ConsoleTab <$> buildTab tabCfg mfocus
         , tabCfgItems = tabs
         }
 
+toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
+toSizedLine xs = (getLeastUpperBoundingBox xs, xs)
+
 buildConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
@@ -80,7 +85,7 @@ buildConsoleHelp getHelp mfocus =
   where
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
-    titleElem = drawText (0, 0) UpperLeft Sans Black 8 title
+    titleElem = toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Sans Black 8 title
     renderItem (Left (txt, ev)) =
       let hitEvent =
             HitEvent
@@ -88,18 +93,23 @@ buildConsoleHelp getHelp mfocus =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right ev)
               }
-       in rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-            :| [drawText (0, 0) UpperLeft Mono Black 8 txt]
-    renderItem (Right txt) = NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
+          rendered =
+            rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+              :| [drawText (0, 0) UpperLeft Mono Black 8 txt]
+       in toSizedLine rendered
+    renderItem (Right txt) = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
     helpElems = fmap renderItem items
     --
-    (size, contentss) = flowLineByLine 0 (NE.singleton titleElem : helpElems)
+    (mvp, contentss) = flowLineByLine 0 (titleElem : helpElems)
     contents = concatMap F.toList contentss
+    size = maybe 200 viewPortHeight mvp
 
-buildConsoleItem :: forall k. ConsoleItem -> [Primitive (ConsoleEvent k)]
-buildConsoleItem (ConsoleCommand txt) = [drawText (0, 0) UpperLeft Mono Black 8 txt]
-buildConsoleItem (ConsoleText txt) = [drawText (0, 0) UpperLeft Mono Black 8 txt]
-buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
+buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+buildConsoleItem (ConsoleCommand txt) =
+  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
+buildConsoleItem (ConsoleText txt) =
+  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
+buildConsoleItem (ConsoleButton buttonss) = (vp, contentss') -- concatMap F.toList contentss
   where
     mkButton (label, cmd) =
       let hitEvent =
@@ -120,8 +130,12 @@ buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
 
     ls :: [(ViewPort, NonEmpty (Primitive (ConsoleEvent k)))]
     ls = mapMaybe mkRow buttonss
-    (size, contentss) = flowLineByLine 0 (fmap snd ls)
-buildConsoleItem (ConsoleCore forest) = []
+    (mvp, contentss) = flowLineByLine 0 ls
+    -- TODO: for now
+    Just vp = mvp
+    contentss' = NE.fromList (concatMap F.toList contentss)
+buildConsoleItem (ConsoleCore forest) =
+  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "not implemented"
 
 buildConsoleMain ::
   (IsKey k, Eq k) =>
@@ -138,8 +152,9 @@ buildConsoleMain contents mfocus =
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     contentss = fmap buildConsoleItem $ join $ maybeToList mtxts
-    contentss' = mapMaybe NE.nonEmpty contentss
-    (size, rendered) = flowLineByLine 0 contentss'
+    -- contentss' = mapMaybe NE.nonEmpty contentss
+    (mvp, rendered) = flowLineByLine 0 contentss
+    size = maybe 200 viewPortHeight mvp
 
 buildConsoleInput :: Text -> Scene e
 buildConsoleInput inputEntry =
