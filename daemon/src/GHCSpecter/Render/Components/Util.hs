@@ -95,11 +95,11 @@ flowLineByLine ::
   [(ViewPort, NonEmpty (Primitive e))] ->
   -- | (final offset, placed items)
   (Maybe ViewPort, [NonEmpty (Primitive e)])
-flowLineByLine offset0 itms0 = (mvp1, itms1) -- L.mapAccumL place offset0 itms0
+flowLineByLine offset0 itms0 = (mvp1, itms1)
   where
     place (!offset, !mvp) (vp, itms) =
       let itms' = fmap forEach itms
-          vp' = moveBoundingBoxBy (0, offset) vp -- getLeastUpperBoundingBox itms'
+          vp' = moveBoundingBoxBy (0, offset) vp
           h' = viewPortHeight vp'
        in ((offset + h', Just (viewPortSum mvp vp')), itms')
       where
@@ -109,8 +109,3 @@ flowLineByLine offset0 itms0 = (mvp1, itms1) -- L.mapAccumL place offset0 itms0
            in Primitive shape' vp_' hitEvent
 
     ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
-
---              doffset = viewPortHeight vp
---           in (doffset, Primitive shape' vp' hitEvent)
-
---          doffset = maximum (fmap fst shifted)
