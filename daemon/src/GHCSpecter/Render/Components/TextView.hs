@@ -18,11 +18,11 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Graphics.DSL (
   Color (..),
-  Primitive (..),
   Scene (..),
   TextFontFace (Mono),
   TextPosition (..),
   ViewPort (..),
+  drawText,
   rectangle,
  )
 
@@ -79,7 +79,7 @@ buildTextView txt highlighted =
         (Just 1.0)
         Nothing
     mkText (i, t) =
-      DrawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
+      drawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
     contents =
       fmap highlightBox highlighted
         ++ fmap mkText ls

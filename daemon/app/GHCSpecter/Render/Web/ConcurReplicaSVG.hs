@@ -22,6 +22,7 @@ import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  DrawText (..),
   HitEvent (..),
   Polyline (..),
   Primitive (..),
@@ -85,7 +86,7 @@ renderPrimitive _ (PPolyline (Polyline start xys end color swidth)) =
     , SP.fill "none"
     ]
     []
-renderPrimitive _ (DrawText (x, y) _pos _font color _fontSize msg) =
+renderPrimitive _ (PDrawText (DrawText (x, y) _pos _font color _fontSize msg)) =
   S.text
     [ SP.x (T.pack $ show x)
     , SP.y (T.pack $ show y)

@@ -28,6 +28,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono, Sans),
   TextPosition (..),
   ViewPort (..),
+  drawText,
   rectangle,
  )
 import GHCSpecter.Render.Components.Tab (
@@ -77,7 +78,7 @@ buildConsoleHelp getHelp mfocus =
   where
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
-    titleElem = DrawText (0, 0) UpperLeft Sans Black 8 title
+    titleElem = drawText (0, 0) UpperLeft Sans Black 8 title
     renderItem (Left (txt, ev)) =
       let hitEvent =
             HitEvent
@@ -86,16 +87,16 @@ buildConsoleHelp getHelp mfocus =
               , hitEventClick = Just (Right ev)
               }
        in rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-            :| [DrawText (0, 0) UpperLeft Mono Black 8 txt]
-    renderItem (Right txt) = NE.singleton (DrawText (0, 0) UpperLeft Mono Gray 8 txt)
+            :| [drawText (0, 0) UpperLeft Mono Black 8 txt]
+    renderItem (Right txt) = NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
     helpElems = fmap renderItem items
     --
     (size, contentss) = flowLineByLine 0 (NE.singleton titleElem : helpElems)
     contents = concatMap F.toList contentss
 
 buildConsoleItem :: forall k. ConsoleItem -> [Primitive (ConsoleEvent k)]
-buildConsoleItem (ConsoleCommand txt) = [DrawText (0, 0) UpperLeft Mono Black 8 txt]
-buildConsoleItem (ConsoleText txt) = [DrawText (0, 0) UpperLeft Mono Black 8 txt]
+buildConsoleItem (ConsoleCommand txt) = [drawText (0, 0) UpperLeft Mono Black 8 txt]
+buildConsoleItem (ConsoleText txt) = [drawText (0, 0) UpperLeft Mono Black 8 txt]
 buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
   where
     mkButton (label, cmd) =
@@ -106,7 +107,7 @@ buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
               , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
        in rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-            :| [DrawText (0, 0) UpperLeft Mono Black 8 label]
+            :| [drawText (0, 0) UpperLeft Mono Black 8 label]
 
     mkRow :: [(Text, Text)] -> Maybe (NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
@@ -147,4 +148,4 @@ buildConsoleInput inputEntry =
     , sceneElements = rendered
     }
   where
-    rendered = [DrawText (0, 0) UpperLeft Mono Black 8 inputEntry]
+    rendered = [drawText (0, 0) UpperLeft Mono Black 8 inputEntry]

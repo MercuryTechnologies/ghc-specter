@@ -24,6 +24,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  DrawText (..),
   EventMap (..),
   Polyline (..),
   Primitive (..),
@@ -99,7 +100,7 @@ renderPrimitive (PPolyline (Polyline start xys end line width)) = do
     traverse_ (uncurry R.lineTo) xys
     uncurry R.lineTo end
     R.stroke
-renderPrimitive (DrawText (x, y) pos fontFace color fontSize msg) = do
+renderPrimitive (PDrawText (DrawText (x, y) pos fontFace color fontSize msg)) = do
   let y' = case pos of
         UpperLeft -> y
         LowerLeft -> y - fromIntegral fontSize - 1

@@ -44,6 +44,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  drawText,
   polyline,
   rectangle,
  )
@@ -219,7 +220,7 @@ buildTimingChart drvModMap tui ttable =
     moduleText (i, item@(mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in DrawText (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+       in drawText (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x =
       if tui ^. timingUIPartition
         then [box x, boxAs x, boxHscOut x, moduleText x]
@@ -304,7 +305,7 @@ buildMemChart drvModMap tui ttable =
     moduleText (i, (mmodu, _)) =
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in DrawText (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+       in drawText (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x =
       if (tui ^. timingUIPartition)
         then
@@ -380,11 +381,11 @@ buildBlockers hoveredMod ttable =
     downMods =
       fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
     --
-    selected = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
+    selected = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
     line = NE.singleton (polyline (0, 0) [] (200, 0) Black 1)
-    blockedBy = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
-    upstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) upMods
-    blocking = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocking")
-    downstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) downMods
+    blockedBy = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
+    upstreams = fmap (\t -> NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) upMods
+    blocking = NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocking")
+    downstreams = fmap (\t -> NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
     (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing

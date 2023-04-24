@@ -6,6 +6,7 @@ module GHCSpecter.Render.Components.Util (
 import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty)
 import GHCSpecter.Graphics.DSL (
+  DrawText (..),
   Polyline (..),
   Primitive (..),
   Rectangle (..),
@@ -29,12 +30,13 @@ flowInline offset0 = L.mapAccumL place offset0
       where
         forEach item =
           case item of
-            DrawText (x, y) p' ff c fs t ->
+            PDrawText (txt@DrawText {}) ->
               let
                 -- this should use proper layout engine
                 doffset = 120
+                (x, y) = dtextXY txt
                in
-                (doffset, DrawText (x + offset, y) p' ff c fs t)
+                (doffset, PDrawText (txt {dtextXY = (x + offset, y)}))
             PPolyline (poly@Polyline {}) ->
               let (x0, y0) = plineStart poly
                   xs = plineBends poly
@@ -71,9 +73,11 @@ flowLineByLine offset0 = L.mapAccumL place offset0
       where
         forEach item =
           case item of
-            DrawText (x, y) p' ff c fs t ->
-              let doffset = fromIntegral fs + 4
-               in (doffset, DrawText (x, y + offset) p' ff c fs t)
+            PDrawText (txt@DrawText {}) ->
+              let (x, y) = dtextXY txt
+                  fs = dtextFontSize txt
+                  doffset = fromIntegral fs + 4
+               in (doffset, PDrawText (txt {dtextXY = (x, y + offset)}))
             PPolyline (poly@Polyline {}) ->
               let doffset = 5
                   (x0, y0) = plineStart poly

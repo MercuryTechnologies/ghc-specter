@@ -8,11 +8,11 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
-  Primitive (..),
   Scene (..),
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  drawText,
   polyline,
   rectangle,
  )
@@ -54,7 +54,7 @@ buildTab cfg mtab =
               , hitEventClick = Just (Right tab)
               }
        in [ rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
-          , DrawText (x, 2) UpperLeft Sans Black fontSize txt
+          , drawText (x, 2) UpperLeft Sans Black fontSize txt
           ]
     mkLine (Just (n, _)) =
       polyline

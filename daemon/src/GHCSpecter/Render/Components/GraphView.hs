@@ -33,6 +33,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  drawText,
   polyline,
   rectangle,
  )
@@ -104,7 +105,7 @@ buildModuleGraph
            in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
               , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
               , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
-              , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+              , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
               ]
      in Scene
           { sceneId = "main-module-graph"
@@ -150,7 +151,7 @@ buildGraph cond grVisInfo =
               | cond name = HoneyDew
               | otherwise = Ivory
          in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
-            , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+            , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
             ]
    in [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
         ++ fmap edge (grVisInfo ^. gviEdges)
