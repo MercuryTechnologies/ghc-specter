@@ -27,6 +27,7 @@ import GHCSpecter.Graphics.DSL (
   Polyline (..),
   Primitive (..),
   Rectangle (..),
+  Shape (..),
  )
 import Text.Printf (printf)
 import Prelude hiding (div)
@@ -64,7 +65,7 @@ renderPrimitive ::
   (HitEvent e -> [Props ev]) ->
   Primitive e ->
   Widget IHTML ev
-renderPrimitive handlers (PRectangle (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent)) =
+renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth mhitEvent)) _) =
   S.rect
     ( maybe [] handlers mhitEvent
         ++ [ SP.x (T.pack $ show x)
@@ -78,7 +79,7 @@ renderPrimitive handlers (PRectangle (Rectangle (x, y) w h mline mbkg mlwidth mh
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )
     []
-renderPrimitive _ (PPolyline (Polyline start xys end color swidth)) =
+renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _) =
   S.polyline
     [ SP.points (makePolylineText (start, end) xys)
     , SP.stroke (renderColor color)
@@ -86,7 +87,7 @@ renderPrimitive _ (PPolyline (Polyline start xys end color swidth)) =
     , SP.fill "none"
     ]
     []
-renderPrimitive _ (PDrawText (DrawText (x, y) _pos _font color _fontSize msg)) =
+renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _) =
   S.text
     [ SP.x (T.pack $ show x)
     , SP.y (T.pack $ show y)

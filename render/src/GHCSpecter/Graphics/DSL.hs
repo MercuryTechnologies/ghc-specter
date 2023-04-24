@@ -11,6 +11,7 @@ module GHCSpecter.Graphics.DSL (
   Rectangle (..),
   Polyline (..),
   DrawText (..),
+  Shape (..),
   Primitive (..),
   ViewPort (..),
   Scene (..),
@@ -116,23 +117,35 @@ data DrawText e = DrawText
   }
   deriving (Show, Functor)
 
-data Primitive e
-  = PRectangle (Rectangle e)
-  | PPolyline (Polyline e)
-  | PDrawText (DrawText e)
+data Shape e
+  = SRectangle (Rectangle e)
+  | SPolyline (Polyline e)
+  | SDrawText (DrawText e)
+  deriving (Show, Functor)
+
+data Primitive e = Primitive
+  { primShape :: Shape e
+  , primBoundingBox :: ViewPort
+  }
   deriving (Show, Functor)
 
 rectangle :: (Double, Double) -> Double -> Double -> Maybe Color -> Maybe Color -> Maybe Double -> Maybe (HitEvent e) -> Primitive e
-rectangle xy w h line_color fill_color line_width hitEvent =
-  PRectangle $ Rectangle xy w h line_color fill_color line_width hitEvent
+rectangle (x, y) w h line_color fill_color line_width hitEvent =
+  Primitive
+    (SRectangle $ Rectangle (x, y) w h line_color fill_color line_width hitEvent)
+    (ViewPort (x, y) (x + w, y + h))
 
 polyline :: (Double, Double) -> [(Double, Double)] -> (Double, Double) -> Color -> Double -> Primitive e
 polyline start bends end color width =
-  PPolyline $ Polyline start bends end color width
+  Primitive
+    (SPolyline $ Polyline start bends end color width)
+    (ViewPort start end) -- TODO: this is not correct
 
 drawText :: (Double, Double) -> TextPosition -> TextFontFace -> Color -> Int -> Text -> Primitive e
-drawText xy text_pos font_face font_color font_size txt =
-  PDrawText $ DrawText xy text_pos font_face font_color font_size txt
+drawText (x, y) text_pos font_face font_color font_size txt =
+  Primitive
+    (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
+    (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
 
 data ViewPort = ViewPort
   { topLeft :: (Double, Double)
