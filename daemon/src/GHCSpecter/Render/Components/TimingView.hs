@@ -44,6 +44,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 import GHCSpecter.Render.Components.Util (flowLineByLine)
 import GHCSpecter.UI.Constants (
@@ -122,7 +123,7 @@ buildRules showParallel table totalHeight totalTime =
     sec2X sec =
       diffTime2X totalTime (secondsToNominalDiffTime sec)
     box ((sec1, _), n) =
-      Rectangle
+      rectangle
         (sec2X sec1, 0)
         (sec2X (1.01))
         (fromIntegral totalHeight)
@@ -188,7 +189,7 @@ buildTimingChart drvModMap tui ttable =
                 , hitEventHoverOff = Just (HoverOffModule modu)
                 , hitEventClick = Nothing
                 }
-       in Rectangle
+       in rectangle
             (leftOfBox item, module2Y i)
             (widthOfBox item)
             3
@@ -197,7 +198,7 @@ buildTimingChart drvModMap tui ttable =
             (highlighter ^. _2)
             mhitEvent
     boxHscOut (i, item) =
-      Rectangle
+      rectangle
         (leftOfBox item, module2Y i)
         (widthHscOutOfBox item)
         3
@@ -206,7 +207,7 @@ buildTimingChart drvModMap tui ttable =
         Nothing
         Nothing
     boxAs (i, item) =
-      Rectangle
+      rectangle
         (leftOfBox item, module2Y i)
         (widthAsOfBox item)
         3
@@ -290,7 +291,7 @@ buildMemChart drvModMap tui ttable =
       case item ^. _2 . lz . _2 of
         Nothing -> []
         Just minfo ->
-          [ Rectangle
+          [ rectangle
               (0, module2Y i)
               (widthOfBox minfo)
               3
@@ -346,7 +347,7 @@ buildTimingRange tui ttable =
     handleWidth = if null filteredItems then 0 else convert (maxI - minI + 1)
 
     background =
-      Rectangle
+      rectangle
         (0, 0)
         timingWidth
         timingRangeHeight
@@ -355,7 +356,7 @@ buildTimingRange tui ttable =
         Nothing
         Nothing
     handle =
-      Rectangle
+      rectangle
         (fromIntegral handleX, 0)
         (fromIntegral handleWidth)
         timingRangeHeight
@@ -385,4 +386,4 @@ buildBlockers hoveredMod ttable =
     blocking = NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 "Blocking")
     downstreams = fmap (\t -> NE.singleton (DrawText (0, 0) UpperLeft Sans Black 8 t)) downMods
     (size, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
-    box = Rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
+    box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing

@@ -8,9 +8,11 @@ module GHCSpecter.Graphics.DSL (
   HitEvent (..),
 
   -- * graphics primitives
+  Rectangle (..),
   Primitive (..),
   ViewPort (..),
   Scene (..),
+  rectangle,
 
   -- * event primitives
   EventMap (..),
@@ -60,14 +62,35 @@ data HitEvent e = HitEvent
 instance Functor HitEvent where
   fmap f (HitEvent mx my mz) = HitEvent (fmap f mx) (fmap f my) (fmap (bimap f f) mz)
 
+data Rectangle e = Rectangle
+  { rectXY :: (Double, Double)
+  -- ^ (x, y)
+  , rectWidth :: Double
+  -- ^ w
+  , rectHeight :: Double
+  -- ^ h
+  , rectLineColor :: Maybe Color
+  -- ^ line_color
+  , rectFillColor :: Maybe Color
+  -- ^ fill_color
+  , rectLineWidth :: Maybe Double
+  -- ^ line_width
+  , rectHitEvent :: Maybe (HitEvent e)
+  -- ^ associated events
+  }
+  deriving (Show, Functor)
+
 data Primitive e
-  = -- | (x, y) w h line_color background_color line_width handle_hovering
-    Rectangle (Double, Double) Double Double (Maybe Color) (Maybe Color) (Maybe Double) (Maybe (HitEvent e))
+  = PRectangle (Rectangle e)
   | -- | start [bend_point] end line_color line_width
     Polyline (Double, Double) [(Double, Double)] (Double, Double) Color Double
   | -- | (x, y) text_pos font_size text
     DrawText (Double, Double) TextPosition TextFontFace Color Int Text
   deriving (Show, Functor)
+
+rectangle :: (Double, Double) -> Double -> Double -> Maybe Color -> Maybe Color -> Maybe Double -> Maybe (HitEvent e) -> Primitive e
+rectangle xy w h line_color fill_color line_width hitEvent =
+  PRectangle $ Rectangle xy w h line_color fill_color line_width hitEvent
 
 data ViewPort = ViewPort
   { topLeft :: (Double, Double)

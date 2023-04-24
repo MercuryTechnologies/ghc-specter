@@ -13,6 +13,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 
 data TabConfig tab = TabConfig
@@ -51,7 +52,7 @@ buildTab cfg mtab =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right tab)
               }
-       in [ Rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
+       in [ rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
           , DrawText (x, 2) UpperLeft Sans Black fontSize txt
           ]
     mkLine (Just (n, _)) =

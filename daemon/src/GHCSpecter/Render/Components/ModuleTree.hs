@@ -21,6 +21,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -102,7 +103,7 @@ buildModuleTree srcUI ss =
                   , hitEventHoverOff = Nothing
                   , hitEventClick = Just (Right (SelectModule modu))
                   }
-       in [ Rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
+       in [ rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
           , DrawText (x, y) UpperLeft Sans color 8 txt
           ]
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')

@@ -26,6 +26,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   EventMap (..),
   Primitive (..),
+  Rectangle (..),
   Scene (..),
   TextFontFace (..),
   TextPosition (..),
@@ -77,7 +78,7 @@ setColor ColorRedLevel4 = lift $ R.setSourceRGBA 0.945 0.580 0.541 1 -- F1948A
 setColor ColorRedLevel5 = lift $ R.setSourceRGBA 0.925 0.439 0.388 1 -- EC7063
 
 renderPrimitive :: Primitive e -> GtkRender e ()
-renderPrimitive (Rectangle (x, y) w h mline mbkg mlwidth _mname) = do
+renderPrimitive (PRectangle (Rectangle (x, y) w h mline mbkg mlwidth _mname)) = do
   for_ mbkg $ \bkg -> do
     setColor bkg
     lift $ do
@@ -123,7 +124,7 @@ renderScene scene = do
 addEventMap :: Scene e -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
-  let extractEvent (Rectangle (x, y) w h _ _ _ (Just hitEvent)) =
+  let extractEvent (PRectangle (Rectangle (x, y) w h _ _ _ (Just hitEvent))) =
         Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
       eitms = mapMaybe extractEvent (sceneElements scene)

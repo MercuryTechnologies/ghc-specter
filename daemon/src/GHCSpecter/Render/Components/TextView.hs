@@ -23,6 +23,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 
 -- TODO: generalize and refactor out these layout parameters
@@ -69,7 +70,7 @@ buildTextView txt highlighted =
           h1 = rowSize * fromIntegral (endI - startI + 1)
        in (w1, h1 + 2)
     highlightBox range@((startI, startJ), _) =
-      Rectangle
+      rectangle
         (leftOfBox startJ, topOfBox startI)
         (fst (boxSize range))
         (snd (boxSize range))

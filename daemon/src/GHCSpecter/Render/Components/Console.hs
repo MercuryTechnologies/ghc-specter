@@ -28,6 +28,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono, Sans),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 import GHCSpecter.Render.Components.Tab (
   TabConfig (..),
@@ -84,7 +85,7 @@ buildConsoleHelp getHelp mfocus =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right ev)
               }
-       in Rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+       in rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [DrawText (0, 0) UpperLeft Mono Black 8 txt]
     renderItem (Right txt) = NE.singleton (DrawText (0, 0) UpperLeft Mono Gray 8 txt)
     helpElems = fmap renderItem items
@@ -104,7 +105,7 @@ buildConsoleItem (ConsoleButton buttonss) = concatMap F.toList contentss
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
-       in Rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+       in rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [DrawText (0, 0) UpperLeft Mono Black 8 label]
 
     mkRow :: [(Text, Text)] -> Maybe (NonEmpty (Primitive (ConsoleEvent k)))

@@ -39,6 +39,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Sans),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 import GHCSpecter.Render.Components.TextView (buildTextView)
 import GHCSpecter.Server.Types (
@@ -177,6 +178,6 @@ buildPauseResume session =
             , hitEventClick = Just (Right PauseSessionEv)
             }
     contents =
-      [ Rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
+      [ rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
       , DrawText (5, 0) UpperLeft Sans Black 8 buttonTxt
       ]

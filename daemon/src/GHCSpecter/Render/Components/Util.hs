@@ -7,6 +7,7 @@ import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty)
 import GHCSpecter.Graphics.DSL (
   Primitive (..),
+  Rectangle (..),
  )
 
 -- | place grouped items horizontally
@@ -37,9 +38,10 @@ flowInline offset0 = L.mapAccumL place offset0
               let doffset = x1 - x0
                   f (x, y) = (x + offset, y)
                in (doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
-            Rectangle (x, y) w h ms mf mw me ->
-              let doffset = w
-               in (doffset, Rectangle (x + offset, y) w h ms mf mw me)
+            PRectangle (rect@Rectangle {}) ->
+              let (x, y) = rectXY rect
+                  doffset = rectWidth rect
+               in (doffset, PRectangle (rect {rectXY = (x + offset, y)}))
 
 -- | place grouped items line by line
 flowLineByLine ::
@@ -66,6 +68,7 @@ flowLineByLine offset0 = L.mapAccumL place offset0
               let doffset = 5
                   f (x, y) = (x, y + offset + 3)
                in (doffset, Polyline (f (x0, y0)) (fmap f xs) (f (x1, y1)) c w)
-            Rectangle (x, y) w h ms mf mw me ->
-              let doffset = h
-               in (doffset, Rectangle (x, y + offset) w h ms mf mw me)
+            PRectangle (rect@Rectangle {}) ->
+              let (x, y) = rectXY rect
+                  doffset = rectHeight rect
+               in (doffset, PRectangle (rect {rectXY = (x, y + offset)}))

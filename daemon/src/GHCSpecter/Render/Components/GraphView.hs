@@ -33,6 +33,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  rectangle,
  )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)
@@ -99,9 +100,9 @@ buildModuleGraph
                   , hitEventHoverOff = Just (HoverOnModuleEv Nothing)
                   , hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
-           in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
-              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
-              , Rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
+           in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
+              , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
+              , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
               , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
               ]
      in Scene
@@ -109,7 +110,7 @@ buildModuleGraph
           , sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneLocalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
           , sceneElements =
-              [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+              [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
                 ++ fmap edge (grVisInfo ^. gviEdges)
                 ++ concatMap node (grVisInfo ^. gviNodes)
           }
@@ -147,9 +148,9 @@ buildGraph cond grVisInfo =
             color
               | cond name = HoneyDew
               | otherwise = Ivory
-         in [ Rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
+         in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
             , DrawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
             ]
-   in [Rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+   in [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
         ++ fmap edge (grVisInfo ^. gviEdges)
         ++ concatMap node (grVisInfo ^. gviNodes)
