@@ -18,6 +18,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Graphics.DSL (
   Color (..),
+  Primitive,
   Scene (..),
   TextFontFace (Mono),
   TextPosition (..),
@@ -48,14 +49,14 @@ leftOfBox j = charSize * fromIntegral (j - 1)
 rightOfBox :: Int -> Double
 rightOfBox j = charSize * fromIntegral j
 
-buildTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene e
+buildTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene (Primitive e)
 buildTextView txt highlighted =
   Scene
     { sceneId = "text-view"
-    , sceneGlobalViewPort = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
-    , sceneLocalViewPort = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements = contents
-    , sceneExtent = Nothing
+    , sceneExtent = Just extent
     }
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.
@@ -84,3 +85,4 @@ buildTextView txt highlighted =
     contents =
       fmap highlightBox highlighted
         ++ fmap mkText ls
+    extent = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)

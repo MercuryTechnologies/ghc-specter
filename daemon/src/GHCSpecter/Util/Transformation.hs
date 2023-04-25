@@ -11,9 +11,12 @@ module GHCSpecter.Util.Transformation (
 
 import Data.List qualified as L
 import GHCSpecter.Graphics.DSL (
-  EventMap (..),
+  EventMap,
   HitEvent,
   ViewPort (..),
+  eventMapElements,
+  eventMapGlobalViewPort,
+  eventMapLocalViewPort,
   isInside,
  )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))

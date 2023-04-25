@@ -50,7 +50,7 @@ buildModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Scene ModuleGraphEvent
+  Scene (Primitive ModuleGraphEvent)
 buildModuleGraph
   nameMap
   valueFor

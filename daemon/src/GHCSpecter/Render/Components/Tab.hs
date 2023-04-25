@@ -8,6 +8,7 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
+  Primitive,
   Scene (..),
   TextFontFace (..),
   TextPosition (..),
@@ -25,7 +26,7 @@ data TabConfig tab = TabConfig
   , tabCfgItems :: [(tab, Text)]
   }
 
-buildTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene tab
+buildTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene (Primitive tab)
 buildTab cfg mtab =
   Scene
     { sceneId = tabCfgId cfg

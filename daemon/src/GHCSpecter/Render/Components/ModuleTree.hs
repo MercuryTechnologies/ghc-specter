@@ -50,7 +50,7 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-buildModuleTree :: SourceViewUI -> ServerState -> Scene SourceViewEvent
+buildModuleTree :: SourceViewUI -> ServerState -> Scene (Primitive SourceViewEvent)
 buildModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"

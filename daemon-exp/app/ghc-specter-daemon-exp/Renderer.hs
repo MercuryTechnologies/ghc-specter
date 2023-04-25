@@ -25,7 +25,6 @@ import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (
   Color (..),
   DrawText (..),
-  EventMap (..),
   Polyline (..),
   Primitive (..),
   Rectangle (..),
@@ -112,7 +111,7 @@ renderShape (SDrawText (DrawText (x, y) pos fontFace color fontSize msg)) = do
 renderPrimitive :: Primitive e -> GtkRender e ()
 renderPrimitive (Primitive shape _ _) = renderShape shape
 
-renderScene :: Scene e -> GtkRender e ()
+renderScene :: Scene (Primitive e) -> GtkRender e ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
       vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
@@ -131,7 +130,7 @@ renderScene scene = do
   traverse_ renderPrimitive filtered
   lift R.restore
 
-addEventMap :: Scene e -> GtkRender e ()
+addEventMap :: Scene (Primitive e) -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
   let
@@ -139,14 +138,7 @@ addEventMap scene = do
     extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
       Just (hitEvent, ViewPort (x, y) (x + w, y + h))
     extractEvent _ = Nothing
-    eitms = mapMaybe extractEvent (sceneElements scene)
-    emap =
-      EventMap
-        { eventMapId = sceneId scene
-        , eventMapGlobalViewPort = sceneGlobalViewPort scene
-        , eventMapLocalViewPort = sceneLocalViewPort scene
-        , eventMapElements = eitms
-        }
+    emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
   liftIO $
     atomically $
       modifyTVar' emapRef (\emaps -> emap : emaps)

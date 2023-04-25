@@ -50,9 +50,11 @@ import GHCSpecter.Control.Types (
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
-  EventMap (..),
+  EventMap,
   HitEvent (..),
   ViewPort (..),
+  eventMapGlobalViewPort,
+  eventMapId,
  )
 import GHCSpecter.Server.Types (
   ConsoleItem (..),

@@ -10,7 +10,11 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  Primitive,
+  Scene (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.Tab qualified as Tab
 import GHCSpecter.Render.Components.TextView qualified as TextView
@@ -28,7 +32,7 @@ import GHCSpecter.UI.Types.Event (
   SourceViewEvent (..),
  )
 
-buildSuppView :: Maybe SupplementaryView -> Scene ()
+buildSuppView :: Maybe SupplementaryView -> Scene (Primitive ())
 buildSuppView Nothing =
   Scene
     { sceneId = "supple-view-contents"
@@ -59,9 +63,9 @@ buildSuppViewPanel ::
   ModuleName ->
   SourceViewUI ->
   ServerState ->
-  (Scene SourceViewEvent, Scene ())
+  (Scene (Primitive SourceViewEvent), Scene (Primitive ()))
 buildSuppViewPanel modu srcUI ss =
-  ( SourceViewTab <$> Tab.buildTab tabCfg mtab
+  ( fmap (fmap SourceViewTab) (Tab.buildTab tabCfg mtab)
   , buildSuppView msuppView
   )
   where

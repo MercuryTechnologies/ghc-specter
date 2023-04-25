@@ -51,7 +51,7 @@ renderTiming drvModMap tui ttable = do
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
-    let sceneTimingChart = TimingEv <$> buildTimingChart drvModMap tui ttable
+    let sceneTimingChart = fmap (fmap TimingEv) $ buildTimingChart drvModMap tui ttable
         sceneTimingChart' =
           sceneTimingChart
             { sceneGlobalViewPort = vpCvs

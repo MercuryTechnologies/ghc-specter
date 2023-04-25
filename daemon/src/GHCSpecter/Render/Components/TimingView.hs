@@ -143,7 +143,7 @@ buildTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene TimingEvent
+  Scene (Primitive TimingEvent)
 buildTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
@@ -269,7 +269,7 @@ buildMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene e
+  Scene (Primitive e)
 buildMemChart drvModMap tui ttable =
   Scene
     { sceneId = "mem-chart"
@@ -327,7 +327,7 @@ buildMemChart drvModMap tui ttable =
 buildTimingRange ::
   TimingUI ->
   TimingTable ->
-  Scene e
+  Scene (Primitive e)
 buildTimingRange tui ttable =
   Scene
     { sceneId = "timing-range"
@@ -375,7 +375,7 @@ buildTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-buildBlockers :: ModuleName -> TimingTable -> Scene e
+buildBlockers :: ModuleName -> TimingTable -> Scene (Primitive e)
 buildBlockers hoveredMod ttable =
   Scene
     { sceneId = "blockers"

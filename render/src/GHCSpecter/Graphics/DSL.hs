@@ -29,7 +29,11 @@ module GHCSpecter.Graphics.DSL (
   drawText,
 
   -- * event primitives
-  EventMap (..),
+  EventMap,
+  eventMapId,
+  eventMapGlobalViewPort,
+  eventMapLocalViewPort,
+  eventMapElements,
 ) where
 
 import Data.Bifunctor (bimap)
@@ -211,19 +215,25 @@ drawText (x, y) text_pos font_face font_color font_size txt =
     Nothing
 
 -- scene has local view port matched with global canvas
-data Scene e = Scene
+data Scene elem = Scene
   { sceneId :: Text
   , sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
-  , sceneElements :: [Primitive e]
+  , sceneElements :: [elem]
   , sceneExtent :: Maybe ViewPort
   }
   deriving (Show, Functor)
 
-data EventMap e = EventMap
-  { eventMapId :: Text
-  , eventMapGlobalViewPort :: ViewPort
-  , eventMapLocalViewPort :: ViewPort
-  , eventMapElements :: [(HitEvent e, ViewPort)]
-  }
-  deriving (Show, Functor)
+type EventMap e = Scene (HitEvent e, ViewPort)
+
+eventMapId :: EventMap e -> Text
+eventMapId = sceneId
+
+eventMapGlobalViewPort :: EventMap e -> ViewPort
+eventMapGlobalViewPort = sceneGlobalViewPort
+
+eventMapLocalViewPort :: EventMap e -> ViewPort
+eventMapLocalViewPort = sceneLocalViewPort
+
+eventMapElements :: EventMap e -> [(HitEvent e, ViewPort)]
+eventMapElements = sceneElements

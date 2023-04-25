@@ -55,8 +55,8 @@ buildConsoleTab ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   Maybe k ->
-  Scene (ConsoleEvent k)
-buildConsoleTab tabs mfocus = ConsoleTab <$> buildTab tabCfg mfocus
+  Scene (Primitive (ConsoleEvent k))
+buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
   where
     tabCfg =
       TabConfig
@@ -71,7 +71,7 @@ buildConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
-  Scene (ConsoleEvent k)
+  Scene (Primitive (ConsoleEvent k))
 buildConsoleHelp getHelp mfocus =
   Scene
     { sceneId = "console-help"
@@ -149,7 +149,7 @@ buildConsoleMain ::
   (IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  Scene (ConsoleEvent k)
+  Scene (Primitive (ConsoleEvent k))
 buildConsoleMain contents mfocus =
   Scene
     { sceneId = "console-main"
@@ -168,7 +168,7 @@ buildConsoleMain contents mfocus =
     (vp, rendered) = flowLineByLine 0 contentss
     size = viewPortHeight vp
 
-buildConsoleInput :: Text -> Scene e
+buildConsoleInput :: Text -> Scene (Primitive e)
 buildConsoleInput inputEntry =
   Scene
     { sceneId = "console-input"
