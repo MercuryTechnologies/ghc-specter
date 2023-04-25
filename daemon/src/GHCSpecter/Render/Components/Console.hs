@@ -145,7 +145,8 @@ buildConsoleItem (ConsoleCore forest) = (vp, contents)
               Right bind -> renderTopBind bind -}
         ls = T.lines txt
         rendered1 = fmap (toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8) ls
-       in rendered1
+       in
+        rendered1
     (mvp, contentss) = flowLineByLine 0 $ concatMap render1 forest
     (vp, contents) = case (,) <$> mvp <*> NE.nonEmpty (concatMap F.toList contentss) of
       Nothing -> toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "cannot draw core"

@@ -161,7 +161,11 @@ printCore guts args = do
        in not (null (names `L.intersect` args))
     binds = mg_binds guts
     binds' = filter isReq binds
-    forest = fmap (core2tree dflags) binds'
+    txt = T.pack (showPpr dflags binds')
   -- for debug
   mapM_ (liftIO . printPpr dflags) binds'
-  pure (ConsoleReplyCore forest)
+  pure (ConsoleReplyText (Just "core") txt)
+
+-- NOTE: we disable the old direct rendering for now.
+-- let forest = fmap (core2tree dflags) binds'
+-- pure (ConsoleReplyCore forest)
