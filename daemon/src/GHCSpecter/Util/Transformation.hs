@@ -5,7 +5,6 @@ module GHCSpecter.Util.Transformation (
   translateToOrigin,
 
   -- * hit test
-  isInside,
   hitScene,
   hitItem,
 ) where
@@ -15,6 +14,7 @@ import GHCSpecter.Graphics.DSL (
   EventMap (..),
   HitEvent,
   ViewPort (..),
+  isInside,
  )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
@@ -51,10 +51,6 @@ transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') 
 
 translateToOrigin :: ViewPort -> ViewPort
 translateToOrigin (ViewPort (x0, y0) (x1, y1)) = ViewPort (0, 0) (x1 - x0, y1 - y0)
-
-isInside :: (Double, Double) -> ViewPort -> Bool
-isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
-  x >= x0 && x <= x1 && y >= y0 && y <= y1
 
 hitScene :: (Double, Double) -> [EventMap e] -> Maybe (EventMap e)
 hitScene (x, y) emaps = L.find (\emap -> (x, y) `isInside` eventMapGlobalViewPort emap) emaps

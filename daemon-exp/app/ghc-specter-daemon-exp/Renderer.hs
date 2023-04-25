@@ -34,6 +34,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  overlapsWith,
  )
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
@@ -114,7 +115,7 @@ renderPrimitive (Primitive shape _ _) = renderShape shape
 renderScene :: Scene e -> GtkRender e ()
 renderScene scene = do
   let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      ViewPort (vx0, vy0) (vx1, vy1) = sceneLocalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
       scaleX = (cx1 - cx0) / (vx1 - vx0)
       scaleY = (cy1 - cy0) / (vy1 - vy0)
   lift $ do
@@ -124,7 +125,10 @@ renderScene scene = do
     R.translate cx0 cy0
     R.scale scaleX scaleY
     R.translate (-vx0) (-vy0)
-  traverse_ renderPrimitive (sceneElements scene)
+  let overlapCheck p =
+        vp `overlapsWith` primBoundingBox p
+      filtered = filter overlapCheck (sceneElements scene)
+  traverse_ renderPrimitive filtered
   lift R.restore
 
 addEventMap :: Scene e -> GtkRender e ()

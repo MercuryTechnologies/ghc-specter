@@ -15,6 +15,8 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Tree (drawTree)
 import GHCSpecter.Data.Map (
   IsKey (..),
   KeyMap,
@@ -103,7 +105,14 @@ buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (Con
 buildConsoleItem (ConsoleCommand txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
 buildConsoleItem (ConsoleText txt) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
+  let ls = T.lines txt
+      buildEachLine =
+        toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
+      (mvp, contentss) =
+        flowLineByLine 0 $ fmap buildEachLine ls
+   in case mvp of
+        Nothing -> buildEachLine "empty string"
+        Just vp -> (vp, NE.fromList (concatMap F.toList contentss))
 buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
   where
     mkButton (label, cmd) =
@@ -130,8 +139,19 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
     -- TODO: for now, use this partial function. this should be properly removed.
     Just vp = mvp
     contentss' = NE.fromList (concatMap F.toList contentss)
-buildConsoleItem (ConsoleCore forest) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "not implemented"
+buildConsoleItem (ConsoleCore forest) = (vp, contents)
+  where
+    render1 tr =
+      let
+        txt = T.pack $ drawTree $ fmap show tr
+        ls = T.lines txt
+        rendered1 = fmap (toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8) ls
+       in
+        rendered1
+    (mvp, contentss) = flowLineByLine 0 $ concatMap render1 forest
+    (vp, contents) = case (,) <$> mvp <*> NE.nonEmpty (concatMap F.toList contentss) of
+      Nothing -> toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "cannot draw core"
+      Just (vp_, contents_) -> (vp_, contents_)
 
 buildConsoleMain ::
   (IsKey k, Eq k) =>

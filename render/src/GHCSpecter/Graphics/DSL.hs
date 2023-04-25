@@ -8,6 +8,8 @@ module GHCSpecter.Graphics.DSL (
   ViewPort (..),
   viewPortWidth,
   viewPortHeight,
+  isInside,
+  overlapsWith,
 
   -- * event type
   HitEvent (..),
@@ -77,6 +79,32 @@ viewPortWidth (ViewPort (x0, _) (x1, _)) = x1 - x0
 
 viewPortHeight :: ViewPort -> Double
 viewPortHeight (ViewPort (_, y0) (_, y1)) = y1 - y0
+
+isInside :: (Double, Double) -> ViewPort -> Bool
+isInside (x, y) (ViewPort (x0, y0) (x1, y1)) =
+  x >= x0 && x <= x1 && y >= y0 && y <= y1
+
+isInsideR :: Double -> (Double, Double) -> Bool
+isInsideR x (x0, x1) = x >= x0 && x <= x1
+
+overlapsWith :: ViewPort -> ViewPort -> Bool
+overlapsWith (ViewPort (x0, y0) (x1, y1)) (ViewPort (x0', y0') (x1', y1')) =
+  x0'
+    `isInsideR` (x0, x1)
+    || x1'
+    `isInsideR` (x0, x1)
+    || x0
+    `isInsideR` (x0', x1')
+    || x1
+    `isInsideR` (x0', x1')
+    || y0'
+    `isInsideR` (y0, y1)
+    || y1'
+    `isInsideR` (y0, y1)
+    || y0
+    `isInsideR` (y0', y1')
+    || y1
+    `isInsideR` (y0', y1')
 
 --
 -- HitEvent
