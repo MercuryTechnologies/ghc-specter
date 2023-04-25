@@ -57,9 +57,6 @@ getLeastUpperBoundingBox itms =
 toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
 toSizedLine xs = (getLeastUpperBoundingBox xs, xs)
 
--- for now
-viewPortSum' = viewPortSum . Just
-
 -- | place grouped items horizontally
 flowInline ::
   -- | initial x offset
@@ -78,7 +75,7 @@ flowInline offset0 itmss0 = (vp1, itmss1)
       let itms' = fmap (shift offset) itms
           vp' = getLeastUpperBoundingBox itms'
           w' = viewPortWidth vp'
-       in ((offset + w', viewPortSum' vp vp'), itms')
+       in ((offset + w', viewPortSum vp vp'), itms')
     shift offset (Primitive shape vp hitEvent) =
       let shape' = moveShapeBy (offset, 0) shape
           vp' = moveBoundingBoxBy (offset, 0) vp
@@ -93,21 +90,21 @@ flowLineByLine ::
   -- | rendered items grouped by each line
   NonEmpty (ViewPort, NonEmpty (Primitive e)) ->
   -- | (final offset, placed items)
-  (Maybe ViewPort, NonEmpty (NonEmpty (Primitive e)))
-flowLineByLine offset0 itmss0 = (mvp1, itmss1)
+  (ViewPort, NonEmpty (NonEmpty (Primitive e)))
+flowLineByLine offset0 itmss0 = (vp1, itmss1)
   where
     -- the bounding box of the very first item after shifted
     -- just to have the initial vp value.
     vp0 = moveBoundingBoxBy (0, offset0) $ fst (NE.head itmss0)
-    
-    go (!offset, !mvp) (vp, itms) =
+
+    go (!offset, !vp_) (vp, itms) =
       let itms' = fmap (shift offset) itms
           vp' = moveBoundingBoxBy (0, offset) vp
           h' = viewPortHeight vp'
-       in ((offset + h', Just (viewPortSum mvp vp')), itms')
+       in ((offset + h', viewPortSum vp_ vp'), itms')
     shift offset (Primitive shape vp_ hitEvent) =
       let shape' = moveShapeBy (0, offset) shape
           vp_' = moveBoundingBoxBy (0, offset) vp_
        in Primitive shape' vp_' hitEvent
 
-    ((_, mvp1), itmss1) = L.mapAccumL go (offset0, Just vp0) itmss0
+    ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0

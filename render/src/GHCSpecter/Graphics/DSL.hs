@@ -81,9 +81,8 @@ viewPortWidth (ViewPort (x0, _) (x1, _)) = x1 - x0
 viewPortHeight :: ViewPort -> Double
 viewPortHeight (ViewPort (_, y0) (_, y1)) = y1 - y0
 
-viewPortSum :: Maybe ViewPort -> ViewPort -> ViewPort
-viewPortSum Nothing vp = vp
-viewPortSum (Just (ViewPort (x0, y0) (x1, y1))) (ViewPort (x0', y0') (x1', y1')) =
+viewPortSum :: ViewPort -> ViewPort -> ViewPort
+viewPortSum (ViewPort (x0, y0) (x1, y1)) (ViewPort (x0', y0') (x1', y1')) =
   let x0'' = min x0 x0'
       y0'' = min y0 y0'
       x1'' = max x1 x1'

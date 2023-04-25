@@ -97,9 +97,9 @@ buildConsoleHelp getHelp mfocus =
     renderItem (Right txt) = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
     helpElems = fmap renderItem items
     --
-    (mvp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
+    (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
     contents = concatMap F.toList $ F.toList contentss
-    size = maybe 200 viewPortHeight mvp
+    size = viewPortHeight vp
 
 buildEachLine :: Text -> (ViewPort, NonEmpty (Primitive e))
 buildEachLine = toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
@@ -108,13 +108,9 @@ buildTextBlock :: forall e. Text -> (ViewPort, NonEmpty (Primitive e))
 buildTextBlock txt =
   let ls = T.lines txt
       ls' = fromMaybe (NE.singleton "empty string") (NE.nonEmpty ls)
-      mvp :: Maybe ViewPort
-      contentss :: NonEmpty (NonEmpty (Primitive e))
-      (mvp, contentss) =
+      (vp, contentss) =
         flowLineByLine 0 $ fmap buildEachLine ls'
-   in case mvp of
-        Nothing -> buildEachLine "empty string"
-        Just vp -> (vp, sconcat contentss)
+   in (vp, sconcat contentss)
 
 buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
 buildConsoleItem (ConsoleCommand txt) =
@@ -140,11 +136,10 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
 
     ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     ls = case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
-           Nothing -> NE.singleton (buildEachLine "no buttons")
-           Just ls' -> fmap mkRow ls'
-    (mvp, contentss) = flowLineByLine 0 ls
+      Nothing -> NE.singleton (buildEachLine "no buttons")
+      Just ls' -> fmap mkRow ls'
+    (vp, contentss) = flowLineByLine 0 ls
     -- TODO: for now, use this partial function. this should be properly removed.
-    Just vp = mvp
     contentss' = sconcat contentss
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
@@ -169,8 +164,8 @@ buildConsoleMain contents mfocus =
     contentss = case NE.nonEmpty items of
       Nothing -> NE.singleton $ buildEachLine "No console history"
       Just items' -> fmap buildConsoleItem items'
-    (mvp, rendered) = flowLineByLine 0 contentss
-    size = maybe 200 viewPortHeight mvp
+    (vp, rendered) = flowLineByLine 0 contentss
+    size = viewPortHeight vp
 
 buildConsoleInput :: Text -> Scene e
 buildConsoleInput inputEntry =
