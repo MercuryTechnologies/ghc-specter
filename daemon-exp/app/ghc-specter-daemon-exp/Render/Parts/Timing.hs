@@ -83,7 +83,7 @@ renderTiming drvModMap tui ttable = do
         vpCvs <- Map.lookup "blockers" wcfg
         pure (hoveredMod, vpCvs)
   -- NOTE: the size information from vpCvs is ignored as dynamic size overrides it.
-  -- TODO: clipping is still valid. we need two-layer viewport system.
+  -- TODO: scene content intrinsic size should be present in Scene data type.
   for_ minfo $ \(hoveredMod, vpCvs) -> do
     let sceneBlockers = buildBlockers hoveredMod ttable
         ViewPort (offsetX, offsetY) _ = vpCvs
