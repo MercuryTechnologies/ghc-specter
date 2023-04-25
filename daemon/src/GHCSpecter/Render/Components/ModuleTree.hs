@@ -24,6 +24,7 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
+import GHCSpecter.Render.Components.Util (movePrimitiveBy)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -67,27 +68,22 @@ buildModuleTree srcUI ss =
     displayedForest' :: [Tree (ModuleName, Bool)]
     displayedForest' =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
-    -- breakpoints = ss ^. serverModuleBreakpoints
+    breakpoints = ss ^. serverModuleBreakpoints
 
-    renderNode :: (ModuleName, Bool) -> (Bool, Color, ModuleName, Text)
+    renderNode :: (ModuleName, Bool) -> [Primitive SourceViewEvent]
     renderNode (modu, b) =
       let color
             | isModuleCompilationDone drvModMap timing modu = Green
             | otherwise = Black
-       in case mexpandedModu of
-            Just modu'
-              | modu == modu' -> (True, color, modu, expandableText True (not b) modu)
-            _ -> (False, color, modu, expandableText False (not b) modu)
-
-    annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
-    annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)
-
-    indentLevel = flatten . foldTree annotateLevel . fmap renderNode
-
-    render :: (Int, (Int, (Bool, Color, ModuleName, Text))) -> [Primitive SourceViewEvent]
-    render (i, (j, (matched, color, modu, txt))) =
-      let x = fromIntegral j * 20
-          y = fromIntegral i * 14
+          (matched, txt) =
+            case mexpandedModu of
+              Just modu'
+                | modu == modu' -> (True, expandableText True (not b) modu)
+              _ -> (False, expandableText False (not b) modu)
+          hasBreakpoint = modu `elem` breakpoints
+          colorBreakpoint
+            | hasBreakpoint = Just Red
+            | otherwise = Nothing
           colorBox
             | matched = Just Gray
             | otherwise = Just White
@@ -104,8 +100,26 @@ buildModuleTree srcUI ss =
                   , hitEventHoverOff = Nothing
                   , hitEventClick = Just (Right (SelectModule modu))
                   }
-       in [ rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
-          , drawText (x, y) UpperLeft Sans color 8 txt
+          hitEventBreakpoint =
+            HitEvent
+              { hitEventHoverOn = Nothing
+              , hitEventHoverOff = Nothing
+              , hitEventClick = Just (Right (SetBreakpoint modu (not hasBreakpoint)))
+              }
+       in [ rectangle (0, 0) 100 10 Nothing colorBox Nothing (Just hitEvent)
+          , drawText (0, 0) UpperLeft Sans color 8 txt
+          , rectangle (150, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
           ]
+
+    annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
+    annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)
+
+    indentLevel = flatten . foldTree annotateLevel . fmap renderNode
+
+    render :: (Int, (Int, [Primitive SourceViewEvent])) -> [Primitive SourceViewEvent]
+    render (i, (j, ps)) =
+      let x = fromIntegral j * 20
+          y = fromIntegral i * 14
+       in fmap (movePrimitiveBy (x, y)) ps
 
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')
