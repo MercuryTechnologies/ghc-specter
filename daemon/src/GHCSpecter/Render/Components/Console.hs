@@ -126,15 +126,13 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
           rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [drawText (0, 0) UpperLeft Mono Black 8 label]
 
-    mkRow :: [(Text, Text)] -> Maybe (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+    mkRow :: NonEmpty (Text, Text) -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
-      let (mvp, placed) = flowInline 0 $ fmap mkButton buttons
-       in -- concat the horizontally placed items into a single NonEmpty list
-          -- so to group them as a single line.
-          (,) <$> mvp <*> (sconcat <$> NE.nonEmpty placed)
+      let (vp, placed) = flowInline 0 $ fmap mkButton buttons
+       in (vp, sconcat placed)
 
     ls :: [(ViewPort, NonEmpty (Primitive (ConsoleEvent k)))]
-    ls = mapMaybe mkRow buttonss
+    ls = fmap mkRow $ mapMaybe NE.nonEmpty buttonss
     (mvp, contentss) = flowLineByLine 0 ls
     -- TODO: for now, use this partial function. this should be properly removed.
     Just vp = mvp
