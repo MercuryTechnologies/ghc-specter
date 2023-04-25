@@ -139,7 +139,6 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
       Nothing -> NE.singleton (buildEachLine "no buttons")
       Just ls' -> fmap mkRow ls'
     (vp, contentss) = flowLineByLine 0 ls
-    -- TODO: for now, use this partial function. this should be properly removed.
     contentss' = sconcat contentss
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
