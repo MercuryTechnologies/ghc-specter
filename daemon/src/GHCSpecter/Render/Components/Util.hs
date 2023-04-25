@@ -1,4 +1,9 @@
 module GHCSpecter.Render.Components.Util (
+  -- * shift
+  moveShapeBy,
+  moveBoundingBoxBy,
+  movePrimitiveBy,
+
   -- * ViewPort util
   getLeastUpperBoundingBox,
 
@@ -10,6 +15,7 @@ module GHCSpecter.Render.Components.Util (
 
 import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NE
 import GHCSpecter.Graphics.DSL (
   DrawText (..),
   Polyline (..),
@@ -18,6 +24,7 @@ import GHCSpecter.Graphics.DSL (
   Shape (..),
   ViewPort (..),
   viewPortHeight,
+  viewPortSum,
   viewPortWidth,
  )
 
@@ -45,14 +52,11 @@ moveBoundingBoxBy :: (Double, Double) -> ViewPort -> ViewPort
 moveBoundingBoxBy (dx, dy) (ViewPort (vx0, vy0) (vx1, vy1)) =
   ViewPort (vx0 + dx, vy0 + dy) (vx1 + dx, vy1 + dy)
 
-viewPortSum :: Maybe ViewPort -> ViewPort -> ViewPort
-viewPortSum Nothing vp = vp
-viewPortSum (Just (ViewPort (x0, y0) (x1, y1))) (ViewPort (x0', y0') (x1', y1')) =
-  let x0'' = min x0 x0'
-      y0'' = min y0 y0'
-      x1'' = max x1 x1'
-      y1'' = max y1 y1'
-   in ViewPort (x0'', y0'') (x1'', y1'')
+movePrimitiveBy :: (Double, Double) -> Primitive e -> Primitive e
+movePrimitiveBy (dx, dy) (Primitive shape vp hitEvent) =
+  let shape' = moveShapeBy (dx, dy) shape
+      vp' = moveBoundingBoxBy (dx, dy) vp
+   in Primitive shape' vp' hitEvent
 
 getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
 getLeastUpperBoundingBox itms =
@@ -69,43 +73,41 @@ flowInline ::
   -- | initial x offset
   Double ->
   -- | rendered items grouped by each x
-  [NonEmpty (Primitive e)] ->
+  NonEmpty (NonEmpty (Primitive e)) ->
   -- | (bounding box of the collection, placed items)
-  (Maybe ViewPort, [NonEmpty (Primitive e)])
-flowInline offset0 itms0 = (mvp1, itms1)
+  (ViewPort, NonEmpty (NonEmpty (Primitive e)))
+flowInline offset0 itmss0 = (vp1, itmss1)
   where
-    place (!offset, !mvp) itms =
-      let itms' = fmap forEach itms
+    -- the bounding box of the very first item after shifted
+    -- just to have the initial vp value.
+    vp0 = primBoundingBox $ movePrimitiveBy (offset0, 0) (NE.head (NE.head itmss0))
+
+    go (!offset, !vp) itms =
+      let itms' = fmap (movePrimitiveBy (offset, 0)) itms
           vp' = getLeastUpperBoundingBox itms'
           w' = viewPortWidth vp'
-       in ((offset + w', Just (viewPortSum mvp vp')), itms')
-      where
-        forEach (Primitive shape vp hitEvent) =
-          let shape' = moveShapeBy (offset, 0) shape
-              vp' = moveBoundingBoxBy (offset, 0) vp
-           in Primitive shape' vp' hitEvent
+       in ((offset + w', viewPortSum vp vp'), itms')
 
-    ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
+    ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0
 
 -- | place grouped items line by line
 flowLineByLine ::
   -- | initial y offset
   Double ->
   -- | rendered items grouped by each line
-  [(ViewPort, NonEmpty (Primitive e))] ->
+  NonEmpty (ViewPort, NonEmpty (Primitive e)) ->
   -- | (final offset, placed items)
-  (Maybe ViewPort, [NonEmpty (Primitive e)])
-flowLineByLine offset0 itms0 = (mvp1, itms1)
+  (ViewPort, NonEmpty (NonEmpty (Primitive e)))
+flowLineByLine offset0 itmss0 = (vp1, itmss1)
   where
-    place (!offset, !mvp) (vp, itms) =
-      let itms' = fmap forEach itms
+    -- the bounding box of the very first item after shifted
+    -- just to have the initial vp value.
+    vp0 = moveBoundingBoxBy (0, offset0) $ fst (NE.head itmss0)
+
+    go (!offset, !vp_) (vp, itms) =
+      let itms' = fmap (movePrimitiveBy (0, offset)) itms
           vp' = moveBoundingBoxBy (0, offset) vp
           h' = viewPortHeight vp'
-       in ((offset + h', Just (viewPortSum mvp vp')), itms')
-      where
-        forEach (Primitive shape vp_ hitEvent) =
-          let shape' = moveShapeBy (0, offset) shape
-              vp_' = moveBoundingBoxBy (0, offset) vp_
-           in Primitive shape' vp_' hitEvent
+       in ((offset + h', viewPortSum vp_ vp'), itms')
 
-    ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
+    ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0

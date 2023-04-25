@@ -97,22 +97,25 @@ buildConsoleHelp getHelp mfocus =
     renderItem (Right txt) = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
     helpElems = fmap renderItem items
     --
-    (mvp, contentss) = flowLineByLine 0 (titleElem : helpElems)
-    contents = concatMap F.toList contentss
-    size = maybe 200 viewPortHeight mvp
+    (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
+    contents = concatMap F.toList $ F.toList contentss
+    size = viewPortHeight vp
+
+buildEachLine :: Text -> (ViewPort, NonEmpty (Primitive e))
+buildEachLine = toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
+
+buildTextBlock :: forall e. Text -> (ViewPort, NonEmpty (Primitive e))
+buildTextBlock txt =
+  let ls = T.lines txt
+      ls' = fromMaybe (NE.singleton "empty string") (NE.nonEmpty ls)
+      (vp, contentss) =
+        flowLineByLine 0 $ fmap buildEachLine ls'
+   in (vp, sconcat contentss)
 
 buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
 buildConsoleItem (ConsoleCommand txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
-buildConsoleItem (ConsoleText txt) =
-  let ls = T.lines txt
-      buildEachLine =
-        toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
-      (mvp, contentss) =
-        flowLineByLine 0 $ fmap buildEachLine ls
-   in case mvp of
-        Nothing -> buildEachLine "empty string"
-        Just vp -> (vp, NE.fromList (concatMap F.toList contentss))
+buildConsoleItem (ConsoleText txt) = buildTextBlock txt
 buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
   where
     mkButton (label, cmd) =
@@ -126,32 +129,20 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
           rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [drawText (0, 0) UpperLeft Mono Black 8 label]
 
-    mkRow :: [(Text, Text)] -> Maybe (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+    mkRow :: NonEmpty (Text, Text) -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
-      let (mvp, placed) = flowInline 0 $ fmap mkButton buttons
-       in -- concat the horizontally placed items into a single NonEmpty list
-          -- so to group them as a single line.
-          (,) <$> mvp <*> (sconcat <$> NE.nonEmpty placed)
+      let (vp', placed) = flowInline 0 $ fmap mkButton buttons
+       in (vp', sconcat placed)
 
-    ls :: [(ViewPort, NonEmpty (Primitive (ConsoleEvent k)))]
-    ls = mapMaybe mkRow buttonss
-    (mvp, contentss) = flowLineByLine 0 ls
-    -- TODO: for now, use this partial function. this should be properly removed.
-    Just vp = mvp
-    contentss' = NE.fromList (concatMap F.toList contentss)
-buildConsoleItem (ConsoleCore forest) = (vp, contents)
+    ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+    ls = case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
+      Nothing -> NE.singleton (buildEachLine "no buttons")
+      Just ls' -> fmap mkRow ls'
+    (vp, contentss) = flowLineByLine 0 ls
+    contentss' = sconcat contentss
+buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
-    render1 tr =
-      let
-        txt = T.pack $ drawTree $ fmap show tr
-        ls = T.lines txt
-        rendered1 = fmap (toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8) ls
-       in
-        rendered1
-    (mvp, contentss) = flowLineByLine 0 $ concatMap render1 forest
-    (vp, contents) = case (,) <$> mvp <*> NE.nonEmpty (concatMap F.toList contentss) of
-      Nothing -> toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "cannot draw core"
-      Just (vp_, contents_) -> (vp_, contents_)
+    render1 tr = T.pack $ drawTree $ fmap show tr
 
 buildConsoleMain ::
   (IsKey k, Eq k) =>
@@ -163,13 +154,17 @@ buildConsoleMain contents mfocus =
     { sceneId = "console-main"
     , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
     , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
-    , sceneElements = concatMap F.toList rendered
+    , sceneElements = F.toList $ sconcat rendered
     }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
-    contentss = fmap buildConsoleItem $ join $ maybeToList mtxts
-    (mvp, rendered) = flowLineByLine 0 contentss
-    size = maybe 200 viewPortHeight mvp
+    items = join $ maybeToList mtxts
+
+    contentss = case NE.nonEmpty items of
+      Nothing -> NE.singleton $ buildEachLine "No console history"
+      Just items' -> fmap buildConsoleItem items'
+    (vp, rendered) = flowLineByLine 0 contentss
+    size = viewPortHeight vp
 
 buildConsoleInput :: Text -> Scene e
 buildConsoleInput inputEntry =

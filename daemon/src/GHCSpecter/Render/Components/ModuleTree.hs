@@ -107,4 +107,5 @@ buildModuleTree srcUI ss =
        in [ rectangle (x, y) 100 10 Nothing colorBox Nothing (Just hitEvent)
           , drawText (x, y) UpperLeft Sans color 8 txt
           ]
+
     contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')
