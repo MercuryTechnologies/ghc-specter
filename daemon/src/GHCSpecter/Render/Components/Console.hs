@@ -15,8 +15,6 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
---
-import Debug.Trace (trace)
 import GHCSpecter.Data.Map (
   IsKey (..),
   KeyMap,
@@ -106,7 +104,7 @@ buildConsoleItem (ConsoleCommand txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
 buildConsoleItem (ConsoleText txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
-buildConsoleItem (ConsoleButton buttonss) = (vp, contentss') -- concatMap F.toList contentss
+buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
   where
     mkButton (label, cmd) =
       let hitEvent =
@@ -115,7 +113,8 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss') -- concatMap F.toLi
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
-       in rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+       in -- TODO: should not have this hard-coded size "120".
+          rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
             :| [drawText (0, 0) UpperLeft Mono Black 8 label]
 
     mkRow :: [(Text, Text)] -> Maybe (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
@@ -128,7 +127,7 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss') -- concatMap F.toLi
     ls :: [(ViewPort, NonEmpty (Primitive (ConsoleEvent k)))]
     ls = mapMaybe mkRow buttonss
     (mvp, contentss) = flowLineByLine 0 ls
-    -- TODO: for now
+    -- TODO: for now, use this partial function. this should be properly removed.
     Just vp = mvp
     contentss' = NE.fromList (concatMap F.toList contentss)
 buildConsoleItem (ConsoleCore forest) =
@@ -149,7 +148,6 @@ buildConsoleMain contents mfocus =
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     contentss = fmap buildConsoleItem $ join $ maybeToList mtxts
-    -- contentss' = mapMaybe NE.nonEmpty contentss
     (mvp, rendered) = flowLineByLine 0 contentss
     size = maybe 200 viewPortHeight mvp
 
