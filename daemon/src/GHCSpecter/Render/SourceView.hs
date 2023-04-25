@@ -13,6 +13,7 @@ import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.Tab qualified as Tab
+import GHCSpecter.Render.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
@@ -43,13 +44,13 @@ buildSuppView (Just (SuppViewCallgraph grVis)) =
     , sceneElements =
         fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
     }
-buildSuppView (Just (SuppViewText _)) =
-  Scene
-    { sceneId = "supple-view-contents"
-    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-    , sceneElements = []
-    }
+buildSuppView (Just (SuppViewText txt)) =
+  let scene = TextView.buildTextView txt []
+   in scene
+        { sceneId = "supple-view-contents"
+        , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+        , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+        }
 
 buildSuppViewPanel ::
   ModuleName ->
