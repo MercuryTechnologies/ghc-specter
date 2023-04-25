@@ -15,6 +15,8 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Tree (drawTree)
 import GHCSpecter.Data.Map (
   IsKey (..),
   KeyMap,
@@ -130,8 +132,24 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
     -- TODO: for now, use this partial function. this should be properly removed.
     Just vp = mvp
     contentss' = NE.fromList (concatMap F.toList contentss)
-buildConsoleItem (ConsoleCore forest) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "not implemented"
+buildConsoleItem (ConsoleCore forest) = (vp, contents)
+  where
+    render1 tr =
+      let
+        -- for debug
+        txt = T.pack $ drawTree $ fmap show tr
+        {-  ebind = toBind tr
+          rendered =
+            case ebind of
+              Left err -> renderErr (err <> "\n" <> txt)
+              Right bind -> renderTopBind bind -}
+        ls = T.lines txt
+        rendered1 = fmap (toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8) ls
+       in rendered1
+    (mvp, contentss) = flowLineByLine 0 $ concatMap render1 forest
+    (vp, contents) = case (,) <$> mvp <*> NE.nonEmpty (concatMap F.toList contentss) of
+      Nothing -> toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 "cannot draw core"
+      Just (vp_, contents_) -> (vp_, contents_)
 
 buildConsoleMain ::
   (IsKey k, Eq k) =>
