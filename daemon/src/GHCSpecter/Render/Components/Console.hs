@@ -105,7 +105,14 @@ buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (Con
 buildConsoleItem (ConsoleCommand txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
 buildConsoleItem (ConsoleText txt) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
+  let ls = T.lines txt
+      buildEachLine =
+        toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
+      (mvp, contentss) =
+        flowLineByLine 0 $ fmap buildEachLine ls
+   in case mvp of
+        Nothing -> buildEachLine "empty string"
+        Just vp -> (vp, NE.fromList (concatMap F.toList contentss))
 buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
   where
     mkButton (label, cmd) =
@@ -136,13 +143,7 @@ buildConsoleItem (ConsoleCore forest) = (vp, contents)
   where
     render1 tr =
       let
-        -- for debug
         txt = T.pack $ drawTree $ fmap show tr
-        {-  ebind = toBind tr
-          rendered =
-            case ebind of
-              Left err -> renderErr (err <> "\n" <> txt)
-              Right bind -> renderTopBind bind -}
         ls = T.lines txt
         rendered1 = fmap (toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8) ls
        in
