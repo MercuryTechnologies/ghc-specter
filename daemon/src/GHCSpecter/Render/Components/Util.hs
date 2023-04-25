@@ -1,4 +1,9 @@
 module GHCSpecter.Render.Components.Util (
+  -- * shift
+  moveShapeBy,
+  moveBoundingBoxBy,
+  movePrimitiveBy,
+
   -- * ViewPort util
   getLeastUpperBoundingBox,
 
@@ -47,6 +52,12 @@ moveBoundingBoxBy :: (Double, Double) -> ViewPort -> ViewPort
 moveBoundingBoxBy (dx, dy) (ViewPort (vx0, vy0) (vx1, vy1)) =
   ViewPort (vx0 + dx, vy0 + dy) (vx1 + dx, vy1 + dy)
 
+movePrimitiveBy :: (Double, Double) -> Primitive e -> Primitive e
+movePrimitiveBy (dx, dy) (Primitive shape vp hitEvent) =
+  let shape' = moveShapeBy (dx, dy) shape
+      vp' = moveBoundingBoxBy (dx, dy) vp
+   in Primitive shape' vp' hitEvent
+
 getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
 getLeastUpperBoundingBox itms =
   let vps = fmap primBoundingBox itms
@@ -69,17 +80,13 @@ flowInline offset0 itmss0 = (vp1, itmss1)
   where
     -- the bounding box of the very first item after shifted
     -- just to have the initial vp value.
-    vp0 = primBoundingBox $ shift offset0 (NE.head (NE.head itmss0))
+    vp0 = primBoundingBox $ movePrimitiveBy (offset0, 0) (NE.head (NE.head itmss0))
 
     go (!offset, !vp) itms =
-      let itms' = fmap (shift offset) itms
+      let itms' = fmap (movePrimitiveBy (offset, 0)) itms
           vp' = getLeastUpperBoundingBox itms'
           w' = viewPortWidth vp'
        in ((offset + w', viewPortSum vp vp'), itms')
-    shift offset (Primitive shape vp hitEvent) =
-      let shape' = moveShapeBy (offset, 0) shape
-          vp' = moveBoundingBoxBy (offset, 0) vp
-       in Primitive shape' vp' hitEvent
 
     ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0
 
@@ -98,13 +105,9 @@ flowLineByLine offset0 itmss0 = (vp1, itmss1)
     vp0 = moveBoundingBoxBy (0, offset0) $ fst (NE.head itmss0)
 
     go (!offset, !vp_) (vp, itms) =
-      let itms' = fmap (shift offset) itms
+      let itms' = fmap (movePrimitiveBy (0, offset)) itms
           vp' = moveBoundingBoxBy (0, offset) vp
           h' = viewPortHeight vp'
        in ((offset + h', viewPortSum vp_ vp'), itms')
-    shift offset (Primitive shape vp_ hitEvent) =
-      let shape' = moveShapeBy (0, offset) shape
-          vp_' = moveBoundingBoxBy (0, offset) vp_
-       in Primitive shape' vp_' hitEvent
 
     ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0

@@ -131,8 +131,8 @@ buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
 
     mkRow :: NonEmpty (Text, Text) -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     mkRow buttons =
-      let (vp, placed) = flowInline 0 $ fmap mkButton buttons
-       in (vp, sconcat placed)
+      let (vp', placed) = flowInline 0 $ fmap mkButton buttons
+       in (vp', sconcat placed)
 
     ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
     ls = case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
