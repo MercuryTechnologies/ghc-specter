@@ -154,6 +154,7 @@ buildTimingChart drvModMap tui ttable =
           ++ (concatMap makeItem filteredItems)
           ++ lineToUpstream
           ++ linesToDownstream
+    , sceneExtent = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -276,6 +277,7 @@ buildMemChart drvModMap tui ttable =
     , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
     , sceneElements =
         concatMap makeItem filteredItems
+    , sceneExtent = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -332,6 +334,7 @@ buildTimingRange tui ttable =
     , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneElements = [background, handle]
+    , sceneExtent = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -379,6 +382,7 @@ buildBlockers hoveredMod ttable =
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
     , sceneElements = box : F.toList (sconcat contentss)
+    , sceneExtent = Nothing
     }
   where
     upMods =

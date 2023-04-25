@@ -115,6 +115,7 @@ buildModuleGraph
               [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
                 ++ fmap edge (grVisInfo ^. gviEdges)
                 ++ concatMap node (grVisInfo ^. gviNodes)
+          , sceneExtent = Nothing
           }
 
 -- | build graph more simply to graphics DSL

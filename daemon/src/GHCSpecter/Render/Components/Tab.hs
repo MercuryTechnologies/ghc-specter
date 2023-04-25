@@ -32,6 +32,7 @@ buildTab cfg mtab =
     , sceneGlobalViewPort = vp
     , sceneLocalViewPort = vp
     , sceneElements = rexp
+    , sceneExtent = Nothing
     }
   where
     spacing = tabCfgSpacing cfg

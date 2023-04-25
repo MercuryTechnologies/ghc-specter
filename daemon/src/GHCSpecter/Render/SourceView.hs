@@ -35,6 +35,7 @@ buildSuppView Nothing =
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = []
+    , sceneExtent = Nothing
     }
 buildSuppView (Just (SuppViewCallgraph grVis)) =
   Scene
@@ -43,6 +44,7 @@ buildSuppView (Just (SuppViewCallgraph grVis)) =
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements =
         fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
+    , sceneExtent = Nothing
     }
 buildSuppView (Just (SuppViewText txt)) =
   let scene = TextView.buildTextView txt []
@@ -50,6 +52,7 @@ buildSuppView (Just (SuppViewText txt)) =
         { sceneId = "supple-view-contents"
         , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
         , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+        , sceneExtent = Nothing
         }
 
 buildSuppViewPanel ::

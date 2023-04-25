@@ -78,6 +78,7 @@ buildConsoleHelp getHelp mfocus =
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
     , sceneElements = contents
+    , sceneExtent = Nothing
     }
   where
     mhelp = getHelp <$> mfocus
@@ -155,6 +156,7 @@ buildConsoleMain contents mfocus =
     , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
     , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
     , sceneElements = F.toList $ sconcat rendered
+    , sceneExtent = Nothing
     }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
@@ -173,6 +175,7 @@ buildConsoleInput inputEntry =
     , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
     , sceneElements = rendered
+    , sceneExtent = Nothing
     }
   where
     rendered = [drawText (0, 0) UpperLeft Mono Black 8 inputEntry]

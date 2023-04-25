@@ -55,6 +55,7 @@ buildTextView txt highlighted =
     , sceneGlobalViewPort = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
     , sceneLocalViewPort = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
     , sceneElements = contents
+    , sceneExtent = Nothing
     }
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.

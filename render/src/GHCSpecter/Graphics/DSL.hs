@@ -216,6 +216,7 @@ data Scene e = Scene
   , sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [Primitive e]
+  , sceneExtent :: Maybe ViewPort
   }
   deriving (Show, Functor)
 
