@@ -74,7 +74,7 @@ flowInline offset0 itmss0 = (vp1, itmss1)
     -- just to have the initial vp value.
     vp0 = primBoundingBox $ shift offset0 (NE.head (NE.head itmss0))
 
-    place (!offset, !vp) itms =
+    go (!offset, !vp) itms =
       let itms' = fmap (shift offset) itms
           vp' = getLeastUpperBoundingBox itms'
           w' = viewPortWidth vp'
@@ -84,27 +84,30 @@ flowInline offset0 itmss0 = (vp1, itmss1)
           vp' = moveBoundingBoxBy (offset, 0) vp
        in Primitive shape' vp' hitEvent
 
-    ((_, vp1), itmss1) = L.mapAccumL place (offset0, vp0) itmss0
+    ((_, vp1), itmss1) = L.mapAccumL go (offset0, vp0) itmss0
 
 -- | place grouped items line by line
 flowLineByLine ::
   -- | initial y offset
   Double ->
   -- | rendered items grouped by each line
-  [(ViewPort, NonEmpty (Primitive e))] ->
+  NonEmpty (ViewPort, NonEmpty (Primitive e)) ->
   -- | (final offset, placed items)
-  (Maybe ViewPort, [NonEmpty (Primitive e)])
-flowLineByLine offset0 itms0 = (mvp1, itms1)
+  (Maybe ViewPort, NonEmpty (NonEmpty (Primitive e)))
+flowLineByLine offset0 itmss0 = (mvp1, itmss1)
   where
-    place (!offset, !mvp) (vp, itms) =
-      let itms' = fmap forEach itms
+    -- the bounding box of the very first item after shifted
+    -- just to have the initial vp value.
+    vp0 = moveBoundingBoxBy (0, offset0) $ fst (NE.head itmss0)
+    
+    go (!offset, !mvp) (vp, itms) =
+      let itms' = fmap (shift offset) itms
           vp' = moveBoundingBoxBy (0, offset) vp
           h' = viewPortHeight vp'
        in ((offset + h', Just (viewPortSum mvp vp')), itms')
-      where
-        forEach (Primitive shape vp_ hitEvent) =
-          let shape' = moveShapeBy (0, offset) shape
-              vp_' = moveBoundingBoxBy (0, offset) vp_
-           in Primitive shape' vp_' hitEvent
+    shift offset (Primitive shape vp_ hitEvent) =
+      let shape' = moveShapeBy (0, offset) shape
+          vp_' = moveBoundingBoxBy (0, offset) vp_
+       in Primitive shape' vp_' hitEvent
 
-    ((_, mvp1), itms1) = L.mapAccumL place (offset0, Nothing) itms0
+    ((_, mvp1), itmss1) = L.mapAccumL go (offset0, Just vp0) itmss0

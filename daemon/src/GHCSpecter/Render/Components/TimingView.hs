@@ -19,6 +19,7 @@ import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Semigroup (sconcat)
 import Data.Time.Clock (
   NominalDiffTime,
   nominalDiffTimeToSeconds,
@@ -377,7 +378,7 @@ buildBlockers hoveredMod ttable =
     { sceneId = "blockers"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = box : concatMap F.toList contentss
+    , sceneElements = box : F.toList (sconcat contentss)
     }
   where
     upMods =
@@ -391,6 +392,8 @@ buildBlockers hoveredMod ttable =
     upstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) upMods
     blocking = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocking")
     downstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
-    (mvp, contentss) = flowLineByLine 0 ([selected, line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+    (mvp, contentss) =
+      flowLineByLine 0 $
+        selected NE.:| ([line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     size = maybe 200 viewPortHeight mvp
     box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
