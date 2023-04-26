@@ -52,6 +52,7 @@ import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent (..),
+  Scene (sceneExtent),
   ViewPort (..),
   eventMapGlobalViewPort,
   eventMapId,
@@ -203,8 +204,9 @@ scroll ::
 scroll emap lensViewPort (dir, (dx, dy)) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
       vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
+      mvpExtent = sceneExtent emap
       scale = (cx1 - cx0) / (vx1 - vx0)
-      vp' = transformScroll dir scale (dx, dy) vp
+      vp' = transformScroll mvpExtent dir scale (dx, dy) vp
    in (lensViewPort .~ ViewPortInfo vp' Nothing) model
 
 zoom ::
