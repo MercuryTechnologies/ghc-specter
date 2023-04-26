@@ -10,6 +10,10 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (ModuleName)
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  HasGraphVisInfo (..),
+ )
 import GHCSpecter.Graphics.DSL (
   Primitive,
   Scene (..),
@@ -44,12 +48,15 @@ buildSuppView Nothing =
 buildSuppView (Just (SuppViewCallgraph grVis)) =
   Scene
     { sceneId = "supple-view-contents"
-    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements =
         fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
-    , sceneExtent = Nothing
+    , sceneExtent = Just extent
     }
+  where
+    Dim canvasWidth canvasHeight = grVis ^. gviCanvasDim
+    extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
 buildSuppView (Just (SuppViewText txt)) =
   let scene = TextView.buildTextView txt []
    in scene

@@ -147,16 +147,17 @@ buildTimingChart ::
 buildTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
-    , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements =
         buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
           ++ (concatMap makeItem filteredItems)
           ++ lineToUpstream
           ++ linesToDownstream
-    , sceneExtent = Nothing
+    , sceneExtent = Just extent
     }
   where
+    extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
     nMods = length timingInfos
