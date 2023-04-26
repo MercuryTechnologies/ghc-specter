@@ -153,10 +153,10 @@ buildConsoleMain ::
 buildConsoleMain contents mfocus =
   Scene
     { sceneId = "console-main"
-    , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
-    , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements = F.toList $ sconcat rendered
-    , sceneExtent = Nothing
+    , sceneExtent = Just extent
     }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
@@ -165,8 +165,7 @@ buildConsoleMain contents mfocus =
     contentss = case NE.nonEmpty items of
       Nothing -> NE.singleton $ buildEachLine "No console history"
       Just items' -> fmap buildConsoleItem items'
-    (vp, rendered) = flowLineByLine 0 contentss
-    size = viewPortHeight vp
+    (extent, rendered) = flowLineByLine 0 contentss
 
 buildConsoleInput :: Text -> Scene (Primitive e)
 buildConsoleInput inputEntry =
