@@ -43,7 +43,7 @@ renderSourceView srcUI ss = do
   -- module tree pane
   for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
     let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
-        sceneModTree = SourceViewEv <$> buildModuleTree srcUI ss
+        sceneModTree = fmap (fmap SourceViewEv) $ buildModuleTree srcUI ss
         sceneModTree' =
           sceneModTree
             { sceneId = "module-tree"
@@ -83,13 +83,14 @@ renderSourceView srcUI ss = do
                 vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
                 (sceneSuppTab, sceneSuppContents) = buildSuppViewPanel modu srcUI ss
                 sceneSuppTab' =
-                  SourceViewEv
-                    <$> sceneSuppTab
+                  fmap (fmap SourceViewEv) $
+                    sceneSuppTab
                       { sceneGlobalViewPort = vpCvsSuppTab
                       }
                 sceneSuppContents' =
-                  DummyEv
-                    <$ sceneSuppContents
+                  fmap
+                    (DummyEv <$)
+                    sceneSuppContents
                       { sceneGlobalViewPort = vpCvsSuppContents
                       , sceneLocalViewPort = vp
                       }

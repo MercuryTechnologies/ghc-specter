@@ -52,6 +52,7 @@ import GHCSpecter.Driver.Session.Types (
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
   EventMap,
+  HitEvent,
   ViewPort (..),
  )
 import GHCSpecter.Server.Types (
@@ -328,7 +329,7 @@ main =
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @Event <$> memap))
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

@@ -85,7 +85,7 @@ renderSession ss sessui = do
     addEventMap sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
-        scenePause = SessionEv <$> buildPauseResume sessionInfo
+        scenePause = fmap (fmap SessionEv) $ buildPauseResume sessionInfo
         scenePause' =
           scenePause
             { sceneGlobalViewPort = vpCvs

@@ -34,6 +34,7 @@ import GHCSpecter.Data.Map (
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
+  Primitive,
   Scene (..),
   TextFontFace (Sans),
   TextPosition (..),
@@ -58,7 +59,7 @@ buildModuleInProgress ::
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  Scene e
+  Scene (Primitive e)
 buildModuleInProgress drvModMap pausedMap timingInProg =
   scene {sceneId = "module-status"}
   where
@@ -75,7 +76,7 @@ buildModuleInProgress drvModMap pausedMap timingInProg =
 
 buildSession ::
   ServerState ->
-  Scene e
+  Scene (Primitive e)
 buildSession ss =
   scene {sceneId = "session-main"}
   where
@@ -152,13 +153,14 @@ buildSession ss =
 
     scene = buildTextView txt []
 
-buildPauseResume :: SessionInfo -> Scene SessionEvent
+buildPauseResume :: SessionInfo -> Scene (Primitive SessionEvent)
 buildPauseResume session =
   Scene
     { sceneId = "session-button"
     , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
     , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
     , sceneElements = contents
+    , sceneExtent = Nothing
     }
   where
     buttonTxt

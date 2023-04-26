@@ -50,13 +50,14 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-buildModuleTree :: SourceViewUI -> ServerState -> Scene SourceViewEvent
+buildModuleTree :: SourceViewUI -> ServerState -> Scene (Primitive SourceViewEvent)
 buildModuleTree srcUI ss =
   Scene
     { sceneId = "module-tree"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = contents
+    , sceneExtent = Nothing
     }
   where
     timing = ss ^. serverTiming . tsTimingMap

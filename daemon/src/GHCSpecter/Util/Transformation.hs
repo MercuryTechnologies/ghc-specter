@@ -11,28 +11,55 @@ module GHCSpecter.Util.Transformation (
 
 import Data.List qualified as L
 import GHCSpecter.Graphics.DSL (
-  EventMap (..),
+  EventMap,
   HitEvent,
   ViewPort (..),
+  eventMapElements,
+  eventMapGlobalViewPort,
+  eventMapLocalViewPort,
   isInside,
  )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
 -- | scroll
 transformScroll ::
+  Maybe ViewPort ->
   ScrollDirection ->
   Double ->
   (Double, Double) ->
   ViewPort ->
   ViewPort
-transformScroll dir scale (dx, dy) (ViewPort (x0, y0) (x1, y1)) =
-  let dx' = dx / scale
-      dy' = dy / scale
-   in case dir of
-        ScrollDirectionRight -> ViewPort (x0 + dx', y0) (x1 + dx', y1)
-        ScrollDirectionLeft -> ViewPort (x0 - dx', y0) (x1 - dx', y1)
-        ScrollDirectionDown -> ViewPort (x0, y0 + dy') (x1, y1 + dy')
-        ScrollDirectionUp -> ViewPort (x0, y0 - dy') (x1, y1 - dy')
+transformScroll vpLimit dir scale (dx, dy) vp = vp'
+  where
+    ViewPort (x0, y0) (x1, y1) = vp
+    dx' = dx / scale
+    dy' = dy / scale
+
+    vp' = case dir of
+      ScrollDirectionRight ->
+        let vp' = ViewPort (x0 + dx', y0) (x1 + dx', y1)
+         in case vpLimit of
+              Nothing -> vp'
+              Just (ViewPort (x00, y00) (x01, y01)) ->
+                if x0 + dx' < x00 || x1 + dx' < x01 then vp' else vp
+      ScrollDirectionLeft ->
+        let vp' = ViewPort (x0 - dx', y0) (x1 - dx', y1)
+         in case vpLimit of
+              Nothing -> vp'
+              Just (ViewPort (x00, y00) (x01, y01)) ->
+                if x1 - dx' > x01 || x0 - dx' > x00 then vp' else vp
+      ScrollDirectionDown ->
+        let vp' = ViewPort (x0, y0 + dy') (x1, y1 + dy')
+         in case vpLimit of
+              Nothing -> vp'
+              Just (ViewPort (x00, y00) (x01, y01)) ->
+                if y0 + dy' < y00 || y1 + dy' < y01 then vp' else vp
+      ScrollDirectionUp ->
+        let vp' = ViewPort (x0, y0 - dy') (x1, y1 - dy')
+         in case vpLimit of
+              Nothing -> vp'
+              Just (ViewPort (x00, y00) (x01, y01)) ->
+                if y1 - dy' > y01 || y0 - dy' > y00 then vp' else vp
 
 -- | zoom
 transformZoom ::
@@ -40,14 +67,16 @@ transformZoom ::
   Double ->
   ViewPort ->
   ViewPort
-transformZoom (rx, ry) scale (ViewPort (x0, y0) (x1, y1)) = ViewPort (x0', y0') (x1', y1')
+transformZoom (rx, ry) scale vp = vp'
   where
+    ViewPort (x0, y0) (x1, y1) = vp
     x = x0 + (x1 - x0) * rx
     y = y0 + (y1 - y0) * ry
     x0' = x + (x0 - x) / scale
     y0' = y + (y0 - y) / scale
     x1' = x + (x1 - x) / scale
     y1' = y + (y1 - y) / scale
+    vp' = ViewPort (x0', y0') (x1', y1')
 
 translateToOrigin :: ViewPort -> ViewPort
 translateToOrigin (ViewPort (x0, y0) (x1, y1)) = ViewPort (0, 0) (x1 - x0, y1 - y0)

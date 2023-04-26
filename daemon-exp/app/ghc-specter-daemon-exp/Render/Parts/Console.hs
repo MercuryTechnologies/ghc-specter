@@ -75,7 +75,7 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-tab" wcfg) $ \vpCvs -> do
     boxFill Ivory vpCvs
     setColor Ivory
-    let sceneTab = ConsoleEv <$> buildConsoleTab tabs mconsoleFocus
+    let sceneTab = fmap (fmap ConsoleEv) $ buildConsoleTab tabs mconsoleFocus
         sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
@@ -87,7 +87,7 @@ renderConsole ui ss = do
     let vpi = ui ^. uiModel . modelConsole . consoleViewPort
         vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     boxFill Ivory vpCvs
-    let sceneMain = ConsoleEv <$> buildConsoleMain consoleMap mconsoleFocus
+    let sceneMain = fmap (fmap ConsoleEv) $ buildConsoleMain consoleMap mconsoleFocus
         sceneMain' =
           sceneMain
             { sceneGlobalViewPort = vpCvs
@@ -98,7 +98,7 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
-    let sceneHelp = ConsoleEv <$> buildConsoleHelp getHelp mconsoleFocus
+    let sceneHelp = fmap (fmap ConsoleEv) $ buildConsoleHelp getHelp mconsoleFocus
         sceneHelp' =
           sceneHelp
             { sceneGlobalViewPort = vpCvs

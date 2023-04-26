@@ -77,7 +77,7 @@ renderModuleGraph
     -- main module graph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
       let sceneMain =
-            fmap MainModuleEv $
+            fmap (fmap MainModuleEv) $
               buildModuleGraph
                 nameMap
                 valueFor
@@ -109,8 +109,8 @@ renderModuleGraph
                 | isModuleCompilationDone drvModMap timing name = 1
                 | otherwise = 0
               sceneSub =
-                SubModuleEv . SubModuleGraphEv
-                  <$> buildModuleGraph
+                fmap (fmap (SubModuleEv . SubModuleGraphEv)) $
+                  buildModuleGraph
                     nameMap
                     valueForSub
                     subgraph

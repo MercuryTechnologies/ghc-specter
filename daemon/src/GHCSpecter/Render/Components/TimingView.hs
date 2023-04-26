@@ -143,19 +143,21 @@ buildTimingChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene TimingEvent
+  Scene (Primitive TimingEvent)
 buildTimingChart drvModMap tui ttable =
   Scene
     { sceneId = "timing-chart"
-    , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingHeight)
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements =
         buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
           ++ (concatMap makeItem filteredItems)
           ++ lineToUpstream
           ++ linesToDownstream
+    , sceneExtent = Just extent
     }
   where
+    extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
     timingInfos = ttable ^. ttableTimingInfos
     mhoveredMod = tui ^. timingUIHoveredModule
     nMods = length timingInfos
@@ -268,7 +270,7 @@ buildMemChart ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene e
+  Scene (Primitive e)
 buildMemChart drvModMap tui ttable =
   Scene
     { sceneId = "mem-chart"
@@ -276,6 +278,7 @@ buildMemChart drvModMap tui ttable =
     , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
     , sceneElements =
         concatMap makeItem filteredItems
+    , sceneExtent = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -325,13 +328,14 @@ buildMemChart drvModMap tui ttable =
 buildTimingRange ::
   TimingUI ->
   TimingTable ->
-  Scene e
+  Scene (Primitive e)
 buildTimingRange tui ttable =
   Scene
     { sceneId = "timing-range"
     , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneElements = [background, handle]
+    , sceneExtent = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -372,13 +376,14 @@ buildTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-buildBlockers :: ModuleName -> TimingTable -> Scene e
+buildBlockers :: ModuleName -> TimingTable -> Scene (Primitive e)
 buildBlockers hoveredMod ttable =
   Scene
     { sceneId = "blockers"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
     , sceneElements = box : F.toList (sconcat contentss)
+    , sceneExtent = Nothing
     }
   where
     upMods =

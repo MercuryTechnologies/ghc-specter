@@ -10,7 +10,15 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Graphics.DSL (Scene (..), ViewPort (..))
+import GHCSpecter.GraphLayout.Types (
+  Dimension (..),
+  HasGraphVisInfo (..),
+ )
+import GHCSpecter.Graphics.DSL (
+  Primitive,
+  Scene (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Render.Components.GraphView qualified as GraphView
 import GHCSpecter.Render.Components.Tab qualified as Tab
 import GHCSpecter.Render.Components.TextView qualified as TextView
@@ -28,37 +36,43 @@ import GHCSpecter.UI.Types.Event (
   SourceViewEvent (..),
  )
 
-buildSuppView :: Maybe SupplementaryView -> Scene ()
+buildSuppView :: Maybe SupplementaryView -> Scene (Primitive ())
 buildSuppView Nothing =
   Scene
     { sceneId = "supple-view-contents"
     , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
     , sceneLocalViewPort = ViewPort (0, 0) canvasDim
     , sceneElements = []
+    , sceneExtent = Nothing
     }
 buildSuppView (Just (SuppViewCallgraph grVis)) =
   Scene
     { sceneId = "supple-view-contents"
-    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements =
         fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
+    , sceneExtent = Just extent
     }
+  where
+    Dim canvasWidth canvasHeight = grVis ^. gviCanvasDim
+    extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
 buildSuppView (Just (SuppViewText txt)) =
   let scene = TextView.buildTextView txt []
    in scene
         { sceneId = "supple-view-contents"
         , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
         , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+        , sceneExtent = Nothing
         }
 
 buildSuppViewPanel ::
   ModuleName ->
   SourceViewUI ->
   ServerState ->
-  (Scene SourceViewEvent, Scene ())
+  (Scene (Primitive SourceViewEvent), Scene (Primitive ()))
 buildSuppViewPanel modu srcUI ss =
-  ( SourceViewTab <$> Tab.buildTab tabCfg mtab
+  ( fmap (fmap SourceViewTab) (Tab.buildTab tabCfg mtab)
   , buildSuppView msuppView
   )
   where

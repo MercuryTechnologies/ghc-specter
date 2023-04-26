@@ -50,13 +50,14 @@ buildModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Scene ModuleGraphEvent
+  Scene (Primitive ModuleGraphEvent)
 buildModuleGraph
   nameMap
   valueFor
   grVisInfo
   (mfocused, mhinted) =
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+        extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
         revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
         nodeLayoutMap =
           IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
@@ -109,12 +110,13 @@ buildModuleGraph
               ]
      in Scene
           { sceneId = "main-module-graph"
-          , sceneGlobalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
-          , sceneLocalViewPort = ViewPort (0, 0) (canvasWidth, canvasHeight)
+          , sceneGlobalViewPort = extent
+          , sceneLocalViewPort = extent
           , sceneElements =
               [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
                 ++ fmap edge (grVisInfo ^. gviEdges)
                 ++ concatMap node (grVisInfo ^. gviNodes)
+          , sceneExtent = Just extent
           }
 
 -- | build graph more simply to graphics DSL

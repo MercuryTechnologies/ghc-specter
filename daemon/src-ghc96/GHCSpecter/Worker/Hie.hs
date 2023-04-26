@@ -32,9 +32,9 @@ import GHC.Iface.Ext.Types (
   BindType (..),
   ContextInfo (..),
   HieFile (..),
-  Identifier (..),
+  Identifier,
   IdentifierDetails (..),
-  Span (..),
+  Span,
   getAsts,
  )
 import GHC.Iface.Ext.Utils (generateReferencesMap)
@@ -76,13 +76,13 @@ genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
     go = bimap maybeToList maybeToList . (goRef &&& goDec)
 
     goRef (Right name, (sp, _))
-      | Just mod <- nameModule_maybe name =
+      | Just modu <- nameModule_maybe name =
           Just $
             RefRow'
               { _ref'Src = path
               , _ref'NameOcc = T.pack $ occNameString occ
-              , _ref'NameMod = T.pack $ moduleNameString $ moduleName mod
-              , _ref'NameUnit = T.pack $ show $ moduleUnit mod
+              , _ref'NameMod = T.pack $ moduleNameString $ moduleName modu
+              , _ref'NameUnit = T.pack $ show $ moduleUnit modu
               , _ref'SLine = sl
               , _ref'SCol = sc
               , _ref'ELine = el
@@ -97,8 +97,8 @@ genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
     goRef _ = Nothing
 
     goDec (Right name, (_, dets))
-      | Just mod <- nameModule_maybe name
-      , mod == smdl
+      | Just modu <- nameModule_maybe name
+      , modu == smdl
       , occ <- nameOccName name
       , info <- identInfo dets
       , Just sp <- getBindSpan info
@@ -155,8 +155,8 @@ genDefRow path smod refmap = genRows $ M.toList refmap
     isDef _ = False
 
     go (Right name, dets)
-      | Just mod <- nameModule_maybe name
-      , mod == smod
+      | Just modu <- nameModule_maybe name
+      , modu == smod
       , occ <- nameOccName name
       , Just sp <- getSpan name dets
       , sl <- srcSpanStartLine sp

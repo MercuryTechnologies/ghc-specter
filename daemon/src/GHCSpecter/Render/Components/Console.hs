@@ -55,8 +55,8 @@ buildConsoleTab ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
   Maybe k ->
-  Scene (ConsoleEvent k)
-buildConsoleTab tabs mfocus = ConsoleTab <$> buildTab tabCfg mfocus
+  Scene (Primitive (ConsoleEvent k))
+buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
   where
     tabCfg =
       TabConfig
@@ -71,13 +71,14 @@ buildConsoleHelp ::
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
-  Scene (ConsoleEvent k)
+  Scene (Primitive (ConsoleEvent k))
 buildConsoleHelp getHelp mfocus =
   Scene
     { sceneId = "console-help"
     , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
     , sceneLocalViewPort = ViewPort (0, 0) (200, size)
     , sceneElements = contents
+    , sceneExtent = Nothing
     }
   where
     mhelp = getHelp <$> mfocus
@@ -148,13 +149,14 @@ buildConsoleMain ::
   (IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  Scene (ConsoleEvent k)
+  Scene (Primitive (ConsoleEvent k))
 buildConsoleMain contents mfocus =
   Scene
     { sceneId = "console-main"
-    , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
-    , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, size)
+    , sceneGlobalViewPort = extent
+    , sceneLocalViewPort = extent
     , sceneElements = F.toList $ sconcat rendered
+    , sceneExtent = Just extent
     }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
@@ -163,16 +165,16 @@ buildConsoleMain contents mfocus =
     contentss = case NE.nonEmpty items of
       Nothing -> NE.singleton $ buildEachLine "No console history"
       Just items' -> fmap buildConsoleItem items'
-    (vp, rendered) = flowLineByLine 0 contentss
-    size = viewPortHeight vp
+    (extent, rendered) = flowLineByLine 0 contentss
 
-buildConsoleInput :: Text -> Scene e
+buildConsoleInput :: Text -> Scene (Primitive e)
 buildConsoleInput inputEntry =
   Scene
     { sceneId = "console-input"
     , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
     , sceneElements = rendered
+    , sceneExtent = Nothing
     }
   where
     rendered = [drawText (0, 0) UpperLeft Mono Black 8 inputEntry]
