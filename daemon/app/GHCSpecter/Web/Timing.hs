@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.Timing (
+module GHCSpecter.Web.Timing (
   render,
 ) where
 
@@ -62,9 +62,6 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
-import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
-import GHCSpecter.Render.Web.Util (divClass, xmlns)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -94,6 +91,9 @@ import GHCSpecter.UI.Types.Event (
   MouseEvent (..),
   TimingEvent (..),
  )
+import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
+import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Web.Util (divClass, xmlns)
 import Prelude hiding (div, span)
 
 renderTimingChart ::

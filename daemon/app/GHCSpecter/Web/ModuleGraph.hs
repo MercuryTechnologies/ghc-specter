@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Render.Web.ModuleGraph (
+module GHCSpecter.Web.ModuleGraph (
   renderModuleGraph,
   renderGraph,
 
@@ -56,8 +56,6 @@ import GHCSpecter.Graphics.DSL (
   HitEvent (..),
   Scene (..),
  )
-import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
-import GHCSpecter.Render.Web.Util (xmlns)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -81,6 +79,8 @@ import GHCSpecter.UI.Types.Event (
   ModuleGraphEvent (..),
   SubModuleEvent (..),
  )
+import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
+import GHCSpecter.Web.Util (xmlns)
 import Text.Printf (printf)
 import Prelude hiding (div)
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.SourceView (
+module GHCSpecter.Web.SourceView (
   render,
   renderUnqualifiedImports,
 ) where
@@ -50,8 +50,6 @@ import GHCSpecter.Data.GHC.Hie (
   ModuleHieInfo,
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
-import GHCSpecter.Render.Web.Util (divClass, xmlns)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasModuleGraphState (..),
@@ -78,6 +76,8 @@ import GHCSpecter.Util.SourceTree (
   expandFocusOnly,
   markLeaf,
  )
+import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Web.Util (divClass, xmlns)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Prelude hiding (div, span)
 

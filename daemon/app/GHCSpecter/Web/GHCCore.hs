@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.GHCCore (
+module GHCSpecter.Web.GHCCore (
   renderTopBind,
 ) where
 
@@ -21,7 +21,7 @@ import GHCSpecter.Data.GHC.Core (
   Id (..),
   Literal (..),
  )
-import GHCSpecter.Render.Web.Util (divClass, spanClass)
+import GHCSpecter.Web.Util (divClass, spanClass)
 import Prelude hiding (div, span)
 
 isType :: Expr -> Bool

@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web (
+module GHCSpecter.Web (
   render,
 ) where
 
@@ -33,12 +33,6 @@ import GHCSpecter.ConcurReplica.DOM (
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Assets (HasAssets (..))
 import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
-import GHCSpecter.Render.Web.Console qualified as Console
-import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
-import GHCSpecter.Render.Web.Session qualified as Session
-import GHCSpecter.Render.Web.SourceView qualified as SourceView
-import GHCSpecter.Render.Web.Timing qualified as Timing
-import GHCSpecter.Render.Web.Util (divClass)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
@@ -56,6 +50,12 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   Tab (..),
  )
+import GHCSpecter.Web.Console qualified as Console
+import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
+import GHCSpecter.Web.Session qualified as Session
+import GHCSpecter.Web.SourceView qualified as SourceView
+import GHCSpecter.Web.Timing qualified as Timing
+import GHCSpecter.Web.Util (divClass)
 import Prelude hiding (div, span)
 
 renderBanner :: Text -> Double -> Widget IHTML a

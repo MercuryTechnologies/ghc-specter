@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.ConsoleItem (
+module GHCSpecter.Web.ConsoleItem (
   render,
 ) where
 
@@ -16,10 +16,10 @@ import GHCSpecter.ConcurReplica.DOM (
  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.GHC.Core (toBind)
-import GHCSpecter.Render.Web.GHCCore (renderTopBind)
-import GHCSpecter.Render.Web.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
+import GHCSpecter.Web.GHCCore (renderTopBind)
+import GHCSpecter.Web.Util (divClass)
 import Prelude hiding (div)
 
 render :: ConsoleItem -> Widget IHTML (ConsoleEvent k)

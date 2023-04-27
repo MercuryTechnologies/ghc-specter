@@ -1,7 +1,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.Session (
+module GHCSpecter.Web.Session (
   render,
 ) where
 
@@ -45,7 +45,6 @@ import GHCSpecter.Data.Map (
   keyMapToList,
   lookupKey,
  )
-import GHCSpecter.Render.Web.Util (divClass, spanClass)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -57,6 +56,7 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
  )
+import GHCSpecter.Web.Util (divClass, spanClass)
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 

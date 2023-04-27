@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.ConcurReplicaSVG (
+module GHCSpecter.Web.ConcurReplicaSVG (
   makePolylineText,
   renderColor,
   renderPrimitive,

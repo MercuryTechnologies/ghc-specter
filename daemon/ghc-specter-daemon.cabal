@@ -119,16 +119,16 @@ executable ghc-specter-daemon
       GHCSpecter.ConcurReplica.Types
       GHCSpecter.ConcurReplica.WaiHandler
       GHCSpecter.Driver.Web
-      GHCSpecter.Render.Web
-      GHCSpecter.Render.Web.ConcurReplicaSVG
-      GHCSpecter.Render.Web.Console
-      GHCSpecter.Render.Web.ConsoleItem
-      GHCSpecter.Render.Web.GHCCore
-      GHCSpecter.Render.Web.ModuleGraph
-      GHCSpecter.Render.Web.Session
-      GHCSpecter.Render.Web.SourceView
-      GHCSpecter.Render.Web.Timing
-      GHCSpecter.Render.Web.Util
+      GHCSpecter.Web
+      GHCSpecter.Web.ConcurReplicaSVG
+      GHCSpecter.Web.Console
+      GHCSpecter.Web.ConsoleItem
+      GHCSpecter.Web.GHCCore
+      GHCSpecter.Web.ModuleGraph
+      GHCSpecter.Web.Session
+      GHCSpecter.Web.SourceView
+      GHCSpecter.Web.Timing
+      GHCSpecter.Web.Util
       Paths_ghc_specter_daemon
   hs-source-dirs:
       app

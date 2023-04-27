@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.Util (
+module GHCSpecter.Web.Util (
   xmlns,
   divClass,
   spanClass,

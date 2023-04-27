@@ -38,7 +38,6 @@ import GHCSpecter.Driver.Session.Types (
   ServerSession (..),
   UIChannel (..),
  )
-import GHCSpecter.Render.Web (render)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (
   HasUIModel (..),
@@ -50,6 +49,7 @@ import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),
   Event (BkgEv),
  )
+import GHCSpecter.Web (render)
 
 -- NOTE:
 -- server state: shared across the session

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Web.Console (
+module GHCSpecter.Web.Console (
   render,
 ) where
 
@@ -33,10 +33,10 @@ import GHCSpecter.Data.Map (
   KeyMap,
   lookupKey,
  )
-import GHCSpecter.Render.Web.ConsoleItem qualified as CI (render)
-import GHCSpecter.Render.Web.Util (divClass)
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
+import GHCSpecter.Web.ConsoleItem qualified as CI (render)
+import GHCSpecter.Web.Util (divClass)
 import Prelude hiding (div)
 
 render ::
