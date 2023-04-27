@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Parts.ModuleGraph (
+module GHCSpecter.Gtk.ModuleGraph (
   renderModuleGraph,
 ) where
 
@@ -20,6 +20,9 @@ import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Gtk.Renderer (addEventMap, renderScene)
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
+import GHCSpecter.Gtk.Util.Rules (hruleTop)
 import GHCSpecter.UI.Components.GraphView (buildModuleGraph)
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
@@ -33,10 +36,7 @@ import GHCSpecter.UI.Types.Event (
   SubModuleEvent (..),
  )
 import GI.Cairo.Render qualified as R
-import Render.Util.Rules (hruleTop)
-import Renderer (addEventMap, renderScene)
 import Text.Printf (printf)
-import Types (GtkRender, ViewBackend (..))
 
 -- TODO: tidy up the parameters
 renderModuleGraph ::

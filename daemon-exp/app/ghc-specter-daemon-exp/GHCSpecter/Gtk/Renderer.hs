@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 
-module Renderer (
+module GHCSpecter.Gtk.Renderer (
   -- * drawing
   setColor,
   drawText,
@@ -35,11 +35,11 @@ import GHCSpecter.Graphics.DSL (
   ViewPort (..),
   overlapsWith,
  )
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..), ViewBackendResource (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
-import Types (GtkRender, ViewBackend (..), ViewBackendResource (..))
 
 drawText :: TextFontFace -> Int32 -> (Double, Double) -> Text -> GtkRender e ()
 drawText face sz (x, y) msg = do

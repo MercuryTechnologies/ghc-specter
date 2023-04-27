@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Parts.Timing (
+module GHCSpecter.Gtk.Timing (
   renderTiming,
 ) where
 
@@ -16,6 +16,11 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
+import GHCSpecter.Gtk.Renderer (
+  addEventMap,
+  renderScene,
+ )
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.UI.Components.TimingView (
   buildBlockers,
   buildMemChart,
@@ -33,11 +38,6 @@ import GHCSpecter.UI.Types (
   TimingUI,
  )
 import GHCSpecter.UI.Types.Event (Event (..))
-import Renderer (
-  addEventMap,
-  renderScene,
- )
-import Types (GtkRender, ViewBackend (..))
 
 renderTiming ::
   BiKeyMap DriverId ModuleName ->

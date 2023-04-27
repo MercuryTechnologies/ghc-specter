@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Util.Rules (
+module GHCSpecter.Gtk.Util.Rules (
   -- * drawing rules
   hruleTop,
   vruleLeft,
@@ -15,9 +15,9 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   ViewPort (..),
  )
+import GHCSpecter.Gtk.Renderer (setColor)
+import GHCSpecter.Gtk.Types (GtkRender)
 import GI.Cairo.Render qualified as R
-import Renderer (setColor)
-import Types (GtkRender)
 
 hruleTop :: ViewPort -> GtkRender e ()
 hruleTop (ViewPort (cx0, cy0) (cx1, _)) = lift $ do

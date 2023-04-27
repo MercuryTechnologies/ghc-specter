@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Parts.Session (renderSession) where
+module GHCSpecter.Gtk.Session (renderSession) where
 
 import Control.Lens (to, (^.))
 import Control.Monad.Trans.Class (lift)
@@ -14,6 +14,13 @@ import GHCSpecter.Channel.Outbound.Types (
  )
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
+import GHCSpecter.Gtk.Renderer (
+  addEventMap,
+  renderScene,
+  setColor,
+ )
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
+import GHCSpecter.Gtk.Util.Rules (boxRules)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   HasTimingState (..),
@@ -33,13 +40,6 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
-import Render.Util.Rules (boxRules)
-import Renderer (
-  addEventMap,
-  renderScene,
-  setColor,
- )
-import Types (GtkRender, ViewBackend (..))
 
 renderSession ::
   ServerState ->

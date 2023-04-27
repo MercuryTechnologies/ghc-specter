@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Handler (
+module GHCSpecter.Gtk.Handler (
   handleClick,
   handleMotion,
   handleScroll,

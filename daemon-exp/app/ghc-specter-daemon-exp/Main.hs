@@ -55,6 +55,20 @@ import GHCSpecter.Graphics.DSL (
   HitEvent,
   ViewPort (..),
  )
+import GHCSpecter.Gtk.Handler (
+  handleClick,
+  handleKeyPressed,
+  handleMotion,
+  handleScroll,
+  handleZoomEnd,
+  handleZoomUpdate,
+ )
+import GHCSpecter.Gtk.Main (renderAction)
+import GHCSpecter.Gtk.Types (
+  ViewBackend (..),
+  ViewBackendResource (..),
+  WrappedViewBackend (..),
+ )
 import GHCSpecter.Server.Types (
   initServerState,
  )
@@ -88,20 +102,6 @@ import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
-import Handler (
-  handleClick,
-  handleKeyPressed,
-  handleMotion,
-  handleScroll,
-  handleZoomEnd,
-  handleZoomUpdate,
- )
-import Render.Main (renderAction)
-import Types (
-  ViewBackend (..),
-  ViewBackendResource (..),
-  WrappedViewBackend (..),
- )
 
 detailLevel :: DetailLevel
 detailLevel = UpTo30

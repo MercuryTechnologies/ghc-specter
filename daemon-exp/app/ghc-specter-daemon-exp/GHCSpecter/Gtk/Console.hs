@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Parts.Console (
+module GHCSpecter.Gtk.Console (
   renderConsole,
 ) where
 
@@ -20,6 +20,9 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
  )
+import GHCSpecter.Gtk.Renderer (addEventMap, renderScene, setColor)
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
+import GHCSpecter.Gtk.Util.Rules (boxFill, boxRules)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState,
@@ -41,9 +44,6 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
 import GHCSpecter.Util.Transformation (translateToOrigin)
-import Render.Util.Rules (boxFill, boxRules)
-import Renderer (addEventMap, renderScene, setColor)
-import Types (GtkRender, ViewBackend (..))
 
 renderConsole :: UIState -> ServerState -> GtkRender Event ()
 renderConsole ui ss = do

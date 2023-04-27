@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Parts.SourceView (renderSourceView) where
+module GHCSpecter.Gtk.SourceView (renderSourceView) where
 
 import Control.Lens (at, to, (^.), (^?), _Just)
 import Control.Monad.Trans.Reader (ask)
@@ -11,6 +11,12 @@ import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
 import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Gtk.Renderer (
+  addEventMap,
+  renderScene,
+ )
+import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
+import GHCSpecter.Gtk.Util.Rules (vruleLeft)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasServerState (..),
@@ -27,12 +33,6 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (Event (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
-import Render.Util.Rules (vruleLeft)
-import Renderer (
-  addEventMap,
-  renderScene,
- )
-import Types (GtkRender, ViewBackend (..))
 
 renderSourceView ::
   SourceViewUI ->

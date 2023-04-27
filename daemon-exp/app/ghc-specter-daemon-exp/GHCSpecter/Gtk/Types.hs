@@ -1,4 +1,4 @@
-module Types (
+module GHCSpecter.Gtk.Types (
   ViewBackendResource (..),
   ViewBackend (..),
   WrappedViewBackend (..),

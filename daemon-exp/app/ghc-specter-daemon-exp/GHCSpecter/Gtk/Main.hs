@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render.Main (
+module GHCSpecter.Gtk.Main (
   renderNotConnected,
   renderAction,
 ) where
@@ -25,6 +25,21 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   TextFontFace (Sans),
  )
+import GHCSpecter.Gtk.Console (renderConsole)
+import GHCSpecter.Gtk.ModuleGraph (renderModuleGraph)
+import GHCSpecter.Gtk.Renderer (
+  addEventMap,
+  drawText,
+  renderScene,
+  setColor,
+ )
+import GHCSpecter.Gtk.Session (renderSession)
+import GHCSpecter.Gtk.SourceView (renderSourceView)
+import GHCSpecter.Gtk.Timing (renderTiming)
+import GHCSpecter.Gtk.Types (
+  GtkRender,
+  ViewBackend (..),
+ )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -44,21 +59,6 @@ import GHCSpecter.UI.Types.Event (
   Tab (..),
  )
 import GI.Cairo.Render qualified as R
-import Render.Parts.Console (renderConsole)
-import Render.Parts.ModuleGraph (renderModuleGraph)
-import Render.Parts.Session (renderSession)
-import Render.Parts.SourceView (renderSourceView)
-import Render.Parts.Timing (renderTiming)
-import Renderer (
-  addEventMap,
-  drawText,
-  renderScene,
-  setColor,
- )
-import Types (
-  GtkRender,
-  ViewBackend (..),
- )
 
 resetWidget :: GtkRender e ()
 resetWidget = do
