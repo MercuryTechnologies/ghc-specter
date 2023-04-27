@@ -37,6 +37,7 @@ library
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
       GHCSpecter.Layouter.Box.Flow
+      GHCSpecter.Layouter.Font.Estimator
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
       GHCSpecter.Layouter.Graph.Algorithm.Cluster
@@ -81,6 +82,7 @@ library
     , errors
     , extra
     , fficxx-runtime
+    , freetype2
     , ghc
     , ghc-specter-plugin
     , ghc-specter-render
@@ -131,7 +133,7 @@ executable ghc-specter-daemon
       GHCSpecter.Web.Util
       Paths_ghc_specter_daemon
   hs-source-dirs:
-      app
+      app/ghc-specter-daemon
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -160,6 +162,16 @@ executable ghc-specter-daemon
     , wai-websockets
     , warp
     , websockets
+  default-language: GHC2021
+
+executable font-test
+  main-is: Main.hs
+  hs-source-dirs:
+      app/font-test
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.15 && <5
+    , ghc-specter-daemon
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test

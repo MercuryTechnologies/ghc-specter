@@ -7,6 +7,7 @@ in {
       buildInputs = attrs.buildInputs
       ++ [
         pkgs.epoxy.dev
+        pkgs.freetype
         pkgs.gd
         pkgs.gobject-introspection
         pkgs.gtk3
