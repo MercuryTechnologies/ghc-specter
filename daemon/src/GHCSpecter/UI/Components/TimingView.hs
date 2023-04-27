@@ -50,10 +50,6 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
   viewPortHeight,
  )
-import GHCSpecter.Util.Flow (
-  flowLineByLine,
-  toSizedLine,
- )
 import GHCSpecter.UI.Constants (
   timingHeight,
   timingMaxWidth,
@@ -67,6 +63,10 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   TimingEvent (..),
+ )
+import GHCSpecter.Util.Flow (
+  flowLineByLine,
+  toSizedLine,
  )
 import Prelude hiding (div)
 

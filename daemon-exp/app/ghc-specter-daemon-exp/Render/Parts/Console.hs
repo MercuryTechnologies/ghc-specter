@@ -20,15 +20,15 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
  )
-import GHCSpecter.Render.Components.Console (
+import GHCSpecter.Server.Types (
+  HasServerState (..),
+  ServerState,
+ )
+import GHCSpecter.UI.Console (
   buildConsoleHelp,
   buildConsoleInput,
   buildConsoleMain,
   buildConsoleTab,
- )
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  ServerState,
  )
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Help (consoleCommandList)

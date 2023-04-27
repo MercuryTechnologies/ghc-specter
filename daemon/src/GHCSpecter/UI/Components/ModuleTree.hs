@@ -24,7 +24,6 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
-import GHCSpecter.Util.Flow (movePrimitiveBy)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -37,6 +36,7 @@ import GHCSpecter.UI.Types (
   SourceViewUI (..),
  )
 import GHCSpecter.UI.Types.Event (SourceViewEvent (..))
+import GHCSpecter.Util.Flow (movePrimitiveBy)
 import GHCSpecter.Util.SourceTree (
   accumPrefix,
   expandFocusOnly,

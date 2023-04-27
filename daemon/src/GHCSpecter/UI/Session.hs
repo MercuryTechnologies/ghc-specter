@@ -42,13 +42,13 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
-import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
  )
+import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.UI.Types.Event (
   SessionEvent (..),
  )

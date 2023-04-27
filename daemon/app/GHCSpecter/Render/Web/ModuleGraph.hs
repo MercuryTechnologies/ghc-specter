@@ -56,10 +56,6 @@ import GHCSpecter.Graphics.DSL (
   HitEvent (..),
   Scene (..),
  )
-import GHCSpecter.UI.Components.GraphView (
-  buildGraph,
-  buildModuleGraph,
- )
 import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Web.Util (xmlns)
 import GHCSpecter.Server.Types (
@@ -67,6 +63,10 @@ import GHCSpecter.Server.Types (
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
+ )
+import GHCSpecter.UI.Components.GraphView (
+  buildGraph,
+  buildModuleGraph,
  )
 import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types (

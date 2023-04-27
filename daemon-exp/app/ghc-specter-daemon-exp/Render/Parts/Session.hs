@@ -14,17 +14,17 @@ import GHCSpecter.Channel.Outbound.Types (
  )
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
-import GHCSpecter.Render.Session (
-  buildModuleInProgress,
-  buildPauseResume,
-  buildSession,
- )
 import GHCSpecter.Server.Types (
   HasServerState (..),
   HasTimingState (..),
   ServerState,
  )
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
+import GHCSpecter.UI.Session (
+  buildModuleInProgress,
+  buildPauseResume,
+  buildSession,
+ )
 import GHCSpecter.UI.Types (
   HasSessionUI (..),
   HasViewPortInfo (..),

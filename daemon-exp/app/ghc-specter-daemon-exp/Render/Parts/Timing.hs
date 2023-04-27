@@ -16,7 +16,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Components.TimingView (
+import GHCSpecter.UI.Components.TimingView (
   buildBlockers,
   buildMemChart,
   buildTimingChart,

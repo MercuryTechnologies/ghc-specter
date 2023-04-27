@@ -11,15 +11,15 @@ import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Render.Components.ModuleTree (buildModuleTree)
-import GHCSpecter.Render.Components.TextView (buildTextView)
-import GHCSpecter.Render.SourceView (buildSuppViewPanel)
 import GHCSpecter.Server.Types (
   HasHieState (..),
   HasServerState (..),
   ServerState,
  )
+import GHCSpecter.UI.Components.ModuleTree (buildModuleTree)
+import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
+import GHCSpecter.UI.SourceView (buildSuppViewPanel)
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   HasViewPortInfo (..),

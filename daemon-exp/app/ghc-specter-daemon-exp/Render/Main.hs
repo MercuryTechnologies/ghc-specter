@@ -25,15 +25,15 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   TextFontFace (Sans),
  )
-import GHCSpecter.Render.Components.Tab (buildTab)
-import GHCSpecter.Render.Tab (topLevelTab)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
   HasTimingState (..),
   ServerState (..),
  )
+import GHCSpecter.UI.Components.Tab (buildTab)
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
+import GHCSpecter.UI.Tab (topLevelTab)
 import GHCSpecter.UI.Types (
   HasUIModel (..),
   HasUIState (..),

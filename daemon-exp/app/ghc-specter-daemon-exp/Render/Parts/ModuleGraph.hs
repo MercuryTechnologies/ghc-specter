@@ -20,7 +20,7 @@ import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.GraphLayout.Types (GraphVisInfo)
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Render.Components.GraphView (buildModuleGraph)
+import GHCSpecter.UI.Components.GraphView (buildModuleGraph)
 import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),

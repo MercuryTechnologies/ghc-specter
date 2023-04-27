@@ -19,14 +19,14 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.UI.Components.GraphView qualified as GraphView
-import GHCSpecter.UI.Components.Tab qualified as Tab
-import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
   SupplementaryView (..),
  )
+import GHCSpecter.UI.Components.GraphView qualified as GraphView
+import GHCSpecter.UI.Components.Tab qualified as Tab
+import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
