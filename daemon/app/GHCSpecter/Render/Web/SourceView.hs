@@ -50,9 +50,9 @@ import GHCSpecter.Data.GHC.Hie (
   ModuleHieInfo,
  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Render.Components.ModuleTree qualified as ModuleTree
-import GHCSpecter.Render.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
-import GHCSpecter.Render.Components.TextView qualified as TextView
+import GHCSpecter.UI.Components.ModuleTree qualified as ModuleTree
+import GHCSpecter.UI.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
+import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Web.Util (divClass, xmlns)
 import GHCSpecter.Server.Types (

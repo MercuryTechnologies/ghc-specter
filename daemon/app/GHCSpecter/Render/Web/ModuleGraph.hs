@@ -56,7 +56,7 @@ import GHCSpecter.Graphics.DSL (
   HitEvent (..),
   Scene (..),
  )
-import GHCSpecter.Render.Components.GraphView (
+import GHCSpecter.UI.Components.GraphView (
   buildGraph,
   buildModuleGraph,
  )

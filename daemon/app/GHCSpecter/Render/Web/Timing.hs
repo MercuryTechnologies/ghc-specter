@@ -62,7 +62,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Components.TimingView qualified as TimingView
+import GHCSpecter.UI.Components.TimingView qualified as TimingView
 import GHCSpecter.Render.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Render.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Render.Web.Util (divClass, xmlns)

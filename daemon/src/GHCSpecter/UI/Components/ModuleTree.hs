@@ -24,7 +24,7 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
-import GHCSpecter.UI.Components.Util (movePrimitiveBy)
+import GHCSpecter.Util.Flow (movePrimitiveBy)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),

@@ -38,7 +38,7 @@ import GHCSpecter.UI.Components.Tab (
   TabConfig (..),
   buildTab,
  )
-import GHCSpecter.UI.Components.Util (
+import GHCSpecter.Util.Flow (
   flowInline,
   flowLineByLine,
   toSizedLine,

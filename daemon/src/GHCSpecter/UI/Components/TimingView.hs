@@ -50,7 +50,7 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
   viewPortHeight,
  )
-import GHCSpecter.UI.Components.Util (
+import GHCSpecter.Util.Flow (
   flowLineByLine,
   toSizedLine,
  )
