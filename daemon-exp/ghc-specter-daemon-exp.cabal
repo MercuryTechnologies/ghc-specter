@@ -20,16 +20,16 @@ source-repository head
 
 executable ghc-specter-daemon-exp
   main-is:       Main.hs
-  other-modules: Handler
-                 Renderer
-                 Render.Main
-                 Render.Parts.Console
-                 Render.Parts.ModuleGraph
-                 Render.Parts.Session
-                 Render.Parts.SourceView
-                 Render.Parts.Timing
-                 Render.Util.Rules
-                 Types
+  other-modules: GHCSpecter.Gtk.Handler
+                 GHCSpecter.Gtk.Main  
+                 GHCSpecter.Gtk.Renderer
+                 GHCSpecter.Gtk.Console
+                 GHCSpecter.Gtk.ModuleGraph
+                 GHCSpecter.Gtk.Session
+                 GHCSpecter.Gtk.SourceView
+                 GHCSpecter.Gtk.Timing
+                 GHCSpecter.Gtk.Types
+                 GHCSpecter.Gtk.Util.Rules
 
   hs-source-dirs:
       app/ghc-specter-daemon-exp
