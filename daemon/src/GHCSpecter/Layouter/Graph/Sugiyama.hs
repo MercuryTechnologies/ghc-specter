@@ -1,4 +1,4 @@
-module GHCSpecter.GraphLayout.Sugiyama (
+module GHCSpecter.Layouter.Graph.Sugiyama (
   layOutGraph,
 ) where
 
@@ -13,7 +13,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
-import GHCSpecter.GraphLayout.OGDF (
+import GHCSpecter.Layouter.Graph.OGDF (
   appendText,
   doSugiyamaLayout,
   edgeGraphics,
@@ -26,7 +26,7 @@ import GHCSpecter.GraphLayout.OGDF (
   nodeStyle,
   runGraphLayouter,
  )
-import GHCSpecter.GraphLayout.Types (
+import GHCSpecter.Layouter.Graph.Types (
   EdgeLayout (..),
   GraphVisInfo (..),
   NodeLayout (..),

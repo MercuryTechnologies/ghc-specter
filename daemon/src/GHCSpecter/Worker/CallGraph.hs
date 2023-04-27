@@ -53,9 +53,9 @@ import GHCSpecter.Data.GHC.Hie (
   HasRefRow' (..),
   ModuleHieInfo,
  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
-import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
-import GHCSpecter.GraphLayout.Types (GraphVisInfo)
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
+import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
+import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),

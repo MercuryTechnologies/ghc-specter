@@ -36,12 +36,12 @@ library
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
-      GHCSpecter.GraphLayout.Algorithm.BFS
-      GHCSpecter.GraphLayout.Algorithm.Builder
-      GHCSpecter.GraphLayout.Algorithm.Cluster
-      GHCSpecter.GraphLayout.OGDF
-      GHCSpecter.GraphLayout.Sugiyama
-      GHCSpecter.GraphLayout.Types
+      GHCSpecter.Layouter.Graph.Algorithm.BFS
+      GHCSpecter.Layouter.Graph.Algorithm.Builder
+      GHCSpecter.Layouter.Graph.Algorithm.Cluster
+      GHCSpecter.Layouter.Graph.OGDF
+      GHCSpecter.Layouter.Graph.Sugiyama
+      GHCSpecter.Layouter.Graph.Types
       GHCSpecter.Server.Types
       GHCSpecter.UI.Components.GraphView
       GHCSpecter.UI.Components.ModuleTree

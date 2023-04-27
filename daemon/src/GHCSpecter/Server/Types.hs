@@ -57,7 +57,7 @@ import GHCSpecter.Channel.Outbound.Types (
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
-import GHCSpecter.GraphLayout.Types (GraphVisInfo)
+import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
 import GHCSpecter.UI.Types.Event (BlockerDetailLevel (..), DetailLevel)
 
 type ChanModule = (Channel, Text)

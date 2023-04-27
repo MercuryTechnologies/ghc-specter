@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module GHCSpecter.GraphLayout.OGDF (
+module GHCSpecter.Layouter.Graph.OGDF (
   nodeGraphics,
   edgeGraphics,
   edgeIntWeight,
@@ -55,7 +55,7 @@ import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
 import Foreign.C.Types (CBool (..), CLong)
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable (Storable (peek, poke))
-import GHCSpecter.GraphLayout.Types (
+import GHCSpecter.Layouter.Graph.Types (
   Dimension (..),
   EdgeLayout (..),
   NodeLayout (..),

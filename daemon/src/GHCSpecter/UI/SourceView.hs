@@ -10,14 +10,14 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.GraphLayout.Types (
-  Dimension (..),
-  HasGraphVisInfo (..),
- )
 import GHCSpecter.Graphics.DSL (
   Primitive,
   Scene (..),
   ViewPort (..),
+ )
+import GHCSpecter.Layouter.Graph.Types (
+  Dimension (..),
+  HasGraphVisInfo (..),
  )
 import GHCSpecter.Server.Types (
   HasServerState (..),

@@ -19,8 +19,8 @@ import GHCSpecter.Data.Timing.Util (
   makeBlockerGraph,
   makeTimingTable,
  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
-import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
+import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
