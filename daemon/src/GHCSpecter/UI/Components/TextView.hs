@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.TextView (
+module GHCSpecter.UI.Components.TextView (
   -- * predefined layout
   rowSize,
   ratio,

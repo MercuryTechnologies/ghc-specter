@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.GraphView (
+module GHCSpecter.UI.Components.GraphView (
   buildModuleGraph,
   buildGraph,
 ) where

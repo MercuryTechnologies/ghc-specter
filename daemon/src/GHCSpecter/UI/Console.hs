@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.Console (
+module GHCSpecter.UI.Console (
   buildConsoleTab,
   buildConsoleHelp,
   buildConsoleMain,
@@ -34,11 +34,11 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
   viewPortHeight,
  )
-import GHCSpecter.Render.Components.Tab (
+import GHCSpecter.UI.Components.Tab (
   TabConfig (..),
   buildTab,
  )
-import GHCSpecter.Render.Components.Util (
+import GHCSpecter.UI.Components.Util (
   flowInline,
   flowLineByLine,
   toSizedLine,

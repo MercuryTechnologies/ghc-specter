@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.TimingView (
+module GHCSpecter.UI.Components.TimingView (
   diffTime2X,
   module2Y,
 
@@ -50,7 +50,7 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
   viewPortHeight,
  )
-import GHCSpecter.Render.Components.Util (
+import GHCSpecter.UI.Components.Util (
   flowLineByLine,
   toSizedLine,
  )

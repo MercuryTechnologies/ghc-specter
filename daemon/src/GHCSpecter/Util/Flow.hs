@@ -1,4 +1,4 @@
-module GHCSpecter.Render.Components.Util (
+module GHCSpecter.Util.Flow (
   -- * shift
   moveShapeBy,
   moveBoundingBoxBy,

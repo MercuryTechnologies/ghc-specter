@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Session (
+module GHCSpecter.UI.Session (
   buildModuleInProgress,
   buildSession,
   buildPauseResume,
@@ -42,7 +42,7 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
-import GHCSpecter.Render.Components.TextView (buildTextView)
+import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),

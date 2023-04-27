@@ -1,4 +1,4 @@
-module GHCSpecter.Render.Components.Tab (
+module GHCSpecter.UI.Components.Tab (
   TabConfig (..),
   buildTab,
 ) where

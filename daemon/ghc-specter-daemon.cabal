@@ -42,21 +42,21 @@ library
       GHCSpecter.GraphLayout.OGDF
       GHCSpecter.GraphLayout.Sugiyama
       GHCSpecter.GraphLayout.Types
-      GHCSpecter.Render.Components.Console
-      GHCSpecter.Render.Components.GraphView
-      GHCSpecter.Render.Components.ModuleTree
-      GHCSpecter.Render.Components.Tab
-      GHCSpecter.Render.Components.TextView
-      GHCSpecter.Render.Components.TimingView
-      GHCSpecter.Render.Components.Util
-      GHCSpecter.Render.Session
-      GHCSpecter.Render.SourceView
-      GHCSpecter.Render.Tab
       GHCSpecter.Server.Types
+      GHCSpecter.UI.Components.GraphView
+      GHCSpecter.UI.Components.ModuleTree
+      GHCSpecter.UI.Components.Tab
+      GHCSpecter.UI.Components.TextView
+      GHCSpecter.UI.Components.TimingView
+      GHCSpecter.UI.Console
       GHCSpecter.UI.Constants
       GHCSpecter.UI.Help
+      GHCSpecter.UI.Session
+      GHCSpecter.UI.SourceView
+      GHCSpecter.UI.Tab
       GHCSpecter.UI.Types
       GHCSpecter.UI.Types.Event
+      GHCSpecter.Util.Flow
       GHCSpecter.Util.ModuleGraph
       GHCSpecter.Util.SourceText
       GHCSpecter.Util.SourceTree
@@ -88,7 +88,7 @@ library
     , indexed-free
     , lens
     , pretty-simple
-    , resourcet    
+    , resourcet
     , stdcxx
     , stm
     , text

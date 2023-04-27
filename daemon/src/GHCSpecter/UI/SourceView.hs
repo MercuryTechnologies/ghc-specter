@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.SourceView (
+module GHCSpecter.UI.SourceView (
   buildSuppViewPanel,
 ) where
 
@@ -19,9 +19,9 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Render.Components.GraphView qualified as GraphView
-import GHCSpecter.Render.Components.Tab qualified as Tab
-import GHCSpecter.Render.Components.TextView qualified as TextView
+import GHCSpecter.UI.Components.GraphView qualified as GraphView
+import GHCSpecter.UI.Components.Tab qualified as Tab
+import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),

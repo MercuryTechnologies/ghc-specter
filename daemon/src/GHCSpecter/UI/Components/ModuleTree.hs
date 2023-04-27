@@ -1,7 +1,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Components.ModuleTree (
+module GHCSpecter.UI.Components.ModuleTree (
   buildModuleTree,
   expandableText,
 ) where
@@ -24,7 +24,7 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   rectangle,
  )
-import GHCSpecter.Render.Components.Util (movePrimitiveBy)
+import GHCSpecter.UI.Components.Util (movePrimitiveBy)
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),

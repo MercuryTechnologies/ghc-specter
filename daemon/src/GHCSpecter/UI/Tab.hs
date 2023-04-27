@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Render.Tab (
+module GHCSpecter.UI.Tab (
   topLevelTab,
 ) where
 
 import Control.Lens ((^.), _1)
-import GHCSpecter.Render.Components.Tab (TabConfig (..))
+import GHCSpecter.UI.Components.Tab (TabConfig (..))
 import GHCSpecter.UI.Constants (canvasDim, tabHeight)
 import GHCSpecter.UI.Types.Event (Tab (..))
 
