@@ -166,8 +166,8 @@ test-suite ghc-specter-daemon-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      GHCSpecter.GraphLayout.Algorithm.BFSSpec
-      GHCSpecter.GraphLayout.Algorithm.ClusterSpec
+      GHCSpecter.Layouter.Graph.Algorithm.BFSSpec
+      GHCSpecter.Layouter.Graph.Algorithm.ClusterSpec
       Paths_ghc_specter_daemon
   hs-source-dirs:
       test

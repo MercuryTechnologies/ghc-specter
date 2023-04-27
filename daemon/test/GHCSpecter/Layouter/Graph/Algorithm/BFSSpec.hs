@@ -1,12 +1,12 @@
-module GHCSpecter.GraphLayout.Algorithm.BFSSpec (spec) where
+module GHCSpecter.Layouter.Graph.Algorithm.BFSSpec (spec) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.IntMap qualified as IM
-import GHCSpecter.GraphLayout.Algorithm.BFS (
+import GHCSpecter.Layouter.Graph.Algorithm.BFS (
   runMultiseedStagedBFS,
   runStagedBFS,
  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeBiDep)
 import Test.Hspec (
   Spec,
   describe,
