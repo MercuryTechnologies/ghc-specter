@@ -37,7 +37,7 @@ library
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
       GHCSpecter.Layouter.Box.Flow
-      GHCSpecter.Layouter.Font.Estimator
+      GHCSpecter.Layouter.Font.Types
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
       GHCSpecter.Layouter.Graph.Algorithm.Cluster
@@ -82,7 +82,6 @@ library
     , errors
     , extra
     , fficxx-runtime
-    , freetype2
     , ghc
     , ghc-specter-plugin
     , ghc-specter-render
@@ -172,6 +171,9 @@ executable font-test
   build-depends:
       base >=4.15 && <5
     , ghc-specter-daemon
+    , ghc-specter-render
+    , gi-pango
+    , gi-pangocairo
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test

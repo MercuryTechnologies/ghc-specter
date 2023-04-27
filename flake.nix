@@ -144,7 +144,6 @@
                 p.concur-replica
                 p.discrimination
                 p.extra
-                p.freetype2
                 p.ghc-debug-common
                 p.ghc-debug-stub
                 p.ghc-debug-client
