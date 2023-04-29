@@ -109,8 +109,8 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-input" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
-    let sceneInput = buildConsoleInput inputEntry
-        sceneInput' =
+    sceneInput <- buildConsoleInput inputEntry
+    let sceneInput' =
           sceneInput
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs

@@ -30,8 +30,6 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono, Sans),
   TextPosition (..),
   ViewPort (..),
-  -- TODO: should be removed
-  drawText,
   rectangle,
   viewPortHeight,
   viewPortWidth,
@@ -89,6 +87,8 @@ buildConsoleHelp ::
   Maybe k ->
   m (Scene (Primitive (ConsoleEvent k)))
 buildConsoleHelp getHelp mfocus = do
+  titleElem <-
+    toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 title
   helpElems <- traverse renderItem items
   let (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
       contents = concatMap F.toList $ F.toList contentss
@@ -104,7 +104,6 @@ buildConsoleHelp getHelp mfocus = do
   where
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
-    titleElem = toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Sans Black 8 title
     renderItem (Left (txt, ev)) = do
       let hitEvent =
             HitEvent
@@ -197,14 +196,18 @@ buildConsoleMain contents mfocus = do
     mtxts = mfocus >>= (`lookupKey` contents)
     items = join $ maybeToList mtxts
 
-buildConsoleInput :: Text -> Scene (Primitive e)
-buildConsoleInput inputEntry =
-  Scene
-    { sceneId = "console-input"
-    , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-    , sceneElements = rendered
-    , sceneExtent = Nothing
-    }
-  where
-    rendered = [drawText (0, 0) UpperLeft Mono Black 8 inputEntry]
+buildConsoleInput ::
+  (MonadTextLayout m) =>
+  Text ->
+  m (Scene (Primitive e))
+buildConsoleInput inputEntry = do
+  rendered <- drawText' (0, 0) UpperLeft Mono Black 8 inputEntry
+  pure
+    Scene
+      { sceneId = "console-input"
+      , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+      , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+      , sceneElements = [rendered]
+      , sceneExtent = Nothing
+      }
+
