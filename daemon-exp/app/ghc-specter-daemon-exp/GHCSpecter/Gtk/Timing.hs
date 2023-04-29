@@ -51,8 +51,8 @@ renderTiming drvModMap tui ttable = do
         fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
   -- timing chart
   for_ (Map.lookup "timing-chart" wcfg) $ \vpCvs -> do
-    let sceneTimingChart = fmap (fmap TimingEv) $ buildTimingChart drvModMap tui ttable
-        sceneTimingChart' =
+    sceneTimingChart <- fmap (fmap TimingEv) <$> buildTimingChart drvModMap tui ttable
+    let sceneTimingChart' =
           sceneTimingChart
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
@@ -61,8 +61,8 @@ renderTiming drvModMap tui ttable = do
     addEventMap sceneTimingChart'
   -- mem chart
   for_ (Map.lookup "mem-chart" wcfg) $ \vpCvs -> do
-    let sceneMemChart = buildMemChart drvModMap tui ttable
-        sceneMemChart' =
+    sceneMemChart <- buildMemChart drvModMap tui ttable
+    let sceneMemChart' =
           sceneMemChart
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = ViewPort (0, vy0) (300, vy1)
@@ -85,8 +85,8 @@ renderTiming drvModMap tui ttable = do
   -- NOTE: the size information from vpCvs is ignored as dynamic size overrides it.
   -- TODO: scene content intrinsic size should be present in Scene data type.
   for_ minfo $ \(hoveredMod, vpCvs) -> do
-    let sceneBlockers = buildBlockers hoveredMod ttable
-        ViewPort (offsetX, offsetY) _ = vpCvs
+    sceneBlockers <- buildBlockers hoveredMod ttable
+    let ViewPort (offsetX, offsetY) _ = vpCvs
         ViewPort (vx0', vy0') (vx1', vy1') = sceneLocalViewPort sceneBlockers
         w = vx1' - vx0'
         h = vy1' - vy0'

@@ -27,7 +27,6 @@ module GHCSpecter.Graphics.DSL (
   -- * smart constructors
   rectangle,
   polyline,
-  drawText,
 
   -- * primitive util
   moveShapeBy,
@@ -214,13 +213,6 @@ polyline start bends end color width =
   Primitive
     (SPolyline $ Polyline start bends end color width)
     (ViewPort start end) -- TODO: this is not correct
-    Nothing
-
-drawText :: (Double, Double) -> TextPosition -> TextFontFace -> Color -> Int -> Text -> Primitive e
-drawText (x, y) text_pos font_face font_color font_size txt =
-  Primitive
-    (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
-    (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
     Nothing
 
 moveShapeBy :: (Double, Double) -> Shape -> Shape
