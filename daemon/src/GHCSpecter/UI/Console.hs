@@ -30,14 +30,20 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono, Sans),
   TextPosition (..),
   ViewPort (..),
+  -- TODO: should be removed
   drawText,
   rectangle,
   viewPortHeight,
+  viewPortWidth,
  )
 import GHCSpecter.Layouter.Packer (
   flowInline,
   flowLineByLine,
   toSizedLine,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout (..),
+  drawText',
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Components.Tab (
@@ -68,39 +74,46 @@ buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
         }
 
 buildConsoleHelp ::
+  forall m k.
+  (MonadTextLayout m) =>
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleHelp getHelp mfocus =
-  Scene
-    { sceneId = "console-help"
-    , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
-    , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = contents
-    , sceneExtent = Nothing
-    }
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleHelp getHelp mfocus = do
+  helpElems <- traverse renderItem items
+  let (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
+      contents = concatMap F.toList $ F.toList contentss
+      size = viewPortHeight vp
+  pure
+    Scene
+      { sceneId = "console-help"
+      , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
+      , sceneLocalViewPort = ViewPort (0, 0) (200, size)
+      , sceneElements = contents
+      , sceneExtent = Nothing
+      }
   where
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
     titleElem = toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Sans Black 8 title
-    renderItem (Left (txt, ev)) =
+    renderItem (Left (txt, ev)) = do
       let hitEvent =
             HitEvent
               { hitEventHoverOn = Nothing
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right ev)
               }
+      itm <- drawText' (0, 0) UpperLeft Mono Black 8 txt
+      let bbox = primBoundingBox itm
+          w = viewPortWidth bbox
+          h = viewPortHeight bbox
           rendered =
-            rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-              :| [drawText (0, 0) UpperLeft Mono Black 8 txt]
-       in toSizedLine rendered
-    renderItem (Right txt) = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
-    helpElems = fmap renderItem items
-    --
-    (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
-    contents = concatMap F.toList $ F.toList contentss
-    size = viewPortHeight vp
+            rectangle (0, 0) (w + 2) h (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+              :| [itm]
+      pure $ toSizedLine rendered
+    renderItem (Right txt) =
+      toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Mono Gray 8 txt
 
 buildEachLine :: Text -> (ViewPort, NonEmpty (Primitive e))
 buildEachLine = toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8

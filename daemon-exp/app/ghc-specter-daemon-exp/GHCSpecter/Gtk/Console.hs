@@ -98,8 +98,8 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
-    let sceneHelp = fmap (fmap ConsoleEv) $ buildConsoleHelp getHelp mconsoleFocus
-        sceneHelp' =
+    sceneHelp <- fmap (fmap ConsoleEv) <$> buildConsoleHelp getHelp mconsoleFocus
+    let sceneHelp' =
           sceneHelp
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
