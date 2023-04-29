@@ -13,9 +13,12 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   polyline,
   rectangle,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
  )
 
 data TabConfig tab = TabConfig
@@ -26,15 +29,23 @@ data TabConfig tab = TabConfig
   , tabCfgItems :: [(tab, Text)]
   }
 
-buildTab :: (Eq tab) => TabConfig tab -> Maybe tab -> Scene (Primitive tab)
-buildTab cfg mtab =
-  Scene
-    { sceneId = tabCfgId cfg
-    , sceneGlobalViewPort = vp
-    , sceneLocalViewPort = vp
-    , sceneElements = rexp
-    , sceneExtent = Nothing
-    }
+buildTab ::
+  forall m tab.
+  (MonadTextLayout m, Eq tab) =>
+  TabConfig tab ->
+  Maybe tab ->
+  m (Scene (Primitive tab))
+buildTab cfg mtab = do
+  renderedTabItems <- traverse mkTab items
+  let rexp = concat (renderedTabItems ++ [[mkLine mselected]])
+  pure
+    Scene
+      { sceneId = tabCfgId cfg
+      , sceneGlobalViewPort = vp
+      , sceneLocalViewPort = vp
+      , sceneElements = rexp
+      , sceneExtent = Nothing
+      }
   where
     spacing = tabCfgSpacing cfg
     height = tabCfgHeight cfg
@@ -47,7 +58,7 @@ buildTab cfg mtab =
     end = tabCfgWidth cfg
     vp = ViewPort (0, 0) (end, height)
     fontSize = 8
-    mkTab (n, (tab, txt)) =
+    mkTab (n, (tab, txt)) = do
       let x = tabPos (n :: Int)
           hitEvent =
             HitEvent
@@ -55,9 +66,11 @@ buildTab cfg mtab =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right tab)
               }
-       in [ rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
-          , drawText (x, 2) UpperLeft Sans Black fontSize txt
-          ]
+      renderedText <- drawText' (x, 2) UpperLeft Sans Black fontSize txt
+      pure
+        [ rectangle (x, 2) 80 (height - 2) Nothing (Just White) Nothing (Just hitEvent)
+        , renderedText
+        ]
     mkLine (Just (n, _)) =
       polyline
         (0, height)
@@ -70,6 +83,3 @@ buildTab cfg mtab =
         Black
         1.0
     mkLine Nothing = polyline (0, height) [] (end, height) Black 1.0
-    rexp =
-      concat $
-        fmap mkTab items ++ [[mkLine mselected]]

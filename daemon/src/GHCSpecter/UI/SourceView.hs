@@ -19,6 +19,7 @@ import GHCSpecter.Layouter.Graph.Types (
   Dimension (..),
   HasGraphVisInfo (..),
  )
+import GHCSpecter.Layouter.Text (MonadTextLayout)
 import GHCSpecter.Server.Types (
   HasServerState (..),
   ServerState (..),
@@ -36,45 +37,53 @@ import GHCSpecter.UI.Types.Event (
   SourceViewEvent (..),
  )
 
-buildSuppView :: Maybe SupplementaryView -> Scene (Primitive ())
+buildSuppView ::
+  (MonadTextLayout m) =>
+  Maybe SupplementaryView ->
+  m (Scene (Primitive ()))
 buildSuppView Nothing =
-  Scene
-    { sceneId = "supple-view-contents"
-    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-    , sceneElements = []
-    , sceneExtent = Nothing
-    }
-buildSuppView (Just (SuppViewCallgraph grVis)) =
-  Scene
-    { sceneId = "supple-view-contents"
-    , sceneGlobalViewPort = extent
-    , sceneLocalViewPort = extent
-    , sceneElements =
-        fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
-    , sceneExtent = Just extent
-    }
+  pure
+    Scene
+      { sceneId = "supple-view-contents"
+      , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+      , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+      , sceneElements = []
+      , sceneExtent = Nothing
+      }
+buildSuppView (Just (SuppViewCallgraph grVis)) = do
+  renderedGraph <-
+    fmap (() <$) <$> GraphView.buildGraph (isJust . T.find (== '.')) grVis
+  pure
+    Scene
+      { sceneId = "supple-view-contents"
+      , sceneGlobalViewPort = extent
+      , sceneLocalViewPort = extent
+      , sceneElements = renderedGraph
+      , sceneExtent = Just extent
+      }
   where
     Dim canvasWidth canvasHeight = grVis ^. gviCanvasDim
     extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
-buildSuppView (Just (SuppViewText txt)) =
-  let scene = TextView.buildTextView txt []
-   in scene
-        { sceneId = "supple-view-contents"
-        , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-        , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-        , sceneExtent = Nothing
-        }
+buildSuppView (Just (SuppViewText txt)) = do
+  scene <- TextView.buildTextView txt []
+  pure
+    scene
+      { sceneId = "supple-view-contents"
+      , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+      , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+      , sceneExtent = Nothing
+      }
 
 buildSuppViewPanel ::
+  (MonadTextLayout m) =>
   ModuleName ->
   SourceViewUI ->
   ServerState ->
-  (Scene (Primitive SourceViewEvent), Scene (Primitive ()))
-buildSuppViewPanel modu srcUI ss =
-  ( fmap (fmap SourceViewTab) (Tab.buildTab tabCfg mtab)
-  , buildSuppView msuppView
-  )
+  m (Scene (Primitive SourceViewEvent), Scene (Primitive ()))
+buildSuppViewPanel modu srcUI ss = do
+  srcViewTabScene <- fmap (fmap SourceViewTab) <$> Tab.buildTab tabCfg mtab
+  suppViewScene <- buildSuppView msuppView
+  pure (srcViewTabScene, suppViewScene)
   where
     mtab = srcUI ^. srcViewSuppViewTab
     suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))

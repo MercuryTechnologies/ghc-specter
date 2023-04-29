@@ -30,14 +30,18 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono, Sans),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   rectangle,
   viewPortHeight,
+  viewPortWidth,
  )
-import GHCSpecter.Layouter.Box.Flow (
+import GHCSpecter.Layouter.Packer (
   flowInline,
   flowLineByLine,
   toSizedLine,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Components.Tab (
@@ -51,12 +55,22 @@ import GHCSpecter.UI.Constants (
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
+buildEachLine ::
+  forall m e.
+  (MonadTextLayout m) =>
+  Text ->
+  m (ViewPort, NonEmpty (Primitive e))
+buildEachLine =
+  fmap (toSizedLine . NE.singleton) . drawText' (0, 0) UpperLeft Mono Black 8
+
 buildConsoleTab ::
-  (IsKey k, Eq k) =>
+  forall m k.
+  (MonadTextLayout m, IsKey k, Eq k) =>
   [(k, Text)] ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleTab tabs mfocus =
+  fmap (fmap ConsoleTab) <$> buildTab tabCfg mfocus
   where
     tabCfg =
       TabConfig
@@ -68,113 +82,133 @@ buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
         }
 
 buildConsoleHelp ::
+  forall m k.
+  (MonadTextLayout m) =>
   -- | getHelp. (title, help items), help item: Left: button, Right: text
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleHelp getHelp mfocus =
-  Scene
-    { sceneId = "console-help"
-    , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
-    , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = contents
-    , sceneExtent = Nothing
-    }
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleHelp getHelp mfocus = do
+  titleElem <-
+    toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 title
+  helpElems <- traverse renderItem items
+  let (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
+      contents = concatMap F.toList $ F.toList contentss
+      size = viewPortHeight vp
+  pure
+    Scene
+      { sceneId = "console-help"
+      , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
+      , sceneLocalViewPort = ViewPort (0, 0) (200, size)
+      , sceneElements = contents
+      , sceneExtent = Nothing
+      }
   where
     mhelp = getHelp <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
-    titleElem = toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Sans Black 8 title
-    renderItem (Left (txt, ev)) =
+    renderItem (Left (txt, ev)) = do
       let hitEvent =
             HitEvent
               { hitEventHoverOn = Nothing
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right ev)
               }
+      itm <- drawText' (0, 0) UpperLeft Mono Black 8 txt
+      let bbox = primBoundingBox itm
+          w = viewPortWidth bbox
+          h = viewPortHeight bbox
           rendered =
-            rectangle (0, 0) 80 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-              :| [drawText (0, 0) UpperLeft Mono Black 8 txt]
-       in toSizedLine rendered
-    renderItem (Right txt) = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Mono Gray 8 txt)
-    helpElems = fmap renderItem items
-    --
-    (vp, contentss) = flowLineByLine 0 (titleElem :| helpElems)
-    contents = concatMap F.toList $ F.toList contentss
-    size = viewPortHeight vp
+            rectangle (0, 0) (w + 2) h (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+              :| [itm]
+      pure $ toSizedLine rendered
+    renderItem (Right txt) = buildEachLine txt
 
-buildEachLine :: Text -> (ViewPort, NonEmpty (Primitive e))
-buildEachLine = toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
-
-buildTextBlock :: forall e. Text -> (ViewPort, NonEmpty (Primitive e))
-buildTextBlock txt =
+buildTextBlock ::
+  forall m e.
+  (MonadTextLayout m) =>
+  Text ->
+  m (ViewPort, NonEmpty (Primitive e))
+buildTextBlock txt = do
   let ls = T.lines txt
       ls' = fromMaybe (NE.singleton "empty string") (NE.nonEmpty ls)
-      (vp, contentss) =
-        flowLineByLine 0 $ fmap buildEachLine ls'
-   in (vp, sconcat contentss)
+  ls'' <- traverse buildEachLine ls'
+  let (vp, contentss) = flowLineByLine 0 ls''
+  pure (vp, sconcat contentss)
 
-buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-buildConsoleItem (ConsoleCommand txt) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
+buildConsoleItem ::
+  forall m k.
+  (MonadTextLayout m) =>
+  ConsoleItem ->
+  m (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+buildConsoleItem (ConsoleCommand txt) = buildEachLine txt
 buildConsoleItem (ConsoleText txt) = buildTextBlock txt
-buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
+buildConsoleItem (ConsoleButton buttonss) = do
+  ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k))) <-
+    case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
+      Nothing -> NE.singleton <$> buildEachLine "no buttons"
+      Just ls' -> traverse mkRow ls'
+  let (vp, contentss) = flowLineByLine 0 ls
+      contentss' = sconcat contentss
+  pure (vp, contentss')
   where
-    mkButton (label, cmd) =
+    mkButton (label, cmd) = do
       let hitEvent =
             HitEvent
               { hitEventHoverOn = Nothing
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
-       in -- TODO: should not have this hard-coded size "120".
-          rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-            :| [drawText (0, 0) UpperLeft Mono Black 8 label]
-
-    mkRow :: NonEmpty (Text, Text) -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-    mkRow buttons =
-      let (vp', placed) = flowInline 0 $ fmap mkButton buttons
-       in (vp', sconcat placed)
-
-    ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-    ls = case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
-      Nothing -> NE.singleton (buildEachLine "no buttons")
-      Just ls' -> fmap mkRow ls'
-    (vp, contentss) = flowLineByLine 0 ls
-    contentss' = sconcat contentss
+      itm <- drawText' (0, 0) UpperLeft Mono Black 8 label
+      let bbox = primBoundingBox itm
+          w = viewPortWidth bbox
+          h = viewPortHeight bbox
+      pure $
+        rectangle (0, 0) w h (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+          :| [itm]
+    mkRow :: NonEmpty (Text, Text) -> m (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+    mkRow buttons = do
+      buttons' <- traverse mkButton buttons
+      let (vp', placed) = flowInline 0 buttons'
+      pure (vp', sconcat placed)
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
 
 buildConsoleMain ::
-  (IsKey k, Eq k) =>
+  forall m k.
+  (MonadTextLayout m, IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleMain contents mfocus =
-  Scene
-    { sceneId = "console-main"
-    , sceneGlobalViewPort = extent
-    , sceneLocalViewPort = extent
-    , sceneElements = F.toList $ sconcat rendered
-    , sceneExtent = Just extent
-    }
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleMain contents mfocus = do
+  contentss <-
+    case NE.nonEmpty items of
+      Nothing -> NE.singleton <$> buildEachLine "No console history"
+      Just items' -> traverse buildConsoleItem items'
+  let (extent, rendered) = flowLineByLine 0 contentss
+  pure
+    Scene
+      { sceneId = "console-main"
+      , sceneGlobalViewPort = extent
+      , sceneLocalViewPort = extent
+      , sceneElements = F.toList $ sconcat rendered
+      , sceneExtent = Just extent
+      }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     items = join $ maybeToList mtxts
 
-    contentss = case NE.nonEmpty items of
-      Nothing -> NE.singleton $ buildEachLine "No console history"
-      Just items' -> fmap buildConsoleItem items'
-    (extent, rendered) = flowLineByLine 0 contentss
-
-buildConsoleInput :: Text -> Scene (Primitive e)
-buildConsoleInput inputEntry =
-  Scene
-    { sceneId = "console-input"
-    , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-    , sceneElements = rendered
-    , sceneExtent = Nothing
-    }
-  where
-    rendered = [drawText (0, 0) UpperLeft Mono Black 8 inputEntry]
+buildConsoleInput ::
+  (MonadTextLayout m) =>
+  Text ->
+  m (Scene (Primitive e))
+buildConsoleInput inputEntry = do
+  rendered <- drawText' (0, 0) UpperLeft Mono Black 8 inputEntry
+  pure
+    Scene
+      { sceneId = "console-input"
+      , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+      , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
+      , sceneElements = [rendered]
+      , sceneExtent = Nothing
+      }

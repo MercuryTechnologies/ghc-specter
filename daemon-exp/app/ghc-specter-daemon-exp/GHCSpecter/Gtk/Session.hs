@@ -50,8 +50,8 @@ renderSession ss sessui = do
   for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
     let vpiMain = sessui ^. sessionUIMainViewPort
         vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
-        sceneMain = buildSession ss
-        sceneMain' =
+    sceneMain <- buildSession ss
+    let sceneMain' =
           sceneMain
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpMain
@@ -75,8 +75,8 @@ renderSession ss sessui = do
         timingList = keyMapToList timing
         (_timingDone, timingInProg) =
           partition (\(_, t) -> isJust (getEnd t)) timingList
-        sceneModStatus = buildModuleInProgress drvModMap pausedMap timingInProg
-        sceneModStatus' =
+    sceneModStatus <- buildModuleInProgress drvModMap pausedMap timingInProg
+    let sceneModStatus' =
           sceneModStatus
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpStatus
@@ -85,8 +85,8 @@ renderSession ss sessui = do
     addEventMap sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
-        scenePause = fmap (fmap SessionEv) $ buildPauseResume sessionInfo
-        scenePause' =
+    scenePause <- fmap (fmap SessionEv) <$> buildPauseResume sessionInfo
+    let scenePause' =
           scenePause
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs

@@ -23,8 +23,11 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Mono),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   rectangle,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
  )
 
 -- TODO: generalize and refactor out these layout parameters
@@ -49,15 +52,24 @@ leftOfBox j = charSize * fromIntegral (j - 1)
 rightOfBox :: Int -> Double
 rightOfBox j = charSize * fromIntegral j
 
-buildTextView :: Text -> [((Int, Int), (Int, Int))] -> Scene (Primitive e)
-buildTextView txt highlighted =
-  Scene
-    { sceneId = "text-view"
-    , sceneGlobalViewPort = extent
-    , sceneLocalViewPort = extent
-    , sceneElements = contents
-    , sceneExtent = Just extent
-    }
+buildTextView ::
+  (MonadTextLayout m) =>
+  Text ->
+  [((Int, Int), (Int, Int))] ->
+  m (Scene (Primitive e))
+buildTextView txt highlighted = do
+  renderedLines <- traverse mkText ls
+  let
+    contents = fmap highlightBox highlighted ++ renderedLines
+    extent = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
+  pure
+    Scene
+      { sceneId = "text-view"
+      , sceneGlobalViewPort = extent
+      , sceneLocalViewPort = extent
+      , sceneElements = contents
+      , sceneExtent = Just extent
+      }
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.
     ls :: [(Int, Text)]
@@ -81,8 +93,4 @@ buildTextView txt highlighted =
         (Just 1.0)
         Nothing
     mkText (i, t) =
-      drawText (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t
-    contents =
-      fmap highlightBox highlighted
-        ++ fmap mkText ls
-    extent = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
+      drawText' (leftOfBox 1, bottomOfBox i) LowerLeft Mono Black 6 t

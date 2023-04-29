@@ -76,14 +76,14 @@ renderModuleGraph
         vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- main module graph
     for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
-      let sceneMain =
-            fmap (fmap MainModuleEv) $
-              buildModuleGraph
-                nameMap
-                valueFor
-                grVisInfo
-                (mainModuleClicked, mainModuleHovered)
-          sceneMain' =
+      sceneMain <-
+        fmap (fmap MainModuleEv)
+          <$> buildModuleGraph
+            nameMap
+            valueFor
+            grVisInfo
+            (mainModuleClicked, mainModuleHovered)
+      let sceneMain' =
             sceneMain
               { sceneGlobalViewPort = vpCvs
               , sceneLocalViewPort = vpMain
@@ -108,14 +108,14 @@ renderModuleGraph
           let valueForSub name
                 | isModuleCompilationDone drvModMap timing name = 1
                 | otherwise = 0
-              sceneSub =
-                fmap (fmap (SubModuleEv . SubModuleGraphEv)) $
-                  buildModuleGraph
-                    nameMap
-                    valueForSub
-                    subgraph
-                    (mainModuleClicked, subModuleHovered)
-              sceneSub' =
+          sceneSub <-
+            fmap (fmap (SubModuleEv . SubModuleGraphEv))
+              <$> buildModuleGraph
+                nameMap
+                valueForSub
+                subgraph
+                (mainModuleClicked, subModuleHovered)
+          let sceneSub' =
                 sceneSub
                   { -- TODO: this should be set up from buildModuleGraph
                     sceneId = "sub-module-graph"

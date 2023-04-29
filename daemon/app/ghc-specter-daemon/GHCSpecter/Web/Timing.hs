@@ -101,7 +101,9 @@ renderTimingChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderTimingChart drvModMap tui ttable =
+renderTimingChart drvModMap tui ttable = do
+  scene <- TimingView.buildTimingChart drvModMap tui ttable
+  let rexp = sceneElements scene
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
@@ -113,8 +115,6 @@ renderTimingChart drvModMap tui ttable =
         [ fmap (\ev -> TimingEv ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
         , fmap (\ev -> TimingEv ev <$ onMouseLeave) (hitEventHoverOn hitEvent)
         ]
-    scene = TimingView.buildTimingChart drvModMap tui ttable
-    rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     svgProps =
@@ -145,15 +145,15 @@ renderMemChart ::
   TimingUI ->
   TimingTable ->
   Widget IHTML Event
-renderMemChart drvModMap tui ttable =
+renderMemChart drvModMap tui ttable = do
+  scene <- TimingView.buildMemChart drvModMap tui ttable
+  let rexp = sceneElements scene
   S.svg
     svgProps
     [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
     , S.g [] (fmap (renderPrimitive (const [])) rexp)
     ]
   where
-    scene = TimingView.buildMemChart drvModMap tui ttable
-    rexp = sceneElements scene
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     viewboxProp =

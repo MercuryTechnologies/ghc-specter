@@ -36,13 +36,14 @@ library
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
-      GHCSpecter.Layouter.Box.Flow
+      GHCSpecter.Layouter.Text
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
       GHCSpecter.Layouter.Graph.Algorithm.Cluster
       GHCSpecter.Layouter.Graph.OGDF
       GHCSpecter.Layouter.Graph.Sugiyama
       GHCSpecter.Layouter.Graph.Types
+      GHCSpecter.Layouter.Packer
       GHCSpecter.Server.Types
       GHCSpecter.UI.Components.GraphView
       GHCSpecter.UI.Components.ModuleTree
@@ -131,7 +132,7 @@ executable ghc-specter-daemon
       GHCSpecter.Web.Util
       Paths_ghc_specter_daemon
   hs-source-dirs:
-      app
+      app/ghc-specter-daemon
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson

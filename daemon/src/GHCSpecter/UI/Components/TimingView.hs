@@ -45,14 +45,17 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   polyline,
   rectangle,
   viewPortHeight,
  )
-import GHCSpecter.Layouter.Box.Flow (
+import GHCSpecter.Layouter.Packer (
   flowLineByLine,
   toSizedLine,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
  )
 import GHCSpecter.UI.Constants (
   timingHeight,
@@ -140,22 +143,26 @@ buildRules showParallel table totalHeight totalTime =
         Nothing
 
 buildTimingChart ::
+  forall m.
+  (MonadTextLayout m) =>
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene (Primitive TimingEvent)
-buildTimingChart drvModMap tui ttable =
-  Scene
-    { sceneId = "timing-chart"
-    , sceneGlobalViewPort = extent
-    , sceneLocalViewPort = extent
-    , sceneElements =
-        buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
-          ++ (concatMap makeItem filteredItems)
-          ++ lineToUpstream
-          ++ linesToDownstream
-    , sceneExtent = Just extent
-    }
+  m (Scene (Primitive TimingEvent))
+buildTimingChart drvModMap tui ttable = do
+  renderedItems <- concat <$> traverse makeItem filteredItems
+  pure
+    Scene
+      { sceneId = "timing-chart"
+      , sceneGlobalViewPort = extent
+      , sceneLocalViewPort = extent
+      , sceneElements =
+          buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+            ++ renderedItems
+            ++ lineToUpstream
+            ++ linesToDownstream
+      , sceneExtent = Just extent
+      }
   where
     extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
     timingInfos = ttable ^. ttableTimingInfos
@@ -224,14 +231,16 @@ buildTimingChart drvModMap tui ttable =
         (Just DeepSkyBlue)
         Nothing
         Nothing
-    moduleText (i, item@(mmodu, _)) =
+    moduleText (i, item@(mmodu, _)) = do
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in drawText (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
-    makeItem x =
+      drawText' (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+    makeItem x = do
+      renderedText <- moduleText x
       if tui ^. timingUIPartition
-        then [box x, boxAs x, boxHscOut x, moduleText x]
-        else [box x, moduleText x]
+        then do
+          pure [box x, boxAs x, boxHscOut x, renderedText]
+        else pure [box x, renderedText]
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
     allItems = zip [0 ..] timingInfos'
     rangeY =
@@ -267,19 +276,22 @@ buildTimingChart drvModMap tui ttable =
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
 buildMemChart ::
+  forall m e.
+  (MonadTextLayout m) =>
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  Scene (Primitive e)
-buildMemChart drvModMap tui ttable =
-  Scene
-    { sceneId = "mem-chart"
-    , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
-    , sceneElements =
-        concatMap makeItem filteredItems
-    , sceneExtent = Nothing
-    }
+  m (Scene (Primitive e))
+buildMemChart drvModMap tui ttable = do
+  renderedItems <- concat <$> traverse makeItem filteredItems
+  pure
+    Scene
+      { sceneId = "mem-chart"
+      , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
+      , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
+      , sceneElements = renderedItems
+      , sceneExtent = Nothing
+      }
   where
     timingInfos = ttable ^. ttableTimingInfos
     timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
@@ -310,20 +322,23 @@ buildMemChart drvModMap tui ttable =
               Nothing
               Nothing
           ]
-    moduleText (i, (mmodu, _)) =
+    moduleText (i, (mmodu, _)) = do
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-       in drawText (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
-    makeItem x =
+      drawText' (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+    makeItem x = do
+      renderedText <- moduleText x
       if (tui ^. timingUIPartition)
         then
-          box LightSlateGray plEnd x
-            ++ box DeepSkyBlue plAs x
-            ++ box RoyalBlue plHscOut x
-            ++ [moduleText x]
+          pure $
+            box LightSlateGray plEnd x
+              ++ box DeepSkyBlue plAs x
+              ++ box RoyalBlue plHscOut x
+              ++ [renderedText]
         else
-          box LightSlateGray plEnd x
-            ++ [moduleText x]
+          pure $
+            box LightSlateGray plEnd x
+              ++ [renderedText]
 
 buildTimingRange ::
   TimingUI ->
@@ -376,29 +391,35 @@ buildTimingRange tui ttable =
         (Just 1.0)
         Nothing
 
-buildBlockers :: ModuleName -> TimingTable -> Scene (Primitive e)
-buildBlockers hoveredMod ttable =
-  Scene
-    { sceneId = "blockers"
-    , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
-    , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-    , sceneElements = box : F.toList (sconcat contentss)
-    , sceneExtent = Nothing
-    }
-  where
-    upMods =
-      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
-    downMods =
-      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
-    --
-    selected = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 hoveredMod)
-    line = toSizedLine $ NE.singleton (polyline (0, 0) [] (200, 0) Black 1)
-    blockedBy = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocked By")
-    upstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) upMods
-    blocking = toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 "Blocking")
-    downstreams = fmap (\t -> toSizedLine $ NE.singleton (drawText (0, 0) UpperLeft Sans Black 8 t)) downMods
+buildBlockers ::
+  forall m e.
+  (MonadTextLayout m) =>
+  ModuleName ->
+  TimingTable ->
+  m (Scene (Primitive e))
+buildBlockers hoveredMod ttable = do
+  selected <- toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 hoveredMod
+  let line = toSizedLine $ NE.singleton $ polyline (0, 0) [] (200, 0) Black 1
+  blockedBy <- toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 "Blocked By"
+  upstreams <- traverse (\t -> toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 t) upMods
+  blocking <- toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 "Blocking"
+  downstreams <- traverse (\t -> toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 t) downMods
+  let
     (vp, contentss) =
       flowLineByLine 0 $
         selected NE.:| ([line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
     size = viewPortHeight vp
     box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
+  pure
+    Scene
+      { sceneId = "blockers"
+      , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
+      , sceneLocalViewPort = ViewPort (0, 0) (200, size)
+      , sceneElements = box : F.toList (sconcat contentss)
+      , sceneExtent = Nothing
+      }
+  where
+    upMods =
+      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+    downMods =
+      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))

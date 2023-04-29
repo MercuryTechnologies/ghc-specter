@@ -99,7 +99,7 @@ renderModuleGraph
   nameMap
   valueFor
   grVisInfo
-  (mfocused, mhinted) =
+  (mfocused, mhinted) = do
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
         handlers hitEvent =
           catMaybes
@@ -107,9 +107,9 @@ renderModuleGraph
             , fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent)
             , fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
             ]
-        scene = buildModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
-        rexp = sceneElements scene
-        svgProps =
+    scene <- buildModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
+    let rexp = sceneElements scene
+    let svgProps =
           [ width (T.pack (show (canvasWidth + 100)))
           , SP.viewBox
               ( "0 0 "
@@ -126,14 +126,14 @@ renderModuleGraph
             ( S.style [] [text ".small { font: 6px Courier,monospace; } text { user-select: none; }"]
                 : fmap (renderPrimitive handlers) rexp
             )
-     in div [classList [("is-fullwidth", True)]] [svgElement]
+    div [classList [("is-fullwidth", True)]] [svgElement]
 
 -- | render graph more simply
 renderGraph :: (Text -> Bool) -> GraphVisInfo -> Widget IHTML a
-renderGraph cond grVisInfo =
+renderGraph cond grVisInfo = do
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
-      rexp = buildGraph cond grVisInfo
-      svgProps =
+  rexp <- buildGraph cond grVisInfo
+  let svgProps =
         [ width (T.pack (show (canvasWidth + 100)))
         , SP.viewBox
             ( "0 0 "

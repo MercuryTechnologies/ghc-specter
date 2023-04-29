@@ -6,6 +6,8 @@ module GHCSpecter.Graphics.DSL (
 
   -- * view port
   ViewPort (..),
+
+  -- * ViewPort util
   viewPortWidth,
   viewPortHeight,
   viewPortSum,
@@ -21,14 +23,19 @@ module GHCSpecter.Graphics.DSL (
   DrawText (..),
   Shape (..),
   Primitive (..),
-  Scene (..),
 
   -- * smart constructors
   rectangle,
   polyline,
-  drawText,
 
-  -- * event primitives
+  -- * primitive util
+  moveShapeBy,
+  moveBoundingBoxBy,
+  movePrimitiveBy,
+  getLeastUpperBoundingBox,
+
+  -- * scene
+  Scene (..),
   EventMap,
   eventMapId,
   eventMapGlobalViewPort,
@@ -37,6 +44,7 @@ module GHCSpecter.Graphics.DSL (
 ) where
 
 import Data.Bifunctor (bimap)
+import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
 
 data Color
@@ -207,12 +215,42 @@ polyline start bends end color width =
     (ViewPort start end) -- TODO: this is not correct
     Nothing
 
-drawText :: (Double, Double) -> TextPosition -> TextFontFace -> Color -> Int -> Text -> Primitive e
-drawText (x, y) text_pos font_face font_color font_size txt =
-  Primitive
-    (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
-    (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
-    Nothing
+moveShapeBy :: (Double, Double) -> Shape -> Shape
+moveShapeBy (dx, dy) (SDrawText (txt@DrawText {})) =
+  let (x, y) = dtextXY txt
+   in SDrawText (txt {dtextXY = (x + dx, y + dy)})
+moveShapeBy (dx, dy) (SPolyline (poly@Polyline {})) =
+  let (x0, y0) = plineStart poly
+      xs = plineBends poly
+      (x1, y1) = plineEnd poly
+      f (x, y) = (x + dx, y + dy)
+      poly' =
+        poly
+          { plineStart = f (x0, y0)
+          , plineBends = fmap f xs
+          , plineEnd = f (x1, y1)
+          }
+   in SPolyline poly'
+moveShapeBy (dx, dy) (SRectangle (rect@Rectangle {})) =
+  let (x, y) = rectXY rect
+   in SRectangle (rect {rectXY = (x + dx, y + dy)})
+
+moveBoundingBoxBy :: (Double, Double) -> ViewPort -> ViewPort
+moveBoundingBoxBy (dx, dy) (ViewPort (vx0, vy0) (vx1, vy1)) =
+  ViewPort (vx0 + dx, vy0 + dy) (vx1 + dx, vy1 + dy)
+
+movePrimitiveBy :: (Double, Double) -> Primitive e -> Primitive e
+movePrimitiveBy (dx, dy) (Primitive shape vp hitEvent) =
+  let shape' = moveShapeBy (dx, dy) shape
+      vp' = moveBoundingBoxBy (dx, dy) vp
+   in Primitive shape' vp' hitEvent
+
+getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
+getLeastUpperBoundingBox itms =
+  let vps = fmap primBoundingBox itms
+      tl = (minimum $ fmap (fst . topLeft) vps, minimum $ fmap (snd . topLeft) vps)
+      br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
+   in ViewPort tl br
 
 -- scene has local view port matched with global canvas
 data Scene elem = Scene
