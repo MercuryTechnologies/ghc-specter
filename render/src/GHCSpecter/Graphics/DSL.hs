@@ -30,6 +30,9 @@ module GHCSpecter.Graphics.DSL (
   drawText,
 
   -- * primitive util
+  moveShapeBy,
+  moveBoundingBoxBy,
+  movePrimitiveBy,
   getLeastUpperBoundingBox,
 
   -- * scene
@@ -219,6 +222,36 @@ drawText (x, y) text_pos font_face font_color font_size txt =
     (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
     (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
     Nothing
+
+moveShapeBy :: (Double, Double) -> Shape -> Shape
+moveShapeBy (dx, dy) (SDrawText (txt@DrawText {})) =
+  let (x, y) = dtextXY txt
+   in SDrawText (txt {dtextXY = (x + dx, y + dy)})
+moveShapeBy (dx, dy) (SPolyline (poly@Polyline {})) =
+  let (x0, y0) = plineStart poly
+      xs = plineBends poly
+      (x1, y1) = plineEnd poly
+      f (x, y) = (x + dx, y + dy)
+      poly' =
+        poly
+          { plineStart = f (x0, y0)
+          , plineBends = fmap f xs
+          , plineEnd = f (x1, y1)
+          }
+   in SPolyline poly'
+moveShapeBy (dx, dy) (SRectangle (rect@Rectangle {})) =
+  let (x, y) = rectXY rect
+   in SRectangle (rect {rectXY = (x + dx, y + dy)})
+
+moveBoundingBoxBy :: (Double, Double) -> ViewPort -> ViewPort
+moveBoundingBoxBy (dx, dy) (ViewPort (vx0, vy0) (vx1, vy1)) =
+  ViewPort (vx0 + dx, vy0 + dy) (vx1 + dx, vy1 + dy)
+
+movePrimitiveBy :: (Double, Double) -> Primitive e -> Primitive e
+movePrimitiveBy (dx, dy) (Primitive shape vp hitEvent) =
+  let shape' = moveShapeBy (dx, dy) shape
+      vp' = moveBoundingBoxBy (dx, dy) vp
+   in Primitive shape' vp' hitEvent
 
 getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
 getLeastUpperBoundingBox itms =

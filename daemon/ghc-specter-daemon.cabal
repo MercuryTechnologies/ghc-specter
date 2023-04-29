@@ -36,15 +36,14 @@ library
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
-      GHCSpecter.Layouter.Box.Flow
-      GHCSpecter.Layouter.Font.Text
-      GHCSpecter.Layouter.Font.Types
+      GHCSpecter.Layouter.Text
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
       GHCSpecter.Layouter.Graph.Algorithm.Cluster
       GHCSpecter.Layouter.Graph.OGDF
       GHCSpecter.Layouter.Graph.Sugiyama
       GHCSpecter.Layouter.Graph.Types
+      GHCSpecter.Layouter.Packer
       GHCSpecter.Server.Types
       GHCSpecter.UI.Components.GraphView
       GHCSpecter.UI.Components.ModuleTree

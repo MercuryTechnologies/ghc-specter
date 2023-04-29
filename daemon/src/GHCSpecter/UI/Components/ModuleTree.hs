@@ -23,10 +23,10 @@ import GHCSpecter.Graphics.DSL (
   TextPosition (..),
   ViewPort (..),
   drawText,
+  movePrimitiveBy,
   rectangle,
  )
-import GHCSpecter.Layouter.Box.Flow (movePrimitiveBy)
-import GHCSpecter.Layouter.Font.Types (MonadFontLayout (..))
+import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -54,7 +54,7 @@ expandableText isBordered isExpandable txt =
 
 buildModuleTree ::
   forall m.
-  (MonadFontLayout m) =>
+  (MonadTextLayout m) =>
   SourceViewUI ->
   ServerState ->
   m (Scene (Primitive SourceViewEvent))

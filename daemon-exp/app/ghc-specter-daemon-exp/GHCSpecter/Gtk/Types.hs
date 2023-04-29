@@ -12,8 +12,8 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Typeable (Typeable)
 import GHCSpecter.Graphics.DSL (EventMap, TextFontFace (..))
-import GHCSpecter.Layouter.Font.Types (
-  MonadFontLayout (..),
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout (..),
  )
 import GHCSpecter.UI.Constants (WidgetConfig)
 import GI.Cairo.Render qualified as R
@@ -35,7 +35,7 @@ data WrappedViewBackend = forall e. (Typeable e) => WrappedViewBackend (ViewBack
 
 type GtkRender e = ReaderT (ViewBackend e) R.Render
 
-instance MonadFontLayout (GtkRender e) where
+instance MonadTextLayout (GtkRender e) where
   calculateTextDimension face sz txt = do
     layouter <- vbResource <$> ask
     let ctxt = vbrPangoContext layouter

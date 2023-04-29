@@ -1,4 +1,5 @@
-module GHCSpecter.Layouter.Font.Text (
+module GHCSpecter.Layouter.Text (
+  MonadTextLayout (..),
   drawText',
 ) where
 
@@ -12,10 +13,16 @@ import GHCSpecter.Graphics.DSL (
   TextPosition,
   ViewPort (..),
  )
-import GHCSpecter.Layouter.Font.Types (MonadFontLayout (..))
+
+class (Monad m) => MonadTextLayout m where
+  calculateTextDimension ::
+    TextFontFace ->
+    Int ->
+    Text ->
+    m (Double, Double)
 
 drawText' ::
-  (MonadFontLayout m) =>
+  (MonadTextLayout m) =>
   (Double, Double) ->
   TextPosition ->
   TextFontFace ->
