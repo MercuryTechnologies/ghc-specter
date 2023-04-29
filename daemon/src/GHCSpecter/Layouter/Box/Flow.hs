@@ -4,9 +4,6 @@ module GHCSpecter.Layouter.Box.Flow (
   moveBoundingBoxBy,
   movePrimitiveBy,
 
-  -- * ViewPort util
-  getLeastUpperBoundingBox,
-
   -- * flow
   toSizedLine,
   flowInline,
@@ -23,6 +20,7 @@ import GHCSpecter.Graphics.DSL (
   Rectangle (..),
   Shape (..),
   ViewPort (..),
+  getLeastUpperBoundingBox,
   viewPortHeight,
   viewPortSum,
   viewPortWidth,
@@ -57,13 +55,6 @@ movePrimitiveBy (dx, dy) (Primitive shape vp hitEvent) =
   let shape' = moveShapeBy (dx, dy) shape
       vp' = moveBoundingBoxBy (dx, dy) vp
    in Primitive shape' vp' hitEvent
-
-getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
-getLeastUpperBoundingBox itms =
-  let vps = fmap primBoundingBox itms
-      tl = (minimum $ fmap (fst . topLeft) vps, minimum $ fmap (snd . topLeft) vps)
-      br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
-   in ViewPort tl br
 
 toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
 toSizedLine xs = (getLeastUpperBoundingBox xs, xs)

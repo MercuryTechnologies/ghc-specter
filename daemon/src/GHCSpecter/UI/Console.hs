@@ -113,10 +113,14 @@ buildTextBlock txt =
         flowLineByLine 0 $ fmap buildEachLine ls'
    in (vp, sconcat contentss)
 
-buildConsoleItem :: forall k. ConsoleItem -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+buildConsoleItem ::
+  forall k.
+  ConsoleItem ->
+  (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
 buildConsoleItem (ConsoleCommand txt) =
   toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
-buildConsoleItem (ConsoleText txt) = buildTextBlock txt
+buildConsoleItem (ConsoleText txt) =
+  buildTextBlock txt
 buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
   where
     mkButton (label, cmd) =

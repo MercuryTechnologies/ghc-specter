@@ -6,6 +6,8 @@ module GHCSpecter.Graphics.DSL (
 
   -- * view port
   ViewPort (..),
+
+  -- * ViewPort util
   viewPortWidth,
   viewPortHeight,
   viewPortSum,
@@ -21,14 +23,17 @@ module GHCSpecter.Graphics.DSL (
   DrawText (..),
   Shape (..),
   Primitive (..),
-  Scene (..),
 
   -- * smart constructors
   rectangle,
   polyline,
   drawText,
 
-  -- * event primitives
+  -- * primitive util
+  getLeastUpperBoundingBox,
+
+  -- * scene
+  Scene (..),
   EventMap,
   eventMapId,
   eventMapGlobalViewPort,
@@ -37,6 +42,7 @@ module GHCSpecter.Graphics.DSL (
 ) where
 
 import Data.Bifunctor (bimap)
+import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
 
 data Color
@@ -213,6 +219,13 @@ drawText (x, y) text_pos font_face font_color font_size txt =
     (SDrawText $ DrawText (x, y) text_pos font_face font_color font_size txt)
     (ViewPort (x, y) (x + 120, y + fromIntegral font_size + 3)) -- TODO: this is not correct at all
     Nothing
+
+getLeastUpperBoundingBox :: NonEmpty (Primitive e) -> ViewPort
+getLeastUpperBoundingBox itms =
+  let vps = fmap primBoundingBox itms
+      tl = (minimum $ fmap (fst . topLeft) vps, minimum $ fmap (snd . topLeft) vps)
+      br = (maximum $ fmap (fst . bottomRight) vps, maximum $ fmap (snd . bottomRight) vps)
+   in ViewPort tl br
 
 -- scene has local view port matched with global canvas
 data Scene elem = Scene

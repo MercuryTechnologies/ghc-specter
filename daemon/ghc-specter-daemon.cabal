@@ -37,6 +37,7 @@ library
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
       GHCSpecter.Layouter.Box.Flow
+      GHCSpecter.Layouter.Font.Text
       GHCSpecter.Layouter.Font.Types
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
