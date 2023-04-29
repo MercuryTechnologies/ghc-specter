@@ -13,7 +13,6 @@ topLevelTab :: TabConfig Tab
 topLevelTab =
   TabConfig
     { tabCfgId = "tab"
-    , tabCfgSpacing = 80
     , tabCfgWidth = canvasDim ^. _1
     , tabCfgHeight = tabHeight
     , tabCfgItems =

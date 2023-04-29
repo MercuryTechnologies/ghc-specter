@@ -95,7 +95,6 @@ buildSuppViewPanel modu srcUI ss = do
     tabCfg =
       Tab.TabConfig
         { Tab.tabCfgId = "supple-view-tab"
-        , Tab.tabCfgSpacing = 80
         , Tab.tabCfgWidth = 500
         , Tab.tabCfgHeight = 15
         , Tab.tabCfgItems = suppViewTabs

@@ -90,6 +90,7 @@ library
     , lens
     , pretty-simple
     , resourcet
+    , safe
     , stdcxx
     , stm
     , text
