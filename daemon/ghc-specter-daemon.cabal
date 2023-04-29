@@ -174,6 +174,7 @@ executable font-test
     , ghc-specter-render
     , gi-pango
     , gi-pangocairo
+    , transformers
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test
