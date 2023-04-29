@@ -87,8 +87,8 @@ renderConsole ui ss = do
     let vpi = ui ^. uiModel . modelConsole . consoleViewPort
         vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     boxFill Ivory vpCvs
-    let sceneMain = fmap (fmap ConsoleEv) $ buildConsoleMain consoleMap mconsoleFocus
-        sceneMain' =
+    sceneMain <- fmap (fmap ConsoleEv) <$> buildConsoleMain consoleMap mconsoleFocus
+    let sceneMain' =
           sceneMain
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp

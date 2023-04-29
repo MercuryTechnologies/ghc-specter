@@ -57,6 +57,14 @@ import GHCSpecter.UI.Constants (
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
+buildEachLine ::
+  forall m e.
+  (MonadTextLayout m) =>
+  Text ->
+  m (ViewPort, NonEmpty (Primitive e))
+buildEachLine =
+  fmap (toSizedLine . NE.singleton) . drawText' (0, 0) UpperLeft Mono Black 8
+
 buildConsoleTab ::
   (IsKey k, Eq k) =>
   [(k, Text)] ->
@@ -112,77 +120,82 @@ buildConsoleHelp getHelp mfocus = do
             rectangle (0, 0) (w + 2) h (Just Black) (Just White) (Just 1.0) (Just hitEvent)
               :| [itm]
       pure $ toSizedLine rendered
-    renderItem (Right txt) =
-      toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Mono Gray 8 txt
+    renderItem (Right txt) = buildEachLine txt
 
-buildEachLine :: Text -> (ViewPort, NonEmpty (Primitive e))
-buildEachLine = toSizedLine . NE.singleton . drawText (0, 0) UpperLeft Mono Black 8
-
-buildTextBlock :: forall e. Text -> (ViewPort, NonEmpty (Primitive e))
-buildTextBlock txt =
+buildTextBlock ::
+  forall m e.
+  (MonadTextLayout m) =>
+  Text ->
+  m (ViewPort, NonEmpty (Primitive e))
+buildTextBlock txt = do
   let ls = T.lines txt
       ls' = fromMaybe (NE.singleton "empty string") (NE.nonEmpty ls)
-      (vp, contentss) =
-        flowLineByLine 0 $ fmap buildEachLine ls'
-   in (vp, sconcat contentss)
+  ls'' <- traverse buildEachLine ls'
+  let (vp, contentss) = flowLineByLine 0 ls''
+  pure (vp, sconcat contentss)
 
 buildConsoleItem ::
-  forall k.
+  forall m k.
+  (MonadTextLayout m) =>
   ConsoleItem ->
-  (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-buildConsoleItem (ConsoleCommand txt) =
-  toSizedLine $ NE.singleton $ drawText (0, 0) UpperLeft Mono Black 8 txt
-buildConsoleItem (ConsoleText txt) =
-  buildTextBlock txt
-buildConsoleItem (ConsoleButton buttonss) = (vp, contentss')
+  m (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+buildConsoleItem (ConsoleCommand txt) = buildEachLine txt
+buildConsoleItem (ConsoleText txt) = buildTextBlock txt
+buildConsoleItem (ConsoleButton buttonss) = do
+  ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k))) <-
+    case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
+      Nothing -> NE.singleton <$> buildEachLine "no buttons"
+      Just ls' -> traverse mkRow ls'
+  let (vp, contentss) = flowLineByLine 0 ls
+      contentss' = sconcat contentss
+  pure (vp, contentss')
   where
-    mkButton (label, cmd) =
+    mkButton (label, cmd) = do
       let hitEvent =
             HitEvent
               { hitEventHoverOn = Nothing
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
-       in -- TODO: should not have this hard-coded size "120".
-          rectangle (0, 0) 120 10 (Just Black) (Just White) (Just 1.0) (Just hitEvent)
-            :| [drawText (0, 0) UpperLeft Mono Black 8 label]
-
-    mkRow :: NonEmpty (Text, Text) -> (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-    mkRow buttons =
-      let (vp', placed) = flowInline 0 $ fmap mkButton buttons
-       in (vp', sconcat placed)
-
-    ls :: NonEmpty (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
-    ls = case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
-      Nothing -> NE.singleton (buildEachLine "no buttons")
-      Just ls' -> fmap mkRow ls'
-    (vp, contentss) = flowLineByLine 0 ls
-    contentss' = sconcat contentss
+      itm <- drawText' (0, 0) UpperLeft Mono Black 8 label
+      let bbox = primBoundingBox itm
+          w = viewPortWidth bbox
+          h = viewPortHeight bbox
+      pure $
+        rectangle (0, 0) w h (Just Black) (Just White) (Just 1.0) (Just hitEvent)
+          :| [itm]
+    mkRow :: NonEmpty (Text, Text) -> m (ViewPort, NonEmpty (Primitive (ConsoleEvent k)))
+    mkRow buttons = do
+      buttons' <- traverse mkButton buttons
+      let (vp', placed) = flowInline 0 buttons'
+      pure (vp', sconcat placed)
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
 
 buildConsoleMain ::
-  (IsKey k, Eq k) =>
+  forall m k.
+  (MonadTextLayout m, IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleMain contents mfocus =
-  Scene
-    { sceneId = "console-main"
-    , sceneGlobalViewPort = extent
-    , sceneLocalViewPort = extent
-    , sceneElements = F.toList $ sconcat rendered
-    , sceneExtent = Just extent
-    }
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleMain contents mfocus = do
+  contentss <-
+    case NE.nonEmpty items of
+      Nothing -> NE.singleton <$> buildEachLine "No console history"
+      Just items' -> traverse buildConsoleItem items'
+  let (extent, rendered) = flowLineByLine 0 contentss
+  pure
+    Scene
+      { sceneId = "console-main"
+      , sceneGlobalViewPort = extent
+      , sceneLocalViewPort = extent
+      , sceneElements = F.toList $ sconcat rendered
+      , sceneExtent = Just extent
+      }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     items = join $ maybeToList mtxts
-
-    contentss = case NE.nonEmpty items of
-      Nothing -> NE.singleton $ buildEachLine "No console history"
-      Just items' -> fmap buildConsoleItem items'
-    (extent, rendered) = flowLineByLine 0 contentss
 
 buildConsoleInput :: Text -> Scene (Primitive e)
 buildConsoleInput inputEntry =
