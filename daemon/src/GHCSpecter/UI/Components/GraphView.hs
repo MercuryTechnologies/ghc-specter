@@ -23,6 +23,7 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
+  -- TODO: remove
   drawText,
   polyline,
   rectangle,
@@ -37,10 +38,16 @@ import GHCSpecter.Layouter.Graph.Types (
   Point (..),
   toTuple,
  )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
+ )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)
 
 buildModuleGraph ::
+  forall m.
+  (MonadTextLayout m) =>
   -- | key = graph id
   IntMap ModuleName ->
   -- | For each module, assign a double type value in [0, 1],
@@ -50,12 +57,12 @@ buildModuleGraph ::
   GraphVisInfo ->
   -- | (focused (clicked), hinted (hovered))
   (Maybe Text, Maybe Text) ->
-  Scene (Primitive ModuleGraphEvent)
+  m (Scene (Primitive ModuleGraphEvent))
 buildModuleGraph
   nameMap
   valueFor
   grVisInfo
-  (mfocused, mhinted) =
+  (mfocused, mhinted) = do
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
         extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
         revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
@@ -89,7 +96,7 @@ buildModuleGraph
                 -- Left-to-right flow.
                 pure (rightCenter srcNode, leftCenter tgtNode)
            in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
-        node (NodeLayout (_, name) (Point x y) (Dim w h)) =
+        node (NodeLayout (_, name) (Point x y) (Dim w h)) = do
           let fontSize = 5
               ratio = valueFor name
               w' = ratio * w
@@ -103,25 +110,36 @@ buildModuleGraph
                   , hitEventHoverOff = Just (HoverOnModuleEv Nothing)
                   , hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
-           in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
-              , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
-              , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
-              , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
-              ]
-     in Scene
-          { sceneId = "main-module-graph"
-          , sceneGlobalViewPort = extent
-          , sceneLocalViewPort = extent
-          , sceneElements =
-              [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
-                ++ fmap edge (grVisInfo ^. gviEdges)
-                ++ concatMap node (grVisInfo ^. gviNodes)
-          , sceneExtent = Just extent
-          }
+          renderedText <- drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+          -- TODO: width and height should be replaced by correct impl.
+          pure
+            [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
+            , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
+            , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
+            , renderedText
+            ]
+    renderedNodes <-
+      concat <$> traverse node (grVisInfo ^. gviNodes)
+    pure
+      Scene
+        { sceneId = "main-module-graph"
+        , sceneGlobalViewPort = extent
+        , sceneLocalViewPort = extent
+        , sceneElements =
+            [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+              ++ fmap edge (grVisInfo ^. gviEdges)
+              ++ renderedNodes
+        , sceneExtent = Just extent
+        }
 
 -- | build graph more simply to graphics DSL
-buildGraph :: (Text -> Bool) -> GraphVisInfo -> [Primitive ModuleGraphEvent]
-buildGraph cond grVisInfo =
+buildGraph ::
+  forall m.
+  (MonadTextLayout m) =>
+  (Text -> Bool) ->
+  GraphVisInfo ->
+  m [Primitive ModuleGraphEvent]
+buildGraph cond grVisInfo = do
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
@@ -147,14 +165,20 @@ buildGraph cond grVisInfo =
               pure (rightCenter srcNode, leftCenter tgtNode)
          in polyline (toTuple srcPt) (fmap toTuple xys) (toTuple tgtPt) color swidth
 
-      node (NodeLayout (_, name) (Point x y) (Dim w h)) =
+      node (NodeLayout (_, name) (Point x y) (Dim w h)) = do
         let fontSize = 5
             color
               | cond name = HoneyDew
               | otherwise = Ivory
-         in [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
-            , drawText (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
-            ]
-   in [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
-        ++ fmap edge (grVisInfo ^. gviEdges)
-        ++ concatMap node (grVisInfo ^. gviNodes)
+        renderedText <-
+          drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+        pure
+          [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
+          , renderedText
+          ]
+  renderedNodes <-
+    concat <$> traverse node (grVisInfo ^. gviNodes)
+  pure $
+    [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
+      ++ fmap edge (grVisInfo ^. gviEdges)
+      ++ renderedNodes

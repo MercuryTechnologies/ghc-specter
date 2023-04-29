@@ -50,14 +50,15 @@ buildSuppView Nothing =
       , sceneElements = []
       , sceneExtent = Nothing
       }
-buildSuppView (Just (SuppViewCallgraph grVis)) =
+buildSuppView (Just (SuppViewCallgraph grVis)) = do
+  renderedGraph <-
+    fmap (() <$) <$> GraphView.buildGraph (isJust . T.find (== '.')) grVis
   pure
     Scene
       { sceneId = "supple-view-contents"
       , sceneGlobalViewPort = extent
       , sceneLocalViewPort = extent
-      , sceneElements =
-          fmap (() <$) $ GraphView.buildGraph (isJust . T.find (== '.')) grVis
+      , sceneElements = renderedGraph
       , sceneExtent = Just extent
       }
   where
