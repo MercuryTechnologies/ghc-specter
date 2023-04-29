@@ -22,11 +22,15 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   movePrimitiveBy,
   rectangle,
+  viewPortHeight,
+  viewPortWidth,
  )
-import GHCSpecter.Layouter.Text (MonadTextLayout (..))
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout (..),
+  drawText',
+ )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -120,10 +124,13 @@ buildModuleTree srcUI ss = do
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (SetBreakpoint modu (not hasBreakpoint)))
               }
-      (w, h) <- calculateTextDimension Sans 8 txt
+      renderedText <- drawText' (0, 0) UpperLeft Sans color 8 txt
+      let bbox = primBoundingBox renderedText
+          w = viewPortWidth bbox
+          h = viewPortHeight bbox
       pure
         [ rectangle (0, 0) w h (Just Red) colorBox Nothing (Just hitEvent)
-        , drawText (0, 0) UpperLeft Sans color 8 txt
+        , renderedText
         , rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
         ]
 

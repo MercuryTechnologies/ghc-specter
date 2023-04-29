@@ -39,8 +39,11 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (Sans),
   TextPosition (..),
   ViewPort (..),
-  drawText,
   rectangle,
+ )
+import GHCSpecter.Layouter.Text (
+  MonadTextLayout,
+  drawText',
  )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
@@ -56,12 +59,14 @@ import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 buildModuleInProgress ::
+  (MonadTextLayout m) =>
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  Scene (Primitive e)
-buildModuleInProgress drvModMap pausedMap timingInProg =
-  scene {sceneId = "module-status"}
+  m (Scene (Primitive e))
+buildModuleInProgress drvModMap pausedMap timingInProg = do
+  scene <- buildTextView (T.unlines msgs) []
+  pure scene {sceneId = "module-status"}
   where
     msgs =
       let is = fmap fst timingInProg
@@ -72,13 +77,14 @@ buildModuleInProgress drvModMap pausedMap timingInProg =
                 msgPaused = maybe "" (\loc -> " - paused at " <> T.pack (show loc)) mpaused
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
-    scene = buildTextView (T.unlines msgs) []
 
 buildSession ::
+  (MonadTextLayout m) =>
   ServerState ->
-  Scene (Primitive e)
-buildSession ss =
-  scene {sceneId = "session-main"}
+  m (Scene (Primitive e))
+buildSession ss = do
+  scene <- buildTextView txt []
+  pure scene {sceneId = "session-main"}
   where
     sessionInfo = ss ^. serverSessionInfo
     mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
@@ -151,17 +157,26 @@ buildSession ss =
             ++ msgsRTSInfo
         )
 
-    scene = buildTextView txt []
-
-buildPauseResume :: SessionInfo -> Scene (Primitive SessionEvent)
-buildPauseResume session =
-  Scene
-    { sceneId = "session-button"
-    , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
-    , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
-    , sceneElements = contents
-    , sceneExtent = Nothing
-    }
+buildPauseResume ::
+  forall m.
+  (MonadTextLayout m) =>
+  SessionInfo ->
+  m (Scene (Primitive SessionEvent))
+buildPauseResume session = do
+  rendered <- drawText' (5, 0) UpperLeft Sans Black 8 buttonTxt
+  let
+    contents =
+      [ rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
+      , rendered
+      ]
+  pure
+    Scene
+      { sceneId = "session-button"
+      , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
+      , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
+      , sceneElements = contents
+      , sceneExtent = Nothing
+      }
   where
     buttonTxt
       | sessionIsPaused session = "Resume Session"
@@ -179,7 +194,3 @@ buildPauseResume session =
             , hitEventHoverOff = Nothing
             , hitEventClick = Just (Right PauseSessionEv)
             }
-    contents =
-      [ rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
-      , drawText (5, 0) UpperLeft Sans Black 8 buttonTxt
-      ]

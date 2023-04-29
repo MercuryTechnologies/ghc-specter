@@ -40,7 +40,7 @@ import GHCSpecter.Layouter.Packer (
   toSizedLine,
  )
 import GHCSpecter.Layouter.Text (
-  MonadTextLayout (..),
+  MonadTextLayout,
   drawText',
  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
@@ -210,4 +210,3 @@ buildConsoleInput inputEntry = do
       , sceneElements = [rendered]
       , sceneExtent = Nothing
       }
-
