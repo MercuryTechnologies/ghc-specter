@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module GHCSpecter.Web.ConcurReplicaSVG (
   makePolylineText,
@@ -29,6 +30,7 @@ import GHCSpecter.Graphics.DSL (
   Rectangle (..),
   Shape (..),
  )
+import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import Text.Printf (printf)
 import Prelude hiding (div)
 
@@ -97,3 +99,9 @@ renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontS
     , SP.pointerEvents "none"
     ]
     [text msg]
+
+-- This is a dummy implementation. There are no easy way to get text dimension from web in concur-replica.
+-- TODO: at least, this should produce a reasonable size, not fixed 120.
+instance MonadTextLayout (Widget IHTML) where
+  calculateTextDimension _ font_size _ =
+    pure (120, fromIntegral font_size + 3)

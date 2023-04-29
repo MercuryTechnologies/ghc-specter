@@ -163,20 +163,6 @@ executable ghc-specter-daemon
     , websockets
   default-language: GHC2021
 
-executable font-test
-  main-is: Main.hs
-  hs-source-dirs:
-      app/font-test
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.15 && <5
-    , ghc-specter-daemon
-    , ghc-specter-render
-    , gi-pango
-    , gi-pangocairo
-    , transformers
-  default-language: GHC2021
-
 test-suite ghc-specter-daemon-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
