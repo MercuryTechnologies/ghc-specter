@@ -10,6 +10,7 @@ import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Traversable (for)
 import Data.Tree (Tree (..), flatten, foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
@@ -25,6 +26,7 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
  )
 import GHCSpecter.Layouter.Box.Flow (movePrimitiveBy)
+import GHCSpecter.Layouter.Font.Types (MonadFontLayout (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),
@@ -50,15 +52,26 @@ expandableText isBordered isExpandable txt =
         | otherwise = txt
    in txt'
 
-buildModuleTree :: SourceViewUI -> ServerState -> Scene (Primitive SourceViewEvent)
-buildModuleTree srcUI ss =
-  Scene
-    { sceneId = "module-tree"
-    , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-    , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-    , sceneElements = contents
-    , sceneExtent = Nothing
-    }
+buildModuleTree ::
+  forall m.
+  (MonadFontLayout m) =>
+  SourceViewUI ->
+  ServerState ->
+  m (Scene (Primitive SourceViewEvent))
+buildModuleTree srcUI ss = do
+  rendered0 <-
+    for displayedForest' $ \tr -> do
+      tr' <- traverse renderNode tr
+      pure $ indentLevel tr'
+  let contents = concatMap render $ zip [0 ..] (concat rendered0)
+  pure
+    Scene
+      { sceneId = "module-tree"
+      , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
+      , sceneLocalViewPort = ViewPort (0, 0) canvasDim
+      , sceneElements = contents
+      , sceneExtent = Nothing
+      }
   where
     timing = ss ^. serverTiming . tsTimingMap
     drvModMap = ss ^. serverDriverModuleMap
@@ -71,8 +84,8 @@ buildModuleTree srcUI ss =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
     breakpoints = ss ^. serverModuleBreakpoints
 
-    renderNode :: (ModuleName, Bool) -> [Primitive SourceViewEvent]
-    renderNode (modu, b) =
+    renderNode :: (ModuleName, Bool) -> m [Primitive SourceViewEvent]
+    renderNode (modu, b) = do
       let color
             | isModuleCompilationDone drvModMap timing modu = Green
             | otherwise = Black
@@ -107,20 +120,20 @@ buildModuleTree srcUI ss =
               , hitEventHoverOff = Nothing
               , hitEventClick = Just (Right (SetBreakpoint modu (not hasBreakpoint)))
               }
-       in [ rectangle (0, 0) 100 10 Nothing colorBox Nothing (Just hitEvent)
-          , drawText (0, 0) UpperLeft Sans color 8 txt
-          , rectangle (150, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
-          ]
+      (w, h) <- calculateTextDimension Sans 8 txt
+      pure
+        [ rectangle (0, 0) w h (Just Red) colorBox Nothing (Just hitEvent)
+        , drawText (0, 0) UpperLeft Sans color 8 txt
+        , rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
+        ]
 
     annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
     annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)
 
-    indentLevel = flatten . foldTree annotateLevel . fmap renderNode
+    indentLevel = flatten . foldTree annotateLevel
 
     render :: (Int, (Int, [Primitive SourceViewEvent])) -> [Primitive SourceViewEvent]
     render (i, (j, ps)) =
       let x = fromIntegral j * 20
           y = fromIntegral i * 14
        in fmap (movePrimitiveBy (x, y)) ps
-
-    contents = concatMap render $ zip [0 ..] (concatMap indentLevel displayedForest')

@@ -5,7 +5,7 @@ module GHCSpecter.Layouter.Font.Types (
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL (TextFontFace)
 
-class MonadFontLayout m where
+class (Monad m) => MonadFontLayout m where
   calculateTextDimension ::
     TextFontFace ->
     Int ->

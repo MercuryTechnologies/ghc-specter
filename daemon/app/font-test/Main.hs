@@ -3,9 +3,9 @@
 
 module Main where
 
-import Data.Foldable (for_)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Data.Foldable (for_)
 import GHCSpecter.Graphics.DSL (TextFontFace (..))
 import GHCSpecter.Layouter.Font.Types (
   MonadFontLayout (..),
