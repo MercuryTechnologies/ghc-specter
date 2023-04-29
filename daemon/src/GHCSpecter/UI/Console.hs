@@ -64,11 +64,13 @@ buildEachLine =
   fmap (toSizedLine . NE.singleton) . drawText' (0, 0) UpperLeft Mono Black 8
 
 buildConsoleTab ::
-  (IsKey k, Eq k) =>
+  forall m k.
+  (MonadTextLayout m, IsKey k, Eq k) =>
   [(k, Text)] ->
   Maybe k ->
-  Scene (Primitive (ConsoleEvent k))
-buildConsoleTab tabs mfocus = fmap (fmap ConsoleTab) (buildTab tabCfg mfocus)
+  m (Scene (Primitive (ConsoleEvent k)))
+buildConsoleTab tabs mfocus =
+  fmap (fmap ConsoleTab) <$> buildTab tabCfg mfocus
   where
     tabCfg =
       TabConfig

@@ -23,8 +23,6 @@ import GHCSpecter.Graphics.DSL (
   TextFontFace (..),
   TextPosition (..),
   ViewPort (..),
-  -- TODO: remove
-  drawText,
   polyline,
   rectangle,
  )

@@ -98,8 +98,8 @@ renderAction ui ss = do
       wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
       -- tab
       for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
-        let sceneTab = fmap (fmap TabEv) $ buildTab topLevelTab (Just (ui ^. uiModel . modelTab))
-            sceneTab' =
+        sceneTab <- fmap (fmap TabEv) <$> buildTab topLevelTab (Just (ui ^. uiModel . modelTab))
+        let sceneTab' =
               sceneTab
                 { sceneGlobalViewPort = vpCvs
                 }

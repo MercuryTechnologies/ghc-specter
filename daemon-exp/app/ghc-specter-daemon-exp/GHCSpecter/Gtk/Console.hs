@@ -75,8 +75,8 @@ renderConsole ui ss = do
   for_ (Map.lookup "console-tab" wcfg) $ \vpCvs -> do
     boxFill Ivory vpCvs
     setColor Ivory
-    let sceneTab = fmap (fmap ConsoleEv) $ buildConsoleTab tabs mconsoleFocus
-        sceneTab' =
+    sceneTab <- fmap (fmap ConsoleEv) <$> buildConsoleTab tabs mconsoleFocus
+    let sceneTab' =
           sceneTab
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs

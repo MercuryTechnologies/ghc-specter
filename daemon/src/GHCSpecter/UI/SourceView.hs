@@ -81,7 +81,7 @@ buildSuppViewPanel ::
   ServerState ->
   m (Scene (Primitive SourceViewEvent), Scene (Primitive ()))
 buildSuppViewPanel modu srcUI ss = do
-  let srcViewTabScene = fmap (fmap SourceViewTab) (Tab.buildTab tabCfg mtab)
+  srcViewTabScene <- fmap (fmap SourceViewTab) <$> Tab.buildTab tabCfg mtab
   suppViewScene <- buildSuppView msuppView
   pure (srcViewTabScene, suppViewScene)
   where
