@@ -20,19 +20,19 @@ import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types (
   ModuleGraphInfo (..),
  )
-import GHCSpecter.GraphLayout.Algorithm.BFS (runMultiseedStagedBFS)
-import GHCSpecter.GraphLayout.Algorithm.Builder (
+import GHCSpecter.Layouter.Graph.Algorithm.BFS (runMultiseedStagedBFS)
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (
   makeBiDep,
   makeEdges,
   makeRevDep,
  )
-import GHCSpecter.GraphLayout.Algorithm.Cluster (
+import GHCSpecter.Layouter.Graph.Algorithm.Cluster (
   filterOutSmallNodes,
   makeDivisionsInOrder,
   reduceGraphByPath,
  )
-import GHCSpecter.GraphLayout.Sugiyama qualified as Sugiyama
-import GHCSpecter.GraphLayout.Types (GraphVisInfo (..))
+import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
+import GHCSpecter.Layouter.Graph.Types (GraphVisInfo (..))
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),
   HasServerState (..),

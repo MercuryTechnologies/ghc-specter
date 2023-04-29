@@ -34,6 +34,11 @@ import GHCSpecter.Graphics.DSL (
   rectangle,
   viewPortHeight,
  )
+import GHCSpecter.Layouter.Box.Flow (
+  flowInline,
+  flowLineByLine,
+  toSizedLine,
+ )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Components.Tab (
   TabConfig (..),
@@ -44,11 +49,6 @@ import GHCSpecter.UI.Constants (
   consoleInputHeight,
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
-import GHCSpecter.Util.Flow (
-  flowInline,
-  flowLineByLine,
-  toSizedLine,
- )
 import Prelude hiding (div)
 
 buildConsoleTab ::

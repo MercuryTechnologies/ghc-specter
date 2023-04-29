@@ -15,16 +15,6 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.GraphLayout.Types (
-  Dimension (..),
-  EdgeLayout (..),
-  GraphVisInfo (..),
-  HasGraphVisInfo (..),
-  HasNodeLayout (..),
-  NodeLayout (..),
-  Point (..),
-  toTuple,
- )
 import GHCSpecter.Graphics.DSL (
   Color (..),
   HitEvent (..),
@@ -36,6 +26,16 @@ import GHCSpecter.Graphics.DSL (
   drawText,
   polyline,
   rectangle,
+ )
+import GHCSpecter.Layouter.Graph.Types (
+  Dimension (..),
+  EdgeLayout (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
+  HasNodeLayout (..),
+  NodeLayout (..),
+  Point (..),
+  toTuple,
  )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)

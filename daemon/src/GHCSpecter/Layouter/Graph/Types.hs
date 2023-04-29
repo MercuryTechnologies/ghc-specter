@@ -1,7 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.GraphLayout.Types (
+module GHCSpecter.Layouter.Graph.Types (
   -- * graph visualization information
   Point (..),
   HasPoint (..),

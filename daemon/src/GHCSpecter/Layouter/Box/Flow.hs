@@ -1,4 +1,4 @@
-module GHCSpecter.Util.Flow (
+module GHCSpecter.Layouter.Box.Flow (
   -- * shift
   moveShapeBy,
   moveBoundingBoxBy,

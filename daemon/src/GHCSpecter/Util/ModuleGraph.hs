@@ -17,8 +17,8 @@ import Data.Text qualified as T
 import GHCSpecter.Channel.Outbound.Types (
   ModuleGraphInfo (..),
  )
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeRevDep)
-import GHCSpecter.GraphLayout.Algorithm.Cluster (filterOutSmallNodes)
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
+import GHCSpecter.Layouter.Graph.Algorithm.Cluster (filterOutSmallNodes)
 
 formatModuleGraphInfo :: Int -> ModuleGraphInfo -> Text
 formatModuleGraphInfo nodeSizeLimit mgi =

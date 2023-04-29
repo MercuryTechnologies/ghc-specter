@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.GraphLayout.Algorithm.ClusterSpec (spec) where
+module GHCSpecter.Layouter.Graph.Algorithm.ClusterSpec (spec) where
 
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
-import GHCSpecter.GraphLayout.Algorithm.Builder (makeBiDep)
-import GHCSpecter.GraphLayout.Algorithm.Cluster (
+import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeBiDep)
+import GHCSpecter.Layouter.Graph.Algorithm.Cluster (
   ClusterState (..),
   ClusterVertex (..),
   degreeInvariant,

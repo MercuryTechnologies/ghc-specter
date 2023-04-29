@@ -47,14 +47,14 @@ import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.GraphLayout.Types (
-  Dimension (..),
-  GraphVisInfo (..),
-  HasGraphVisInfo (..),
- )
 import GHCSpecter.Graphics.DSL (
   HitEvent (..),
   Scene (..),
+ )
+import GHCSpecter.Layouter.Graph.Types (
+  Dimension (..),
+  GraphVisInfo (..),
+  HasGraphVisInfo (..),
  )
 import GHCSpecter.Server.Types (
   HasModuleGraphState (..),

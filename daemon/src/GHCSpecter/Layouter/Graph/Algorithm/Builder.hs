@@ -1,4 +1,4 @@
-module GHCSpecter.GraphLayout.Algorithm.Builder (
+module GHCSpecter.Layouter.Graph.Algorithm.Builder (
   makeEdges,
   makeRevDep,
   makeBiDep,
