@@ -2,6 +2,7 @@
 
 module GHCSpecter.UI.Session (
   buildModuleInProgress,
+  buildSessionProcessPanel,
   buildSession,
   buildPauseResume,
 ) where
@@ -78,6 +79,42 @@ buildModuleInProgress drvModMap pausedMap timingInProg = do
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
 
+buildSessionProcessPanel ::
+  (MonadTextLayout m) =>
+  ServerState ->
+  m (Scene (Primitive e))
+buildSessionProcessPanel ss = do
+  scene <- buildTextView (T.unlines msgsProcessInfo) []
+  pure scene {sceneId = "session-process"}
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
+    timing = ss ^. serverTiming . tsTimingMap
+    timingList = keyMapToList timing
+    (timingDone, timingInProg) =
+      partition (\(_, t) -> isJust (getEnd t)) timingList
+    nTot = IM.size (mginfoModuleNameMap mgi)
+    nDone = length timingDone
+    nInProg = length timingInProg
+
+    msgsProcessInfo =
+      case sessionProcess sessionInfo of
+        Nothing -> []
+        Just procinfo ->
+          [ "Process ID: " <> msgPID
+          , "Executable path: " <> msgPath
+          , "Current Directory: " <> msgCWD
+          , "CLI Arguments:"
+          ]
+            ++ msgArgs
+          where
+            msgPID = T.pack $ show $ procPID procinfo
+            msgPath = T.pack $ procExecPath procinfo
+            msgCWD = T.pack $ procCWD procinfo
+            msgArgs =
+              let mkItem x = T.pack x
+               in fmap mkItem (procArguments procinfo)
+
 buildSession ::
   (MonadTextLayout m) =>
   ServerState ->
@@ -115,7 +152,7 @@ buildSession ss = do
       where
         ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
         backend = T.pack $ show $ sessionBackend sessionInfo
-
+{-
     msgsProcessInfo =
       case sessionProcess sessionInfo of
         Nothing -> []
@@ -134,7 +171,7 @@ buildSession ss = do
                in T.intercalate " " $ fmap mkItem (procArguments procinfo)
             txtArgs = "CLI Arguments: " <> msgArgs
             chunkedMsgsArgs = T.chunksOf 250 txtArgs
-
+-}
     msgsRTSInfo =
       case procRTSFlags <$> sessionProcess sessionInfo of
         Nothing -> []
@@ -153,7 +190,7 @@ buildSession ss = do
           , ""
           , msgGhcMode
           ]
-            ++ msgsProcessInfo
+            -- ++ msgsProcessInfo
             ++ msgsRTSInfo
         )
 

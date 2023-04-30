@@ -30,6 +30,7 @@ import GHCSpecter.UI.Session (
   buildModuleInProgress,
   buildPauseResume,
   buildSession,
+  buildSessionProcessPanel,
  )
 import GHCSpecter.UI.Types (
   HasSessionUI (..),
@@ -56,6 +57,23 @@ renderSession ss sessui = do
             , sceneLocalViewPort = vpMain
             }
     render sceneMain'
+  for_ (Map.lookup "session-process" wcfg) $ \vpCvs -> do
+    -- let -- vpiMain = sessui ^. sessionUIMainViewPort
+        -- vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
+    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+    setColor Ivory
+    -- TODO: this should be wrapped in a function.
+    lift $ do
+      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+      R.fill
+    boxRules vpCvs
+    sceneProcess <- buildSessionProcessPanel ss
+    let sceneProcess' =
+          sceneProcess
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = translateToOrigin vpCvs
+            }
+    render sceneProcess'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor Ivory
