@@ -75,7 +75,6 @@ buildConsoleTab tabs mfocus =
     tabCfg =
       TabConfig
         { tabCfgId = "console-tab"
-        , tabCfgSpacing = 150
         , tabCfgWidth = canvasDim ^. _1
         , tabCfgHeight = 15
         , tabCfgItems = tabs
