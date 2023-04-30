@@ -29,6 +29,7 @@ import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
 import Data.List (partition)
+import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
@@ -53,6 +54,7 @@ import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent,
+  Scene (sceneId),
   ViewPort (..),
  )
 import GHCSpecter.Gtk.Handler (
@@ -329,6 +331,12 @@ main =
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runnerGetScene = \name -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = L.find (\emap -> sceneId emap == name) emaps
                     pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ

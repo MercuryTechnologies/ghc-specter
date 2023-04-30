@@ -74,7 +74,7 @@ buildModuleTree srcUI ss = do
       , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
       , sceneLocalViewPort = ViewPort (0, 0) canvasDim
       , sceneElements = contents
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     timing = ss ^. serverTiming . tsTimingMap

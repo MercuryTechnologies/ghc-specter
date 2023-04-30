@@ -100,7 +100,7 @@ buildConsoleHelp getHelp mfocus = do
       , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
       , sceneLocalViewPort = ViewPort (0, 0) (200, size)
       , sceneElements = contents
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     mhelp = getHelp <$> mfocus
@@ -191,7 +191,7 @@ buildConsoleMain contents mfocus = do
       , sceneGlobalViewPort = extent
       , sceneLocalViewPort = extent
       , sceneElements = F.toList $ sconcat rendered
-      , sceneExtent = Just extent
+      , sceneExtents = Just extent
       }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
@@ -209,5 +209,5 @@ buildConsoleInput inputEntry = do
       , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
       , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
       , sceneElements = [rendered]
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }

@@ -87,6 +87,7 @@ webServer cfg servSess = do
               , runnerSignalChan = servSess ^. ssSubscriberSignal
               , runnerRefreshAction = pure ()
               , runnerHitScene = (\_ -> pure Nothing)
+              , runnerGetScene = (\_ -> pure Nothing)
               }
       unsafeBlockingIO $ Session.main runner servSess cliSess Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)

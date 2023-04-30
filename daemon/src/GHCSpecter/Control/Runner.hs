@@ -30,6 +30,7 @@ import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Aeson (encode)
 import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
@@ -60,6 +61,9 @@ data RunnerEnv e = RunnerEnv
   , runnerRefreshAction :: IO ()
   , runnerHitScene ::
       (Double, Double) ->
+      IO (Maybe (EventMap e))
+  , runnerGetScene ::
+      Text ->
       IO (Maybe (EventMap e))
   }
 
@@ -177,6 +181,10 @@ stepControl (Free (ModifyAndReturnBoth upd cont)) = do
 stepControl (Free (HitScene xy cont)) = do
   hitScene' <- runnerHitScene <$> ask
   memap <- liftIO $ hitScene' xy
+  pure (Left (cont memap))
+stepControl (Free (GetScene name cont)) =do
+  getScene' <- runnerGetScene <$> ask
+  memap <- liftIO $ getScene' name
   pure (Left (cont memap))
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b

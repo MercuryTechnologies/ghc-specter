@@ -5,6 +5,7 @@ module GHCSpecter.Gtk.Console (
 ) where
 
 import Control.Lens (to, (^.))
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.Map qualified as Map
@@ -92,6 +93,7 @@ renderConsole ui ss = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
+    liftIO $ print $ sceneExtents sceneMain'
     render sceneMain'
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs

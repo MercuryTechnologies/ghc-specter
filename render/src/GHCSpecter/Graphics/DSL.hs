@@ -258,7 +258,7 @@ data Scene elem = Scene
   , sceneGlobalViewPort :: ViewPort
   , sceneLocalViewPort :: ViewPort
   , sceneElements :: [elem]
-  , sceneExtent :: Maybe ViewPort
+  , sceneExtents :: Maybe ViewPort
   }
   deriving (Show, Functor)
 
