@@ -182,7 +182,7 @@ stepControl (Free (HitScene xy cont)) = do
   hitScene' <- runnerHitScene <$> ask
   memap <- liftIO $ hitScene' xy
   pure (Left (cont memap))
-stepControl (Free (GetScene name cont)) =do
+stepControl (Free (GetScene name cont)) = do
   getScene' <- runnerGetScene <$> ask
   memap <- liftIO $ getScene' name
   pure (Left (cont memap))
