@@ -59,37 +59,26 @@ renderSession ss sessui = do
             }
     render sceneMain'
   for_ (Map.lookup "session-process" wcfg) $ \vpCvs -> do
-    -- let -- vpiMain = sessui ^. sessionUIMainViewPort
-    -- vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-    setColor White
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
+    let vpiProcess = sessui ^. sessionUIProcessViewPort
+        vpProcess = fromMaybe (vpiProcess ^. vpViewPort) (vpiProcess ^. vpTempViewPort)
     boxRules vpCvs
     sceneProcess <- buildProcessPanel ss
     let sceneProcess' =
           sceneProcess
             { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            , sceneLocalViewPort = vpProcess
             }
     render sceneProcess'
   for_ (Map.lookup "session-rts" wcfg) $ \vpCvs -> do
-    -- let -- vpiMain = sessui ^. sessionUIMainViewPort
-    -- vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
+    let vpiRts = sessui ^. sessionUIRtsViewPort
+        vpRts = fromMaybe (vpiRts ^. vpViewPort) (vpiRts ^. vpTempViewPort)
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
-    setColor White
-    -- TODO: this should be wrapped in a function.
-    lift $ do
-      R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-      R.fill
     boxRules vpCvs
     sceneRts <- buildRtsPanel ss
     let sceneRts' =
           sceneRts
             { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            , sceneLocalViewPort = vpRts
             }
     render sceneRts'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do

@@ -315,9 +315,9 @@ handleHoverScrollZoom hitWho handlers mev =
 scrollDownConsoleToEnd :: Control Event ()
 scrollDownConsoleToEnd = do
   mext <- fmap (sceneExtents =<<) (getScene "console-main")
-  for_ mext $ \(ViewPort (x0, y0) (x1, y1)) -> do
+  for_ mext $ \(ViewPort (x0, _y0) (_x1, y1)) -> do
     modifyUI $ \ui ->
-      let ViewPortInfo (vp'@(ViewPort (x0', y0') (x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
+      let ViewPortInfo (vp'@(ViewPort (x0', _y0') (_x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
           vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
        in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
 
@@ -404,10 +404,11 @@ goSession ev = do
             { handlerHover = []
             , handlerScroll =
                 [ ("module-status", modelSession . sessionUIModStatusViewPort)
-                , ("session-main", modelSession . sessionUIMainViewPort)
+                , ("session-process", modelSession . sessionUIProcessViewPort)
+                , ("session-rts", modelSession . sessionUIRtsViewPort)
                 ]
             , handlerZoom =
-                [("session-main", modelSession . sessionUIMainViewPort)]
+                [("session-process", modelSession . sessionUIProcessViewPort)]
             }
           mev
     _ -> pure ()
