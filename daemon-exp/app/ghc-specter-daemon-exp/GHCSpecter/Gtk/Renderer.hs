@@ -9,6 +9,7 @@ module GHCSpecter.Gtk.Renderer (
 
   -- * event map
   addEventMap,
+  render,
 ) where
 
 import Control.Concurrent.STM (
@@ -142,3 +143,6 @@ addEventMap scene = do
   liftIO $
     atomically $
       modifyTVar' emapRef (\emaps -> emap : emaps)
+
+render :: Scene (Primitive e) -> GtkRender e ()
+render scene = renderScene scene >> addEventMap scene

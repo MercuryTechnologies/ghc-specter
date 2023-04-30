@@ -11,10 +11,7 @@ import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Gtk.Renderer (
-  addEventMap,
-  renderScene,
- )
+import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (vruleLeft)
 import GHCSpecter.Server.Types (
@@ -50,8 +47,7 @@ renderSourceView srcUI ss = do
             , sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
-    renderScene sceneModTree'
-    addEventMap sceneModTree'
+    render sceneModTree'
   -- source text view
   for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
     for_ (Map.lookup "supple-view" wcfg) $ \vpCvsSupp -> do
@@ -73,8 +69,7 @@ renderSourceView srcUI ss = do
                   , sceneGlobalViewPort = vpCvs
                   , sceneLocalViewPort = vp
                   }
-          renderScene sceneSrcView'
-          addEventMap sceneSrcView'
+          render sceneSrcView'
         -- supplementary view
         vruleLeft vpCvsSupp
         for_ ((,) <$> Map.lookup "supple-view-tab" wcfg <*> Map.lookup "supple-view-contents" wcfg) $
@@ -94,7 +89,5 @@ renderSourceView srcUI ss = do
                       { sceneGlobalViewPort = vpCvsSuppContents
                       , sceneLocalViewPort = vp
                       }
-            renderScene sceneSuppTab'
-            addEventMap sceneSuppTab'
-            renderScene sceneSuppContents'
-            addEventMap sceneSuppContents'
+            render sceneSuppTab'
+            render sceneSuppContents'

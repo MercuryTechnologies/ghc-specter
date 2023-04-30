@@ -19,7 +19,7 @@ import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL (Scene (..))
-import GHCSpecter.Gtk.Renderer (addEventMap, renderScene)
+import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (hruleTop)
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
@@ -88,8 +88,7 @@ renderModuleGraph
               { sceneGlobalViewPort = vpCvs
               , sceneLocalViewPort = vpMain
               }
-      renderScene sceneMain'
-      addEventMap sceneMain'
+      render sceneMain'
     -- sub module graph
     for_ (Map.lookup "sub-module-graph" wcfg) $ \vpCvs -> do
       let esubgraph = do
@@ -124,5 +123,4 @@ renderModuleGraph
                   }
           -- separator rule
           hruleTop vpCvs
-          renderScene sceneSub'
-          addEventMap sceneSub'
+          render sceneSub'
