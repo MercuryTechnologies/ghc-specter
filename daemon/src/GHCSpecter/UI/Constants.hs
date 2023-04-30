@@ -157,6 +157,10 @@ appWidgetConfig =
             , ViewPort (5, 100) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 400)
             )
           ,
+            ( "session-rts"
+            , ViewPort (5, 405) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 700)
+            )
+          ,
             ( "session-button"
             , ViewPort (1000, tabHeight) (1100, tabHeight + 15)
             )

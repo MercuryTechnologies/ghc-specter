@@ -2,7 +2,8 @@
 
 module GHCSpecter.UI.Session (
   buildModuleInProgress,
-  buildSessionProcessPanel,
+  buildProcessPanel,
+  buildRtsPanel,
   buildSession,
   buildPauseResume,
 ) where
@@ -79,11 +80,11 @@ buildModuleInProgress drvModMap pausedMap timingInProg = do
              in msgDrvId <> msgModName <> msgPaused
        in fmap formatMessage imodinfos
 
-buildSessionProcessPanel ::
+buildProcessPanel ::
   (MonadTextLayout m) =>
   ServerState ->
   m (Scene (Primitive e))
-buildSessionProcessPanel ss = do
+buildProcessPanel ss = do
   scene <- buildTextView (T.unlines msgsProcessInfo) []
   pure scene {sceneId = "session-process"}
   where
@@ -114,6 +115,33 @@ buildSessionProcessPanel ss = do
             msgArgs =
               let mkItem x = T.pack x
                in fmap mkItem (procArguments procinfo)
+
+buildRtsPanel ::
+  (MonadTextLayout m) =>
+  ServerState ->
+  m (Scene (Primitive e))
+buildRtsPanel ss = do
+  scene <- buildTextView (T.unlines msgsRtsInfo) []
+  pure scene {sceneId = "session-rts"}
+  where
+    sessionInfo = ss ^. serverSessionInfo
+    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
+    timing = ss ^. serverTiming . tsTimingMap
+    timingList = keyMapToList timing
+    (timingDone, timingInProg) =
+      partition (\(_, t) -> isJust (getEnd t)) timingList
+    nTot = IM.size (mginfoModuleNameMap mgi)
+    nDone = length timingDone
+    nInProg = length timingInProg
+
+    msgsRtsInfo =
+      case procRTSFlags <$> sessionProcess sessionInfo of
+        Nothing -> []
+        Just rtsflags ->
+          [ ""
+          , "GHC RTS Info"
+          , TL.toStrict $ pShowNoColor rtsflags
+          ]
 
 buildSession ::
   (MonadTextLayout m) =>
@@ -152,47 +180,16 @@ buildSession ss = do
       where
         ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
         backend = T.pack $ show $ sessionBackend sessionInfo
-{-
-    msgsProcessInfo =
-      case sessionProcess sessionInfo of
-        Nothing -> []
-        Just procinfo ->
-          [ "Process ID: " <> msgPID
-          , "Executable path: " <> msgPath
-          , "Current Directory: " <> msgCWD
-          ]
-            ++ chunkedMsgsArgs
-          where
-            msgPID = T.pack $ show $ procPID procinfo
-            msgPath = T.pack $ procExecPath procinfo
-            msgCWD = T.pack $ procCWD procinfo
-            msgArgs =
-              let mkItem x = T.pack x
-               in T.intercalate " " $ fmap mkItem (procArguments procinfo)
-            txtArgs = "CLI Arguments: " <> msgArgs
-            chunkedMsgsArgs = T.chunksOf 250 txtArgs
--}
-    msgsRTSInfo =
-      case procRTSFlags <$> sessionProcess sessionInfo of
-        Nothing -> []
-        Just rtsflags ->
-          [ ""
-          , "GHC RTS Info"
-          , TL.toStrict $ pShowNoColor rtsflags
-          ]
 
     txt =
       T.unlines
-        ( [ msgSessionStart
-          , ""
-          , "Compilation Status"
-          , msgCompilationStatus
-          , ""
-          , msgGhcMode
-          ]
-            -- ++ msgsProcessInfo
-            ++ msgsRTSInfo
-        )
+        [ msgSessionStart
+        , ""
+        , "Compilation Status"
+        , msgCompilationStatus
+        , ""
+        , msgGhcMode
+        ]
 
 buildPauseResume ::
   forall m.
