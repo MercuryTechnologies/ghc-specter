@@ -72,7 +72,6 @@ renderSession ss sessui = do
   for_ (Map.lookup "session-rts" wcfg) $ \vpCvs -> do
     let vpiRts = sessui ^. sessionUIRtsViewPort
         vpRts = fromMaybe (vpiRts ^. vpViewPort) (vpiRts ^. vpTempViewPort)
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     boxRules vpCvs
     sceneRts <- buildRtsPanel ss
     let sceneRts' =

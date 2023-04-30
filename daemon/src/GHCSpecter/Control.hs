@@ -102,6 +102,7 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
+  isValid,
   transformScroll,
   transformZoom,
  )
@@ -210,7 +211,8 @@ scroll emap lensViewPort (dir, (dx, dy)) model =
       mvpExtent = sceneExtents emap
       scale = (cx1 - cx0) / (vx1 - vx0)
       vp' = transformScroll mvpExtent dir scale (dx, dy) vp
-   in (lensViewPort .~ ViewPortInfo vp' Nothing) model
+      vp'' = if isValid vp' then vp' else vp
+   in (lensViewPort .~ ViewPortInfo vp'' Nothing) model
 
 zoom ::
   EventMap e ->
@@ -227,7 +229,8 @@ zoom emap lensViewPort ((x, y), scale) model =
       rx = (x - cx0) / (cx1 - cx0)
       ry = (y - cy0) / (cy1 - cy0)
       vp' = (transformZoom (rx, ry) scale vp)
-   in (lensViewPort . vpTempViewPort .~ Just vp') model
+      vp'' = if isValid vp' then vp' else vp
+   in (lensViewPort . vpTempViewPort .~ Just vp'') model
 
 -- TODO: this function should handle MouseEvent.
 handleHoverScrollZoom ::
