@@ -29,6 +29,8 @@ import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Session (
   buildModuleInProgress,
   buildPauseResume,
+  buildProcessPanel,
+  buildRtsPanel,
   buildSession,
  )
 import GHCSpecter.UI.Types (
@@ -56,6 +58,28 @@ renderSession ss sessui = do
             , sceneLocalViewPort = vpMain
             }
     render sceneMain'
+  for_ (Map.lookup "session-process" wcfg) $ \vpCvs -> do
+    let vpiProcess = sessui ^. sessionUIProcessViewPort
+        vpProcess = fromMaybe (vpiProcess ^. vpViewPort) (vpiProcess ^. vpTempViewPort)
+    boxRules vpCvs
+    sceneProcess <- buildProcessPanel ss
+    let sceneProcess' =
+          sceneProcess
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vpProcess
+            }
+    render sceneProcess'
+  for_ (Map.lookup "session-rts" wcfg) $ \vpCvs -> do
+    let vpiRts = sessui ^. sessionUIRtsViewPort
+        vpRts = fromMaybe (vpiRts ^. vpViewPort) (vpiRts ^. vpTempViewPort)
+    boxRules vpCvs
+    sceneRts <- buildRtsPanel ss
+    let sceneRts' =
+          sceneRts
+            { sceneGlobalViewPort = vpCvs
+            , sceneLocalViewPort = vpRts
+            }
+    render sceneRts'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor Ivory

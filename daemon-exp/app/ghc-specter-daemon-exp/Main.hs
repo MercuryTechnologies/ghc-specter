@@ -178,6 +178,10 @@ main =
     let defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
         vpSessionMain =
           appWidgetConfig ^. wcfgSession . at "session-main" . to (maybe defVP translateToOrigin)
+        vpSessionProcess =
+          appWidgetConfig ^. wcfgSession . at "session-process" . to (maybe defVP translateToOrigin)
+        vpSessionRts =
+          appWidgetConfig ^. wcfgSession . at "session-rts" . to (maybe defVP translateToOrigin)
         vpMainModGraph =
           appWidgetConfig ^. wcfgModuleGraph . at "main-module-graph" . to (maybe defVP translateToOrigin)
         vpSubModGraph =
@@ -197,6 +201,12 @@ main =
             & (uiModel . modelTab .~ TabModuleGraph)
               . ( uiModel . modelSession . sessionUIMainViewPort
                     .~ ViewPortInfo vpSessionMain Nothing
+                )
+              . ( uiModel . modelSession . sessionUIProcessViewPort
+                    .~ ViewPortInfo vpSessionProcess Nothing
+                )
+              . ( uiModel . modelSession . sessionUIRtsViewPort
+                    .~ ViewPortInfo vpSessionRts Nothing
                 )
               . ( uiModel . modelMainModuleGraph . modGraphViewPort
                     .~ ViewPortInfo vpMainModGraph Nothing

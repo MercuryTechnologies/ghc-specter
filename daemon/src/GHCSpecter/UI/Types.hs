@@ -71,6 +71,8 @@ makeClassy ''ViewPortInfo
 data SessionUI = SessionUI
   { _sessionUIModStatusViewPort :: ViewPortInfo
   , _sessionUIMainViewPort :: ViewPortInfo
+  , _sessionUIProcessViewPort :: ViewPortInfo
+  , _sessionUIRtsViewPort :: ViewPortInfo
   }
 
 makeClassy ''SessionUI
@@ -80,6 +82,8 @@ emptySessionUI =
   SessionUI
     { _sessionUIModStatusViewPort = ViewPortInfo (ViewPort (0, 0) sessionModStatusDim) Nothing
     , _sessionUIMainViewPort = ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing
+    , _sessionUIProcessViewPort = ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing
+    , _sessionUIRtsViewPort = ViewPortInfo (ViewPort (0, 0) canvasDim) Nothing
     }
 
 data ModuleGraphUI = ModuleGraphUI

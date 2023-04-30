@@ -102,6 +102,7 @@ import GHCSpecter.UI.Types.Event (
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
+  isValid,
   transformScroll,
   transformZoom,
  )
@@ -210,7 +211,8 @@ scroll emap lensViewPort (dir, (dx, dy)) model =
       mvpExtent = sceneExtents emap
       scale = (cx1 - cx0) / (vx1 - vx0)
       vp' = transformScroll mvpExtent dir scale (dx, dy) vp
-   in (lensViewPort .~ ViewPortInfo vp' Nothing) model
+      vp'' = if isValid vp' then vp' else vp
+   in (lensViewPort .~ ViewPortInfo vp'' Nothing) model
 
 zoom ::
   EventMap e ->
@@ -227,7 +229,8 @@ zoom emap lensViewPort ((x, y), scale) model =
       rx = (x - cx0) / (cx1 - cx0)
       ry = (y - cy0) / (cy1 - cy0)
       vp' = (transformZoom (rx, ry) scale vp)
-   in (lensViewPort . vpTempViewPort .~ Just vp') model
+      vp'' = if isValid vp' then vp' else vp
+   in (lensViewPort . vpTempViewPort .~ Just vp'') model
 
 -- TODO: this function should handle MouseEvent.
 handleHoverScrollZoom ::
@@ -315,9 +318,9 @@ handleHoverScrollZoom hitWho handlers mev =
 scrollDownConsoleToEnd :: Control Event ()
 scrollDownConsoleToEnd = do
   mext <- fmap (sceneExtents =<<) (getScene "console-main")
-  for_ mext $ \(ViewPort (x0, y0) (x1, y1)) -> do
+  for_ mext $ \(ViewPort (x0, _y0) (_x1, y1)) -> do
     modifyUI $ \ui ->
-      let ViewPortInfo (vp'@(ViewPort (x0', y0') (x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
+      let ViewPortInfo (vp'@(ViewPort (x0', _y0') (_x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
           vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
        in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
 
@@ -404,10 +407,11 @@ goSession ev = do
             { handlerHover = []
             , handlerScroll =
                 [ ("module-status", modelSession . sessionUIModStatusViewPort)
-                , ("session-main", modelSession . sessionUIMainViewPort)
+                , ("session-process", modelSession . sessionUIProcessViewPort)
+                , ("session-rts", modelSession . sessionUIRtsViewPort)
                 ]
             , handlerZoom =
-                [("session-main", modelSession . sessionUIMainViewPort)]
+                [("session-process", modelSession . sessionUIProcessViewPort)]
             }
           mev
     _ -> pure ()

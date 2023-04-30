@@ -1,4 +1,6 @@
 module GHCSpecter.Util.Transformation (
+  isValid,
+
   -- * transformation function for viewport
   transformScroll,
   transformZoom,
@@ -20,6 +22,9 @@ import GHCSpecter.Graphics.DSL (
   isInside,
  )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
+
+isValid :: ViewPort -> Bool
+isValid (ViewPort (x0, y0) (x1, y1)) = x0 <= x1 && y0 <= y1
 
 -- | scroll
 transformScroll ::
