@@ -20,7 +20,7 @@ import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
  )
-import GHCSpecter.Gtk.Renderer (addEventMap, renderScene, setColor)
+import GHCSpecter.Gtk.Renderer (render, setColor)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (boxFill, boxRules)
 import GHCSpecter.Server.Types (
@@ -81,8 +81,7 @@ renderConsole ui ss = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    renderScene sceneTab'
-    addEventMap sceneTab'
+    render sceneTab'
   for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
     let vpi = ui ^. uiModel . modelConsole . consoleViewPort
         vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -93,8 +92,7 @@ renderConsole ui ss = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
-    renderScene sceneMain'
-    addEventMap sceneMain'
+    render sceneMain'
   for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
@@ -104,8 +102,7 @@ renderConsole ui ss = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    renderScene sceneHelp'
-    addEventMap sceneHelp'
+    render sceneHelp'
   for_ (Map.lookup "console-input" wcfg) $ \vpCvs -> do
     boxFill HoneyDew vpCvs
     boxRules vpCvs
@@ -115,5 +112,4 @@ renderConsole ui ss = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    renderScene sceneInput'
-    addEventMap sceneInput'
+    render sceneInput'

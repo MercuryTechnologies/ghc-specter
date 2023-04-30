@@ -16,6 +16,7 @@ module GHCSpecter.Control.Types (
   modifyAndReturn,
   modifyAndReturnBoth,
   hitScene,
+  getScene,
   sendRequest,
   nextEvent,
   printMsg,
@@ -64,6 +65,10 @@ data ControlF e e' r where
     (Double, Double) ->
     (Maybe (EventMap e) -> r) ->
     ControlF e e r
+  GetScene ::
+    Text ->
+    (Maybe (EventMap e) -> r) ->
+    ControlF e e r
   SendRequest :: Request -> r -> ControlF e e r
   NextEvent :: (Event -> r) -> ControlF e e r
   PrintMsg :: Text -> r -> ControlF e e r
@@ -86,6 +91,7 @@ instance IxFunctor ControlF where
   imap f (ModifyAndReturn g cont) = ModifyAndReturn g (f . cont)
   imap f (ModifyAndReturnBoth g cont) = ModifyAndReturnBoth g (f . cont)
   imap f (HitScene x cont) = HitScene x (f . cont)
+  imap f (GetScene x cont) = GetScene x (f . cont)
   imap f (SendRequest x next) = SendRequest x (f next)
   imap f (NextEvent cont) = NextEvent (f . cont)
   imap f (PrintMsg x next) = PrintMsg x (f next)
@@ -144,6 +150,12 @@ hitScene ::
   (Double, Double) ->
   Control e (Maybe (EventMap e))
 hitScene xy = liftF (HitScene xy id)
+
+-- | Get scene event map by name
+getScene ::
+  Text ->
+  Control e (Maybe (EventMap e))
+getScene name = liftF (GetScene name id)
 
 sendRequest :: Request -> Control e ()
 sendRequest b = liftF (SendRequest b ())

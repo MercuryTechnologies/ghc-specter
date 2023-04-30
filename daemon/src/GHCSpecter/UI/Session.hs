@@ -175,7 +175,7 @@ buildPauseResume session = do
       , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
       , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
       , sceneElements = contents
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     buttonTxt

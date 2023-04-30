@@ -16,10 +16,7 @@ import GHCSpecter.Graphics.DSL (
   Scene (..),
   ViewPort (..),
  )
-import GHCSpecter.Gtk.Renderer (
-  addEventMap,
-  renderScene,
- )
+import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.UI.Components.TimingView (
   buildBlockers,
@@ -57,8 +54,7 @@ renderTiming drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vp
             }
-    renderScene sceneTimingChart'
-    addEventMap sceneTimingChart'
+    render sceneTimingChart'
   -- mem chart
   for_ (Map.lookup "mem-chart" wcfg) $ \vpCvs -> do
     sceneMemChart <- buildMemChart drvModMap tui ttable
@@ -67,7 +63,7 @@ renderTiming drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = ViewPort (0, vy0) (300, vy1)
             }
-    renderScene sceneMemChart'
+    render sceneMemChart'
   -- timing range bar
   for_ (Map.lookup "timing-range" wcfg) $ \vpCvs -> do
     let sceneTimingRange = buildTimingRange tui ttable
@@ -76,7 +72,7 @@ renderTiming drvModMap tui ttable = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
             }
-    renderScene sceneTimingRange'
+    render sceneTimingRange'
   -- blocker lines
   let minfo = do
         hoveredMod <- tui ^. timingUIHoveredModule
@@ -94,4 +90,4 @@ renderTiming drvModMap tui ttable = do
           sceneBlockers
             { sceneGlobalViewPort = ViewPort (offsetX, offsetY) (w + offsetX, h + offsetY)
             }
-    renderScene sceneBlockers'
+    render sceneBlockers'

@@ -48,7 +48,7 @@ buildSuppView Nothing =
       , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
       , sceneLocalViewPort = ViewPort (0, 0) canvasDim
       , sceneElements = []
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
 buildSuppView (Just (SuppViewCallgraph grVis)) = do
   renderedGraph <-
@@ -59,7 +59,7 @@ buildSuppView (Just (SuppViewCallgraph grVis)) = do
       , sceneGlobalViewPort = extent
       , sceneLocalViewPort = extent
       , sceneElements = renderedGraph
-      , sceneExtent = Just extent
+      , sceneExtents = Just extent
       }
   where
     Dim canvasWidth canvasHeight = grVis ^. gviCanvasDim
@@ -71,7 +71,7 @@ buildSuppView (Just (SuppViewText txt)) = do
       { sceneId = "supple-view-contents"
       , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
       , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
 
 buildSuppViewPanel ::

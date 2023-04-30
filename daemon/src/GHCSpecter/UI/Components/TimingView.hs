@@ -161,7 +161,7 @@ buildTimingChart drvModMap tui ttable = do
             ++ renderedItems
             ++ lineToUpstream
             ++ linesToDownstream
-      , sceneExtent = Just extent
+      , sceneExtents = Just extent
       }
   where
     extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
@@ -290,7 +290,7 @@ buildMemChart drvModMap tui ttable = do
       , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
       , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
       , sceneElements = renderedItems
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -350,7 +350,7 @@ buildTimingRange tui ttable =
     , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
     , sceneElements = [background, handle]
-    , sceneExtent = Nothing
+    , sceneExtents = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -416,7 +416,7 @@ buildBlockers hoveredMod ttable = do
       , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
       , sceneLocalViewPort = ViewPort (0, 0) (200, size)
       , sceneElements = box : F.toList (sconcat contentss)
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     upMods =

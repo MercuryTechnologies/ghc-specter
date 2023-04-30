@@ -68,7 +68,7 @@ buildTextView txt highlighted = do
       , sceneGlobalViewPort = extent
       , sceneLocalViewPort = extent
       , sceneElements = contents
-      , sceneExtent = Just extent
+      , sceneExtents = Just extent
       }
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.

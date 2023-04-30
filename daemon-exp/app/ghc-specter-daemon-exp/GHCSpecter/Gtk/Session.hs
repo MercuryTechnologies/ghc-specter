@@ -15,8 +15,7 @@ import GHCSpecter.Channel.Outbound.Types (
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
 import GHCSpecter.Gtk.Renderer (
-  addEventMap,
-  renderScene,
+  render,
   setColor,
  )
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
@@ -56,8 +55,7 @@ renderSession ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpMain
             }
-    renderScene sceneMain'
-    addEventMap sceneMain'
+    render sceneMain'
   for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
     let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
     setColor Ivory
@@ -81,8 +79,7 @@ renderSession ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = vpStatus
             }
-    renderScene sceneModStatus'
-    addEventMap sceneModStatus'
+    render sceneModStatus'
   for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
     let sessionInfo = ss ^. serverSessionInfo
     scenePause <- fmap (fmap SessionEv) <$> buildPauseResume sessionInfo
@@ -91,5 +88,4 @@ renderSession ss sessui = do
             { sceneGlobalViewPort = vpCvs
             , sceneLocalViewPort = translateToOrigin vpCvs
             }
-    renderScene scenePause'
-    addEventMap scenePause'
+    render scenePause'

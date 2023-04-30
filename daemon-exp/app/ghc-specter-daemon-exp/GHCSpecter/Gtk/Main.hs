@@ -28,9 +28,8 @@ import GHCSpecter.Graphics.DSL (
 import GHCSpecter.Gtk.Console (renderConsole)
 import GHCSpecter.Gtk.ModuleGraph (renderModuleGraph)
 import GHCSpecter.Gtk.Renderer (
-  addEventMap,
   drawText,
-  renderScene,
+  render,
   setColor,
  )
 import GHCSpecter.Gtk.Session (renderSession)
@@ -103,8 +102,7 @@ renderAction ui ss = do
               sceneTab
                 { sceneGlobalViewPort = vpCvs
                 }
-        renderScene sceneTab'
-        addEventMap sceneTab'
+        render sceneTab'
       -- main
       case ui ^. uiModel . modelTab of
         TabSession ->

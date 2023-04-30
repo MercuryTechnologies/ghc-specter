@@ -59,7 +59,7 @@ buildTab cfg mtab = do
       , sceneGlobalViewPort = vp
       , sceneLocalViewPort = vp
       , sceneElements = rexp
-      , sceneExtent = Nothing
+      , sceneExtents = Nothing
       }
   where
     height = tabCfgHeight cfg

@@ -13,6 +13,7 @@ module GHCSpecter.Control (
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
+import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (fromMaybe)
@@ -30,6 +31,7 @@ import GHCSpecter.Control.Types (
   asyncWork,
   getCurrentTime,
   getLastUpdatedUI,
+  getScene,
   getUI,
   hitScene,
   modifyAndReturn,
@@ -52,10 +54,11 @@ import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent (..),
-  Scene (sceneExtent),
+  Scene (sceneExtents),
   ViewPort (..),
   eventMapGlobalViewPort,
   eventMapId,
+  moveBoundingBoxBy,
  )
 import GHCSpecter.Server.Types (
   ConsoleItem (..),
@@ -204,7 +207,7 @@ scroll ::
 scroll emap lensViewPort (dir, (dx, dy)) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
       vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
-      mvpExtent = sceneExtent emap
+      mvpExtent = sceneExtents emap
       scale = (cx1 - cx0) / (vx1 - vx0)
       vp' = transformScroll mvpExtent dir scale (dx, dy) vp
    in (lensViewPort .~ ViewPortInfo vp' Nothing) model
@@ -309,6 +312,15 @@ handleHoverScrollZoom hitWho handlers mev =
       when isHandled refresh
       pure isHandled
 
+scrollDownConsoleToEnd :: Control Event ()
+scrollDownConsoleToEnd = do
+  mext <- fmap (sceneExtents =<<) (getScene "console-main")
+  for_ mext $ \(ViewPort (x0, y0) (x1, y1)) -> do
+    modifyUI $ \ui ->
+      let ViewPortInfo (vp'@(ViewPort (x0', y0') (x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
+          vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
+       in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
+
 handleConsole :: (e ~ Event) => ConsoleEvent DriverId -> Control e ()
 handleConsole (ConsoleTab i) = do
   modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
@@ -323,6 +335,7 @@ handleConsole (ConsoleKey key) = do
         appendNewCommand drvId msg
         modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
         handleConsoleCommand drvId msg
+        scrollDownConsoleToEnd
         refresh
     else pure ()
 handleConsole (ConsoleInput content) = do
@@ -338,6 +351,7 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
           appendNewCommand drvId msg
           modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
           handleConsoleCommand drvId msg
+          scrollDownConsoleToEnd
           refresh
     else do
       modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
