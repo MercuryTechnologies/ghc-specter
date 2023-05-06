@@ -186,6 +186,8 @@ stepControl (Free (GetScene name cont)) = do
   getScene' <- runnerGetScene <$> ask
   memap <- liftIO $ getScene' name
   pure (Left (cont memap))
+stepControl (Free (AddToStage scene next)) = do
+  pure (Left next)
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)
