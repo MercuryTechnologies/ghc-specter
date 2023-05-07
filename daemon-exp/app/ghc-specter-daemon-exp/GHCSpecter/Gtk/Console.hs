@@ -4,11 +4,12 @@ module GHCSpecter.Gtk.Console (
   renderConsole,
 ) where
 
-import Control.Lens (to, (^.))
+import Control.Concurrent.STM (atomically, readTVar)
+import Control.Lens ((^.))
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
-import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.List qualified as L
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map (
@@ -19,6 +20,7 @@ import GHCSpecter.Data.Map (
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
+  Stage (..),
  )
 import GHCSpecter.Gtk.Renderer (render, setColor)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
@@ -33,21 +35,19 @@ import GHCSpecter.UI.Console (
   buildConsoleMain,
   buildConsoleTab,
  )
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types (
   HasConsoleUI (..),
   HasUIModel (..),
   HasUIState (..),
-  HasViewPortInfo (..),
   UIState,
  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
-import GHCSpecter.Util.Transformation (translateToOrigin)
 
 renderConsole :: UIState -> ServerState -> GtkRender Event ()
 renderConsole ui ss = do
-  wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
+  stageRef <- vbStage <$> ask
+  Stage stage <- liftIO $ atomically $ readTVar stageRef
   let pausedMap = ss ^. serverPaused
       consoleMap = ss ^. serverConsole
       mconsoleFocus = ui ^. uiModel . modelConsole . consoleFocus
@@ -72,44 +72,42 @@ renderConsole ui ss = do
                 (fmap classify)
                 (consoleCommandList <$> lookupKey k (ss ^. serverPaused))
          in (title, helpMsgs)
-  for_ (Map.lookup "console-tab" wcfg) $ \vpCvs -> do
-    boxFill Ivory vpCvs
+  for_ (L.find ((== "console-tab") . sceneId) stage) $ \scene0 -> do
+    boxFill Ivory (sceneGlobalViewPort scene0)
     setColor Ivory
     sceneTab <- fmap (fmap ConsoleEv) <$> buildConsoleTab tabs mconsoleFocus
     let sceneTab' =
           sceneTab
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneTab'
-  for_ (Map.lookup "console-main" wcfg) $ \vpCvs -> do
-    let vpi = ui ^. uiModel . modelConsole . consoleViewPort
-        vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-    boxFill Ivory vpCvs
+  for_ (L.find ((== "console-main") . sceneId) stage) $ \scene0 -> do
+    boxFill Ivory (sceneGlobalViewPort scene0)
     sceneMain <- fmap (fmap ConsoleEv) <$> buildConsoleMain consoleMap mconsoleFocus
     let sceneMain' =
           sceneMain
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vp
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneMain'
-  for_ (Map.lookup "console-help" wcfg) $ \vpCvs -> do
-    boxFill HoneyDew vpCvs
-    boxRules vpCvs
+  for_ (L.find ((== "console-help") . sceneId) stage) $ \scene0 -> do
+    boxFill HoneyDew (sceneGlobalViewPort scene0)
+    boxRules (sceneGlobalViewPort scene0)
     sceneHelp <- fmap (fmap ConsoleEv) <$> buildConsoleHelp getHelp mconsoleFocus
     let sceneHelp' =
           sceneHelp
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneHelp'
-  for_ (Map.lookup "console-input" wcfg) $ \vpCvs -> do
-    boxFill HoneyDew vpCvs
-    boxRules vpCvs
+  for_ (L.find ((== "console-input") . sceneId) stage) $ \scene0 -> do
+    boxFill HoneyDew (sceneGlobalViewPort scene0)
+    boxRules (sceneGlobalViewPort scene0)
     sceneInput <- buildConsoleInput inputEntry
     let sceneInput' =
           sceneInput
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneInput'
