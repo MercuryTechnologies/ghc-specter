@@ -4,13 +4,13 @@ module GHCSpecter.Gtk.ModuleGraph (
   renderModuleGraph,
 ) where
 
+import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
-import Control.Lens (to, (^.))
+import Control.Lens ((^.))
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
-import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -18,16 +18,17 @@ import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL (
+  Scene (..),
+  Stage (..),
+ )
 import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (hruleTop)
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
 import GHCSpecter.UI.Components.GraphView (buildModuleGraph)
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Types (
   HasModuleGraphUI (..),
-  HasViewPortInfo (..),
   ModuleGraphUI,
  )
 import GHCSpecter.UI.Types.Event (
@@ -56,7 +57,8 @@ renderModuleGraph
   timing
   clustering
   grVisInfo = do
-    wcfg <- (^. to vbWidgetConfig . wcfgModuleGraph) <$> ask
+    stageRef <- vbStage <$> ask
+    Stage stage <- R.liftIO $ atomically $ readTVar stageRef
     let valueFor name =
           fromMaybe 0 $ do
             cluster <- L.lookup name clustering
@@ -70,12 +72,8 @@ renderModuleGraph
         mainModuleClicked = mgrui ^. modGraphUIClick
         mainModuleHovered = mgrui ^. modGraphUIHover
         subModuleHovered = sgrui ^. modGraphUIHover
-        vpiMain = mgrui ^. modGraphViewPort
-        vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
-        vpiSub = sgrui ^. modGraphViewPort
-        vpSub = fromMaybe (vpiSub ^. vpViewPort) (vpiSub ^. vpTempViewPort)
     -- main module graph
-    for_ (Map.lookup "main-module-graph" wcfg) $ \vpCvs -> do
+    for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \scene0 -> do
       sceneMain <-
         fmap (fmap MainModuleEv)
           <$> buildModuleGraph
@@ -85,12 +83,12 @@ renderModuleGraph
             (mainModuleClicked, mainModuleHovered)
       let sceneMain' =
             sceneMain
-              { sceneGlobalViewPort = vpCvs
-              , sceneLocalViewPort = vpMain
+              { sceneGlobalViewPort = sceneGlobalViewPort scene0
+              , sceneLocalViewPort = sceneLocalViewPort scene0
               }
       render sceneMain'
     -- sub module graph
-    for_ (Map.lookup "sub-module-graph" wcfg) $ \vpCvs -> do
+    for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \scene0 -> do
       let esubgraph = do
             selected <-
               note "no module cluster is selected" mainModuleClicked
@@ -118,9 +116,9 @@ renderModuleGraph
                 sceneSub
                   { -- TODO: this should be set up from buildModuleGraph
                     sceneId = "sub-module-graph"
-                  , sceneGlobalViewPort = vpCvs
-                  , sceneLocalViewPort = vpSub
+                  , sceneGlobalViewPort = sceneGlobalViewPort scene0
+                  , sceneLocalViewPort = sceneLocalViewPort scene0
                   }
           -- separator rule
-          hruleTop vpCvs
+          hruleTop (sceneGlobalViewPort scene0)
           render sceneSub'
