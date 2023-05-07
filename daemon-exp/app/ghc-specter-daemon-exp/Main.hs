@@ -63,6 +63,7 @@ import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent,
   Scene (sceneId),
+  Stage (..),
   ViewPort (..),
  )
 import GHCSpecter.Gtk.Handler (
@@ -253,13 +254,14 @@ main =
     _ <- Gtk.init Nothing
     hDat <- openFile "frame.dat" WriteMode
     mvb <- initViewBackendResource
+    stageRef <- atomically $ newTVar (Stage [])
     case mvb of
       Nothing -> error "cannot initialize pango"
       Just vbr -> do
         vbRef <- atomically $ do
           emapRef <- newTVar ([] :: [EventMap Event])
           wcfg <- (^. uiModel . modelWidgetConfig) <$> readTVar uiRef
-          let vb = ViewBackend vbr wcfg emapRef
+          let vb = ViewBackend vbr wcfg stageRef emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -287,7 +289,7 @@ main =
                 ss <- readTVar ssRef
                 emapRef <- newTVar []
                 let wcfg = ui ^. uiModel . modelWidgetConfig
-                    vb = ViewBackend vbr wcfg emapRef
+                    vb = ViewBackend vbr wcfg stageRef emapRef
                 writeTVar vbRef (WrappedViewBackend vb)
                 pure (vb, ui, ss)
               runReaderT (renderAction ui ss) vb
@@ -362,6 +364,12 @@ main =
                     emaps <- readTVar emapRef
                     let memap = L.find (\emap -> sceneId emap == name) emaps
                     pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runHandlerAddToStage = \scene -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    Stage cfgs <- readTVar (vbStage vb)
+                    let cfgs' = filter (\scene' -> sceneId scene /= sceneId scene') cfgs
+                        cfgs'' = scene : cfgs'
+                    writeTVar (vbStage vb) (Stage cfgs'')
                 }
             runner =
               RunnerEnv

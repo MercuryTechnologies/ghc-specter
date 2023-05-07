@@ -40,7 +40,10 @@ import GHCSpecter.Control.Types (
   ControlF (..),
   type Control,
  )
-import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Graphics.DSL (
+  EventMap,
+  Scene,
+ )
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (
   HasUIState (..),
@@ -60,6 +63,9 @@ data RunnerHandler e = RunnerHandler
   , runHandlerGetScene ::
       Text ->
       IO (Maybe (EventMap e))
+  , runHandlerAddToStage ::
+      Scene () ->
+      IO ()
   }
 
 -- | mutating state and a few handlers
@@ -192,6 +198,8 @@ stepControl (Free (GetScene name cont)) = do
   memap <- liftIO $ getScene' name
   pure (Left (cont memap))
 stepControl (Free (AddToStage scene next)) = do
+  addToStage' <- runHandlerAddToStage . runnerHandler <$> ask
+  liftIO $ addToStage' scene
   pure (Left next)
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b

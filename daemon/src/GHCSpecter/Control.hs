@@ -13,9 +13,10 @@ module GHCSpecter.Control (
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
+import Data.Map qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -28,6 +29,7 @@ import GHCSpecter.Channel.Inbound.Types (
  )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
 import GHCSpecter.Control.Types (
+  addToStage,
   asyncWork,
   getCurrentTime,
   getLastUpdatedUI,
@@ -54,7 +56,7 @@ import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent (..),
-  Scene (sceneExtents),
+  Scene (..),
   ViewPort (..),
   eventMapGlobalViewPort,
   eventMapId,
@@ -66,6 +68,7 @@ import GHCSpecter.Server.Types (
   HasTimingState (..),
  )
 import GHCSpecter.UI.Constants (
+  HasWidgetConfig (..),
   timingHeight,
   timingMaxWidth,
   timingWidth,
@@ -105,6 +108,7 @@ import GHCSpecter.Util.Transformation (
   isValid,
   transformScroll,
   transformZoom,
+  translateToOrigin,
  )
 import GHCSpecter.Worker.Timing (
   timingBlockerGraphWorker,
@@ -648,6 +652,50 @@ initializeMainView :: Control e ()
 initializeMainView =
   modifyUI (uiModel . modelTransientBanner .~ Nothing)
 
+-- TODO: for now, we list all of the components. but later, it will be dynamic
+
+stageFrame :: (e ~ Event) => Control e ()
+stageFrame = do
+  model <- (^. uiModel) <$> getUI
+  let wcfg = model ^. modelWidgetConfig
+      allCfgs =
+        (wcfg ^. wcfgTopLevel . to M.toList)
+          ++ (wcfg ^. wcfgSession . to M.toList)
+          ++ (wcfg ^. wcfgModuleGraph . to M.toList)
+          ++ (wcfg ^. wcfgSourceView . to M.toList)
+          ++ (wcfg ^. wcfgTiming . to M.toList)
+      mkScene (name, gvp) =
+        let lvp =
+              case L.lookup name lensMap of
+                Nothing -> translateToOrigin gvp
+                Just l ->
+                  let vpi = model ^. l
+                   in fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+         in Scene
+              { sceneId = name
+              , sceneGlobalViewPort = gvp
+              , sceneLocalViewPort = lvp
+              , sceneElements = []
+              , sceneExtents = Nothing
+              }
+      scenes = fmap mkScene allCfgs
+  traverse_ addToStage scenes
+  where
+    lensMap :: [(Text, Lens' UIModel ViewPortInfo)]
+    lensMap =
+      [ ("console-main", modelConsole . consoleViewPort)
+      , ("module-status", modelSession . sessionUIModStatusViewPort)
+      , ("session-process", modelSession . sessionUIProcessViewPort)
+      , ("session-rts", modelSession . sessionUIRtsViewPort)
+      , ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
+      , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+      , ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
+      , ("source-view", modelSourceView . srcViewSourceViewPort)
+      , ("supple-view", modelSourceView . srcViewSuppViewPort)
+      , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+      , ("timing-chart", modelTiming . timingUIViewPort)
+      ]
+
 -- | top-level loop, branching according to tab event
 mainLoop :: forall e r. (e ~ Event) => Control e r
 mainLoop = do
@@ -712,6 +760,7 @@ mainLoop = do
               pure ev'
             _ -> pure ev0
 
+        -- return: True -> go back to main loop, False -> local loop
         afterClick ev = do
           case ev of
             TabEv tab' -> do
@@ -720,11 +769,11 @@ mainLoop = do
                 then do
                   modifyUI (uiModel . modelTab .~ tab')
                   refresh
-                  mainLoop
-                else loop
-            ConsoleEv cev -> handleConsole cev >> loop
-            BkgEv bev -> handleBackground bev >> loop
-            _ -> go ev >> loop
+                  pure True
+                else pure False
+            ConsoleEv cev -> handleConsole cev >> pure False
+            BkgEv bev -> handleBackground bev >> pure False
+            _ -> go ev >> pure False
 
         loop :: Control Event r
         loop = do
@@ -738,7 +787,11 @@ mainLoop = do
           ev2 <- handleConsoleHoverScrollZoom ev1
           -- handle click
           ev3 <- handleClick ev2
-          afterClick ev3
+          toMainLoop <- afterClick ev3
+          stageFrame
+          if toMainLoop
+            then mainLoop
+            else loop
 
 main :: (e ~ Event) => Control e ()
 main = do

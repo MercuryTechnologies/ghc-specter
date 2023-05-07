@@ -84,8 +84,9 @@ webServer cfg servSess = do
       let runHandler =
             RunnerHandler
               { runHandlerRefreshAction = pure ()
-              , runHandlerHitScene = (\_ -> pure Nothing)
-              , runHandlerGetScene = (\_ -> pure Nothing)
+              , runHandlerHitScene = \_ -> pure Nothing
+              , runHandlerGetScene = \_ -> pure Nothing
+              , runHandlerAddToStage = \_ -> pure ()
               }
           runner =
             RunnerEnv

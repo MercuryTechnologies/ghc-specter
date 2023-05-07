@@ -11,7 +11,11 @@ import Control.Concurrent.STM (TVar)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Typeable (Typeable)
-import GHCSpecter.Graphics.DSL (EventMap, TextFontFace (..))
+import GHCSpecter.Graphics.DSL (
+  EventMap,
+  Stage,
+  TextFontFace (..),
+ )
 import GHCSpecter.Layouter.Text (
   MonadTextLayout (..),
  )
@@ -25,9 +29,12 @@ data ViewBackendResource = ViewBackendResource
   , vbrFontDescMono :: P.FontDescription
   }
 
+-- TODO: in the end, stage is an input, and eventmap is an output of a given frame.
+-- TODO2: TVar inside TVar is anti-pattern. should be flattened with one TVar.
 data ViewBackend e = ViewBackend
   { vbResource :: ViewBackendResource
   , vbWidgetConfig :: WidgetConfig
+  , vbStage :: TVar Stage
   , vbEventMap :: TVar [EventMap e]
   }
 
