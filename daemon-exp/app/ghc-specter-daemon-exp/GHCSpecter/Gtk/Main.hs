@@ -88,8 +88,6 @@ renderAction ui ss = do
       mgrui = ui ^. uiModel . modelMainModuleGraph
       sgrui = ui ^. uiModel . modelSubModuleGraph
       subgraphs = mgs ^. mgsSubgraph
-      sessui = ui ^. uiModel . modelSession
-
   case mgrvis of
     Nothing -> renderNotConnected
     Just grVisInfo -> do
@@ -105,10 +103,7 @@ renderAction ui ss = do
         render sceneTab'
       -- main
       case ui ^. uiModel . modelTab of
-        TabSession ->
-          renderSession
-            ss
-            sessui
+        TabSession -> renderSession ss
         TabModuleGraph ->
           renderModuleGraph
             (mgrui, sgrui)
