@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Control.Runner (
+  RunnerHandler (..),
   RunnerEnv (..),
   type Runner,
   stepControl,
@@ -51,6 +52,16 @@ import GHCSpecter.UI.Types.Event (
  )
 import System.IO (IOMode (..), withFile)
 
+data RunnerHandler e = RunnerHandler
+  { runHandlerRefreshAction :: IO ()
+  , runHandlerHitScene ::
+      (Double, Double) ->
+      IO (Maybe (EventMap e))
+  , runHandlerGetScene ::
+      Text ->
+      IO (Maybe (EventMap e))
+  }
+
 -- | mutating state and a few handlers
 data RunnerEnv e = RunnerEnv
   { runnerCounter :: IORef Int
@@ -58,13 +69,7 @@ data RunnerEnv e = RunnerEnv
   , runnerServerState :: TVar ServerState
   , runnerQEvent :: TQueue Event
   , runnerSignalChan :: TChan Request
-  , runnerRefreshAction :: IO ()
-  , runnerHitScene ::
-      (Double, Double) ->
-      IO (Maybe (EventMap e))
-  , runnerGetScene ::
-      Text ->
-      IO (Maybe (EventMap e))
+  , runnerHandler :: RunnerHandler e
   }
 
 type Runner e = ReaderT (RunnerEnv e) IO
@@ -179,11 +184,11 @@ stepControl (Free (ModifyAndReturnBoth upd cont)) = do
   (before, after) <- modifyUISS' upd
   pure (Left (cont (before, after)))
 stepControl (Free (HitScene xy cont)) = do
-  hitScene' <- runnerHitScene <$> ask
+  hitScene' <- runHandlerHitScene . runnerHandler <$> ask
   memap <- liftIO $ hitScene' xy
   pure (Left (cont memap))
 stepControl (Free (GetScene name cont)) = do
-  getScene' <- runnerGetScene <$> ask
+  getScene' <- runHandlerGetScene . runnerHandler <$> ask
   memap <- liftIO $ getScene' name
   pure (Left (cont memap))
 stepControl (Free (AddToStage scene next)) = do
@@ -217,7 +222,7 @@ stepControl (Free (SaveSession next)) = do
       BL.hPutStr h (encode ss)
   pure (Left next)
 stepControl (Free (Refresh next)) = do
-  refreshAction <- runnerRefreshAction <$> ask
+  refreshAction <- runHandlerRefreshAction . runnerHandler <$> ask
   liftIO refreshAction
   pure (Left next)
 stepControl (Free (RefreshUIAfter nSec next)) = do

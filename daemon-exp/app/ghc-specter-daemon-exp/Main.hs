@@ -45,7 +45,10 @@ import GHCSpecter.Config (
   loadConfig,
  )
 import GHCSpecter.Control qualified as Control
-import GHCSpecter.Control.Runner (RunnerEnv (..))
+import GHCSpecter.Control.Runner (
+  RunnerEnv (..),
+  RunnerHandler (..),
+ )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
@@ -276,25 +279,25 @@ main =
         _ <- drawingArea
           `on` #draw
           $ \ctxt -> do
-          x <- getCurrentTime
-          print x
-          r <- flip RC.renderWithContext ctxt do
-            (vb, ui, ss) <- liftIO $ atomically do
-              ui <- readTVar uiRef
-              ss <- readTVar ssRef
-              emapRef <- newTVar []
-              let wcfg = ui ^. uiModel . modelWidgetConfig
-                  vb = ViewBackend vbr wcfg emapRef
-              writeTVar vbRef (WrappedViewBackend vb)
-              pure (vb, ui, ss)
-            runReaderT (renderAction ui ss) vb
-            pure True
-          y <- getCurrentTime
-          let s = realToFrac (nominalDiffTimeToSeconds (y `diffUTCTime` x))
-              ms :: Double
-              ms = 1000 * s
-          hPutStrLn hDat $ printf "%.6f" ms
-          pure r
+            x <- getCurrentTime
+            print x
+            r <- flip RC.renderWithContext ctxt do
+              (vb, ui, ss) <- liftIO $ atomically do
+                ui <- readTVar uiRef
+                ss <- readTVar ssRef
+                emapRef <- newTVar []
+                let wcfg = ui ^. uiModel . modelWidgetConfig
+                    vb = ViewBackend vbr wcfg emapRef
+                writeTVar vbRef (WrappedViewBackend vb)
+                pure (vb, ui, ss)
+              runReaderT (renderAction ui ss) vb
+              pure True
+            y <- getCurrentTime
+            let s = realToFrac (nominalDiffTimeToSeconds (y `diffUTCTime` x))
+                ms :: Double
+                ms = 1000 * s
+            hPutStrLn hDat $ printf "%.6f" ms
+            pure r
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
         _ <- drawingArea
@@ -344,26 +347,30 @@ main =
         -- prepare runner
         -- TODO: make common initialization function (but backend-dep)
         counterRef <- newIORef 0
-        let runner =
+        let runHandler =
+              RunnerHandler
+                { runHandlerRefreshAction = refreshAction
+                , runHandlerHitScene = \xy -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = Transformation.hitScene xy emaps
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runHandlerGetScene = \name -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = L.find (\emap -> sceneId emap == name) emaps
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                }
+            runner =
               RunnerEnv
                 { runnerCounter = counterRef
                 , runnerUIState = cliSess ^. csUIStateRef
                 , runnerServerState = servSess ^. ssServerStateRef
                 , runnerQEvent = cliSess ^. csPublisherEvent
                 , runnerSignalChan = servSess ^. ssSubscriberSignal
-                , runnerRefreshAction = refreshAction
-                , runnerHitScene = \xy -> atomically $ do
-                    WrappedViewBackend vb <- readTVar vbRef
-                    let emapRef = vbEventMap vb
-                    emaps <- readTVar emapRef
-                    let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
-                , runnerGetScene = \name -> atomically $ do
-                    WrappedViewBackend vb <- readTVar vbRef
-                    let emapRef = vbEventMap vb
-                    emaps <- readTVar emapRef
-                    let memap = L.find (\emap -> sceneId emap == name) emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runnerHandler = runHandler
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ
