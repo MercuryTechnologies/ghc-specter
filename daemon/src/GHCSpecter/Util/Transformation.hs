@@ -34,36 +34,36 @@ transformScroll ::
   (Double, Double) ->
   ViewPort ->
   ViewPort
-transformScroll vpLimit dir scale (dx, dy) vp = vp'
+transformScroll vpLimit dir scale (dx, dy) vp = vp''
   where
     ViewPort (x0, y0) (x1, y1) = vp
     dx' = dx / scale
     dy' = dy / scale
 
-    vp' = case dir of
+    vp'' = case dir of
       ScrollDirectionRight ->
         let vp' = ViewPort (x0 + dx', y0) (x1 + dx', y1)
          in case vpLimit of
               Nothing -> vp'
-              Just (ViewPort (x00, y00) (x01, y01)) ->
+              Just (ViewPort (x00, _y00) (x01, _y01)) ->
                 if x0 + dx' < x00 || x1 + dx' < x01 then vp' else vp
       ScrollDirectionLeft ->
         let vp' = ViewPort (x0 - dx', y0) (x1 - dx', y1)
          in case vpLimit of
               Nothing -> vp'
-              Just (ViewPort (x00, y00) (x01, y01)) ->
+              Just (ViewPort (x00, _y00) (x01, _y01)) ->
                 if x1 - dx' > x01 || x0 - dx' > x00 then vp' else vp
       ScrollDirectionDown ->
         let vp' = ViewPort (x0, y0 + dy') (x1, y1 + dy')
          in case vpLimit of
               Nothing -> vp'
-              Just (ViewPort (x00, y00) (x01, y01)) ->
+              Just (ViewPort (_x00, y00) (_x01, y01)) ->
                 if y0 + dy' < y00 || y1 + dy' < y01 then vp' else vp
       ScrollDirectionUp ->
         let vp' = ViewPort (x0, y0 - dy') (x1, y1 - dy')
          in case vpLimit of
               Nothing -> vp'
-              Just (ViewPort (x00, y00) (x01, y01)) ->
+              Just (ViewPort (_x00, y00) (_x01, y01)) ->
                 if y1 - dy' > y01 || y0 - dy' > y00 then vp' else vp
 
 -- | zoom

@@ -2,15 +2,19 @@
 
 module GHCSpecter.Gtk.SourceView (renderSourceView) where
 
-import Control.Lens (at, to, (^.), (^?), _Just)
+import Control.Concurrent.STM (atomically, readTVar)
+import Control.Lens (at, (^.), (^?), _Just)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
-import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.List qualified as L
 import GHCSpecter.Data.GHC.Hie (
   HasModuleHieInfo (..),
  )
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL (
+  Scene (..),
+  Stage (..),
+ )
 import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (vruleLeft)
@@ -21,11 +25,9 @@ import GHCSpecter.Server.Types (
  )
 import GHCSpecter.UI.Components.ModuleTree (buildModuleTree)
 import GHCSpecter.UI.Components.TextView (buildTextView)
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.SourceView (buildSuppViewPanel)
 import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
-  HasViewPortInfo (..),
   SourceViewUI,
  )
 import GHCSpecter.UI.Types.Event (Event (..))
@@ -36,23 +38,23 @@ renderSourceView ::
   ServerState ->
   GtkRender Event ()
 renderSourceView srcUI ss = do
-  wcfg <- (^. to vbWidgetConfig . wcfgSourceView) <$> ask
+  stageRef <- vbStage <$> ask
+  Stage stage <- liftIO $ atomically $ readTVar stageRef
   -- module tree pane
-  for_ (Map.lookup "module-tree" wcfg) $ \vpCvs -> do
-    let vp = srcUI ^. srcViewModuleTreeViewPort . vpViewPort
+  for_ (L.find ((== "module-tree") . sceneId) stage) $ \scene0 -> do
     sceneModTree <- fmap (fmap SourceViewEv) <$> buildModuleTree srcUI ss
     let sceneModTree' =
           sceneModTree
             { sceneId = "module-tree"
-            , sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vp
+            , sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneModTree'
   -- source text view
-  for_ (Map.lookup "source-view" wcfg) $ \vpCvs -> do
-    for_ (Map.lookup "supple-view" wcfg) $ \vpCvsSupp -> do
+  for_ (L.find ((== "source-view") . sceneId) stage) $ \scene0 -> do
+    for_ (L.find ((== "supple-view") . sceneId) stage) $ \scene1 -> do
       -- source text
-      vruleLeft vpCvs
+      vruleLeft (sceneGlobalViewPort scene0)
       let hie = ss ^. serverHieState
           mexpandedModu = srcUI ^. srcViewExpandedModule
       for_ mexpandedModu $ \modu -> do
@@ -60,34 +62,34 @@ renderSourceView srcUI ss = do
         for_ mmodHieInfo $ \modHieInfo -> do
           let topLevelDecls = getReducedTopLevelDecls modHieInfo
               src = modHieInfo ^. modHieSource
-              vpi = srcUI ^. srcViewSourceViewPort
-              vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
           sceneSrcView <- buildTextView src (fmap fst topLevelDecls)
           let sceneSrcView' =
                 sceneSrcView
                   { sceneId = "source-view"
-                  , sceneGlobalViewPort = vpCvs
-                  , sceneLocalViewPort = vp
+                  , sceneGlobalViewPort = sceneGlobalViewPort scene0
+                  , sceneLocalViewPort = sceneLocalViewPort scene0
                   }
           render sceneSrcView'
         -- supplementary view
-        vruleLeft vpCvsSupp
-        for_ ((,) <$> Map.lookup "supple-view-tab" wcfg <*> Map.lookup "supple-view-contents" wcfg) $
-          \(vpCvsSuppTab, vpCvsSuppContents) -> do
-            let vpi = srcUI ^. srcViewSuppViewPort
-                vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+        vruleLeft (sceneGlobalViewPort scene1)
+        for_
+          ( (,)
+              <$> L.find ((== "supple-view-tab") . sceneId) stage
+              <*> L.find ((== "supple-view-contents") . sceneId) stage
+          )
+          $ \(scene2, scene3) -> do
             (sceneSuppTab, sceneSuppContents) <- buildSuppViewPanel modu srcUI ss
             let sceneSuppTab' =
                   fmap (fmap SourceViewEv) $
                     sceneSuppTab
-                      { sceneGlobalViewPort = vpCvsSuppTab
+                      { sceneGlobalViewPort = sceneGlobalViewPort scene2
                       }
                 sceneSuppContents' =
                   fmap
                     (DummyEv <$)
                     sceneSuppContents
-                      { sceneGlobalViewPort = vpCvsSuppContents
-                      , sceneLocalViewPort = vp
+                      { sceneGlobalViewPort = sceneGlobalViewPort scene3
+                      , sceneLocalViewPort = sceneLocalViewPort scene3
                       }
             render sceneSuppTab'
             render sceneSuppContents'

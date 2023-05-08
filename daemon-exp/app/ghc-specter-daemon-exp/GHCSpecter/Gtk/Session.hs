@@ -2,18 +2,24 @@
 
 module GHCSpecter.Gtk.Session (renderSession) where
 
-import Control.Lens (to, (^.))
+import Control.Concurrent.STM (atomically, readTVar)
+import Control.Lens ((^.))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.List (partition)
-import Data.Map qualified as Map
-import Data.Maybe (fromMaybe, isJust)
+import Data.List qualified as L
+import Data.Maybe (isJust)
 import GHCSpecter.Channel.Outbound.Types (
   getEnd,
  )
 import GHCSpecter.Data.Map (keyMapToList)
-import GHCSpecter.Graphics.DSL (Color (..), Scene (..), ViewPort (..))
+import GHCSpecter.Graphics.DSL (
+  Color (..),
+  Scene (..),
+  Stage (..),
+  ViewPort (..),
+ )
 import GHCSpecter.Gtk.Renderer (
   render,
   setColor,
@@ -25,7 +31,6 @@ import GHCSpecter.Server.Types (
   HasTimingState (..),
   ServerState,
  )
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Session (
   buildModuleInProgress,
   buildPauseResume,
@@ -33,65 +38,50 @@ import GHCSpecter.UI.Session (
   buildRtsPanel,
   buildSession,
  )
-import GHCSpecter.UI.Types (
-  HasSessionUI (..),
-  HasViewPortInfo (..),
-  SessionUI,
- )
 import GHCSpecter.UI.Types.Event (Event (..))
-import GHCSpecter.Util.Transformation (translateToOrigin)
 import GI.Cairo.Render qualified as R
 
 renderSession ::
   ServerState ->
-  SessionUI ->
   GtkRender Event ()
-renderSession ss sessui = do
-  wcfg <- (^. to vbWidgetConfig . wcfgSession) <$> ask
-  for_ (Map.lookup "session-main" wcfg) $ \vpCvs -> do
-    let vpiMain = sessui ^. sessionUIMainViewPort
-        vpMain = fromMaybe (vpiMain ^. vpViewPort) (vpiMain ^. vpTempViewPort)
+renderSession ss = do
+  stageRef <- vbStage <$> ask
+  Stage stage <- R.liftIO $ atomically $ readTVar stageRef
+  for_ (L.find ((== "session-main") . sceneId) stage) $ \scene0 -> do
     sceneMain <- buildSession ss
     let sceneMain' =
           sceneMain
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vpMain
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneMain'
-  for_ (Map.lookup "session-process" wcfg) $ \vpCvs -> do
-    let vpiProcess = sessui ^. sessionUIProcessViewPort
-        vpProcess = fromMaybe (vpiProcess ^. vpViewPort) (vpiProcess ^. vpTempViewPort)
-    boxRules vpCvs
+  for_ (L.find ((== "session-process") . sceneId) stage) $ \scene0 -> do
+    boxRules (sceneGlobalViewPort scene0)
     sceneProcess <- buildProcessPanel ss
     let sceneProcess' =
           sceneProcess
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vpProcess
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneProcess'
-  for_ (Map.lookup "session-rts" wcfg) $ \vpCvs -> do
-    let vpiRts = sessui ^. sessionUIRtsViewPort
-        vpRts = fromMaybe (vpiRts ^. vpViewPort) (vpiRts ^. vpTempViewPort)
-    boxRules vpCvs
+  for_ (L.find ((== "session-rts") . sceneId) stage) $ \scene0 -> do
+    boxRules (sceneGlobalViewPort scene0)
     sceneRts <- buildRtsPanel ss
     let sceneRts' =
           sceneRts
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vpRts
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneRts'
-  for_ (Map.lookup "module-status" wcfg) $ \vpCvs -> do
-    let ViewPort (cx0, cy0) (cx1, cy1) = vpCvs
+  for_ (L.find ((== "module-status") . sceneId) stage) $ \scene0 -> do
+    let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene0
     setColor Ivory
     -- TODO: this should be wrapped in a function.
     lift $ do
       R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
       R.fill
-    boxRules vpCvs
-
-    let vpiStatus = sessui ^. sessionUIModStatusViewPort
-        vpStatus = fromMaybe (vpiStatus ^. vpViewPort) (vpiStatus ^. vpTempViewPort)
-        drvModMap = ss ^. serverDriverModuleMap
+    boxRules (sceneGlobalViewPort scene0)
+    let drvModMap = ss ^. serverDriverModuleMap
         timing = ss ^. serverTiming . tsTimingMap
         pausedMap = ss ^. serverPaused
         timingList = keyMapToList timing
@@ -100,16 +90,16 @@ renderSession ss sessui = do
     sceneModStatus <- buildModuleInProgress drvModMap pausedMap timingInProg
     let sceneModStatus' =
           sceneModStatus
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = vpStatus
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneModStatus'
-  for_ (Map.lookup "session-button" wcfg) $ \vpCvs -> do
+  for_ (L.find ((== "session-button") . sceneId) stage) $ \scene0 -> do
     let sessionInfo = ss ^. serverSessionInfo
     scenePause <- fmap (fmap SessionEv) <$> buildPauseResume sessionInfo
     let scenePause' =
           scenePause
-            { sceneGlobalViewPort = vpCvs
-            , sceneLocalViewPort = translateToOrigin vpCvs
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0
+            , sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render scenePause'

@@ -41,6 +41,9 @@ module GHCSpecter.Graphics.DSL (
   eventMapGlobalViewPort,
   eventMapLocalViewPort,
   eventMapElements,
+
+  -- * stage
+  Stage (..),
 ) where
 
 import Data.Bifunctor (bimap)
@@ -275,3 +278,7 @@ eventMapLocalViewPort = sceneLocalViewPort
 
 eventMapElements :: EventMap e -> [(HitEvent e, ViewPort)]
 eventMapElements = sceneElements
+
+data Stage = Stage
+  { stageElems :: [Scene ()]
+  }

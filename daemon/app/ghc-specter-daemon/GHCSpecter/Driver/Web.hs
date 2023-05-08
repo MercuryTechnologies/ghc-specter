@@ -28,7 +28,10 @@ import GHCSpecter.ConcurReplica.Types (
  )
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Control qualified as Control (main)
-import GHCSpecter.Control.Runner (RunnerEnv (..))
+import GHCSpecter.Control.Runner (
+  RunnerEnv (..),
+  RunnerHandler (..),
+ )
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session qualified as Session
 import GHCSpecter.Driver.Session.Types (
@@ -78,16 +81,21 @@ webServer cfg servSess = do
       -- prepare runner
       -- TODO: make common initialization function (but backend-dep)
       counterRef <- unsafeBlockingIO $ newIORef 0
-      let runner =
+      let runHandler =
+            RunnerHandler
+              { runHandlerRefreshAction = pure ()
+              , runHandlerHitScene = \_ -> pure Nothing
+              , runHandlerGetScene = \_ -> pure Nothing
+              , runHandlerAddToStage = \_ -> pure ()
+              }
+          runner =
             RunnerEnv
               { runnerCounter = counterRef
               , runnerUIState = cliSess ^. csUIStateRef
               , runnerServerState = servSess ^. ssServerStateRef
               , runnerQEvent = cliSess ^. csPublisherEvent
               , runnerSignalChan = servSess ^. ssSubscriberSignal
-              , runnerRefreshAction = pure ()
-              , runnerHitScene = (\_ -> pure Nothing)
-              , runnerGetScene = (\_ -> pure Nothing)
+              , runnerHandler = runHandler
               }
       unsafeBlockingIO $ Session.main runner servSess cliSess Control.main
       loopM (step newUIChan) (BkgEv RefreshUI)

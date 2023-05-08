@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -40,7 +41,10 @@ import GHCSpecter.Config (
   loadConfig,
  )
 import GHCSpecter.Control qualified as Control
-import GHCSpecter.Control.Runner (RunnerEnv (..))
+import GHCSpecter.Control.Runner (
+  RunnerEnv (..),
+  RunnerHandler (..),
+ )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types (
@@ -55,6 +59,7 @@ import GHCSpecter.Graphics.DSL (
   EventMap,
   HitEvent,
   Scene (sceneId),
+  Stage (..),
   ViewPort (..),
  )
 import GHCSpecter.Gtk.Handler (
@@ -242,13 +247,13 @@ main =
 
     _ <- Gtk.init Nothing
     mvb <- initViewBackendResource
+    stageRef <- atomically $ newTVar (Stage [])
     case mvb of
       Nothing -> error "cannot initialize pango"
       Just vbr -> do
         vbRef <- atomically $ do
           emapRef <- newTVar ([] :: [EventMap Event])
-          wcfg <- (^. uiModel . modelWidgetConfig) <$> readTVar uiRef
-          let vb = ViewBackend vbr wcfg emapRef
+          let vb = ViewBackend vbr stageRef emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -267,14 +272,13 @@ main =
 
         _ <- drawingArea
           `on` #draw
-          $ RC.renderWithContext
-          $ do
-            (vb, ui, ss) <- liftIO $ atomically $ do
+          $ RC.renderWithContext do
+            (vb, ui, ss) <- liftIO $ atomically do
               ui <- readTVar uiRef
               ss <- readTVar ssRef
               emapRef <- newTVar []
-              let wcfg = ui ^. uiModel . modelWidgetConfig
-                  vb = ViewBackend vbr wcfg emapRef
+              -- TODO: this should not be recreated every time.
+              let vb = ViewBackend vbr stageRef emapRef
               writeTVar vbRef (WrappedViewBackend vb)
               pure (vb, ui, ss)
             runReaderT (renderAction ui ss) vb
@@ -328,26 +332,36 @@ main =
         -- prepare runner
         -- TODO: make common initialization function (but backend-dep)
         counterRef <- newIORef 0
-        let runner =
+        let runHandler =
+              RunnerHandler
+                { runHandlerRefreshAction = refreshAction
+                , runHandlerHitScene = \xy -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = Transformation.hitScene xy emaps
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runHandlerGetScene = \name -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    let emapRef = vbEventMap vb
+                    emaps <- readTVar emapRef
+                    let memap = L.find (\emap -> sceneId emap == name) emaps
+                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runHandlerAddToStage = \scene -> atomically $ do
+                    WrappedViewBackend vb <- readTVar vbRef
+                    Stage cfgs <- readTVar (vbStage vb)
+                    let cfgs' = filter (\scene' -> sceneId scene /= sceneId scene') cfgs
+                        cfgs'' = scene : cfgs'
+                    writeTVar (vbStage vb) (Stage cfgs'')
+                }
+            runner =
               RunnerEnv
                 { runnerCounter = counterRef
                 , runnerUIState = cliSess ^. csUIStateRef
                 , runnerServerState = servSess ^. ssServerStateRef
                 , runnerQEvent = cliSess ^. csPublisherEvent
                 , runnerSignalChan = servSess ^. ssSubscriberSignal
-                , runnerRefreshAction = refreshAction
-                , runnerHitScene = \xy -> atomically $ do
-                    WrappedViewBackend vb <- readTVar vbRef
-                    let emapRef = vbEventMap vb
-                    emaps <- readTVar emapRef
-                    let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
-                , runnerGetScene = \name -> atomically $ do
-                    WrappedViewBackend vb <- readTVar vbRef
-                    let emapRef = vbEventMap vb
-                    emaps <- readTVar emapRef
-                    let memap = L.find (\emap -> sceneId emap == name) emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                , runnerHandler = runHandler
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

@@ -17,6 +17,7 @@ module GHCSpecter.Control.Types (
   modifyAndReturnBoth,
   hitScene,
   getScene,
+  addToStage,
   sendRequest,
   nextEvent,
   printMsg,
@@ -36,7 +37,7 @@ import Control.Monad.Indexed.Free.Class (iliftFree)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
-import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Graphics.DSL (EventMap, Scene)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
 import GHCSpecter.UI.Types.Event (Event)
@@ -69,6 +70,10 @@ data ControlF e e' r where
     Text ->
     (Maybe (EventMap e) -> r) ->
     ControlF e e r
+  AddToStage ::
+    Scene () ->
+    r ->
+    ControlF e e r
   SendRequest :: Request -> r -> ControlF e e r
   NextEvent :: (Event -> r) -> ControlF e e r
   PrintMsg :: Text -> r -> ControlF e e r
@@ -92,6 +97,7 @@ instance IxFunctor ControlF where
   imap f (ModifyAndReturnBoth g cont) = ModifyAndReturnBoth g (f . cont)
   imap f (HitScene x cont) = HitScene x (f . cont)
   imap f (GetScene x cont) = GetScene x (f . cont)
+  imap f (AddToStage x next) = AddToStage x (f next)
   imap f (SendRequest x next) = SendRequest x (f next)
   imap f (NextEvent cont) = NextEvent (f . cont)
   imap f (PrintMsg x next) = PrintMsg x (f next)
@@ -156,6 +162,12 @@ getScene ::
   Text ->
   Control e (Maybe (EventMap e))
 getScene name = liftF (GetScene name id)
+
+-- | add a scene to the stage
+addToStage ::
+  Scene () ->
+  Control e ()
+addToStage scene = liftF (AddToStage scene ())
 
 sendRequest :: Request -> Control e ()
 sendRequest b = liftF (SendRequest b ())
