@@ -273,16 +273,16 @@ main =
         _ <- drawingArea
           `on` #draw
           $ RC.renderWithContext do
-              (vb, ui, ss) <- liftIO $ atomically do
-                ui <- readTVar uiRef
-                ss <- readTVar ssRef
-                emapRef <- newTVar []
-                -- TODO: this should not be recreated every time.
-                let vb = ViewBackend vbr stageRef emapRef
-                writeTVar vbRef (WrappedViewBackend vb)
-                pure (vb, ui, ss)
-              runReaderT (renderAction ui ss) vb
-              pure True
+            (vb, ui, ss) <- liftIO $ atomically do
+              ui <- readTVar uiRef
+              ss <- readTVar ssRef
+              emapRef <- newTVar []
+              -- TODO: this should not be recreated every time.
+              let vb = ViewBackend vbr stageRef emapRef
+              writeTVar vbRef (WrappedViewBackend vb)
+              pure (vb, ui, ss)
+            runReaderT (renderAction ui ss) vb
+            pure True
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
         _ <- drawingArea
