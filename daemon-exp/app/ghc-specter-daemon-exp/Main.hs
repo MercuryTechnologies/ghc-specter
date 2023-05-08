@@ -260,8 +260,7 @@ main =
       Just vbr -> do
         vbRef <- atomically $ do
           emapRef <- newTVar ([] :: [EventMap Event])
-          wcfg <- (^. uiModel . modelWidgetConfig) <$> readTVar uiRef
-          let vb = ViewBackend vbr wcfg stageRef emapRef
+          let vb = ViewBackend vbr stageRef emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
         _ <- mainWindow `on` #destroy $ Gtk.mainQuit
@@ -288,8 +287,8 @@ main =
                 ui <- readTVar uiRef
                 ss <- readTVar ssRef
                 emapRef <- newTVar []
-                let wcfg = ui ^. uiModel . modelWidgetConfig
-                    vb = ViewBackend vbr wcfg stageRef emapRef
+                -- TODO: this should not be recreated every time.
+                let vb = ViewBackend vbr stageRef emapRef
                 writeTVar vbRef (WrappedViewBackend vb)
                 pure (vb, ui, ss)
               runReaderT (renderAction ui ss) vb

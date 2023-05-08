@@ -19,7 +19,6 @@ import GHCSpecter.Graphics.DSL (
 import GHCSpecter.Layouter.Text (
   MonadTextLayout (..),
  )
-import GHCSpecter.UI.Constants (WidgetConfig)
 import GI.Cairo.Render qualified as R
 import GI.Pango qualified as P
 
@@ -33,7 +32,6 @@ data ViewBackendResource = ViewBackendResource
 -- TODO2: TVar inside TVar is anti-pattern. should be flattened with one TVar.
 data ViewBackend e = ViewBackend
   { vbResource :: ViewBackendResource
-  , vbWidgetConfig :: WidgetConfig
   , vbStage :: TVar Stage
   , vbEventMap :: TVar [EventMap e]
   }

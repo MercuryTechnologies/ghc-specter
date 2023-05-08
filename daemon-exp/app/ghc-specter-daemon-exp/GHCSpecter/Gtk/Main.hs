@@ -8,6 +8,7 @@ module GHCSpecter.Gtk.Main (
 import Control.Concurrent.STM (
   atomically,
   modifyTVar',
+  readTVar,
  )
 import Control.Lens (to, (^.))
 import Control.Monad (when)
@@ -15,7 +16,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
-import Data.Map qualified as Map
+import Data.List qualified as L
 import GHCSpecter.Channel.Outbound.Types (
   ModuleGraphInfo (..),
   SessionInfo (..),
@@ -23,6 +24,7 @@ import GHCSpecter.Channel.Outbound.Types (
 import GHCSpecter.Graphics.DSL (
   Color (..),
   Scene (..),
+  Stage (..),
   TextFontFace (Sans),
  )
 import GHCSpecter.Gtk.Console (renderConsole)
@@ -46,7 +48,6 @@ import GHCSpecter.Server.Types (
   ServerState (..),
  )
 import GHCSpecter.UI.Components.Tab (buildTab)
-import GHCSpecter.UI.Constants (HasWidgetConfig (..))
 import GHCSpecter.UI.Tab (topLevelTab)
 import GHCSpecter.UI.Types (
   HasUIModel (..),
@@ -92,13 +93,14 @@ renderAction ui ss = do
     Nothing -> renderNotConnected
     Just grVisInfo -> do
       resetWidget
-      wcfg <- (^. to vbWidgetConfig . wcfgTopLevel) <$> ask
+      stageRef <- vbStage <$> ask
+      Stage stage <- R.liftIO $ atomically $ readTVar stageRef
       -- tab
-      for_ (Map.lookup "tab" wcfg) $ \vpCvs -> do
+      for_ (L.find ((== "tab") . sceneId) stage) $ \scene0 -> do
         sceneTab <- fmap (fmap TabEv) <$> buildTab topLevelTab (Just (ui ^. uiModel . modelTab))
         let sceneTab' =
               sceneTab
-                { sceneGlobalViewPort = vpCvs
+                { sceneGlobalViewPort = sceneGlobalViewPort scene0
                 }
         render sceneTab'
       -- main
