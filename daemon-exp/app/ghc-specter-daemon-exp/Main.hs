@@ -32,11 +32,7 @@ import Data.IORef (newIORef)
 import Data.List (partition)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
-import Data.Time.Clock (
-  diffUTCTime,
-  getCurrentTime,
-  nominalDiffTimeToSeconds,
- )
+import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Typeable (gcast)
 import GHCSpecter.Config (
@@ -113,8 +109,6 @@ import GI.Cairo.Render.Connector qualified as RC
 import GI.Gdk qualified as Gdk
 import GI.Gtk qualified as Gtk
 import GI.PangoCairo qualified as PC
-import System.IO (IOMode (WriteMode), hClose, hPutStrLn, openFile)
-import Text.Printf (printf)
 
 detailLevel :: DetailLevel
 detailLevel = UpTo30
@@ -252,7 +246,6 @@ main =
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
-    hDat <- openFile "frame.dat" WriteMode
     mvb <- initViewBackendResource
     stageRef <- atomically $ newTVar (Stage [])
     case mvb of
@@ -279,10 +272,7 @@ main =
 
         _ <- drawingArea
           `on` #draw
-          $ \ctxt -> do
-            x <- getCurrentTime
-            print x
-            r <- flip RC.renderWithContext ctxt do
+          $ RC.renderWithContext do
               (vb, ui, ss) <- liftIO $ atomically do
                 ui <- readTVar uiRef
                 ss <- readTVar ssRef
@@ -293,12 +283,6 @@ main =
                 pure (vb, ui, ss)
               runReaderT (renderAction ui ss) vb
               pure True
-            y <- getCurrentTime
-            let s = realToFrac (nominalDiffTimeToSeconds (y `diffUTCTime` x))
-                ms :: Double
-                ms = 1000 * s
-            hPutStrLn hDat $ printf "%.6f" ms
-            pure r
 
         let refreshAction = postGUIASync (#queueDraw drawingArea)
         _ <- drawingArea
@@ -390,4 +374,3 @@ main =
               Control.mainLoop
         _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main
-    hClose hDat
