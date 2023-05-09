@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       GHCSpecter.Control
+      GHCSpecter.Control.DSL
       GHCSpecter.Control.Runner
       GHCSpecter.Control.Types
       GHCSpecter.Data.Assets
@@ -158,6 +159,7 @@ executable ghc-specter-daemon
     , stm
     , text
     , time
+    , transformers
     , wai
     , wai-websockets
     , warp

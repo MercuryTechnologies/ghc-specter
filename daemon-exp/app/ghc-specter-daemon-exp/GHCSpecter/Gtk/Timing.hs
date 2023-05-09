@@ -34,13 +34,13 @@ import GHCSpecter.UI.Types (
   HasTimingUI (..),
   TimingUI,
  )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event (UserEvent (..))
 
 renderTiming ::
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
-  GtkRender Event ()
+  GtkRender UserEvent ()
 renderTiming drvModMap tui ttable = do
   stageRef <- vbStage <$> ask
   Stage stage <- liftIO $ atomically $ readTVar stageRef

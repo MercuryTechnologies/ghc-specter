@@ -33,8 +33,8 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   DetailLevel,
-  Event (..),
   SubModuleEvent (..),
+  UserEvent (..),
  )
 import GI.Cairo.Render qualified as R
 import Text.Printf (printf)
@@ -48,7 +48,7 @@ renderModuleGraph ::
   KeyMap DriverId Timer ->
   [(Text, [Text])] ->
   GraphVisInfo ->
-  GtkRender Event ()
+  GtkRender UserEvent ()
 renderModuleGraph
   (mgrui, (detailLevel, sgrui))
   subgraphs

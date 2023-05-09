@@ -78,6 +78,7 @@ import GHCSpecter.UI.Types.Event (
   Event (..),
   ModuleGraphEvent (..),
   SubModuleEvent (..),
+  UserEvent (..),
  )
 import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Web.Util (xmlns)
@@ -173,7 +174,7 @@ renderMainModuleGraph
       [ classList [("box", True)]
       , style [("overflow", "scroll")]
       ]
-      [ MainModuleEv
+      [ UsrEv . MainModuleEv
           <$> renderModuleGraph
             nameMap
             valueFor
@@ -231,7 +232,7 @@ renderSubModuleGraph
                   [ classList [("box", True)]
                   , style [("overflow", "scroll")]
                   ]
-                  [ SubModuleEv . SubModuleGraphEv
+                  [ UsrEv . SubModuleEv . SubModuleGraphEv
                       <$> renderModuleGraph
                         nameMap
                         valueFor
@@ -241,7 +242,7 @@ renderSubModuleGraph
 
 renderDetailLevel :: UIModel -> Widget IHTML Event
 renderDetailLevel model =
-  SubModuleEv . SubModuleLevelEv
+  UsrEv . SubModuleEv . SubModuleLevelEv
     <$> div
       [ classList [("control", True)]
       , style [("position", "absolute"), ("top", "0"), ("right", "0")]

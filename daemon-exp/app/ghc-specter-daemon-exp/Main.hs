@@ -8,28 +8,20 @@ module Main where
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
   atomically,
-  flushTQueue,
   newTChanIO,
   newTQueueIO,
   newTVar,
   newTVarIO,
-  readTChan,
   readTVar,
-  retry,
-  writeTChan,
-  writeTQueue,
   writeTVar,
  )
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad (join)
-import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
-import Data.List (partition)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
@@ -52,7 +44,6 @@ import GHCSpecter.Driver.Session.Types (
   HasClientSession (..),
   HasServerSession (..),
   ServerSession (..),
-  UIChannel (..),
  )
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
@@ -98,10 +89,9 @@ import GHCSpecter.UI.Types (
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (RefreshUI),
   DetailLevel (..),
-  Event (..),
   Tab (..),
+  UserEvent (..),
  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
@@ -140,31 +130,6 @@ initViewBackendResource = do
         , vbrFontDescSans = descSans
         , vbrFontDescMono = descMono
         }
-
-simpleEventLoop :: UIChannel -> IO ()
-simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
-  where
-    step ev = do
-      atomically $ writeTChan chanEv ev
-
-      -- this is due to the compatibility with concur-replica.
-      -- TODO: remove this properly.
-      _ <- atomically $ readTChan chanState
-
-      ev' <- atomically $ do
-        evs' <- flushTQueue chanQEv
-        -- Prioritize background events
-        let (bevs', fevs') = partition (\case BkgEv _ -> True; _ -> False) evs'
-        case bevs' of
-          bev' : bevs'' -> do
-            traverse_ (writeTQueue chanQEv) (bevs'' ++ fevs')
-            pure bev'
-          _ -> case fevs' of
-            fev' : fevs'' -> do
-              traverse_ (writeTQueue chanQEv) fevs''
-              pure fev'
-            _ -> retry
-      pure (Left ev')
 
 main :: IO ()
 main =
@@ -234,15 +199,11 @@ main =
               . (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vpConsole Nothing)
 
     uiRef <- newTVarIO ui0'
-    chanEv <- newTChanIO
     chanState <- newTChanIO
     chanQEv <- newTQueueIO
     let
       -- client session
-      cliSess = ClientSession uiRef chanEv chanState chanQEv
-      -- UIChannel
-      uiChan = UIChannel chanEv chanState chanQEv
-
+      cliSess = ClientSession uiRef chanState chanQEv
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
@@ -252,7 +213,7 @@ main =
       Nothing -> error "cannot initialize pango"
       Just vbr -> do
         vbRef <- atomically $ do
-          emapRef <- newTVar ([] :: [EventMap Event])
+          emapRef <- newTVar ([] :: [EventMap UserEvent])
           let vb = ViewBackend vbr stageRef emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
@@ -340,13 +301,13 @@ main =
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
                 , runHandlerGetScene = \name -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = L.find (\emap -> sceneId emap == name) emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
                 , runHandlerAddToStage = \scene -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     Stage cfgs <- readTVar (vbStage vb)
@@ -372,5 +333,4 @@ main =
               servSess
               cliSess
               Control.mainLoop
-        _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main
