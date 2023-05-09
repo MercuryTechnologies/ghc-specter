@@ -70,6 +70,7 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SourceViewEvent (..),
+  UserEvent (..),
  )
 import GHCSpecter.Util.SourceTree (
   accumPrefix,
@@ -290,7 +291,7 @@ renderSuppViewPanel modu srcUI ss =
           cls = classList $ map (\tag -> (tag, True)) clss
        in el
             "a"
-            [cls, SourceViewEv (SourceViewTab k) <$ onClick]
+            [cls, UsrEv (SourceViewEv (SourceViewTab k)) <$ onClick]
             [text tab]
 
     suppViewTabs =
@@ -379,7 +380,7 @@ render srcUI ss =
     [ divClass
         "column box is-one-fifth"
         [style [("overflow", "scroll")]]
-        [SourceViewEv <$> renderModuleTree srcUI ss]
+        [UsrEv . SourceViewEv <$> renderModuleTree srcUI ss]
     , divClass
         "column box is-four-fifths"
         [style [("overflow", "scroll")]]

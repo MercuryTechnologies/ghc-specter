@@ -18,7 +18,10 @@ import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Graphics.DSL (EventMap, Scene)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
-import GHCSpecter.UI.Types.Event (Event)
+import GHCSpecter.UI.Types.Event (
+  Event,
+  UserEvent,
+ )
 
 -- | Pattern functor for effects of Control DSL.
 -- TODO: once commit (atomic state update) and refresh frame are cleared,
@@ -42,11 +45,11 @@ data ControlF e e' r where
     ControlF e e r
   HitScene ::
     (Double, Double) ->
-    (Maybe (EventMap e) -> r) ->
+    (Maybe (EventMap UserEvent) -> r) ->
     ControlF e e r
   GetScene ::
     Text ->
-    (Maybe (EventMap e) -> r) ->
+    (Maybe (EventMap UserEvent) -> r) ->
     ControlF e e r
   AddToStage ::
     Scene () ->

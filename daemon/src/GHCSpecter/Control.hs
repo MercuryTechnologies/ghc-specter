@@ -99,8 +99,10 @@ import GHCSpecter.UI.Types.Event (
   SourceViewEvent (..),
   SpecialKey (KeyBackspace, KeyEnter),
   SubModuleEvent (..),
+  SystemEvent (..),
   Tab (..),
   TimingEvent (..),
+  UserEvent (..),
  )
 import GHCSpecter.Util.Transformation (
   hitItem,
@@ -120,6 +122,13 @@ data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   , handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
   }
 
+nextUserEvent :: (e ~ Event) => Control e UserEvent
+nextUserEvent = do
+  ev <- nextEvent
+  case ev of
+    SysEv (BkgEv bev) -> handleBackground bev >> nextUserEvent
+    UsrEv uev -> pure uev
+
 updateLastUpdated :: Control e ()
 updateLastUpdated = do
   now <- getCurrentTime
@@ -138,6 +147,7 @@ checkIfUpdatable = do
     else shouldUpdate False
 
 -- | showing ghc-specter banner in the beginning
+-- TODO: this should be rewritten
 showBanner :: Control e ()
 showBanner = do
   startTime <- getCurrentTime
@@ -238,7 +248,7 @@ zoom emap lensViewPort ((x, y), scale) model =
 -- TODO: this function should handle MouseEvent.
 handleHoverScrollZoom ::
   (e ~ Event) =>
-  (Event -> Maybe Text) ->
+  (UserEvent -> Maybe Text) ->
   HandlerHoverScrollZoom ->
   MouseEvent ->
   -- | returns whether event was handled
@@ -371,7 +381,7 @@ handleBackground MessageChanUpdated = do
   refresh
 handleBackground RefreshUI = refresh
 
-goSession :: (e ~ Event) => Event -> Control e ()
+goSession :: (e ~ Event) => UserEvent -> Control e ()
 goSession ev = do
   case ev of
     SessionEv SaveSessionEv -> do
@@ -419,7 +429,7 @@ goSession ev = do
           mev
     _ -> pure ()
 
-goModuleGraph :: (e ~ Event) => Event -> Control e ()
+goModuleGraph :: (e ~ Event) => UserEvent -> Control e ()
 goModuleGraph ev = do
   case ev of
     MainModuleEv mev -> do
@@ -475,7 +485,7 @@ goModuleGraph ev = do
     handleModuleGraphEv (HoverOnModuleEv mhovered) = (modGraphUIHover .~ mhovered)
     handleModuleGraphEv (ClickOnModuleEv mclicked) = (modGraphUIClick .~ mclicked)
 
-goSourceView :: (e ~ Event) => Event -> Control e ()
+goSourceView :: (e ~ Event) => UserEvent -> Control e ()
 goSourceView ev = do
   case ev of
     SourceViewEv (SelectModule expandedModu') -> do
@@ -528,7 +538,7 @@ goSourceView ev = do
           mev
     _ -> pure ()
 
-goTiming :: (e ~ Event) => Event -> Control e ()
+goTiming :: (e ~ Event) => UserEvent -> Control e ()
 goTiming ev = do
   case ev of
     TimingEv ToCurrentTime -> do
@@ -633,7 +643,7 @@ goTiming ev = do
     -- (x, y): mouse down point, vp: viewport
     onDraggingInTimingView (x, y) vp = do
       checkIfUpdatable
-      ev' <- nextEvent
+      ev' <- nextUserEvent
       case ev' of
         MouseEv (MouseUp (Just (x', y'))) ->
           modifyUI $
@@ -705,7 +715,7 @@ foregroundLoop = do
     TabSourceView -> branchLoop goSourceView
     TabTiming -> branchLoop goTiming
   where
-    branchLoop :: (Event -> Control e ()) -> Control e r
+    branchLoop :: (UserEvent -> Control e ()) -> Control e r
     branchLoop go = loop
       where
         handleConsoleKey ev =
@@ -737,7 +747,7 @@ foregroundLoop = do
                     }
                   mev
               if isHandled
-                then nextEvent
+                then nextUserEvent
                 else pure ev
             _ -> pure ev
 
@@ -771,14 +781,13 @@ foregroundLoop = do
                   pure True
                 else pure False
             ConsoleEv cev -> handleConsole cev >> pure False
-            BkgEv bev -> handleBackground bev >> pure False
             _ -> go ev >> pure False
 
         loop :: Control Event r
         loop = do
           checkIfUpdatable
           printMsg "wait for the next event"
-          ev0 <- nextEvent
+          ev0 <- nextUserEvent
           printMsg $ "event received: " <> T.pack (show ev0)
           -- handle console key press event
           ev1 <- handleConsoleKey ev0

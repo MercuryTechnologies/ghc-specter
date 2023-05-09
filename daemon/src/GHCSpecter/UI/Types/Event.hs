@@ -21,6 +21,10 @@ module GHCSpecter.UI.Types.Event (
   BlockerModuleGraphEvent (..),
   TimingEvent (..),
   ConsoleEvent (..),
+
+  -- * top-level events
+  UserEvent (..),
+  SystemEvent (..),
   Event (..),
 ) where
 
@@ -154,7 +158,7 @@ data ConsoleEvent k
     ConsoleButtonPressed Bool Text
   deriving (Show, Eq)
 
-data Event
+data UserEvent
   = TabEv Tab
   | SourceViewEv SourceViewEvent
   | MainModuleEv ModuleGraphEvent
@@ -164,6 +168,11 @@ data Event
   | MouseEv MouseEvent
   | KeyEv KeyEvent
   | ConsoleEv (ConsoleEvent DriverId)
-  | BkgEv BackgroundEvent
   | DummyEv
+  deriving (Show, Eq)
+
+data SystemEvent = BkgEv BackgroundEvent
+  deriving (Show, Eq)
+
+data Event = UsrEv UserEvent | SysEv SystemEvent
   deriving (Show, Eq)

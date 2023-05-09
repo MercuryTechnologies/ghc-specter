@@ -30,13 +30,13 @@ import GHCSpecter.UI.Types (
   HasSourceViewUI (..),
   SourceViewUI,
  )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event (UserEvent (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 
 renderSourceView ::
   SourceViewUI ->
   ServerState ->
-  GtkRender Event ()
+  GtkRender UserEvent ()
 renderSourceView srcUI ss = do
   stageRef <- vbStage <$> ask
   Stage stage <- liftIO $ atomically $ readTVar stageRef

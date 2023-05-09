@@ -55,8 +55,8 @@ import GHCSpecter.UI.Types (
   UIState,
  )
 import GHCSpecter.UI.Types.Event (
-  Event (..),
   Tab (..),
+  UserEvent (..),
  )
 import GI.Cairo.Render qualified as R
 
@@ -77,7 +77,7 @@ renderNotConnected = do
 renderAction ::
   UIState ->
   ServerState ->
-  GtkRender Event ()
+  GtkRender UserEvent ()
 renderAction ui ss = do
   let nameMap =
         ss ^. serverModuleGraphState . mgsModuleGraphInfo . to mginfoModuleNameMap

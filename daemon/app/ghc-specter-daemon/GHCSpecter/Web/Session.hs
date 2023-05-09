@@ -55,6 +55,7 @@ import GHCSpecter.UI.Constants (widgetHeight)
 import GHCSpecter.UI.Types.Event (
   Event (..),
   SessionEvent (..),
+  UserEvent (..),
  )
 import GHCSpecter.Web.Util (divClass, spanClass)
 import Text.Pretty.Simple (pShowNoColor)
@@ -70,7 +71,7 @@ renderSessionButtons session =
   where
     buttonSaveSession =
       button
-        [ SessionEv SaveSessionEv <$ onClick
+        [ UsrEv (SessionEv SaveSessionEv) <$ onClick
         , classList [("button", True)]
         ]
         [text "Save Session"]
@@ -79,7 +80,7 @@ renderSessionButtons session =
             | sessionIsPaused session = ("Resume Session", ResumeSessionEv)
             | otherwise = ("Pause Session", PauseSessionEv)
        in button
-            [ SessionEv ev <$ onClick
+            [ UsrEv (SessionEv ev) <$ onClick
             , classList [("button", True)]
             ]
             [text txt]

@@ -36,7 +36,7 @@ import GHCSpecter.Control.Types (
 import GHCSpecter.Graphics.DSL (EventMap, Scene)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
-import GHCSpecter.UI.Types.Event (Event)
+import GHCSpecter.UI.Types.Event (Event, UserEvent)
 
 getUI :: Control e UIState
 getUI = liftF (GetUI id)
@@ -72,13 +72,13 @@ modifyAndReturnBoth upd = liftF (ModifyAndReturnBoth upd id)
 -- | Hit test for canvas coordinate. Return the eventmap of hit scene.
 hitScene ::
   (Double, Double) ->
-  Control e (Maybe (EventMap e))
+  Control e (Maybe (EventMap UserEvent))
 hitScene xy = liftF (HitScene xy id)
 
 -- | Get scene event map by name
 getScene ::
   Text ->
-  Control e (Maybe (EventMap e))
+  Control e (Maybe (EventMap UserEvent))
 getScene name = liftF (GetScene name id)
 
 -- | add a scene to the stage

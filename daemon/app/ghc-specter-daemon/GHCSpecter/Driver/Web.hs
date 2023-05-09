@@ -50,7 +50,8 @@ import GHCSpecter.UI.Types (
  )
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),
-  Event (BkgEv),
+  Event (..),
+  SystemEvent (BkgEv),
  )
 import GHCSpecter.Web (render)
 
@@ -98,7 +99,7 @@ webServer cfg servSess = do
               , runnerHandler = runHandler
               }
       unsafeBlockingIO $ Session.main runner servSess cliSess Control.main
-      loopM (step newUIChan) (BkgEv RefreshUI)
+      loopM (step newUIChan) (SysEv (BkgEv RefreshUI))
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::

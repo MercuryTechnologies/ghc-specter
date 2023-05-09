@@ -101,7 +101,9 @@ import GHCSpecter.UI.Types.Event (
   BackgroundEvent (RefreshUI),
   DetailLevel (..),
   Event (..),
+  SystemEvent (..),
   Tab (..),
+  UserEvent (..),
  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
@@ -142,7 +144,7 @@ initViewBackendResource = do
         }
 
 simpleEventLoop :: UIChannel -> IO ()
-simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv RefreshUI)
+simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (SysEv (BkgEv RefreshUI))
   where
     step ev = do
       atomically $ writeTChan chanEv ev
@@ -154,7 +156,7 @@ simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (BkgEv Refresh
       ev' <- atomically $ do
         evs' <- flushTQueue chanQEv
         -- Prioritize background events
-        let (bevs', fevs') = partition (\case BkgEv _ -> True; _ -> False) evs'
+        let (bevs', fevs') = partition (\case SysEv _ -> True; _ -> False) evs'
         case bevs' of
           bev' : bevs'' -> do
             traverse_ (writeTQueue chanQEv) (bevs'' ++ fevs')
@@ -252,7 +254,7 @@ main =
       Nothing -> error "cannot initialize pango"
       Just vbr -> do
         vbRef <- atomically $ do
-          emapRef <- newTVar ([] :: [EventMap Event])
+          emapRef <- newTVar ([] :: [EventMap UserEvent])
           let vb = ViewBackend vbr stageRef emapRef
           newTVar (WrappedViewBackend vb)
         mainWindow <- new Gtk.Window [#type := Gtk.WindowTypeToplevel]
@@ -340,13 +342,13 @@ main =
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
                 , runHandlerGetScene = \name -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = L.find (\emap -> sceneId emap == name) emaps
-                    pure (join (gcast @_ @(HitEvent Event, ViewPort) <$> memap))
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
                 , runHandlerAddToStage = \scene -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     Stage cfgs <- readTVar (vbStage vb)

@@ -31,7 +31,8 @@ import GHCSpecter.Server.Types (HasServerState (..))
 import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (MessageChanUpdated),
-  Event (BkgEv),
+  Event (SysEv),
+  SystemEvent (BkgEv),
  )
 
 main ::
@@ -69,7 +70,7 @@ main runner servSess cs controlMain = do
         atomically $
           blockUntilNewMessage lastMessageSN
       atomically $
-        writeTQueue chanQEv (BkgEv MessageChanUpdated)
+        writeTQueue chanQEv (SysEv (BkgEv MessageChanUpdated))
       chanDriver newMessageSN
 
     -- connector between driver and Control frame

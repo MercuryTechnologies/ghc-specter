@@ -89,15 +89,6 @@ buildProcessPanel ss = do
   pure scene {sceneId = "session-process"}
   where
     sessionInfo = ss ^. serverSessionInfo
-    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
-    timing = ss ^. serverTiming . tsTimingMap
-    timingList = keyMapToList timing
-    (timingDone, timingInProg) =
-      partition (\(_, t) -> isJust (getEnd t)) timingList
-    nTot = IM.size (mginfoModuleNameMap mgi)
-    nDone = length timingDone
-    nInProg = length timingInProg
-
     msgsProcessInfo =
       case sessionProcess sessionInfo of
         Nothing -> []
@@ -125,15 +116,6 @@ buildRtsPanel ss = do
   pure scene {sceneId = "session-rts"}
   where
     sessionInfo = ss ^. serverSessionInfo
-    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
-    timing = ss ^. serverTiming . tsTimingMap
-    timingList = keyMapToList timing
-    (timingDone, timingInProg) =
-      partition (\(_, t) -> isJust (getEnd t)) timingList
-    nTot = IM.size (mginfoModuleNameMap mgi)
-    nDone = length timingDone
-    nInProg = length timingInProg
-
     msgsRtsInfo =
       case procRTSFlags <$> sessionProcess sessionInfo of
         Nothing -> []

@@ -52,6 +52,8 @@ import GHCSpecter.UI.Types (
 import GHCSpecter.UI.Types.Event (
   BackgroundEvent (..),
   Event (..),
+  SystemEvent (..),
+  UserEvent,
  )
 import System.IO (IOMode (..), withFile)
 
@@ -59,10 +61,10 @@ data RunnerHandler e = RunnerHandler
   { runHandlerRefreshAction :: IO ()
   , runHandlerHitScene ::
       (Double, Double) ->
-      IO (Maybe (EventMap e))
+      IO (Maybe (EventMap UserEvent))
   , runHandlerGetScene ::
       Text ->
-      IO (Maybe (EventMap e))
+      IO (Maybe (EventMap UserEvent))
   , runHandlerAddToStage ::
       Scene () ->
       IO ()
@@ -237,7 +239,7 @@ stepControl (Free (RefreshUIAfter nSec next)) = do
   chanQEv <- runnerQEvent <$> ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
-    atomically $ writeTQueue chanQEv (BkgEv RefreshUI)
+    atomically $ writeTQueue chanQEv (SysEv (BkgEv RefreshUI))
   pure (Left next)
 stepControl (Free (AsyncWork worker next)) = do
   ssRef <- runnerServerState <$> ask

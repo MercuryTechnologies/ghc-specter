@@ -42,9 +42,9 @@ import GHCSpecter.UI.Types (
   HasUIState (..),
   UIState,
  )
-import GHCSpecter.UI.Types.Event (ConsoleEvent (..), Event (..))
+import GHCSpecter.UI.Types.Event (ConsoleEvent (..), UserEvent (..))
 
-renderConsole :: UIState -> ServerState -> GtkRender Event ()
+renderConsole :: UIState -> ServerState -> GtkRender UserEvent ()
 renderConsole ui ss = do
   stageRef <- vbStage <$> ask
   Stage stage <- liftIO $ atomically $ readTVar stageRef

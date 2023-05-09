@@ -89,7 +89,9 @@ import GHCSpecter.UI.Types.Event (
   BlockerModuleGraphEvent (..),
   Event (..),
   MouseEvent (..),
+  SystemEvent (..),
   TimingEvent (..),
+  UserEvent (..),
  )
 import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
@@ -112,8 +114,8 @@ renderTimingChart drvModMap tui ttable = do
   where
     handler hitEvent =
       catMaybes
-        [ fmap (\ev -> TimingEv ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
-        , fmap (\ev -> TimingEv ev <$ onMouseLeave) (hitEventHoverOn hitEvent)
+        [ fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseEnter) (hitEventHoverOn hitEvent)
+        , fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseLeave) (hitEventHoverOn hitEvent)
         ]
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -126,8 +128,8 @@ renderTimingChart drvModMap tui ttable = do
               , timingHeight
               ]
           prop1 =
-            [ MouseEv . MouseDown <$> onMouseDown
-            , MouseEv . MouseUp <$> onMouseUp
+            [ UsrEv . MouseEv . MouseDown <$> onMouseDown
+            , UsrEv . MouseEv . MouseUp <$> onMouseUp
             , width (T.pack (show (timingWidth :: Int)))
             , height (T.pack (show (timingHeight :: Int)))
             , viewboxProp
@@ -136,7 +138,7 @@ renderTimingChart drvModMap tui ttable = do
             ]
           mouseMove
             | tui ^. timingUIHandleMouseMove =
-                [(\case Nothing -> BkgEv RefreshUI; Just xy -> MouseEv (MouseMove xy)) <$> onMouseMove]
+                [(\case Nothing -> SysEv (BkgEv RefreshUI); Just xy -> UsrEv (MouseEv (MouseMove xy))) <$> onMouseMove]
             | otherwise = []
        in mouseMove ++ prop1
 
@@ -269,9 +271,9 @@ buttonShowBlocker tui = divClass "control" [] [button']
   where
     button'
       | tui ^. timingUIBlockerGraph =
-          button [TimingEv CloseBlockerGraph <$ onClick] [text "Back to Timing Graph"]
+          button [UsrEv (TimingEv CloseBlockerGraph) <$ onClick] [text "Back to Timing Graph"]
       | otherwise =
-          button [TimingEv ShowBlockerGraph <$ onClick] [text "Show Blocker Graph"]
+          button [UsrEv (TimingEv ShowBlockerGraph) <$ onClick] [text "Show Blocker Graph"]
 
 renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui =
@@ -286,19 +288,19 @@ renderCheckbox tui =
   where
     isPartitioned = tui ^. timingUIPartition
     howParallel = tui ^. timingUIHowParallel
-    mkEvent f b = TimingEv (f (not b)) <$ onChange
+    mkEvent f b = UsrEv (TimingEv (f (not b))) <$ onChange
     buttonToCurrent =
       divClass
         "control"
         []
-        [button [TimingEv ToCurrentTime <$ onClick] [text "To Current Time"]]
+        [button [UsrEv (TimingEv ToCurrentTime) <$ onClick] [text "To Current Time"]]
     buttonFlow = divClass "control" [] [button']
       where
         button'
           | isNothing (tui ^. timingFrozenTable) =
-              button [TimingEv (TimingFlow False) <$ onClick] [text "Freeze"]
+              button [UsrEv (TimingEv (TimingFlow False)) <$ onClick] [text "Freeze"]
           | otherwise =
-              button [TimingEv (TimingFlow True) <$ onClick] [text "Thaw"]
+              button [UsrEv (TimingEv (TimingFlow True)) <$ onClick] [text "Thaw"]
     checkPartition =
       div
         [classList [("control", True)]]
@@ -382,7 +384,7 @@ renderBlockerGraph ss =
                   i <- backwardLookup name drvModMap
                   t <- L.lookup i (ttable ^. ttableTimingInfos)
                   pure $ realToFrac ((t ^. plEnd . _1 - t ^. plStart . _1) / maxTime)
-           in [ TimingEv . BlockerModuleGraphEv . BMGGraph
+           in [ UsrEv . TimingEv . BlockerModuleGraphEv . BMGGraph
                   <$> ModuleGraph.renderModuleGraph
                     nameMap
                     valueFor
@@ -394,7 +396,7 @@ renderBlockerGraph ss =
 -- blocker detail level, # of blocked modules >=2, >=3, >=4, >=5
 renderBlockerDetailLevel :: TimingState -> Widget IHTML Event
 renderBlockerDetailLevel timing =
-  TimingEv . BlockerModuleGraphEv <$> div [classList [("control", True)]] details
+  UsrEv . TimingEv . BlockerModuleGraphEv <$> div [classList [("control", True)]] details
   where
     currLevel = timing ^. tsBlockerDetailLevel
     mkRadioItem (txt, lvl) =
@@ -427,7 +429,7 @@ renderBlockerGraphMode model ss =
           [ div
               []
               [ renderBlockerDetailLevel (ss ^. serverTiming)
-              , button [TimingEv ShowBlockerGraph <$ onClick] [text "Update"]
+              , button [UsrEv (TimingEv ShowBlockerGraph) <$ onClick] [text "Update"]
               , buttonShowBlocker (model ^. modelTiming)
               ]
           ]

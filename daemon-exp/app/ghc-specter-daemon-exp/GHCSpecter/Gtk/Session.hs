@@ -38,12 +38,12 @@ import GHCSpecter.UI.Session (
   buildRtsPanel,
   buildSession,
  )
-import GHCSpecter.UI.Types.Event (Event (..))
+import GHCSpecter.UI.Types.Event (UserEvent (..))
 import GI.Cairo.Render qualified as R
 
 renderSession ::
   ServerState ->
-  GtkRender Event ()
+  GtkRender UserEvent ()
 renderSession ss = do
   stageRef <- vbStage <$> ask
   Stage stage <- R.liftIO $ atomically $ readTVar stageRef

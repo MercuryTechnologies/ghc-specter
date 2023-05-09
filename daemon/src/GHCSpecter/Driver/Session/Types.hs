@@ -17,7 +17,9 @@ import Control.Lens (makeClassy)
 import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState)
-import GHCSpecter.UI.Types.Event (Event)
+import GHCSpecter.UI.Types.Event (
+  Event,
+ )
 
 -- Session = State + Channel
 

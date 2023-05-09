@@ -49,6 +49,7 @@ import GHCSpecter.UI.Types.Event (
   ConsoleEvent (..),
   Event (..),
   Tab (..),
+  UserEvent (..),
  )
 import GHCSpecter.Web.Console qualified as Console
 import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
@@ -80,10 +81,10 @@ renderNavbar tab =
     [classList [("navbar", True)]]
     [ navbarMenu
         [ navbarStart
-            [ TabEv TabSession <$ navItem (tab == TabSession) [text "Session"]
-            , TabEv TabModuleGraph <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , TabEv TabSourceView <$ navItem (tab == TabSourceView) [text "Source View"]
-            , TabEv TabTiming <$ navItem (tab == TabTiming) [text "Timing"]
+            [ UsrEv (TabEv TabSession) <$ navItem (tab == TabSession) [text "Session"]
+            , UsrEv (TabEv TabModuleGraph) <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
+            , UsrEv (TabEv TabSourceView) <$ navItem (tab == TabSourceView) [text "Source View"]
+            , UsrEv (TabEv TabTiming) <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
     ]
@@ -137,7 +138,7 @@ renderBottomPanel model ss = div [] (consolePanel ++ [msgCounter])
        in (title, helpMsgs)
     consolePanel
       | sessionIsPaused sessionInfo =
-          [ ConsoleEv
+          [ UsrEv . ConsoleEv
               <$> Console.render
                 (fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap)
                 consoleMap

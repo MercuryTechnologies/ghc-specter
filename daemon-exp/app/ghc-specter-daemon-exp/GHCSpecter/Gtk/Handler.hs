@@ -27,6 +27,7 @@ import GHCSpecter.UI.Types.Event (
   MouseEvent (..),
   ScrollDirection (..),
   SpecialKey (..),
+  UserEvent (..),
  )
 import GI.Gdk qualified as Gdk
 
@@ -39,7 +40,7 @@ handleClick chanQEv ev = do
   y <- get ev #y
   atomically $
     writeTQueue chanQEv $
-      MouseEv (MouseClick (x, y))
+      UsrEv (MouseEv (MouseClick (x, y)))
 
 handleMotion ::
   TQueue Event ->
@@ -50,7 +51,7 @@ handleMotion chanQEv ev = do
   y <- get ev #y
   atomically $
     writeTQueue chanQEv $
-      MouseEv (MouseMove (x, y))
+      UsrEv (MouseEv (MouseMove (x, y)))
 
 handleScroll :: TQueue Event -> Gdk.EventScroll -> IO ()
 handleScroll chanQEv ev = do
@@ -67,18 +68,19 @@ handleScroll chanQEv ev = do
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do
-      writeTQueue chanQEv (MouseEv (Scroll dir' (x, y) (dx, dy)))
+      writeTQueue chanQEv (UsrEv (MouseEv (Scroll dir' (x, y) (dx, dy))))
 
 -- | pinch position in canvas coord
 handleZoomUpdate :: TQueue Event -> (Double, Double) -> Double -> IO ()
 handleZoomUpdate chanQEv (x, y) scale =
   atomically $
-    writeTQueue chanQEv (MouseEv (ZoomUpdate (x, y) scale))
+    writeTQueue chanQEv $
+      UsrEv (MouseEv (ZoomUpdate (x, y) scale))
 
 handleZoomEnd :: TQueue Event -> IO ()
 handleZoomEnd chanQEv =
   atomically $
-    writeTQueue chanQEv (MouseEv ZoomEnd)
+    writeTQueue chanQEv (UsrEv (MouseEv ZoomEnd))
 
 handleKeyPressed :: TQueue Event -> (Word32, Maybe Text) -> IO ()
 handleKeyPressed chanQEv (v, mtxt) = do
@@ -89,12 +91,12 @@ handleKeyPressed chanQEv (v, mtxt) = do
           ( do
               name <- mname
               if
-                  | name == "Return" -> pure (KeyEv (SpecialKeyPressed KeyEnter))
-                  | name == "BackSpace" -> pure (KeyEv (SpecialKeyPressed KeyBackspace))
+                  | name == "Return" -> pure (UsrEv (KeyEv (SpecialKeyPressed KeyEnter)))
+                  | name == "BackSpace" -> pure (UsrEv (KeyEv (SpecialKeyPressed KeyBackspace)))
                   | otherwise -> Nothing
             )
             <|> ( do
                     txt <- mtxt
-                    pure (KeyEv (NormalKeyPressed txt))
+                    pure (UsrEv (KeyEv (NormalKeyPressed txt)))
                 )
     for_ mevent (writeTQueue chanQEv)
