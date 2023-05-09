@@ -1,4 +1,3 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE LambdaCase #-}
@@ -7,7 +6,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module GHCSpecter.Control (
-  mainLoop,
+  foregroundLoop,
   main,
 ) where
 
@@ -28,7 +27,7 @@ import GHCSpecter.Channel.Inbound.Types (
   SessionRequest (..),
  )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Control.Types (
+import GHCSpecter.Control.DSL (
   addToStage,
   asyncWork,
   getCurrentTime,
@@ -49,8 +48,8 @@ import GHCSpecter.Control.Types (
   saveSession,
   sendRequest,
   shouldUpdate,
-  type Control,
  )
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
 import GHCSpecter.Graphics.DSL (
@@ -189,7 +188,7 @@ handleConsoleCommand drvId msg
          in (ui', ss)
       -- TODO: this goes back to top-level. this should be taken out of this function's scope.
       refresh
-      mainLoop
+      foregroundLoop
   | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
   | otherwise = sendRequest $ ConsoleReq drvId (Ping msg)
@@ -696,9 +695,9 @@ stageFrame = do
       , ("timing-chart", modelTiming . timingUIViewPort)
       ]
 
--- | top-level loop, branching according to tab event
-mainLoop :: forall e r. (e ~ Event) => Control e r
-mainLoop = do
+-- | top-level foreground loop, branching according to tab event
+foregroundLoop :: forall e r. (e ~ Event) => Control e r
+foregroundLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
     TabSession -> branchLoop goSession
@@ -787,12 +786,15 @@ mainLoop = do
           ev2 <- handleConsoleHoverScrollZoom ev1
           -- handle click
           ev3 <- handleClick ev2
-          toMainLoop <- afterClick ev3
+          toTopLoop <- afterClick ev3
           stageFrame
-          if toMainLoop
-            then mainLoop
+          if toTopLoop
+            then foregroundLoop
             else loop
 
+-- | top-level loop.
+-- mainLoop :: forall e r. (e ~ Event) => Control e r
+-- mainLoop = do
 main :: (e ~ Event) => Control e ()
 main = do
   clientSessionStartTime <- getCurrentTime
@@ -805,4 +807,4 @@ main = do
   initializeMainView
 
   -- enter the main loop
-  mainLoop
+  foregroundLoop

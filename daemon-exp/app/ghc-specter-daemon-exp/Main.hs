@@ -371,6 +371,6 @@ main =
               runner
               servSess
               cliSess
-              Control.mainLoop
+              Control.foregroundLoop
         _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main
