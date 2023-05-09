@@ -44,13 +44,13 @@ import GHCSpecter.Control.Runner (
   RunnerHandler (..),
   stepControlUpToEvent,
  )
-import GHCSpecter.Control.Types (Control)  
+import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session.Types (
   HasServerSession (..),
   ServerSession (..),
  )
-import GHCSpecter.Server.Types (ServerState, HasServerState (..))
+import GHCSpecter.Server.Types (HasServerState (..), ServerState)
 import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types (
   HasUIModel (..),
