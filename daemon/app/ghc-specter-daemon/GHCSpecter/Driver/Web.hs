@@ -35,11 +35,11 @@ import GHCSpecter.Control.Runner (
 import GHCSpecter.Data.Assets qualified as Assets
 import GHCSpecter.Driver.Session qualified as Session
 import GHCSpecter.Driver.Session.Types (
-  ClientSession (..),
-  HasClientSession (..),
+  ClientSessionWeb (..),
+  HasClientSessionWeb (..),
   HasServerSession (..),
   ServerSession (..),
-  UIChannel (..),
+  UIChannelWeb (..),
  )
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (
@@ -77,8 +77,8 @@ webServer cfg servSess = do
       chanState <- unsafeBlockingIO newTChanIO
       chanQEv <- unsafeBlockingIO newTQueueIO
 
-      let cliSess = ClientSession uiRef chanEv chanState chanQEv
-          newUIChan = UIChannel chanEv chanState chanQEv
+      let cliSess = ClientSessionWeb uiRef chanEv chanState chanQEv
+          newUIChan = UIChannelWeb chanEv chanState chanQEv
       -- prepare runner
       -- TODO: make common initialization function (but backend-dep)
       counterRef <- unsafeBlockingIO $ newIORef 0
@@ -92,23 +92,23 @@ webServer cfg servSess = do
           runner =
             RunnerEnv
               { runnerCounter = counterRef
-              , runnerUIState = cliSess ^. csUIStateRef
+              , runnerUIState = cliSess ^. csWebUIStateRef
               , runnerServerState = servSess ^. ssServerStateRef
-              , runnerQEvent = cliSess ^. csPublisherEvent
+              , runnerQEvent = cliSess ^. csWebPublisherEvent
               , runnerSignalChan = servSess ^. ssSubscriberSignal
               , runnerHandler = runHandler
               }
-      unsafeBlockingIO $ Session.main runner servSess cliSess Control.main
+      unsafeBlockingIO $ Session.mainWeb runner servSess cliSess Control.main
       loopM (step newUIChan) (SysEv (BkgEv RefreshUI))
   where
     -- A single step of the outer loop (See Note [Control Loops]).
     step ::
       -- UI comm channel
-      UIChannel ->
+      UIChannelWeb ->
       -- last event
       Event ->
       Widget IHTML (Either Event ())
-    step (UIChannel chanEv chanState chanQEv) ev = do
+    step (UIChannelWeb chanEv chanState chanQEv) ev = do
       (ui, ss) <-
         unsafeBlockingIO $ do
           atomically $ writeTChan chanEv ev

@@ -1,12 +1,14 @@
 module GHCSpecter.Driver.Session (
   -- * main session procedure
   main,
+  mainWeb,
 ) where
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM (
   atomically,
   readTChan,
+  readTQueue,
   readTVar,
   retry,
   writeTChan,
@@ -23,7 +25,9 @@ import GHCSpecter.Control.Runner (
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Driver.Session.Types (
   ClientSession (..),
+  ClientSessionWeb (..),
   HasClientSession (..),
+  HasClientSessionWeb (..),
   HasServerSession (..),
   ServerSession (..),
  )
@@ -52,9 +56,60 @@ main runner servSess cs controlMain = do
   where
     ssRef = servSess ^. ssServerStateRef
     uiRef = cs ^. csUIStateRef
-    chanEv = cs ^. csSubscriberEvent
+    -- chanEv = cs ^. csSubscriberEvent
     chanState = cs ^. csPublisherState
     chanQEv = cs ^. csPublisherEvent
+    blockUntilNewMessage lastSN = do
+      ss <- readTVar ssRef
+      if (ss ^. serverMessageSN == lastSN)
+        then retry
+        else pure (ss ^. serverMessageSN)
+
+    -- background connector between server channel and UI frame
+    chanDriver lastMessageSN = do
+      -- wait for next poll
+      threadDelay (floor (nominalDiffTimeToSeconds chanUpdateInterval * 1_000_000))
+      -- blocked until a new message comes
+      newMessageSN <-
+        atomically $
+          blockUntilNewMessage lastMessageSN
+      atomically $
+        writeTQueue chanQEv (SysEv (BkgEv MessageChanUpdated))
+      chanDriver newMessageSN
+
+    -- connector between driver and Control frame
+    controlDriver runner' = loopM step (\_ -> controlMain)
+      where
+        step c = do
+          ev <- atomically $ readTQueue chanQEv
+          ec' <-
+            runReaderT (stepControlUpToEvent ev c) runner'
+          atomically $ do
+            ui <- readTVar uiRef
+            ss <- readTVar ssRef
+            writeTChan chanState (ui, ss)
+          pure ec'
+
+mainWeb ::
+  RunnerEnv e ->
+  ServerSession ->
+  ClientSessionWeb ->
+  Control e () ->
+  IO ()
+mainWeb runner servSess cs controlMain = do
+  -- start chanDriver
+  lastMessageSN <-
+    (^. serverMessageSN) <$> atomically (readTVar ssRef)
+  _ <- forkIO $ chanDriver lastMessageSN
+  -- start controlDriver
+  _ <- forkIO $ controlDriver runner
+  pure ()
+  where
+    ssRef = servSess ^. ssServerStateRef
+    uiRef = cs ^. csWebUIStateRef
+    chanEv = cs ^. csWebSubscriberEvent
+    chanState = cs ^. csWebPublisherState
+    chanQEv = cs ^. csWebPublisherEvent
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
       if (ss ^. serverMessageSN == lastSN)

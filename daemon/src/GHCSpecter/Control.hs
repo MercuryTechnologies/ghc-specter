@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module GHCSpecter.Control (
-  foregroundLoop,
+  mainLoop,
   main,
 ) where
 
@@ -198,7 +198,7 @@ handleConsoleCommand drvId msg
          in (ui', ss)
       -- TODO: this goes back to top-level. this should be taken out of this function's scope.
       refresh
-      foregroundLoop
+      mainLoop
   | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
   | otherwise = sendRequest $ ConsoleReq drvId (Ping msg)
@@ -705,9 +705,9 @@ stageFrame = do
       , ("timing-chart", modelTiming . timingUIViewPort)
       ]
 
--- | top-level foreground loop, branching according to tab event
-foregroundLoop :: forall e r. (e ~ Event) => Control e r
-foregroundLoop = do
+-- | top-level main loop, branching according to tab event
+mainLoop :: forall e r. (e ~ Event) => Control e r
+mainLoop = do
   tab <- (^. uiModel . modelTab) <$> getUI
   case tab of
     TabSession -> branchLoop goSession
@@ -795,10 +795,10 @@ foregroundLoop = do
           ev2 <- handleConsoleHoverScrollZoom ev1
           -- handle click
           ev3 <- handleClick ev2
-          toTopLoop <- afterClick ev3
+          toMainLoop <- afterClick ev3
           stageFrame
-          if toTopLoop
-            then foregroundLoop
+          if toMainLoop
+            then mainLoop
             else loop
 
 -- | top-level loop.
@@ -816,4 +816,4 @@ main = do
   initializeMainView
 
   -- enter the main loop
-  foregroundLoop
+  mainLoop

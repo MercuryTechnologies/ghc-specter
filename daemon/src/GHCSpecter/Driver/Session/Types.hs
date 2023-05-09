@@ -7,9 +7,11 @@ module GHCSpecter.Driver.Session.Types (
   ClientSession (..),
   HasClientSession (..),
 
-  -- * UI Channel
-  UIChannel (..),
-  HasUIChannel (..),
+  -- * for web
+  ClientSessionWeb (..),
+  HasClientSessionWeb (..),
+  UIChannelWeb (..),
+  HasUIChannelWeb (..),
 ) where
 
 import Control.Concurrent.STM (TChan, TQueue, TVar)
@@ -32,22 +34,36 @@ makeClassy ''ServerSession
 
 data ClientSession = ClientSession
   { _csUIStateRef :: TVar UIState
-  , _csSubscriberEvent :: TChan Event
   , _csPublisherState :: TChan (UIState, ServerState)
   , _csPublisherEvent :: TQueue Event
   }
 
 makeClassy ''ClientSession
 
+--
+-- the following is only needed for web (concur-replica)
+--
+
+-- TODO: move this to web
+
+data ClientSessionWeb = ClientSessionWeb
+  { _csWebUIStateRef :: TVar UIState
+  , _csWebSubscriberEvent :: TChan Event
+  , _csWebPublisherState :: TChan (UIState, ServerState)
+  , _csWebPublisherEvent :: TQueue Event
+  }
+
+makeClassy ''ClientSessionWeb
+
 -- | communication channel that UI renderer needs
 -- Note that subscribe/publish is named according to UI side semantics.
-data UIChannel = UIChannel
-  { uiPublisherEvent :: TChan Event
+data UIChannelWeb = UIChannelWeb
+  { uiWebPublisherEvent :: TChan Event
   -- ^ channel for sending event to control
-  , uiSubscriberState :: TChan (UIState, ServerState)
+  , uiWebSubscriberState :: TChan (UIState, ServerState)
   -- ^ channel for receiving state from control
-  , uiSubscriberEvent :: TQueue Event
+  , uiWebSubscriberEvent :: TQueue Event
   -- ^ channel for receiving background event
   }
 
-makeClassy ''UIChannel
+makeClassy ''UIChannelWeb

@@ -8,28 +8,20 @@ module Main where
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM (
   atomically,
-  flushTQueue,
   newTChanIO,
   newTQueueIO,
   newTVar,
   newTVarIO,
-  readTChan,
   readTVar,
-  retry,
-  writeTChan,
-  writeTQueue,
   writeTVar,
  )
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad (join)
-import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (traverse_)
 import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (newIORef)
-import Data.List (partition)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
@@ -52,7 +44,6 @@ import GHCSpecter.Driver.Session.Types (
   HasClientSession (..),
   HasServerSession (..),
   ServerSession (..),
-  UIChannel (..),
  )
 import GHCSpecter.Driver.Worker qualified as Worker
 import GHCSpecter.Graphics.DSL (
@@ -98,10 +89,7 @@ import GHCSpecter.UI.Types (
   emptyUIState,
  )
 import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (RefreshUI),
   DetailLevel (..),
-  Event (..),
-  SystemEvent (..),
   Tab (..),
   UserEvent (..),
  )
@@ -142,31 +130,6 @@ initViewBackendResource = do
         , vbrFontDescSans = descSans
         , vbrFontDescMono = descMono
         }
-
-simpleEventLoop :: UIChannel -> IO ()
-simpleEventLoop (UIChannel chanEv chanState chanQEv) = loopM step (SysEv (BkgEv RefreshUI))
-  where
-    step ev = do
-      atomically $ writeTChan chanEv ev
-
-      -- this is due to the compatibility with concur-replica.
-      -- TODO: remove this properly.
-      _ <- atomically $ readTChan chanState
-
-      ev' <- atomically $ do
-        evs' <- flushTQueue chanQEv
-        -- Prioritize background events
-        let (bevs', fevs') = partition (\case SysEv _ -> True; _ -> False) evs'
-        case bevs' of
-          bev' : bevs'' -> do
-            traverse_ (writeTQueue chanQEv) (bevs'' ++ fevs')
-            pure bev'
-          _ -> case fevs' of
-            fev' : fevs'' -> do
-              traverse_ (writeTQueue chanQEv) fevs''
-              pure fev'
-            _ -> retry
-      pure (Left ev')
 
 main :: IO ()
 main =
@@ -236,15 +199,11 @@ main =
               . (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vpConsole Nothing)
 
     uiRef <- newTVarIO ui0'
-    chanEv <- newTChanIO
     chanState <- newTChanIO
     chanQEv <- newTQueueIO
     let
       -- client session
-      cliSess = ClientSession uiRef chanEv chanState chanQEv
-      -- UIChannel
-      uiChan = UIChannel chanEv chanState chanQEv
-
+      cliSess = ClientSession uiRef chanState chanQEv
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
@@ -373,6 +332,6 @@ main =
               runner
               servSess
               cliSess
-              Control.foregroundLoop
-        _ <- forkOS $ simpleEventLoop uiChan
+              Control.mainLoop
+        -- _ <- forkOS $ simpleEventLoop uiChan
         Gtk.main
