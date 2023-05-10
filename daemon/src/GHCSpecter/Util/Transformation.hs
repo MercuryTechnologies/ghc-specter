@@ -65,6 +65,14 @@ transformScroll vpLimit dir scale (dx, dy) vp = vp''
               Nothing -> vp'
               Just (ViewPort (_x00, y00) (_x01, y01)) ->
                 if y1 - dy' > y01 || y0 - dy' > y00 then vp' else vp
+      ScrollDirectionSmooth ->
+        let vp' = ViewPort (x0 + dx', y0 + dy') (x1 + dx', y1 + dy')
+         in case vpLimit of
+              Nothing -> vp'
+              Just (ViewPort (x00, y00) (x01, y01)) ->
+                if x0 + dx' < x00 || x1 + dx' < x01 || y0 + dy' < y00 || y1 + dy' < y01
+                  then vp'
+                  else vp
 
 -- | zoom
 transformZoom ::

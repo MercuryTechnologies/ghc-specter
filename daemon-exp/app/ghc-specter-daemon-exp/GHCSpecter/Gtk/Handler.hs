@@ -60,11 +60,13 @@ handleScroll chanQEv ev = do
   dx <- get ev #deltaX
   dy <- get ev #deltaY
   dir <- get ev #direction
+
   let mdir' = case dir of
         Gdk.ScrollDirectionRight -> Just ScrollDirectionRight
         Gdk.ScrollDirectionLeft -> Just ScrollDirectionLeft
         Gdk.ScrollDirectionDown -> Just ScrollDirectionDown
         Gdk.ScrollDirectionUp -> Just ScrollDirectionUp
+        Gdk.ScrollDirectionSmooth -> Just ScrollDirectionSmooth
         _ -> Nothing
   for_ mdir' $ \dir' -> do
     atomically $ do

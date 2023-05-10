@@ -71,6 +71,7 @@ data ScrollDirection
   | ScrollDirectionLeft
   | ScrollDirectionDown
   | ScrollDirectionUp
+  | ScrollDirectionSmooth
   deriving (Show, Eq)
 
 data SpecialKey

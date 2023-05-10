@@ -228,6 +228,7 @@ main =
           , Gdk.EventMaskKeyReleaseMask
           , Gdk.EventMaskPointerMotionMask
           , Gdk.EventMaskScrollMask
+          , Gdk.EventMaskSmoothScrollMask
           , Gdk.EventMaskTouchpadGestureMask
           ]
 
