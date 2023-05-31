@@ -64,7 +64,7 @@ Phases and internal representation
 A single module is being compiled in a single pipeline thread. In large chunks,
 the pipeline consists of the frontend phases, the backend phases and the external
 assembler/linker phases. The frontend phases starts with source codes, and
-parsing, typechecking, desugaring, andresults in GHC Core. The GHC Core is
+parsing, typechecking, desugaring, and results in GHC Core. The GHC Core is
 optimized in a few Core-to-Core passes. Then, the backend phases generate
 the STG and Cmm representation, and finally generates assembly codes or LLVM IR
 depending on the configuration. Afterwards, the external assembler and linker
@@ -152,8 +152,8 @@ communication channel through a Unix socket between GHC and the daemon is
 established.
 
 We use ``driverPlugin`` as the starting point, and the plugin will install plugins and hooks dynamically.
-As plugins, ``parsedResultActionPlugin``, ``typecheckPlugin``, ``corePlugin`` that installs CoreToDo actions
+As plugins, ``parsedResultActionPlugin``, ``renamedResultAction``, ``spliceRunAction``, ``tcPlugin``,  ``typecheckPlugin``, ``corePlugin`` that installs CoreToDo actions
 interleaved with existing CoreToDo steps.
-We use ``runPhaseHook``, ``runMetaHook``, ``stgToCmmHook`` and ``cmmToRawCmmHook``.
+As hooks, we use ``runPhaseHook``, ``runMetaHook``, ``runPhaseHook``.
 
 The daemon is a web server to present the contents from `ghc-specter-plugin`.

@@ -2,3 +2,5 @@
 *~
 /ghc-build-analyzer.cabal
 /dist-newstyle
+TAGS
+.DS_Store
