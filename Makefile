@@ -1,12 +1,10 @@
 .PHONY: clean
 clean:
-	rm -rf ./dist-newstyle
+	cabal clean
 
 .PHONY: build
 build:
-	cabal build ghc-build-analyzer;          \
-	cabal build ghc-specter-plugin;          \
-	cabal build ghc-specter-daemon;          \
+	cabal build all
 
 .PHONY: format
 format:
