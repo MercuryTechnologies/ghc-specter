@@ -33,7 +33,6 @@ data EventlogItem = EventlogItem
   }
   deriving (Show)
 
-
 readT :: (Read a) => Text -> a
 readT = read . T.unpack
 

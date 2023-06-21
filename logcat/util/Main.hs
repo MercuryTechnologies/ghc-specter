@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Function qualified as Fn (on)
 import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
-import Data.IORef (newIORef, modifyIORef', readIORef)
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -53,7 +53,7 @@ gridInViewPort (ViewPort (x0, y0) (x1, y1)) = (xs, ys)
 
 textPosInViewPort :: ViewPort -> [(Double, Double)]
 textPosInViewPort (ViewPort (x0, y0) (x1, y1)) =
-  [ (x, y) | x <- xs, y <- ys ]
+  [(x, y) | x <- xs, y <- ys]
   where
     u0, u1 :: Int
     u0 = floor ((x0 - 120) / 512.0)
@@ -123,7 +123,7 @@ drawTextMultiline ::
   [Text] ->
   R.Render ()
 drawTextMultiline (ctxt, desc) (x, y) msgs = do
-  for_ (zip [y, y + 12 .. ] msgs) $ \(y', msg) ->
+  for_ (zip [y, y + 12 ..] msgs) $ \(y', msg) ->
     drawTextLine (ctxt, desc) (x, y') msg
 
 drawGrid :: ViewPort -> R.Render ()
@@ -142,9 +142,10 @@ drawGrid vp@(ViewPort (vx0, vy0) (vx1, vy1)) = do
 
 drawGraph :: (Double, Double) -> [(Double, Double)] -> R.Render ()
 drawGraph _ [] = pure ()
-drawGraph (ox, oy) ((x0, y0):ps) = do
-  let getMax vs = let vmax0 = maximum vs
-                   in if vmax0 < 1.0 then 1.0 else vmax0
+drawGraph (ox, oy) ((x0, y0) : ps) = do
+  let getMax vs =
+        let vmax0 = maximum vs
+         in if vmax0 < 1.0 then 1.0 else vmax0
       xmax = getMax (x0 : fmap fst ps)
       ymax = getMax (y0 : fmap snd ps)
   let xform (x, y) = (ox + x * 200.0 / xmax, oy - y * 20.0 / ymax)
@@ -189,7 +190,7 @@ myDraw (pangoCtxt, descSans, descMono) s items = do
   R.translate (-vx0) (-vy0)
   --
   drawGrid vp
-  for_ (zip [0..] items) $ \(i, item) ->
+  for_ (zip [0 ..] items) $ \(i, item) ->
     drawItem (pangoCtxt, descSans) (0, (i + 1) * 30) item
 
 initFont :: IO (Maybe (P.Context, P.FontDescription, P.FontDescription))
@@ -221,8 +222,10 @@ main = do
     [ Gdk.EventMaskScrollMask
     , Gdk.EventMaskTouchpadGestureMask
     ]
-  _ <- drawingArea `on` #draw $
-    RC.renderWithContext $ do
+  _ <- drawingArea
+    `on` #draw
+    $ RC.renderWithContext
+    $ do
       start <- R.liftIO $ getCurrentTime
       s <- R.liftIO $ readIORef ref
       myDraw (pangoCtxt, descSans, descMono) s items
