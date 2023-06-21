@@ -9,36 +9,34 @@
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-      fontconf = pkgs.makeFontsConf { fontDirectories = [pkgs.freefont_ttf]; };
+      fontconf = pkgs.makeFontsConf {fontDirectories = [pkgs.freefont_ttf];};
       overrideCabal = pkgs.haskell.lib.overrideCabal;
       hpkgs = pkgs.haskell.packages.ghc925.extend (hself: hsuper: {
         "ormolu" =
           overrideCabal hsuper.ormolu {enableSeparateBinOutput = false;};
       });
 
-      hsenv = hpkgs.ghcWithPackages (p:
-        [
-          p.aeson
-          p.directory
-          p.filepath
-          p.gi-cairo
-          p.gi-cairo-connector
-          p.gi-cairo-render
-          p.gi-gdk
-          p.gi-gtk
-          p.gi-gtk-hs
-          p.gi-pango
-          p.gi-pangocairo
-          #p.haskell-gi-base
-          p.lens
-          p.lens-aeson
-          p.pretty-simple
-          p.tagsoup
-          p.text
-          p.time
-          p.vector
-        ]);
-        #++ HROOTdeps p);
+      hsenv = hpkgs.ghcWithPackages (p: [
+        p.aeson
+        p.directory
+        p.filepath
+        p.gi-cairo
+        p.gi-cairo-connector
+        p.gi-cairo-render
+        p.gi-gdk
+        p.gi-gtk
+        p.gi-gtk-hs
+        p.gi-pango
+        p.gi-pangocairo
+        #p.haskell-gi-base
+        p.lens
+        p.lens-aeson
+        p.pretty-simple
+        p.tagsoup
+        p.text
+        p.time
+        p.vector
+      ]);
     in {
       devShells.default = pkgs.mkShell {
         name = "testshell";
