@@ -19,6 +19,7 @@ import Data.Time.Clock (
  )
 import Data.Traversable (for)
 import Extract (EventlogItem (..), extract)
+import GHCEvents qualified as GHCEvents
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector as RC
 import GI.Gdk qualified as Gdk
@@ -208,6 +209,12 @@ initFont = do
 
 main :: IO ()
 main = do
+  args <- getArgs
+  result <- GHCEvents.extract (args !! 0)
+  print result
+
+main' :: IO ()
+main' = do
   args <- getArgs
   dat <- extract (args !! 0)
   let items = take 100 $ L.sortBy (flip compare `Fn.on` eventSize) dat

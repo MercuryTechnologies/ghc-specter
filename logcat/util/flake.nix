@@ -20,6 +20,7 @@
         p.aeson
         p.directory
         p.filepath
+        p.ghc-events
         p.gi-cairo
         p.gi-cairo-connector
         p.gi-cairo-render
@@ -28,7 +29,6 @@
         p.gi-gtk-hs
         p.gi-pango
         p.gi-pangocairo
-        #p.haskell-gi-base
         p.lens
         p.lens-aeson
         p.pretty-simple
