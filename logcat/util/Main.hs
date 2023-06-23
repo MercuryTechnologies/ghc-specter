@@ -9,7 +9,7 @@ import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (
@@ -19,6 +19,12 @@ import Data.Time.Clock (
  )
 import Data.Traversable (for)
 import Extract (EventlogItem (..), extract)
+import GHC.RTS.Events (
+  Data (events),
+  Event (evCap, evSpec, evTime),
+  EventInfo (..),
+  EventLog (header, dat),
+ )
 import GHCEvents qualified as GHCEvents
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector as RC
@@ -210,8 +216,27 @@ initFont = do
 main :: IO ()
 main = do
   args <- getArgs
-  result <- GHCEvents.extract (args !! 0)
-  print result
+  eresult <- GHCEvents.extract (args !! 0)
+  case eresult of
+    Left err -> print err
+    Right (l, _) -> do
+      print (header l)
+      let evs = events (dat l)
+          f e =
+            let mx =
+                  case evSpec e of
+                    -- InfoTableProv {} -> Just e
+                    HeapProfSampleBegin {} -> Just e
+                    -- HeapProfSampleString {} -> Just e
+                    _ -> Nothing
+             in (evTime e,) <$> mx
+      let getSec (t, _) = t `div` 1_000_000
+          xs = mapMaybe f evs
+          ys = fmap getSec xs
+      print (length xs)
+      --print (length evs)
+      mapM_ print xs -- (take 100 xs)
+      -- mapM_ print (L.nub ys)
 
 main' :: IO ()
 main' = do
