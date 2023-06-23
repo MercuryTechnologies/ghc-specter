@@ -16,6 +16,25 @@ Source-repository head
   type: git
   location: git://github.com/MercuryTechnologies/ghc-specter.git
 
+library
+  exposed-modules:
+      GHCSpecter.Eventlog.Extract
+      GHCSpecter.Eventlog.FromHTML
+      GHCSpecter.Eventlog.Types
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      base,
+      bytestring,
+      ghc-events,
+      ghc-heap,
+      split,
+      tagsoup,
+      text,
+      unordered-containers
+  default-language: GHC2021
+
 Executable logcat
   Main-is:        Main.hs
   other-modules:  Control
@@ -32,7 +51,7 @@ Executable logcat
                   View
   hs-source-dirs: app/logcat
   ghc-options:    -j -Wall -Werror -threaded -rtsopts
-  extensions:     GHC2021
+  default-language: GHC2021
   Build-Depends:
                   base == 4.*,
                   bytestring,
@@ -47,7 +66,7 @@ Executable logcat
                   -- needed for Data.GI.Gtk.Threading
                   gi-gtk-hs,
                   gi-pango,
-                  gi-pangocairo,                  
+                  gi-pangocairo,
                   ghc-events,
                   haskell-gi-base,
                   lens > 5,
@@ -56,3 +75,22 @@ Executable logcat
                   stm,
                   text,
                   transformers
+
+Executable hi-live
+  Main-is:        Main.hs
+  hs-source-dirs: app/hi-live
+  ghc-options:    -j -Wall -Werror -threaded -rtsopts
+  default-language:     GHC2021
+  Build-Depends:
+                  base == 4.*,
+                  gi-cairo-connector,
+                  gi-cairo-render,
+                  gi-gdk,
+                  gi-gtk,
+                  gi-gtk-hs,
+                  gi-pango,
+                  gi-pangocairo,
+                  ghc-specter-logcat,
+                  haskell-gi-base,
+                  text,
+                  time

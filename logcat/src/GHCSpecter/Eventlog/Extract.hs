@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module GHCEvents (
+module GHCSpecter.Eventlog.Extract (
   InfoTableProvEntry (..),
-  InfoTableMap (..),
+  InfoTableMap,
   Chunk (..),
   getChunkedEvents,
   chunkStat,
@@ -31,8 +31,8 @@ import GHC.RTS.Events (
   Timestamp,
  )
 import GHC.RTS.Events.Incremental (readEventLog)
+import GHCSpecter.Eventlog.Types (ClosureInfoItem (..))
 import Numeric (showHex)
-import Types (ClosureInfoItem (..))
 
 data InfoTableProvEntry = IPE
   { ipeInfo :: Text
@@ -176,9 +176,7 @@ extract fp = do
   case eresult of
     Left err -> print err >> pure []
     Right (l, _) -> do
-      let (infos, chunks) = GHCEvents.getChunkedEvents l
-          format c =
-            c {GHCEvents.chunkSamples = take 3 (GHCEvents.chunkSamples c)}
-          graphs = HM.toList $ GHCEvents.makeGraph chunks
-          clss = mapMaybe (GHCEvents.makeClosureInfoItem infos) graphs
+      let (infos, chunks) = getChunkedEvents l
+          graphs = HM.toList $ makeGraph chunks
+          clss = mapMaybe (makeClosureInfoItem infos) graphs
       pure clss

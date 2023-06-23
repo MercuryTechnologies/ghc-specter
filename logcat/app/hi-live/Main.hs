@@ -7,10 +7,9 @@ import Data.Foldable (for_)
 import Data.Function qualified as Fn (on)
 import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
-import Data.HashMap.Strict qualified as HM
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (
@@ -19,15 +18,8 @@ import Data.Time.Clock (
   nominalDiffTimeToSeconds,
  )
 import Data.Traversable (for)
-import FromHTML qualified as FromHTML
-import GHC.RTS.Events (
-  Data (events),
-  Event (evCap, evSpec, evTime),
-  EventInfo (..),
-  EventLog (dat, header),
-  Timestamp,
- )
-import GHCEvents qualified as GHCEvents
+import GHCSpecter.Eventlog.Extract qualified as E
+import GHCSpecter.Eventlog.Types (ClosureInfoItem (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector as RC
 import GI.Gdk qualified as Gdk
@@ -37,8 +29,6 @@ import GI.PangoCairo qualified as PC
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import Text.Printf (printf)
-import Text.Show.Pretty (pPrint)
-import Types (ClosureInfoItem (..))
 
 data ViewPort = ViewPort (Double, Double) (Double, Double)
   deriving (Show)
@@ -100,6 +90,7 @@ transformScroll dir scale (dx, dy) vp = vp'
         ViewPort (x0, y0 - dy') (x1, y1 - dy')
       Gdk.ScrollDirectionSmooth ->
         ViewPort (x0 + dx', y0 + dy') (x1 + dx', y1 + dy')
+      _ -> error "cannot understand this scroll dir"
 
 -- | zoom
 transformZoom ::
@@ -189,7 +180,7 @@ myDraw ::
   GridState ->
   [ClosureInfoItem] ->
   R.Render ()
-myDraw (pangoCtxt, descSans, descMono) s items = do
+myDraw (pangoCtxt, descSans, _descMono) s items = do
   let (cx0, cy0) = (0, 0)
       (cx1, cy1) = (1024, 768)
       vp@(ViewPort (vx0, vy0) (vx1, vy1)) =
@@ -224,7 +215,7 @@ initFont = do
 main :: IO ()
 main = do
   args <- getArgs
-  dat <- GHCEvents.extract (args !! 0)
+  dat <- E.extract (args !! 0)
   let items = take 100 $ L.sortBy (flip compare `Fn.on` clsSize) dat
   mapM_ print items
   ref <- newIORef (GridState (ViewPort (0, 0) (1024, 768)) Nothing)
@@ -255,8 +246,8 @@ main = do
   _ <- drawingArea
     `after` #scrollEvent
     $ \ev -> do
-      x <- get ev #x
-      y <- get ev #y
+      _x <- get ev #x
+      _y <- get ev #y
       dx <- get ev #deltaX
       dy <- get ev #deltaY
       dir <- get ev #direction

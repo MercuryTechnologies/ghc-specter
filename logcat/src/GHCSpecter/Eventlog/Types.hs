@@ -1,4 +1,4 @@
-module Types (
+module GHCSpecter.Eventlog.Types (
   ClosureInfoItem (..),
 ) where
 
