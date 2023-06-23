@@ -18,7 +18,7 @@ import Data.Time.Clock (
   nominalDiffTimeToSeconds,
  )
 import Data.Traversable (for)
-import Extract (EventlogItem (..), extract)
+import FromHTML qualified as FromHTML
 import GHC.RTS.Events (
   Data (events),
   Event (evCap, evSpec, evTime),
@@ -37,6 +37,7 @@ import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import Text.Printf (printf)
 import Text.Show.Pretty (pPrint)
+import Types (ClosureInfoItem (..))
 
 data ViewPort = ViewPort (Double, Double) (Double, Double)
   deriving (Show)
@@ -165,23 +166,27 @@ drawGraph (ox, oy) ((x0, y0) : ps) = do
     uncurry R.lineTo (xform (x, y))
   R.stroke
 
-drawItem :: (P.Context, P.FontDescription) -> (Double, Double) -> EventlogItem -> R.Render ()
+drawItem ::
+  (P.Context, P.FontDescription) ->
+  (Double, Double) ->
+  ClosureInfoItem ->
+  R.Render ()
 drawItem (pctxt, desc) (ox, oy) item = do
-  drawGraph (ox, oy) (eventGraph item)
+  drawGraph (ox, oy) (clsGraph item)
   R.setSourceRGBA 0.3 0.3 0.3 1.0
-  drawTextLine (pctxt, desc) (ox + 210, oy - 15.0) (T.pack $ show $ eventN item)
-  drawTextLine (pctxt, desc) (ox + 260, oy - 15.0) (T.pack $ show $ eventSize item)
-  drawTextLine (pctxt, desc) (ox + 320, oy - 15.0) (eventLabel item)
-  drawTextLine (pctxt, desc) (ox + 420, oy - 15.0) (eventDesc item)
-  drawTextLine (pctxt, desc) (ox + 700, oy - 15.0) (eventCTy item)
-  drawTextLine (pctxt, desc) (ox + 900, oy - 15.0) (eventType item)
-  drawTextLine (pctxt, desc) (ox + 1100, oy - 15.0) (eventModule item)
-  drawTextLine (pctxt, desc) (ox + 1300, oy - 15.0) (eventLoc item)
+  drawTextLine (pctxt, desc) (ox + 210, oy - 15.0) (T.pack $ show $ clsN item)
+  drawTextLine (pctxt, desc) (ox + 260, oy - 15.0) (T.pack $ show $ clsSize item)
+  drawTextLine (pctxt, desc) (ox + 320, oy - 15.0) (clsLabel item)
+  drawTextLine (pctxt, desc) (ox + 420, oy - 15.0) (clsDesc item)
+  drawTextLine (pctxt, desc) (ox + 700, oy - 15.0) (clsCTy item)
+  drawTextLine (pctxt, desc) (ox + 900, oy - 15.0) (clsType item)
+  drawTextLine (pctxt, desc) (ox + 1100, oy - 15.0) (clsModule item)
+  drawTextLine (pctxt, desc) (ox + 1300, oy - 15.0) (clsLoc item)
 
 myDraw ::
   (P.Context, P.FontDescription, P.FontDescription) ->
   GridState ->
-  [EventlogItem] ->
+  [ClosureInfoItem] ->
   R.Render ()
 myDraw (pangoCtxt, descSans, descMono) s items = do
   let (cx0, cy0) = (0, 0)
@@ -232,8 +237,8 @@ main = do
 main' :: IO ()
 main' = do
   args <- getArgs
-  dat <- extract (args !! 0)
-  let items = take 100 $ L.sortBy (flip compare `Fn.on` eventSize) dat
+  dat <- FromHTML.extract (args !! 0)
+  let items = take 100 $ L.sortBy (flip compare `Fn.on` clsSize) dat
   mapM_ print items
   ref <- newIORef (GridState (ViewPort (0, 0) (1024, 768)) Nothing)
   _ <- Gtk.init Nothing
