@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Extract (
-  EventlogItem (..),
+module FromHTML (
   extract,
 ) where
 
@@ -19,19 +18,7 @@ import Text.HTML.TagSoup.Tree (
   tagTree,
   universeTree,
  )
-
-data EventlogItem = EventlogItem
-  { eventGraph :: [(Double, Double)]
-  , eventN :: Int
-  , eventLabel :: Text
-  , eventDesc :: Text
-  , eventCTy :: Text
-  , eventType :: Text
-  , eventModule :: Text
-  , eventLoc :: Text
-  , eventSize :: Double
-  }
-  deriving (Show)
+import Types (ClosureInfoItem (..))
 
 readT :: (Read a) => Text -> a
 readT = read . T.unpack
@@ -56,13 +43,13 @@ getText x = listToMaybe $ do
   TagLeaf (TagText content) <- xs
   pure content
 
-extract :: FilePath -> IO [EventlogItem]
+extract :: FilePath -> IO [ClosureInfoItem]
 extract fp = do
   txt <- TIO.readFile fp
   let tags = parseTags txt
       trs = tagTree tags
       convert (c1 : c2 : c3 : c4 : c5 : c6 : c7 : c8 : c9 : _) =
-        EventlogItem
+        ClosureInfoItem
           <$> getLineChart c1
           <*> (readT @Int <$> getText c2)
           <*> getText c3
