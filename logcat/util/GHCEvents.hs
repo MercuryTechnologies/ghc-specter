@@ -9,16 +9,22 @@ module GHCEvents (
   InfoTableMap (..),
   Chunk (..),
   getChunkedEvents,
+
+  -- *
+  chunkStat,
+  addStat,
+  constructGraph,
 ) where
 
 import Data.ByteString.Lazy qualified as BL
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
-import Data.List (partition)
+import Data.List qualified as L
 import Data.List.Split (keepDelimsL, split, whenElt)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Word (Word8, Word64)
 import GHC.RTS.Events (
   Data (events),
   Event (evCap, evSpec, evTime),
@@ -49,9 +55,16 @@ data InfoTableProvEntry = IPE
 
 type InfoTableMap = HashMap Text InfoTableProvEntry
 
+data SampleEntry = SampleEntry
+  { seId :: Word8
+  , seResidency :: Word64
+  , seLabel :: Text
+  }
+  deriving (Show)
+
 data Chunk = Chunk
   { chunkTimestamp :: Timestamp
-  , chunkSample :: [Event]
+  , chunkSamples :: [SampleEntry]
   }
   deriving (Show)
 
@@ -75,13 +88,8 @@ getChunkedEvents l =
         InfoTableProv {} -> True
         _ -> False
     evs = events (dat l)
-    (profs, others) = partition isHeapProf evs
+    (profs, others) = L.partition isHeapProf evs
     infos = filter isInfoTable others
-
-    splitted = split (keepDelimsL $ whenElt isBegin) profs
-
-    toChunk (start : samples) = Just (Chunk (evTime start) samples)
-    toChunk _ = Nothing
 
     toIPE InfoTableProv {..} =
       let i = T.pack ("0x" ++ showHex itInfo "")
@@ -97,3 +105,36 @@ getChunkedEvents l =
               }
        in Just (i, ipe)
     toIPE _ = Nothing
+
+    toSE HeapProfSampleString {..} =
+      Just $
+        SampleEntry
+          { seId = heapProfId
+          , seResidency = heapProfResidency
+          , seLabel = heapProfLabel
+          }
+    toSE _  = Nothing
+
+    splitted = split (keepDelimsL $ whenElt isBegin) profs
+
+    toChunk (start : samples) = Chunk (evTime start) <$> traverse (toSE . evSpec) samples
+    toChunk _ = Nothing
+
+addSample :: Timestamp -> HashMap Text (Timestamp, Word64) -> SampleEntry -> HashMap Text (Timestamp, Word64)
+addSample t !acc SampleEntry {..} =
+  let f Nothing = Just (t, seResidency)
+      f (Just (_, v)) = Just (t, v + seResidency)
+      !acc' = HM.alter f seLabel acc
+    in acc'
+
+chunkStat :: Chunk -> HashMap Text (Timestamp, Word64)
+chunkStat c = L.foldl' (addSample (chunkTimestamp c)) HM.empty (chunkSamples c)
+
+addStat :: HashMap Text [(Timestamp, Word64)] -> Chunk -> HashMap Text [(Timestamp, Word64)]
+addStat !acc c =
+  let stat1 = fmap L.singleton (chunkStat c)
+      !acc' = HM.unionWith (++) acc stat1
+   in acc'
+
+constructGraph :: [Chunk] -> HashMap Text [(Timestamp, Word64)]
+constructGraph cs = L.foldl' addStat HM.empty cs
