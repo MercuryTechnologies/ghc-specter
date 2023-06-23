@@ -3,9 +3,6 @@
 
 module GHCEvents (
   -- *
-  extract,
-
-  -- *
   InfoTableProvEntry (..),
   InfoTableMap (..),
   Chunk (..),
@@ -16,6 +13,9 @@ module GHCEvents (
   addStat,
   makeGraph,
   makeClosureInfoItem,
+
+  -- *
+  extract,
 ) where
 
 import Data.ByteString.Lazy qualified as BL
@@ -39,12 +39,6 @@ import GHC.RTS.Events (
 import GHC.RTS.Events.Incremental (readEventLog)
 import Numeric (showHex)
 import Types (ClosureInfoItem (..))
-
--- parse eventlog file
-extract :: FilePath -> IO (Either String (EventLog, Maybe String))
-extract fp = do
-  lbs <- BL.readFile fp
-  pure $ readEventLog lbs
 
 data InfoTableProvEntry = IPE
   { ipeInfo :: Text
@@ -167,11 +161,31 @@ makeClosureInfoItem ipeMap (cid, graph) =
     toSec t = fromIntegral t / 1_000_000_000
 
     toMiB :: Word64 -> Double
-    toMiB blocks = fromIntegral blocks * 4_096 / 1_048_576
+    toMiB bytes = fromIntegral bytes / 1_048_576
 
-    graph' = (0, 0) : fmap (\(t, blocks) -> (toSec t, toMiB blocks)) graph
+    graph' = (0, 0) : fmap (\(t, bytes) -> (toSec t, toMiB bytes)) graph
 
     step !acc ((t0, b0), (t1, b1)) = acc + 0.5 * (t1 - t0) * (b0 + b1)
-    accSize = L.foldl' step 0 (zip graph' (tail graph'))
 
+    -- trapezoidal sum
+    accSize = L.foldl' step 0 (zip graph' (tail graph'))
     mipe = HM.lookup cid ipeMap
+
+
+loadEventlog :: FilePath -> IO (Either String (EventLog, Maybe String))
+loadEventlog fp = do
+  lbs <- BL.readFile fp
+  pure $ readEventLog lbs
+
+extract :: FilePath -> IO [ClosureInfoItem]
+extract fp = do
+  eresult <- loadEventlog fp
+  case eresult of
+    Left err -> print err >> pure []
+    Right (l, _) -> do
+      let (infos, chunks) = GHCEvents.getChunkedEvents l
+          format c =
+            c {GHCEvents.chunkSamples = take 3 (GHCEvents.chunkSamples c)}
+          graphs = HM.toList $ GHCEvents.makeGraph chunks
+          clss = mapMaybe (GHCEvents.makeClosureInfoItem infos) graphs
+      pure clss

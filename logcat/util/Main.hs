@@ -176,7 +176,7 @@ drawItem (pctxt, desc) (ox, oy) item = do
   drawGraph (ox, oy) (clsGraph item)
   R.setSourceRGBA 0.3 0.3 0.3 1.0
   drawTextLine (pctxt, desc) (ox + 210, oy - 15.0) (T.pack $ show $ clsN item)
-  drawTextLine (pctxt, desc) (ox + 260, oy - 15.0) (T.pack $ show $ clsSize item)
+  drawTextLine (pctxt, desc) (ox + 260, oy - 15.0) (T.pack $ printf "%.2f" $ clsSize item)
   drawTextLine (pctxt, desc) (ox + 320, oy - 15.0) (clsLabel item)
   drawTextLine (pctxt, desc) (ox + 420, oy - 15.0) (clsDesc item)
   drawTextLine (pctxt, desc) (ox + 700, oy - 15.0) (clsCTy item)
@@ -224,23 +224,7 @@ initFont = do
 main :: IO ()
 main = do
   args <- getArgs
-  eresult <- GHCEvents.extract (args !! 0)
-  case eresult of
-    Left err -> print err
-    Right (l, _) -> do
-      let (infos, chunks) = GHCEvents.getChunkedEvents l
-          format c =
-            c {GHCEvents.chunkSamples = take 3 (GHCEvents.chunkSamples c)}
-      mapM_ (pPrint . format) chunks
-      mapM_ (pPrint . GHCEvents.chunkStat) $ take 3 chunks
-      let graphs = HM.toList $ GHCEvents.makeGraph chunks
-      -- mapM_ pPrint graphs
-      mapM_ (pPrint . GHCEvents.makeClosureInfoItem infos) graphs
-
-main' :: IO ()
-main' = do
-  args <- getArgs
-  dat <- FromHTML.extract (args !! 0)
+  dat <- GHCEvents.extract (args !! 0)
   let items = take 100 $ L.sortBy (flip compare `Fn.on` clsSize) dat
   mapM_ print items
   ref <- newIORef (GridState (ViewPort (0, 0) (1024, 768)) Nothing)
