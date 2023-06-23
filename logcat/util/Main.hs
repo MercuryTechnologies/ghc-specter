@@ -222,11 +222,11 @@ main = do
   case eresult of
     Left err -> print err
     Right (l, _) -> do
-      let cs = GHCEvents.getChunkedEvents l
-          c = head cs
-          c' = c {GHCEvents.chunkEvents = take 3 (GHCEvents.chunkEvents c)}
-      pPrint c'
-      -- print (header l)
+      let (infos, chunks) = GHCEvents.getChunkedEvents l
+          format c =
+            c {GHCEvents.chunkSample = take 3 (GHCEvents.chunkSample c)}
+      mapM_ pPrint $ take 10 $ GHCEvents.infoTableMapContents infos
+      mapM_ (pPrint . format) chunks
 
 main' :: IO ()
 main' = do

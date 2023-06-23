@@ -3,11 +3,13 @@ module GHCEvents (
   extract,
 
   -- *
+  InfoTableMap (..),
   Chunk (..),
   getChunkedEvents,
 ) where
 
 import Data.ByteString.Lazy qualified as BL
+import Data.List (partition)
 import Data.List.Split (keepDelimsL, split, whenElt)
 import Data.Maybe (mapMaybe)
 import GHC.RTS.Events (
@@ -25,32 +27,37 @@ extract fp = do
   lbs <- BL.readFile fp
   pure $ readEventLog lbs
 
-data Chunk = Chunk
-  { chunkTimestamp :: Timestamp
-  , chunkEvents :: [(Timestamp, Event)]
+data InfoTableMap = InfoTableMap
+  { infoTableMapContents :: [Event]
   }
   deriving (Show)
 
-getChunkedEvents :: EventLog -> [Chunk]
-getChunkedEvents l =
-  let evs = events (dat l)
-      f e =
-        let mx =
-              case evSpec e of
-                HeapProfSampleBegin {} -> Just e
-                HeapProfSampleString {} -> Just e
-                InfoTableProv {} -> Just e
-                _ -> Nothing
-         in (evTime e,) <$> mx
-      getSec (t, _) = t `div` 1_000_000
-      xs = mapMaybe f evs
-      ys = fmap getSec xs
+data Chunk = Chunk
+  { chunkTimestamp :: Timestamp
+  , chunkSample :: [Event]
+  }
+  deriving (Show)
 
-      isBegin (_, e) =
-        case evSpec e of
-          HeapProfSampleBegin {} -> True
-          _ -> False
-      splitted = split (keepDelimsL $ whenElt isBegin) xs
+getChunkedEvents :: EventLog -> (InfoTableMap, [Chunk])
+getChunkedEvents l = (InfoTableMap infos, mapMaybeq toChunk splitted)
+  where
+    isHeapProf e =
+      case evSpec e of
+        HeapProfSampleBegin {} -> True
+        HeapProfSampleString {} -> True
+        _ -> False
+    isBegin e =
+      case evSpec e of
+        HeapProfSampleBegin {} -> True
+        _ -> False
+    isInfoTable e =
+      case evSpec e of
+        InfoTableProv {} -> True
+        _ -> False
+    evs = events (dat l)
+    (profs, others) = partition isHeapProf evs
+    infos = filter isInfoTable others
 
-      toChunk ((t, _) : xs) = Chunk t xs
-   in fmap toChunk splitted
+    splitted = split (keepDelimsL $ whenElt isBegin) profs
+    toChunk (start : samples) = Just (Chunk (evTime start) samples)
+    toChunk _ = Nothing
