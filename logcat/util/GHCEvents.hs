@@ -2,19 +2,14 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module GHCEvents (
-  -- *
   InfoTableProvEntry (..),
   InfoTableMap (..),
   Chunk (..),
   getChunkedEvents,
-
-  -- *
   chunkStat,
   addStat,
   makeGraph,
   makeClosureInfoItem,
-
-  -- *
   extract,
 ) where
 
@@ -26,14 +21,13 @@ import Data.List.Split (keepDelimsL, split, whenElt)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Word (Word8, Word64)
+import Data.Word (Word64, Word8)
 import GHC.Exts.Heap.ClosureTypes (ClosureType (..))
 import GHC.RTS.Events (
   Data (events),
   Event (evCap, evSpec, evTime),
-  EventLog (..),
   EventInfo (..),
-  EventLog (header, dat),
+  EventLog (..),
   Timestamp,
  )
 import GHC.RTS.Events.Incremental (readEventLog)
@@ -111,7 +105,7 @@ getChunkedEvents l =
           , seResidency = heapProfResidency
           , seLabel = heapProfLabel
           }
-    toSE _  = Nothing
+    toSE _ = Nothing
 
     splitted = split (keepDelimsL $ whenElt isBegin) profs
 
@@ -127,7 +121,7 @@ addSample t !acc SampleEntry {..} =
   let f Nothing = Just (t, seResidency)
       f (Just (_, v)) = Just (t, v + seResidency)
       !acc' = HM.alter f seLabel acc
-    in acc'
+   in acc'
 
 chunkStat :: Chunk -> HashMap Text (Timestamp, Word64)
 chunkStat c = L.foldl' (addSample (chunkTimestamp c)) HM.empty (chunkSamples c)
@@ -146,8 +140,8 @@ makeClosureInfoItem ipeMap (cid, graph) =
   Just $
     ClosureInfoItem
       { clsGraph = graph'
-      -- TODO: find the way to get this info.
-      , clsN = 0
+      , -- TODO: find the way to get this info.
+        clsN = 0
       , clsLabel = cid
       , clsDesc = maybe "" ipeTableName mipe
       , clsCTy = maybe "" (T.pack . show . ipeClosureDesc) mipe
@@ -170,7 +164,6 @@ makeClosureInfoItem ipeMap (cid, graph) =
     -- trapezoidal sum
     accSize = L.foldl' step 0 (zip graph' (tail graph'))
     mipe = HM.lookup cid ipeMap
-
 
 loadEventlog :: FilePath -> IO (Either String (EventLog, Maybe String))
 loadEventlog fp = do

@@ -24,7 +24,7 @@ import GHC.RTS.Events (
   Data (events),
   Event (evCap, evSpec, evTime),
   EventInfo (..),
-  EventLog (header, dat),
+  EventLog (dat, header),
   Timestamp,
  )
 import GHCEvents qualified as GHCEvents
