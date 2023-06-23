@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GHCEvents (
@@ -13,7 +14,8 @@ module GHCEvents (
   -- *
   chunkStat,
   addStat,
-  constructGraph,
+  makeGraph,
+  makeClosureInfoItem,
 ) where
 
 import Data.ByteString.Lazy qualified as BL
@@ -25,6 +27,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Word (Word8, Word64)
+import GHC.Exts.Heap.ClosureTypes (ClosureType (..))
 import GHC.RTS.Events (
   Data (events),
   Event (evCap, evSpec, evTime),
@@ -35,6 +38,7 @@ import GHC.RTS.Events (
  )
 import GHC.RTS.Events.Incremental (readEventLog)
 import Numeric (showHex)
+import Types (ClosureInfoItem (..))
 
 -- parse eventlog file
 extract :: FilePath -> IO (Either String (EventLog, Maybe String))
@@ -45,7 +49,7 @@ extract fp = do
 data InfoTableProvEntry = IPE
   { ipeInfo :: Text
   , ipeTableName :: Text
-  , ipeClosureDesc :: Int
+  , ipeClosureDesc :: ClosureType
   , ipeTyDesc :: Text
   , ipeLabel :: Text
   , ipeModule :: Text
@@ -97,7 +101,7 @@ getChunkedEvents l =
             IPE
               { ipeInfo = i
               , ipeTableName = itTableName
-              , ipeClosureDesc = itClosureDesc
+              , ipeClosureDesc = toEnum itClosureDesc
               , ipeTyDesc = itTyDesc
               , ipeLabel = itLabel
               , ipeModule = itModule
@@ -120,7 +124,11 @@ getChunkedEvents l =
     toChunk (start : samples) = Chunk (evTime start) <$> traverse (toSE . evSpec) samples
     toChunk _ = Nothing
 
-addSample :: Timestamp -> HashMap Text (Timestamp, Word64) -> SampleEntry -> HashMap Text (Timestamp, Word64)
+addSample ::
+  Timestamp ->
+  HashMap Text (Timestamp, Word64) ->
+  SampleEntry ->
+  HashMap Text (Timestamp, Word64)
 addSample t !acc SampleEntry {..} =
   let f Nothing = Just (t, seResidency)
       f (Just (_, v)) = Just (t, v + seResidency)
@@ -136,5 +144,34 @@ addStat !acc c =
       !acc' = HM.unionWith (++) acc stat1
    in acc'
 
-constructGraph :: [Chunk] -> HashMap Text [(Timestamp, Word64)]
-constructGraph cs = L.foldl' addStat HM.empty cs
+makeGraph :: [Chunk] -> HashMap Text [(Timestamp, Word64)]
+makeGraph cs = L.foldl' addStat HM.empty cs
+
+makeClosureInfoItem :: InfoTableMap -> (Text, [(Timestamp, Word64)]) -> Maybe ClosureInfoItem
+makeClosureInfoItem ipeMap (cid, graph) =
+  Just $
+    ClosureInfoItem
+      { clsGraph = graph'
+      -- TODO: find the way to get this info.
+      , clsN = 0
+      , clsLabel = cid
+      , clsDesc = maybe "" ipeTableName mipe
+      , clsCTy = maybe "" (T.pack . show . ipeClosureDesc) mipe
+      , clsType = maybe "" ipeTyDesc mipe
+      , clsModule = maybe "" ipeModule mipe
+      , clsLoc = maybe "" ipeSrcLoc mipe
+      , clsSize = accSize
+      }
+  where
+    toSec :: Timestamp -> Double
+    toSec t = fromIntegral t / 1_000_000_000
+
+    toMiB :: Word64 -> Double
+    toMiB blocks = fromIntegral blocks * 4_096 / 1_048_576
+
+    graph' = (0, 0) : fmap (\(t, blocks) -> (toSec t, toMiB blocks)) graph
+
+    step !acc ((t0, b0), (t1, b1)) = acc + 0.5 * (t1 - t0) * (b0 + b1)
+    accSize = L.foldl' step 0 (zip graph' (tail graph'))
+
+    mipe = HM.lookup cid ipeMap

@@ -7,6 +7,7 @@ import Data.Foldable (for_)
 import Data.Function qualified as Fn (on)
 import Data.GI.Base (AttrOp ((:=)), after, get, new, on)
 import Data.GI.Gtk.Threading (postGUIASync)
+import Data.HashMap.Strict qualified as HM
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -232,7 +233,9 @@ main = do
             c {GHCEvents.chunkSamples = take 3 (GHCEvents.chunkSamples c)}
       mapM_ (pPrint . format) chunks
       mapM_ (pPrint . GHCEvents.chunkStat) $ take 3 chunks
-      pPrint $ GHCEvents.constructGraph chunks
+      let graphs = HM.toList $ GHCEvents.makeGraph chunks
+      -- mapM_ pPrint graphs
+      mapM_ (pPrint . GHCEvents.makeClosureInfoItem infos) graphs
 
 main' :: IO ()
 main' = do
