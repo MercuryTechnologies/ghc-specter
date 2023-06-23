@@ -24,6 +24,7 @@ import GHC.RTS.Events (
   Event (evCap, evSpec, evTime),
   EventInfo (..),
   EventLog (header, dat),
+  Timestamp,
  )
 import GHCEvents qualified as GHCEvents
 import GI.Cairo.Render qualified as R
@@ -35,6 +36,7 @@ import GI.PangoCairo qualified as PC
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import Text.Printf (printf)
+import Text.Show.Pretty (pPrint)
 
 data ViewPort = ViewPort (Double, Double) (Double, Double)
   deriving (Show)
@@ -220,23 +222,11 @@ main = do
   case eresult of
     Left err -> print err
     Right (l, _) -> do
-      print (header l)
-      let evs = events (dat l)
-          f e =
-            let mx =
-                  case evSpec e of
-                    -- InfoTableProv {} -> Just e
-                    HeapProfSampleBegin {} -> Just e
-                    -- HeapProfSampleString {} -> Just e
-                    _ -> Nothing
-             in (evTime e,) <$> mx
-      let getSec (t, _) = t `div` 1_000_000
-          xs = mapMaybe f evs
-          ys = fmap getSec xs
-      print (length xs)
-      --print (length evs)
-      mapM_ print xs -- (take 100 xs)
-      -- mapM_ print (L.nub ys)
+      let cs = GHCEvents.getChunkedEvents l
+          c = head cs
+          c' = c {GHCEvents.chunkEvents = take 3 (GHCEvents.chunkEvents c)}
+      pPrint c'
+      -- print (header l)
 
 main' :: IO ()
 main' = do
