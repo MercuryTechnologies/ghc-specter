@@ -225,7 +225,7 @@ main = do
       let (infos, chunks) = GHCEvents.getChunkedEvents l
           format c =
             c {GHCEvents.chunkSample = take 3 (GHCEvents.chunkSample c)}
-      mapM_ pPrint $ take 10 $ GHCEvents.infoTableMapContents infos
+      -- mapM_ pPrint $ take 10 $ GHCEvents.infoTableMapContents infos
       mapM_ (pPrint . format) chunks
 
 main' :: IO ()
