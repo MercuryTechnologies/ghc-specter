@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module FromHTML (
+module GHCSpecter.Eventlog.FromHTML (
   extract,
 ) where
 
@@ -8,6 +8,7 @@ import Data.Maybe (catMaybes, listToMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import GHCSpecter.Eventlog.Types (ClosureInfoItem (..))
 import Text.HTML.TagSoup (
   Tag (..),
   parseTags,
@@ -18,7 +19,6 @@ import Text.HTML.TagSoup.Tree (
   tagTree,
   universeTree,
  )
-import Types (ClosureInfoItem (..))
 
 readT :: (Read a) => Text -> a
 readT = read . T.unpack
