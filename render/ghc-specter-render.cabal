@@ -23,7 +23,7 @@ library
       GHCSpecter.Graphics.DSL
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wunused-packages
   build-depends:
       base >= 4.15 && <5,
       text

@@ -12,9 +12,7 @@ category:       Development
 homepage:       https://github.com/MercuryTechnologies/ghc-build-analyzer#readme
 bug-reports:    https://github.com/MercuryTechnologies/ghc-build-analyzer/issues
 author:         Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
 maintainer:     Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
 copyright:      © 2022 Mercury Inc. All rights reserved.
 build-type:     Simple
 extra-source-files:

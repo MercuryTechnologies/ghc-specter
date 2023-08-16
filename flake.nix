@@ -34,7 +34,7 @@
         "fficxx-runtime" = hself.callHackage "fficxx-runtime" "0.7.0.0" {};
         "stdcxx" = hself.callHackage "stdcxx" "0.7.0.0" {};
         # libOGDF is bundled with libCOIN, so remove COIN dependency.
-        "OGDF" = hself.callCabal2nix "OGDF" inputs.OGDF {
+        "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
           COIN = null;
           OGDF = pkgs.ogdf;
         };
@@ -46,7 +46,7 @@
         (hself: hsuper: haskellOverlay pkgs hself hsuper);
 
       mkShellFor = compiler: let
-        hsenv = (hpkgsFor compiler).ghcWithPackages (p: []);
+        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [ p.OGDF ]);
         pyenv =
           pkgs.python3.withPackages
           (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);

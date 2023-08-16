@@ -1,16 +1,14 @@
-cabal-version: 1.12
+cabal-version:  3.6
 name:           ghc-specter-daemon
-version:        0.1.0.0
+version:        1.0.0.0
 synopsis:       Daemon process for ghc-specter
 description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category:       Development
 homepage:       https://github.com/MercuryTechnologies/ghc-specter#readme
 bug-reports:    https://github.com/MercuryTechnologies/ghc-specter/issues
-author:         Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
-maintainer:     Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
-copyright:      © 2022 Mercury Inc. All rights reserved.
+author:         Ian-Woo Kim <ianwookim@gmail.com>
+maintainer:     Ian-Woo Kim <ianwookim@gmail.com>
+copyright:      © 2022-2023 Mercury Inc. All rights reserved.
 build-type:     Simple
 extra-source-files:
     README.md
@@ -71,7 +69,7 @@ library
       Paths_ghc_specter_daemon
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wunused-packages -Werror
   build-depends:
       OGDF
     , aeson
@@ -80,7 +78,6 @@ library
     , bytestring
     , containers
     , discrimination
-    , errors
     , extra
     , fficxx-runtime
     , ghc
@@ -105,66 +102,6 @@ library
   if impl (ghc >= 9.6) && impl (ghc < 9.7)
     hs-source-dirs:
         src-ghc96
-  if impl (ghc >= 9.4) && impl (ghc < 9.5)
-    hs-source-dirs:
-        src-ghc94
-  if impl (ghc >= 9.2) && impl (ghc < 9.3)
-    hs-source-dirs:
-        src-ghc92
-
-executable ghc-specter-daemon
-  main-is: Main.hs
-  other-modules:
-      GHCSpecter.ConcurReplica.DOM
-      GHCSpecter.ConcurReplica.DOM.Events
-      GHCSpecter.ConcurReplica.Run
-      GHCSpecter.ConcurReplica.SVG
-      GHCSpecter.ConcurReplica.Types
-      GHCSpecter.ConcurReplica.WaiHandler
-      GHCSpecter.Driver.Web
-      GHCSpecter.Web
-      GHCSpecter.Web.ConcurReplicaSVG
-      GHCSpecter.Web.Console
-      GHCSpecter.Web.ConsoleItem
-      GHCSpecter.Web.GHCCore
-      GHCSpecter.Web.ModuleGraph
-      GHCSpecter.Web.Session
-      GHCSpecter.Web.SourceView
-      GHCSpecter.Web.Timing
-      GHCSpecter.Web.Util
-      Paths_ghc_specter_daemon
-  hs-source-dirs:
-      app/ghc-specter-daemon
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      aeson
-    , base >=4.15 && <5
-    , bytestring
-    , concur-core
-    , concur-replica
-    , containers
-    , errors
-    , extra
-    -- this free libray dep is still needed due to concur-replica
-    , free
-    , ghc-specter-daemon
-    , ghc-specter-plugin
-    , ghc-specter-render
-    , http-types
-    , lens
-    , optparse-applicative
-    , pretty-simple
-    , replica
-    , scientific
-    , stm
-    , text
-    , time
-    , transformers
-    , wai
-    , wai-websockets
-    , warp
-    , websockets
-  default-language: GHC2021
 
 test-suite ghc-specter-daemon-test
   type: exitcode-stdio-1.0
@@ -175,7 +112,7 @@ test-suite ghc-specter-daemon-test
       Paths_ghc_specter_daemon
   hs-source-dirs:
       test
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.15 && <5

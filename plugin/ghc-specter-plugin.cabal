@@ -7,8 +7,7 @@ description:    Please see the README on GitHub at <https://github.com/MercuryTe
 category:       Development
 homepage:       https://github.com/MercuryTechnologies/ghc-specter#readme
 bug-reports:    https://github.com/MercuryTechnologies/ghc-specter/issues
-author:         Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <ianwookim@gmail.com>
+author:         Ian-Woo Kim <ianwookim@gmail.com>
 maintainer:     Ian-Woo Kim <ianwookim@gmail.com>
 copyright:      © 2022-2023 Mercury Inc. All rights reserved.
 build-type:     Simple
@@ -42,7 +41,7 @@ library
       Paths_ghc_specter_plugin
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wunused-packages
   build-depends:
       aeson
     , base >=4.15 && <5
@@ -51,7 +50,6 @@ library
     , bytestring
     , containers
     , directory
-    , discrimination
     , errors
     , extra
     -- , ghc-debug-stub
@@ -61,7 +59,6 @@ library
     , stm
     , text
     , time
-    , transformers
     , yaml
   default-language: GHC2021
   if impl (ghc >= 9.7)
