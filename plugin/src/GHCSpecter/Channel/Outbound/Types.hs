@@ -29,7 +29,7 @@ module GHCSpecter.Channel.Outbound.Types
 where
 
 import Data.Binary (Binary (..))
-import Data.Binary.Instances.Time ()
+-- import Data.Binary.Instances.Time ()
 import Data.Int (Int64)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
@@ -102,6 +102,10 @@ data MemInfo = MemInfo
   deriving (Show, Generic)
 
 instance Binary MemInfo
+
+instance Binary UTCTime where
+  get = undefined
+  put = undefined
 
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary)

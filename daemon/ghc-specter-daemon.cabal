@@ -26,7 +26,6 @@ library
       GHCSpecter.Control.DSL
       GHCSpecter.Control.Runner
       GHCSpecter.Control.Types
-      GHCSpecter.Data.Assets
       GHCSpecter.Data.GHC.Core
       GHCSpecter.Data.GHC.Hie
       GHCSpecter.Data.Timing.Types
@@ -73,7 +72,6 @@ library
   build-depends:
       OGDF
     , base >=4.15 && <5
-    , base64-bytestring
     , bytestring
     , containers
     , discrimination

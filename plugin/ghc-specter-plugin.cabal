@@ -44,7 +44,7 @@ library
   build-depends:
       base >=4.15 && <5
     , binary
-    , binary-instances
+    -- , binary-instances
     , bytestring
     , containers
     , directory
