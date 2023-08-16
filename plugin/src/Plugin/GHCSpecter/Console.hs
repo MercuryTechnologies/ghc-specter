@@ -106,13 +106,14 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
         doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
       DumpHeap -> do
         putStrLn "Dump-Heap"
-        isInGhcDebug <-
+{-
+        _isInGhcDebug <-
           atomically $ do
             b <- psIsInGhcDebug <$> readTVar sessionRef
             when (not b) $
               modifyTVar' sessionRef (\ps -> ps {psIsInGhcDebug = True})
             pure b
-{-
+
         when (not isInGhcDebug) $ do
           Debug.withGhcDebug $ do
             atomically $ do

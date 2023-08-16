@@ -9,10 +9,6 @@ module Plugin.GHCSpecter (
   plugin,
 ) where
 
-import Control.Concurrent.STM (
-  atomically,
-  modifyTVar',
- )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -41,11 +37,7 @@ import GHCSpecter.Channel.Outbound.Types (
   BreakpointLoc (..),
   ChanMessage (..),
  )
-import GHCSpecter.Util.GHC (
-  extractModuleGraphInfo,
-  extractModuleSources,
-  showPpr,
- )
+import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage)
@@ -63,10 +55,6 @@ import Plugin.GHCSpecter.Tasks (
   renamedResultActionCommands,
   spliceRunActionCommands,
   typecheckResultActionCommands,
- )
-import Plugin.GHCSpecter.Types (
-  PluginSession (..),
-  sessionRef,
  )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath)

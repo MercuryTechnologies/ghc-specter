@@ -3,20 +3,20 @@
 module Plugin.GHCSpecter.Tasks.Core2Core (
   listCore,
   printCore,
+  --
+  getContent,
 ) where
 
 import Control.Error.Util (note)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
-import Data.Functor.Const (Const (..))
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Tree (Tree (..))
 import Data.Typeable (Typeable)
 import GHC.Core (Bind (NonRec, Rec))
 import GHC.Core.Class (Class)
@@ -120,16 +120,6 @@ getContent dflags x = (T.pack dtypName, evalue)
       -- Using ppr, "_(uniq symbol)" suffix is added.
       | dtypName == "Var" = Right $ getNameDynamically (Proxy @Var) dflags x
       | otherwise = Left (T.pack (show (toConstr x)))
-
-core2tree :: forall a. Data a => DynFlags -> a -> Tree (Text, Text)
-core2tree dflags a =
-  case getContent dflags a of
-    (typ, Left val) -> Node (typ, val) (getConst (gfoldl k z a))
-    (typ, Right (Just val)) -> Node (typ, val) []
-    (typ, Right Nothing) -> Node (typ, "#######") []
-  where
-    z _ = Const []
-    k (Const acc) x = Const (acc ++ [core2tree dflags x])
 
 listCore :: ModGuts -> CoreM ConsoleReply
 listCore guts = do

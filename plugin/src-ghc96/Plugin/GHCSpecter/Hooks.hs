@@ -69,7 +69,6 @@ import Language.Haskell.Syntax.Expr (HsUntypedSplice)
 import Language.Haskell.Syntax.Module.Name (moduleNameString)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (
   postMetaCommands,
   postPhaseCommands,
@@ -189,6 +188,8 @@ tphase2Text p =
     T_LlvmLlc {} -> "T_LlvmLlc"
     T_LlvmMangle {} -> "T_LlvmMangle"
     T_MergeForeign {} -> "T_MergeForeign"
+    T_Js {} -> "T_Js"
+    T_ForeignJs {} -> "T_Js"
 
 envFromTPhase :: TPhase res -> (HscEnv, Maybe PipeEnv, Maybe ModuleName)
 envFromTPhase p =
@@ -209,6 +210,8 @@ envFromTPhase p =
     T_LlvmLlc penv env _ -> (env, Just penv, Nothing)
     T_LlvmMangle penv env _ -> (env, Just penv, Nothing)
     T_MergeForeign penv env _ _ -> (env, Just penv, Nothing)
+    T_Js penv env _ _ -> (env, Just penv, Nothing)
+    T_ForeignJs penv env _ _ -> (env, Just penv, Nothing)
 
 -- | All the TPhase cases have HscEnv. This function constructs a new TPhase with a modified HscEnv.
 modifyHscEnvInTPhase :: (HscEnv -> HscEnv) -> TPhase res -> TPhase res
@@ -230,6 +233,8 @@ modifyHscEnvInTPhase update p =
     T_LlvmLlc penv env fp -> T_LlvmLlc penv (update env) fp
     T_LlvmMangle penv env fp -> T_LlvmMangle penv (update env) fp
     T_MergeForeign penv env fp fps -> T_MergeForeign penv (update env) fp fps
+    T_Js penv env loc src -> T_Js penv (update env) loc src
+    T_ForeignJs penv env loc src -> T_ForeignJs penv (update env) loc src
 
 issueNewDriverId :: ModSummary -> IO DriverId
 issueNewDriverId modSummary = do
@@ -339,6 +344,8 @@ sendCompStateOnPhase drvId phase pt = do
           let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
         _ -> pure ()
+    T_Js _ _ _ _ -> pure ()
+    T_ForeignJs _ _ _ _ -> pure ()
 
 runPhaseHook' :: PhaseHook
 runPhaseHook' = PhaseHook $ \phase -> do
