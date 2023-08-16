@@ -1,7 +1,8 @@
-module Util.Histo (
-  aggregateCount,
-  histoAdd,
-) where
+module Util.Histo
+  ( aggregateCount,
+    histoAdd,
+  )
+where
 
 import Data.List (group, sort)
 import Data.Map (Map)

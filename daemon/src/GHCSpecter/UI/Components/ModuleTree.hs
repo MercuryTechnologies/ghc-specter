@@ -1,10 +1,11 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Components.ModuleTree (
-  buildModuleTree,
-  expandableText,
-) where
+module GHCSpecter.UI.Components.ModuleTree
+  ( buildModuleTree,
+    expandableText,
+  )
+where
 
 import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
@@ -14,40 +15,40 @@ import Data.Traversable (for)
 import Data.Tree (Tree (..), flatten, foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive (..),
-  Scene (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
-  movePrimitiveBy,
-  rectangle,
-  viewPortHeight,
-  viewPortWidth,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout (..),
-  drawText',
- )
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive (..),
+    Scene (..),
+    TextFontFace (..),
+    TextPosition (..),
+    ViewPort (..),
+    movePrimitiveBy,
+    rectangle,
+    viewPortHeight,
+    viewPortWidth,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout (..),
+    drawText',
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.Constants (canvasDim)
-import GHCSpecter.UI.Types (
-  HasSourceViewUI (..),
-  SourceViewUI (..),
- )
+import GHCSpecter.UI.Types
+  ( HasSourceViewUI (..),
+    SourceViewUI (..),
+  )
 import GHCSpecter.UI.Types.Event (SourceViewEvent (..))
-import GHCSpecter.Util.SourceTree (
-  accumPrefix,
-  expandFocusOnly,
-  markLeaf,
- )
+import GHCSpecter.Util.SourceTree
+  ( accumPrefix,
+    expandFocusOnly,
+    markLeaf,
+  )
 
 expandableText :: Bool -> Bool -> Text -> Text
 expandableText isBordered isExpandable txt =
@@ -70,11 +71,11 @@ buildModuleTree srcUI ss = do
   let contents = concatMap render $ zip [0 ..] (concat rendered0)
   pure
     Scene
-      { sceneId = "module-tree"
-      , sceneGlobalViewPort = ViewPort (0, 0) canvasDim
-      , sceneLocalViewPort = ViewPort (0, 0) canvasDim
-      , sceneElements = contents
-      , sceneExtents = Nothing
+      { sceneId = "module-tree",
+        sceneGlobalViewPort = ViewPort (0, 0) canvasDim,
+        sceneLocalViewPort = ViewPort (0, 0) canvasDim,
+        sceneElements = contents,
+        sceneExtents = Nothing
       }
   where
     timing = ss ^. serverTiming . tsTimingMap
@@ -108,30 +109,30 @@ buildModuleTree srcUI ss = do
           hitEvent
             | matched =
                 HitEvent
-                  { hitEventHoverOn = Nothing
-                  , hitEventHoverOff = Nothing
-                  , hitEventClick = Just (Left UnselectModule)
+                  { hitEventHoverOn = Nothing,
+                    hitEventHoverOff = Nothing,
+                    hitEventClick = Just (Left UnselectModule)
                   }
             | otherwise =
                 HitEvent
-                  { hitEventHoverOn = Nothing
-                  , hitEventHoverOff = Nothing
-                  , hitEventClick = Just (Right (SelectModule modu))
+                  { hitEventHoverOn = Nothing,
+                    hitEventHoverOff = Nothing,
+                    hitEventClick = Just (Right (SelectModule modu))
                   }
           hitEventBreakpoint =
             HitEvent
-              { hitEventHoverOn = Nothing
-              , hitEventHoverOff = Nothing
-              , hitEventClick = Just (Right (SetBreakpoint modu (not hasBreakpoint)))
+              { hitEventHoverOn = Nothing,
+                hitEventHoverOff = Nothing,
+                hitEventClick = Just (Right (SetBreakpoint modu (not hasBreakpoint)))
               }
       renderedText <- drawText' (0, 0) UpperLeft Sans color 8 txt
       let bbox = primBoundingBox renderedText
           w = viewPortWidth bbox
           h = viewPortHeight bbox
       pure
-        [ rectangle (0, 0) w h (Just Red) colorBox Nothing (Just hitEvent)
-        , renderedText
-        , rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
+        [ rectangle (0, 0) w h (Just Red) colorBox Nothing (Just hitEvent),
+          renderedText,
+          rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
         ]
 
     annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)

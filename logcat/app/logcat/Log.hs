@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Log (
-  recordEvent,
-  dumpLog,
-  flushEventQueue,
-) where
+module Log
+  ( recordEvent,
+    dumpLog,
+    flushEventQueue,
+  )
+where
 
 import Control.Lens ((%~), (&), (.~), (^.))
 import Data.ByteString qualified as BS
@@ -16,25 +17,25 @@ import Data.Maybe (fromMaybe)
 import Data.Sequence ((|>))
 import Data.Sequence qualified as Seq (empty)
 import GHC.RTS.Events (Event (..), Header)
-import GHC.RTS.Events.Incremental (
-  Decoder (..),
-  decodeEvents,
-  readHeader,
- )
+import GHC.RTS.Events.Incremental
+  ( Decoder (..),
+    decodeEvents,
+    readHeader,
+  )
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv)
 import Render.Heap qualified as Heap
 import Render.Timeline qualified as Timeline
-import Render.Util (
-  canvasWidth,
- )
+import Render.Util
+  ( canvasWidth,
+  )
 import System.IO (hFlush, stdout)
 import Text.Pretty.Simple (pPrint)
-import Types (
-  HasLogcatState (..),
-  HasViewState (..),
-  LogcatState,
- )
+import Types
+  ( HasLogcatState (..),
+    HasViewState (..),
+    LogcatState,
+  )
 import Util.Event (eventInfoToString)
 import Util.Histo (aggregateCount, histoAdd)
 

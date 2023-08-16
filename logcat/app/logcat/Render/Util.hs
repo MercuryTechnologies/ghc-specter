@@ -1,32 +1,33 @@
 {-# LANGUAGE OverloadedLabels #-}
 
-module Render.Util (
-  -- * GUI parameters
-  canvasWidth,
-  canvasHeight,
-  xoffset,
-  yoffset,
-  fontSize,
-  separatorPosY,
+module Render.Util
+  ( -- * GUI parameters
+    canvasWidth,
+    canvasHeight,
+    xoffset,
+    yoffset,
+    fontSize,
+    separatorPosY,
 
-  -- * colors
-  black,
-  white,
-  blue,
-  lightBlue,
-  red,
-  green,
-  gray,
+    -- * colors
+    black,
+    white,
+    blue,
+    lightBlue,
+    red,
+    green,
+    gray,
 
-  -- * color util
-  transparentize,
-  setColor,
+    -- * color util
+    transparentize,
+    setColor,
 
-  -- * draw util
-  clear,
-  drawText,
-  drawSeparator,
-) where
+    -- * draw util
+    clear,
+    drawText,
+    drawSeparator,
+  )
+where
 
 import Control.Lens ((^.))
 import Data.Int (Int32)
@@ -35,10 +36,10 @@ import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
-import Types (
-  HasLogcatView (..),
-  LogcatView,
- )
+import Types
+  ( HasLogcatView (..),
+    LogcatView,
+  )
 
 canvasWidth :: Double
 canvasWidth = 1440

@@ -1,18 +1,19 @@
-module GHCSpecter.Layouter.Text (
-  MonadTextLayout (..),
-  drawText',
-) where
+module GHCSpecter.Layouter.Text
+  ( MonadTextLayout (..),
+    drawText',
+  )
+where
 
 import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (
-  Color,
-  DrawText (..),
-  Primitive (..),
-  Shape (..),
-  TextFontFace,
-  TextPosition,
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Color,
+    DrawText (..),
+    Primitive (..),
+    Shape (..),
+    TextFontFace,
+    TextPosition,
+    ViewPort (..),
+  )
 
 class (Monad m) => MonadTextLayout m where
   calculateTextDimension ::

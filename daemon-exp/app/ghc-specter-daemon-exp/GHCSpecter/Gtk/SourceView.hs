@@ -8,28 +8,28 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
 import Data.Foldable (for_)
 import Data.List qualified as L
-import GHCSpecter.Data.GHC.Hie (
-  HasModuleHieInfo (..),
- )
-import GHCSpecter.Graphics.DSL (
-  Scene (..),
-  Stage (..),
- )
+import GHCSpecter.Data.GHC.Hie
+  ( HasModuleHieInfo (..),
+  )
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    Stage (..),
+  )
 import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (vruleLeft)
-import GHCSpecter.Server.Types (
-  HasHieState (..),
-  HasServerState (..),
-  ServerState,
- )
+import GHCSpecter.Server.Types
+  ( HasHieState (..),
+    HasServerState (..),
+    ServerState,
+  )
 import GHCSpecter.UI.Components.ModuleTree (buildModuleTree)
 import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.UI.SourceView (buildSuppViewPanel)
-import GHCSpecter.UI.Types (
-  HasSourceViewUI (..),
-  SourceViewUI,
- )
+import GHCSpecter.UI.Types
+  ( HasSourceViewUI (..),
+    SourceViewUI,
+  )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 
@@ -45,9 +45,9 @@ renderSourceView srcUI ss = do
     sceneModTree <- fmap (fmap SourceViewEv) <$> buildModuleTree srcUI ss
     let sceneModTree' =
           sceneModTree
-            { sceneId = "module-tree"
-            , sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneId = "module-tree",
+              sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneModTree'
   -- source text view
@@ -65,9 +65,9 @@ renderSourceView srcUI ss = do
           sceneSrcView <- buildTextView src (fmap fst topLevelDecls)
           let sceneSrcView' =
                 sceneSrcView
-                  { sceneId = "source-view"
-                  , sceneGlobalViewPort = sceneGlobalViewPort scene0
-                  , sceneLocalViewPort = sceneLocalViewPort scene0
+                  { sceneId = "source-view",
+                    sceneGlobalViewPort = sceneGlobalViewPort scene0,
+                    sceneLocalViewPort = sceneLocalViewPort scene0
                   }
           render sceneSrcView'
         -- supplementary view
@@ -88,8 +88,8 @@ renderSourceView srcUI ss = do
                   fmap
                     (DummyEv <$)
                     sceneSuppContents
-                      { sceneGlobalViewPort = sceneGlobalViewPort scene3
-                      , sceneLocalViewPort = sceneLocalViewPort scene3
+                      { sceneGlobalViewPort = sceneGlobalViewPort scene3,
+                        sceneLocalViewPort = sceneLocalViewPort scene3
                       }
             render sceneSuppTab'
             render sceneSuppContents'

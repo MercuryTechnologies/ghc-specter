@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Gtk.ModuleGraph (
-  renderModuleGraph,
-) where
+module GHCSpecter.Gtk.ModuleGraph
+  ( renderModuleGraph,
+  )
+where
 
 import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
@@ -18,24 +19,24 @@ import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (Timer)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (
-  Scene (..),
-  Stage (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    Stage (..),
+  )
 import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (hruleTop)
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
 import GHCSpecter.UI.Components.GraphView (buildModuleGraph)
-import GHCSpecter.UI.Types (
-  HasModuleGraphUI (..),
-  ModuleGraphUI,
- )
-import GHCSpecter.UI.Types.Event (
-  DetailLevel,
-  SubModuleEvent (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Types
+  ( HasModuleGraphUI (..),
+    ModuleGraphUI,
+  )
+import GHCSpecter.UI.Types.Event
+  ( DetailLevel,
+    SubModuleEvent (..),
+    UserEvent (..),
+  )
 import GI.Cairo.Render qualified as R
 import Text.Printf (printf)
 
@@ -83,8 +84,8 @@ renderModuleGraph
             (mainModuleClicked, mainModuleHovered)
       let sceneMain' =
             sceneMain
-              { sceneGlobalViewPort = sceneGlobalViewPort scene0
-              , sceneLocalViewPort = sceneLocalViewPort scene0
+              { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+                sceneLocalViewPort = sceneLocalViewPort scene0
               }
       render sceneMain'
     -- sub module graph
@@ -115,9 +116,9 @@ renderModuleGraph
           let sceneSub' =
                 sceneSub
                   { -- TODO: this should be set up from buildModuleGraph
-                    sceneId = "sub-module-graph"
-                  , sceneGlobalViewPort = sceneGlobalViewPort scene0
-                  , sceneLocalViewPort = sceneLocalViewPort scene0
+                    sceneId = "sub-module-graph",
+                    sceneGlobalViewPort = sceneGlobalViewPort scene0,
+                    sceneLocalViewPort = sceneLocalViewPort scene0
                   }
           -- separator rule
           hruleTop (sceneGlobalViewPort scene0)

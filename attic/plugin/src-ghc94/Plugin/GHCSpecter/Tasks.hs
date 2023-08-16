@@ -1,25 +1,26 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Plugin.GHCSpecter.Tasks (
-  -- * command set
-  type CommandArg,
-  CommandSet (..),
-  emptyCommandSet,
+module Plugin.GHCSpecter.Tasks
+  ( -- * command set
+    type CommandArg,
+    CommandSet (..),
+    emptyCommandSet,
 
-  -- * tasks per pass/phase
-  driverCommands,
-  parsedResultActionCommands,
-  renamedResultActionCommands,
-  preMetaCommands,
-  spliceRunActionCommands,
-  postMetaCommands,
-  rnSpliceCommands,
-  typecheckResultActionCommands,
-  core2coreCommands,
-  prePhaseCommands,
-  postPhaseCommands,
-) where
+    -- * tasks per pass/phase
+    driverCommands,
+    parsedResultActionCommands,
+    renamedResultActionCommands,
+    preMetaCommands,
+    spliceRunActionCommands,
+    postMetaCommands,
+    rnSpliceCommands,
+    typecheckResultActionCommands,
+    core2coreCommands,
+    prePhaseCommands,
+    postPhaseCommands,
+  )
+where
 
 import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
@@ -33,21 +34,21 @@ import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (HsSplice, LHsExpr)
 import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
-import Plugin.GHCSpecter.Tasks.Typecheck (
-  fetchUnqualifiedImports,
-  showRenamed,
-  showRnSplice,
-  showSpliceExpr,
-  showSpliceResult,
- )
+import Plugin.GHCSpecter.Tasks.Typecheck
+  ( fetchUnqualifiedImports,
+    showRenamed,
+    showRnSplice,
+    showSpliceExpr,
+    showSpliceResult,
+  )
 
 type CommandArg = Text
 
 -- | a list of available commands at a given breakpoint
 newtype CommandSet m = CommandSet
-  { unCommandSet :: [(Text, [CommandArg] -> m ConsoleReply)]
-  -- ^ each item: command name, command action
-  -- command action takes additional arguments.
+  { -- | each item: command name, command action
+    -- command action takes additional arguments.
+    unCommandSet :: [(Text, [CommandArg] -> m ConsoleReply)]
   }
 
 emptyCommandSet :: CommandSet m
@@ -86,8 +87,8 @@ typecheckResultActionCommands tc =
 core2coreCommands :: ModGuts -> CommandSet CoreM
 core2coreCommands guts =
   CommandSet
-    [ (":list-core", \_ -> listCore guts)
-    , (":print-core", printCore guts)
+    [ (":list-core", \_ -> listCore guts),
+      (":print-core", printCore guts)
     ]
 
 prePhaseCommands :: CommandSet IO

@@ -2,26 +2,27 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Control.Runner (
-  RunnerHandler (..),
-  RunnerEnv (..),
-  type Runner,
-  stepControl,
-  stepControlUpToEvent,
-) where
+module GHCSpecter.Control.Runner
+  ( RunnerHandler (..),
+    RunnerEnv (..),
+    type Runner,
+    stepControl,
+    stepControlUpToEvent,
+  )
+where
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM (
-  TChan,
-  TQueue,
-  TVar,
-  atomically,
-  modifyTVar',
-  readTVar,
-  writeTChan,
-  writeTQueue,
-  writeTVar,
- )
+import Control.Concurrent.STM
+  ( TChan,
+    TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+    readTVar,
+    writeTChan,
+    writeTQueue,
+    writeTVar,
+  )
 import Control.Lens ((.~), (^.))
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
@@ -36,48 +37,48 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types (Request)
-import GHCSpecter.Control.Types (
-  ControlF (..),
-  type Control,
- )
-import GHCSpecter.Graphics.DSL (
-  EventMap,
-  Scene,
- )
+import GHCSpecter.Control.Types
+  ( ControlF (..),
+    type Control,
+  )
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    Scene,
+  )
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.Types (
-  HasUIState (..),
-  UIState (..),
- )
-import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (..),
-  Event (..),
-  SystemEvent (..),
-  UserEvent,
- )
+import GHCSpecter.UI.Types
+  ( HasUIState (..),
+    UIState (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (..),
+    Event (..),
+    SystemEvent (..),
+    UserEvent,
+  )
 import System.IO (IOMode (..), withFile)
 
 data RunnerHandler e = RunnerHandler
-  { runHandlerRefreshAction :: IO ()
-  , runHandlerHitScene ::
+  { runHandlerRefreshAction :: IO (),
+    runHandlerHitScene ::
       (Double, Double) ->
-      IO (Maybe (EventMap UserEvent))
-  , runHandlerGetScene ::
+      IO (Maybe (EventMap UserEvent)),
+    runHandlerGetScene ::
       Text ->
-      IO (Maybe (EventMap UserEvent))
-  , runHandlerAddToStage ::
+      IO (Maybe (EventMap UserEvent)),
+    runHandlerAddToStage ::
       Scene () ->
       IO ()
   }
 
 -- | mutating state and a few handlers
 data RunnerEnv e = RunnerEnv
-  { runnerCounter :: IORef Int
-  , runnerUIState :: TVar UIState
-  , runnerServerState :: TVar ServerState
-  , runnerQEvent :: TQueue Event
-  , runnerSignalChan :: TChan Request
-  , runnerHandler :: RunnerHandler e
+  { runnerCounter :: IORef Int,
+    runnerUIState :: TVar UIState,
+    runnerServerState :: TVar ServerState,
+    runnerQEvent :: TQueue Event,
+    runnerSignalChan :: TChan Request,
+    runnerHandler :: RunnerHandler e
   }
 
 type Runner e = ReaderT (RunnerEnv e) IO

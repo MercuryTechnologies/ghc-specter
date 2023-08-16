@@ -6,15 +6,15 @@
 module Main where
 
 import Control.Concurrent (forkOS)
-import Control.Concurrent.STM (
-  atomically,
-  newTChanIO,
-  newTQueueIO,
-  newTVar,
-  newTVarIO,
-  readTVar,
-  writeTVar,
- )
+import Control.Concurrent.STM
+  ( atomically,
+    newTChanIO,
+    newTQueueIO,
+    newTVar,
+    newTVarIO,
+    readTVar,
+    writeTVar,
+  )
 import Control.Lens (at, to, (&), (.~), (^.), _1, _2)
 import Control.Monad (join)
 import Control.Monad.IO.Class (liftIO)
@@ -27,72 +27,72 @@ import Data.Maybe (fromMaybe)
 import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Typeable (gcast)
-import GHCSpecter.Config (
-  Config (..),
-  defaultGhcSpecterConfigFile,
-  loadConfig,
- )
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    loadConfig,
+  )
 import GHCSpecter.Control qualified as Control
-import GHCSpecter.Control.Runner (
-  RunnerEnv (..),
-  RunnerHandler (..),
- )
+import GHCSpecter.Control.Runner
+  ( RunnerEnv (..),
+    RunnerHandler (..),
+  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session qualified as Session (main)
-import GHCSpecter.Driver.Session.Types (
-  ClientSession (..),
-  HasClientSession (..),
-  HasServerSession (..),
-  ServerSession (..),
- )
+import GHCSpecter.Driver.Session.Types
+  ( ClientSession (..),
+    HasClientSession (..),
+    HasServerSession (..),
+    ServerSession (..),
+  )
 import GHCSpecter.Driver.Worker qualified as Worker
-import GHCSpecter.Graphics.DSL (
-  EventMap,
-  HitEvent,
-  Scene (sceneId),
-  Stage (..),
-  ViewPort (..),
- )
-import GHCSpecter.Gtk.Handler (
-  handleClick,
-  handleKeyPressed,
-  handleMotion,
-  handleScroll,
-  handleZoomEnd,
-  handleZoomUpdate,
- )
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    HitEvent,
+    Scene (sceneId),
+    Stage (..),
+    ViewPort (..),
+  )
+import GHCSpecter.Gtk.Handler
+  ( handleClick,
+    handleKeyPressed,
+    handleMotion,
+    handleScroll,
+    handleZoomEnd,
+    handleZoomUpdate,
+  )
 import GHCSpecter.Gtk.Main (renderAction)
-import GHCSpecter.Gtk.Types (
-  ViewBackend (..),
-  ViewBackendResource (..),
-  WrappedViewBackend (..),
- )
-import GHCSpecter.Server.Types (
-  initServerState,
- )
-import GHCSpecter.UI.Constants (
-  HasWidgetConfig (..),
-  appWidgetConfig,
-  canvasDim,
-  modGraphHeight,
-  modGraphWidth,
- )
-import GHCSpecter.UI.Types (
-  HasConsoleUI (..),
-  HasModuleGraphUI (..),
-  HasSessionUI (..),
-  HasSourceViewUI (..),
-  HasTimingUI (..),
-  HasUIModel (..),
-  HasUIState (..),
-  ViewPortInfo (..),
-  emptyUIState,
- )
-import GHCSpecter.UI.Types.Event (
-  DetailLevel (..),
-  Tab (..),
-  UserEvent (..),
- )
+import GHCSpecter.Gtk.Types
+  ( ViewBackend (..),
+    ViewBackendResource (..),
+    WrappedViewBackend (..),
+  )
+import GHCSpecter.Server.Types
+  ( initServerState,
+  )
+import GHCSpecter.UI.Constants
+  ( HasWidgetConfig (..),
+    appWidgetConfig,
+    canvasDim,
+    modGraphHeight,
+    modGraphWidth,
+  )
+import GHCSpecter.UI.Types
+  ( HasConsoleUI (..),
+    HasModuleGraphUI (..),
+    HasSessionUI (..),
+    HasSourceViewUI (..),
+    HasTimingUI (..),
+    HasUIModel (..),
+    HasUIState (..),
+    ViewPortInfo (..),
+    emptyUIState,
+  )
+import GHCSpecter.UI.Types.Event
+  ( DetailLevel (..),
+    Tab (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Util.Transformation (translateToOrigin)
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
 import GI.Cairo.Render.Connector qualified as RC
@@ -126,9 +126,9 @@ initViewBackendResource = do
     descMono <- #describe faceMono
     pure $
       ViewBackendResource
-        { vbrPangoContext = pangoCtxt
-        , vbrFontDescSans = descSans
-        , vbrFontDescMono = descMono
+        { vbrPangoContext = pangoCtxt,
+          vbrFontDescSans = descSans,
+          vbrFontDescMono = descMono
         }
 
 main :: IO ()
@@ -201,9 +201,8 @@ main =
     uiRef <- newTVarIO ui0'
     chanState <- newTChanIO
     chanQEv <- newTQueueIO
-    let
-      -- client session
-      cliSess = ClientSession uiRef chanState chanQEv
+    let -- client session
+        cliSess = ClientSession uiRef chanState chanQEv
     workQ <- newTQueueIO
 
     _ <- Gtk.init Nothing
@@ -222,13 +221,13 @@ main =
         drawingArea <- new Gtk.DrawingArea []
         #addEvents
           drawingArea
-          [ Gdk.EventMaskButtonPressMask
-          , Gdk.EventMaskButtonReleaseMask
-          , Gdk.EventMaskKeyPressMask
-          , Gdk.EventMaskKeyReleaseMask
-          , Gdk.EventMaskPointerMotionMask
-          , Gdk.EventMaskScrollMask
-          , Gdk.EventMaskTouchpadGestureMask
+          [ Gdk.EventMaskButtonPressMask,
+            Gdk.EventMaskButtonReleaseMask,
+            Gdk.EventMaskKeyPressMask,
+            Gdk.EventMaskKeyReleaseMask,
+            Gdk.EventMaskPointerMotionMask,
+            Gdk.EventMaskScrollMask,
+            Gdk.EventMaskTouchpadGestureMask
           ]
 
         _ <- drawingArea
@@ -295,20 +294,20 @@ main =
         counterRef <- newIORef 0
         let runHandler =
               RunnerHandler
-                { runHandlerRefreshAction = refreshAction
-                , runHandlerHitScene = \xy -> atomically $ do
+                { runHandlerRefreshAction = refreshAction,
+                  runHandlerHitScene = \xy -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = Transformation.hitScene xy emaps
-                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
-                , runHandlerGetScene = \name -> atomically $ do
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap)),
+                  runHandlerGetScene = \name -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     let emapRef = vbEventMap vb
                     emaps <- readTVar emapRef
                     let memap = L.find (\emap -> sceneId emap == name) emaps
-                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap))
-                , runHandlerAddToStage = \scene -> atomically $ do
+                    pure (join (gcast @_ @(HitEvent UserEvent, ViewPort) <$> memap)),
+                  runHandlerAddToStage = \scene -> atomically $ do
                     WrappedViewBackend vb <- readTVar vbRef
                     Stage cfgs <- readTVar (vbStage vb)
                     let cfgs' = filter (\scene' -> sceneId scene /= sceneId scene') cfgs
@@ -317,12 +316,12 @@ main =
                 }
             runner =
               RunnerEnv
-                { runnerCounter = counterRef
-                , runnerUIState = cliSess ^. csUIStateRef
-                , runnerServerState = servSess ^. ssServerStateRef
-                , runnerQEvent = cliSess ^. csPublisherEvent
-                , runnerSignalChan = servSess ^. ssSubscriberSignal
-                , runnerHandler = runHandler
+                { runnerCounter = counterRef,
+                  runnerUIState = cliSess ^. csUIStateRef,
+                  runnerServerState = servSess ^. ssServerStateRef,
+                  runnerQEvent = cliSess ^. csPublisherEvent,
+                  runnerSignalChan = servSess ^. ssSubscriberSignal,
+                  runnerHandler = runHandler
                 }
         _ <- forkOS $ Comm.listener socketFile servSess workQ
         _ <- forkOS $ Worker.runWorkQueue workQ

@@ -1,38 +1,39 @@
-module GHCSpecter.Control.DSL (
-  -- * Primitive operations of eDSL
-  getUI,
-  putUI,
-  modifyUI,
-  getSS,
-  putSS,
-  modifySS,
-  modifyUISS,
-  modifyAndReturn,
-  modifyAndReturnBoth,
-  hitScene,
-  getScene,
-  addToStage,
-  sendRequest,
-  nextEvent,
-  printMsg,
-  getCurrentTime,
-  getLastUpdatedUI,
-  refresh,
-  refreshUIAfter,
-  shouldUpdate,
-  saveSession,
-  asyncWork,
-) where
+module GHCSpecter.Control.DSL
+  ( -- * Primitive operations of eDSL
+    getUI,
+    putUI,
+    modifyUI,
+    getSS,
+    putSS,
+    modifySS,
+    modifyUISS,
+    modifyAndReturn,
+    modifyAndReturnBoth,
+    hitScene,
+    getScene,
+    addToStage,
+    sendRequest,
+    nextEvent,
+    printMsg,
+    getCurrentTime,
+    getLastUpdatedUI,
+    refresh,
+    refreshUIAfter,
+    shouldUpdate,
+    saveSession,
+    asyncWork,
+  )
+where
 
 import Control.Concurrent.STM (TVar)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
-import GHCSpecter.Control.Types (
-  Control,
-  ControlF (..),
-  liftF,
- )
+import GHCSpecter.Control.Types
+  ( Control,
+    ControlF (..),
+    liftF,
+  )
 import GHCSpecter.Graphics.DSL (EventMap, Scene)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)

@@ -1,20 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Gtk.Util.Rules (
-  -- * drawing rules
-  hruleTop,
-  vruleLeft,
-  boxRules,
+module GHCSpecter.Gtk.Util.Rules
+  ( -- * drawing rules
+    hruleTop,
+    vruleLeft,
+    boxRules,
 
-  -- * fill area
-  boxFill,
-) where
+    -- * fill area
+    boxFill,
+  )
+where
 
 import Control.Monad.Trans.Class (lift)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    ViewPort (..),
+  )
 import GHCSpecter.Gtk.Renderer (setColor)
 import GHCSpecter.Gtk.Types (GtkRender)
 import GI.Cairo.Render qualified as R

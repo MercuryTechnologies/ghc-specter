@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | This module is originated from Concur.Replica.Run. However, we use IHTML instead of HTML.
-module GHCSpecter.ConcurReplica.Run (
-  run,
-  runDefault,
-  runDefaultWithStyle,
-) where
+module GHCSpecter.ConcurReplica.Run
+  ( run,
+    runDefault,
+    runDefaultWithStyle,
+  )
+where
 
 import Concur.Core (SuspendF (Forever, StepBlock, StepIO, StepSTM, StepView), Widget, step)
 import Control.Concurrent.STM (atomically)
@@ -42,9 +43,9 @@ stepWidget ::
   (R.Context -> Free (SuspendF IHTML) a) ->
   IO
     ( Maybe
-        ( IHTML
-        , R.Context -> Free (SuspendF IHTML) a
-        , R.Event -> Maybe (IO ())
+        ( IHTML,
+          R.Context -> Free (SuspendF IHTML) a,
+          R.Event -> Maybe (IO ())
         )
     )
 stepWidget ctx v = case v ctx of
@@ -52,9 +53,9 @@ stepWidget ctx v = case v ctx of
   Free (StepView new next) ->
     pure $
       Just
-        ( new
-        , const next
-        , \event -> fireEvent (project new) (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
+        ( new,
+          const next,
+          \event -> fireEvent (project new) (R.evtPath event) (R.evtType event) (DOMEvent $ R.evtEvent event)
         )
   Free (StepIO io next) ->
     io >>= stepWidget ctx . \r _ -> next r

@@ -1,22 +1,23 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.Timing (
-  render,
-) where
+module GHCSpecter.Web.Timing
+  ( render,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  classList,
-  height,
-  onChange,
-  onClick,
-  onInput,
-  onMouseEnter,
-  onMouseLeave,
-  style,
-  width,
- )
+import Concur.Replica
+  ( classList,
+    height,
+    onChange,
+    onClick,
+    onInput,
+    onMouseEnter,
+    onMouseLeave,
+    style,
+    width,
+  )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (to, (^.), _1, _2)
@@ -24,75 +25,75 @@ import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (catMaybes, fromMaybe, isNothing, maybeToList)
 import Data.Text qualified as T
-import Data.Time.Clock (
-  secondsToNominalDiffTime,
- )
+import Data.Time.Clock
+  ( secondsToNominalDiffTime,
+  )
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
-  SessionInfo (..),
- )
-import GHCSpecter.ConcurReplica.DOM (
-  button,
-  div,
-  hr,
-  input,
-  label,
-  p,
-  text,
- )
-import GHCSpecter.ConcurReplica.DOM.Events (
-  onMouseDown,
-  onMouseMove,
-  onMouseUp,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+  )
+import GHCSpecter.ConcurReplica.DOM
+  ( button,
+    div,
+    hr,
+    input,
+    label,
+    p,
+    text,
+  )
+import GHCSpecter.ConcurReplica.DOM.Events
+  ( onMouseDown,
+    onMouseMove,
+    onMouseUp,
+  )
 import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  backwardLookup,
- )
-import GHCSpecter.Data.Timing.Types (
-  HasPipelineInfo (..),
-  HasTimingTable (..),
-  TimingTable,
- )
-import GHCSpecter.Graphics.DSL (
-  HitEvent (..),
-  Scene (..),
-  ViewPort (..),
- )
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
-  TimingState (..),
- )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    backwardLookup,
+  )
+import GHCSpecter.Data.Timing.Types
+  ( HasPipelineInfo (..),
+    HasTimingTable (..),
+    TimingTable,
+  )
+import GHCSpecter.Graphics.DSL
+  ( HitEvent (..),
+    Scene (..),
+    ViewPort (..),
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+    TimingState (..),
+  )
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants (
-  timingHeight,
-  timingRangeHeight,
-  timingWidth,
-  widgetHeight,
- )
-import GHCSpecter.UI.Types (
-  HasTimingUI (..),
-  HasUIModel (..),
-  HasViewPortInfo (..),
-  TimingUI,
-  UIModel,
- )
-import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (RefreshUI),
-  BlockerDetailLevel (..),
-  BlockerModuleGraphEvent (..),
-  Event (..),
-  MouseEvent (..),
-  SystemEvent (..),
-  TimingEvent (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingRangeHeight,
+    timingWidth,
+    widgetHeight,
+  )
+import GHCSpecter.UI.Types
+  ( HasTimingUI (..),
+    HasUIModel (..),
+    HasViewPortInfo (..),
+    TimingUI,
+    UIModel,
+  )
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (RefreshUI),
+    BlockerDetailLevel (..),
+    BlockerModuleGraphEvent (..),
+    Event (..),
+    MouseEvent (..),
+    SystemEvent (..),
+    TimingEvent (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Web.Util (divClass, xmlns)
@@ -108,33 +109,33 @@ renderTimingChart drvModMap tui ttable = do
   let rexp = sceneElements scene
   S.svg
     svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive handler) rexp)
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"],
+      S.g [] (fmap (renderPrimitive handler) rexp)
     ]
   where
     handler hitEvent =
       catMaybes
-        [ fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseEnter) (hitEventHoverOn hitEvent)
-        , fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseLeave) (hitEventHoverOn hitEvent)
+        [ fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseEnter) (hitEventHoverOn hitEvent),
+          fmap (\ev -> UsrEv (TimingEv ev) <$ onMouseLeave) (hitEventHoverOn hitEvent)
         ]
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     svgProps =
       let viewboxProp =
             SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @Double @Int) $
-              [ topLeft vp ^. _1
-              , topLeft vp ^. _2
-              , timingWidth
-              , timingHeight
+              [ topLeft vp ^. _1,
+                topLeft vp ^. _2,
+                timingWidth,
+                timingHeight
               ]
           prop1 =
-            [ UsrEv . MouseEv . MouseDown <$> onMouseDown
-            , UsrEv . MouseEv . MouseUp <$> onMouseUp
-            , width (T.pack (show (timingWidth :: Int)))
-            , height (T.pack (show (timingHeight :: Int)))
-            , viewboxProp
-            , SP.version "1.1"
-            , xmlns
+            [ UsrEv . MouseEv . MouseDown <$> onMouseDown,
+              UsrEv . MouseEv . MouseUp <$> onMouseUp,
+              width (T.pack (show (timingWidth :: Int))),
+              height (T.pack (show (timingHeight :: Int))),
+              viewboxProp,
+              SP.version "1.1",
+              xmlns
             ]
           mouseMove
             | tui ^. timingUIHandleMouseMove =
@@ -152,25 +153,25 @@ renderMemChart drvModMap tui ttable = do
   let rexp = sceneElements scene
   S.svg
     svgProps
-    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-    , S.g [] (fmap (renderPrimitive (const [])) rexp)
+    [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"],
+      S.g [] (fmap (renderPrimitive (const [])) rexp)
     ]
   where
     vpi = tui ^. timingUIViewPort
     vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
     viewboxProp =
       SP.viewBox . T.intercalate " " . fmap (T.pack . show . floor @_ @Int) $
-        [ 0
-        , topLeft vp ^. _2
-        , 300
-        , timingHeight
+        [ 0,
+          topLeft vp ^. _2,
+          300,
+          timingHeight
         ]
     svgProps =
-      [ width "300"
-      , height (T.pack (show (timingHeight :: Int)))
-      , viewboxProp
-      , SP.version "1.1"
-      , xmlns
+      [ width "300",
+        height (T.pack (show (timingHeight :: Int))),
+        viewboxProp,
+        SP.version "1.1",
+        xmlns
       ]
 
 renderTimingRange ::
@@ -183,16 +184,16 @@ renderTimingRange tui ttable =
     scene = TimingView.buildTimingRange tui ttable
     rexp = sceneElements scene
     svgProps =
-      [ width (T.pack (show (timingWidth :: Int)))
-      , height (T.pack (show (timingRangeHeight :: Int)))
-      , SP.version "1.1"
-      , xmlns
+      [ width (T.pack (show (timingWidth :: Int))),
+        height (T.pack (show (timingRangeHeight :: Int))),
+        SP.version "1.1",
+        xmlns
       ]
     svgElement =
       S.svg
         svgProps
-        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"]
-        , S.g [] (fmap (renderPrimitive (const [])) rexp)
+        [ S.style [] [text ".small { font: 5px sans-serif; } text { user-select: none; }"],
+          S.g [] (fmap (renderPrimitive (const [])) rexp)
         ]
 
 renderBlockers :: ModuleName -> TimingTable -> Widget IHTML Event
@@ -235,13 +236,13 @@ renderTimingView drvModMap tui ttable =
               "box column is-four-fifths"
               [style [("overflow", "hidden")]]
               [ renderTimingChart drvModMap tui ttable
-              ]
-          , divClass
+              ],
+            divClass
               "box column is-one-fifth"
               [style [("overflow", "hidden")]]
               [renderMemChart drvModMap tui ttable]
-          ]
-      , renderTimingRange tui ttable
+          ],
+        renderTimingRange tui ttable
       ]
         ++ hoverInfo
     )
@@ -254,13 +255,13 @@ renderTimingView drvModMap tui ttable =
           [ divClass
               "box"
               [ style
-                  [ ("width", "150px")
-                  , ("height", "120px")
-                  , ("position", "absolute")
-                  , ("bottom", "0")
-                  , ("left", "0")
-                  , ("background", "ivory")
-                  , ("overflow", "hidden")
+                  [ ("width", "150px"),
+                    ("height", "120px"),
+                    ("position", "absolute"),
+                    ("bottom", "0"),
+                    ("left", "0"),
+                    ("background", "ivory"),
+                    ("overflow", "hidden")
                   ]
               ]
               [renderBlockers hoveredMod ttable]
@@ -279,11 +280,11 @@ renderCheckbox :: TimingUI -> Widget IHTML Event
 renderCheckbox tui =
   div
     []
-    [ buttonToCurrent
-    , buttonFlow
-    , buttonShowBlocker tui
-    , checkPartition
-    , checkHowParallel
+    [ buttonToCurrent,
+      buttonFlow,
+      buttonShowBlocker tui,
+      checkPartition,
+      checkHowParallel
     ]
   where
     isPartitioned = tui ^. timingUIPartition
@@ -307,12 +308,12 @@ renderCheckbox tui =
         [ label
             [classList [("checkbox", True)]]
             [ input
-                [ DP.type_ "checkbox"
-                , DP.name "partition"
-                , DP.checked isPartitioned
-                , mkEvent UpdatePartition isPartitioned
-                ]
-            , text "Partition"
+                [ DP.type_ "checkbox",
+                  DP.name "partition",
+                  DP.checked isPartitioned,
+                  mkEvent UpdatePartition isPartitioned
+                ],
+              text "Partition"
             ]
         ]
     checkHowParallel =
@@ -321,12 +322,12 @@ renderCheckbox tui =
         [ label
             [classList [("checkbox", True)]]
             [ input
-                [ DP.type_ "checkbox"
-                , DP.name "howparallel"
-                , DP.checked howParallel
-                , mkEvent UpdateParallel howParallel
-                ]
-            , text "Parallelism"
+                [ DP.type_ "checkbox",
+                  DP.name "howparallel",
+                  DP.checked howParallel,
+                  mkEvent UpdateParallel howParallel
+                ],
+              text "Parallelism"
             ]
         ]
 
@@ -339,18 +340,18 @@ renderTimingMode model ss =
           (model ^. modelTiming . timingFrozenTable)
    in div
         [ style
-            [ ("width", "100%")
-            , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-            , ("position", "relative")
+            [ ("width", "100%"),
+              ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight),
+              ("position", "relative")
             ]
         ]
-        ( [ renderTimingView (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable
-          , div
+        ( [ renderTimingView (ss ^. serverDriverModuleMap) (model ^. modelTiming) ttable,
+            div
               [ style
-                  [ ("position", "absolute")
-                  , ("top", "0")
-                  , ("right", "0")
-                  , ("background-color", "white")
+                  [ ("position", "absolute"),
+                    ("top", "0"),
+                    ("right", "0"),
+                    ("background-color", "white")
                   ]
               ]
               [renderCheckbox (model ^. modelTiming)]
@@ -361,9 +362,9 @@ renderBlockerGraph :: ServerState -> Widget IHTML Event
 renderBlockerGraph ss =
   divClass
     "box"
-    [ width (T.pack (show (timingWidth :: Int)))
-    , height (T.pack (show (timingHeight :: Int)))
-    , style [("overflow", "scroll")]
+    [ width (T.pack (show (timingWidth :: Int))),
+      height (T.pack (show (timingHeight :: Int))),
+      style [("overflow", "scroll")]
     ]
     contents
   where
@@ -403,12 +404,12 @@ renderBlockerDetailLevel timing =
       label
         [classList [("radio", True)]]
         [ input
-            [ DP.type_ "radio"
-            , DP.name "detail"
-            , DP.checked (lvl == currLevel)
-            , BMGUpdateLevel lvl <$ onInput
-            ]
-        , text txt
+            [ DP.type_ "radio",
+              DP.name "detail",
+              DP.checked (lvl == currLevel),
+              BMGUpdateLevel lvl <$ onInput
+            ],
+          text txt
         ]
     details = fmap mkRadioItem [(">=2", Blocking2), (">=3", Blocking3), (">=4", Blocking4), (">=5", Blocking5)]
 
@@ -417,20 +418,20 @@ renderBlockerGraphMode :: UIModel -> ServerState -> Widget IHTML Event
 renderBlockerGraphMode model ss =
   div
     [ style
-        [ ("width", "100%")
-        , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-        , ("position", "relative")
-        , ("overflow", "auto")
+        [ ("width", "100%"),
+          ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight),
+          ("position", "relative"),
+          ("overflow", "auto")
         ]
     ]
-    ( [ renderBlockerGraph ss
-      , div
+    ( [ renderBlockerGraph ss,
+        div
           [style [("position", "absolute"), ("top", "0"), ("right", "0")]]
           [ div
               []
-              [ renderBlockerDetailLevel (ss ^. serverTiming)
-              , button [UsrEv (TimingEv ShowBlockerGraph) <$ onClick] [text "Update"]
-              , buttonShowBlocker (model ^. modelTiming)
+              [ renderBlockerDetailLevel (ss ^. serverTiming),
+                button [UsrEv (TimingEv ShowBlockerGraph) <$ onClick] [text "Update"],
+                buttonShowBlocker (model ^. modelTiming)
               ]
           ]
       ]

@@ -1,20 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.SourceView (
-  render,
-  renderUnqualifiedImports,
-) where
+module GHCSpecter.Web.SourceView
+  ( render,
+    renderUnqualifiedImports,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  MouseEvent,
-  classList,
-  height,
-  onChange,
-  onClick,
-  style,
-  width,
- )
+import Concur.Replica
+  ( MouseEvent,
+    classList,
+    height,
+    onChange,
+    onClick,
+    style,
+    width,
+  )
 import Concur.Replica.DOM.Props qualified as DP
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Lens (at, to, (^.), (^?), _1, _Just)
@@ -26,57 +27,57 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..), foldTree)
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  Channel (..),
-  SessionInfo (..),
- )
-import GHCSpecter.ConcurReplica.DOM (
-  div,
-  el,
-  input,
-  li,
-  nav,
-  pre,
-  script,
-  span,
-  text,
-  ul,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( Channel (..),
+    SessionInfo (..),
+  )
+import GHCSpecter.ConcurReplica.DOM
+  ( div,
+    el,
+    input,
+    li,
+    nav,
+    pre,
+    script,
+    span,
+    text,
+    ul,
+  )
 import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Data.GHC.Hie (
-  HasDeclRow' (..),
-  HasModuleHieInfo (..),
-  ModuleHieInfo,
- )
+import GHCSpecter.Data.GHC.Hie
+  ( HasDeclRow' (..),
+    HasModuleHieInfo (..),
+    ModuleHieInfo,
+  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Server.Types (
-  HasHieState (..),
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  Inbox,
-  ServerState (..),
-  SupplementaryView (..),
- )
+import GHCSpecter.Server.Types
+  ( HasHieState (..),
+    HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    Inbox,
+    ServerState (..),
+    SupplementaryView (..),
+  )
 import GHCSpecter.UI.Components.ModuleTree qualified as ModuleTree
 import GHCSpecter.UI.Components.TextView (bottomOfBox, charSize, leftOfBox, rowSize, topOfBox)
 import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types (
-  HasSourceViewUI (..),
-  SourceViewUI (..),
- )
-import GHCSpecter.UI.Types.Event (
-  Event (..),
-  SourceViewEvent (..),
-  UserEvent (..),
- )
-import GHCSpecter.Util.SourceTree (
-  accumPrefix,
-  expandFocusOnly,
-  markLeaf,
- )
+import GHCSpecter.UI.Types
+  ( HasSourceViewUI (..),
+    SourceViewUI (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    SourceViewEvent (..),
+    UserEvent (..),
+  )
+import GHCSpecter.Util.SourceTree
+  ( accumPrefix,
+    expandFocusOnly,
+    markLeaf,
+  )
 import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Web.Util (divClass, xmlns)
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
@@ -122,13 +123,13 @@ renderTextView showCharBox txt highlighted =
     packShow = T.pack . show
     charBox ((i, j), _) =
       S.rect
-        [ SP.x (packShow $ leftOfBox j)
-        , SP.y (packShow $ topOfBox i)
-        , SP.width (packShow charSize)
-        , SP.height (packShow rowSize)
-        , SP.stroke "gray"
-        , SP.strokeWidth "0.25"
-        , SP.fill "none"
+        [ SP.x (packShow $ leftOfBox j),
+          SP.y (packShow $ topOfBox i),
+          SP.width (packShow charSize),
+          SP.height (packShow rowSize),
+          SP.stroke "gray",
+          SP.strokeWidth "0.25",
+          SP.fill "none"
         ]
         []
 
@@ -139,29 +140,29 @@ renderTextView showCharBox txt highlighted =
 
     highlightBox range@((startI, startJ), _) =
       S.rect
-        [ SP.x (packShow $ leftOfBox startJ)
-        , SP.y (packShow $ topOfBox startI)
-        , SP.width (packShow $ fst (boxSize range))
-        , SP.height (packShow $ snd (boxSize range))
-        , SP.fill "yellow"
+        [ SP.x (packShow $ leftOfBox startJ),
+          SP.y (packShow $ topOfBox startI),
+          SP.width (packShow $ fst (boxSize range)),
+          SP.height (packShow $ snd (boxSize range)),
+          SP.fill "yellow"
         ]
         []
     highlightBox2 range@((startI, startJ), _) =
       S.rect
-        [ SP.x (packShow $ leftOfBox startJ)
-        , SP.y (packShow $ topOfBox startI)
-        , SP.width (packShow $ fst (boxSize range))
-        , SP.height (packShow $ snd (boxSize range))
-        , SP.stroke "red"
-        , SP.strokeWidth "1px"
-        , SP.fill "none"
+        [ SP.x (packShow $ leftOfBox startJ),
+          SP.y (packShow $ topOfBox startI),
+          SP.width (packShow $ fst (boxSize range)),
+          SP.height (packShow $ snd (boxSize range)),
+          SP.stroke "red",
+          SP.strokeWidth "1px",
+          SP.fill "none"
         ]
         []
 
     mkText (i, t) =
       S.text
-        [ SP.x (packShow $ leftOfBox 1)
-        , SP.y (packShow $ bottomOfBox i)
+        [ SP.x (packShow $ leftOfBox 1),
+          SP.y (packShow $ bottomOfBox i)
         ]
         [text t]
 
@@ -175,10 +176,10 @@ renderTextView showCharBox txt highlighted =
             else contents_
 
     svgProps =
-      [ width (packShow totalWidth)
-      , height (packShow (fromIntegral nTotal * rowSize))
-      , SP.version "1.1"
-      , xmlns
+      [ width (packShow totalWidth),
+        height (packShow (fromIntegral nTotal * rowSize)),
+        SP.version "1.1",
+        xmlns
       ]
 
 -- | show source code with declaration positions
@@ -193,8 +194,8 @@ renderModuleTree :: SourceViewUI -> ServerState -> Widget IHTML SourceViewEvent
 renderModuleTree srcUI ss =
   div
     [ style
-        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-        , ("overflow", "scroll")
+        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight),
+          ("overflow", "scroll")
         ]
     ]
     [ul [classList [("tree", True)]] contents]
@@ -227,11 +228,11 @@ renderModuleTree srcUI ss =
           hasBreakpoint = modu `elem` breakpoints
           breakpointCheck =
             input
-              [ SetBreakpoint modu (not hasBreakpoint) <$ onChange
-              , DP.type_ "checkbox"
-              , DP.name "breakpoint"
-              , DP.checked hasBreakpoint
-              , style [("width", "8px"), ("height", "8px")]
+              [ SetBreakpoint modu (not hasBreakpoint) <$ onChange,
+                DP.type_ "checkbox",
+                DP.name "breakpoint",
+                DP.checked hasBreakpoint,
+                style [("width", "8px"), ("height", "8px")]
               ]
           modItem =
             case mexpandedModu of
@@ -240,15 +241,15 @@ renderModuleTree srcUI ss =
                     span
                       []
                       [ UnselectModule
-                          <$ expandableTextElement True (not b) colorTxt modu
-                      , breakpointCheck
+                          <$ expandableTextElement True (not b) colorTxt modu,
+                        breakpointCheck
                       ]
               _ ->
                 span
                   []
                   [ SelectModule modu
-                      <$ expandableTextElement False (not b) colorTxt modu
-                  , breakpointCheck
+                      <$ expandableTextElement False (not b) colorTxt modu,
+                    breakpointCheck
                   ]
        in modItem
 
@@ -256,8 +257,8 @@ renderSuppView :: SupplementaryView -> Widget IHTML a
 renderSuppView (SuppViewCallgraph grVis) =
   div
     [ style
-        [ ("overflow", "scroll")
-        , ("height", "100%")
+        [ ("overflow", "scroll"),
+          ("height", "100%")
         ]
     ]
     [ModuleGraph.renderGraph (isJust . T.find (== '.')) grVis]
@@ -265,8 +266,8 @@ renderSuppView (SuppViewText txt) =
   divClass
     "suppview"
     [ style
-        [ ("overflow", "scroll")
-        , ("height", "100%")
+        [ ("overflow", "scroll"),
+          ("height", "100%")
         ]
     ]
     [pre [] [text txt]]
@@ -309,8 +310,8 @@ renderSourceView srcUI ss =
   divClass
     "columns"
     [ style
-        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-        , ("overflow", "hidden")
+        [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight),
+          ("overflow", "hidden")
         ]
     ]
     contents
@@ -359,11 +360,11 @@ renderSourceView srcUI ss =
                      in (srcPanel, val)
            in [ divClass
                   "column box is-half"
-                  [ style [("overflow", "scroll")]
-                  , DP.textProp "myval" myval
+                  [ style [("overflow", "scroll")],
+                    DP.textProp "myval" myval
                   ]
-                  [scriptContent, sourcePanel]
-              , divClass
+                  [scriptContent, sourcePanel],
+                divClass
                   "column box is-half"
                   [style [("overflow", "scroll")]]
                   [renderSuppViewPanel modu srcUI ss]
@@ -374,14 +375,14 @@ render :: SourceViewUI -> ServerState -> Widget IHTML Event
 render srcUI ss =
   divClass
     "columns"
-    [ style [("overflow", "hidden")]
-    , height "100%"
+    [ style [("overflow", "hidden")],
+      height "100%"
     ]
     [ divClass
         "column box is-one-fifth"
         [style [("overflow", "scroll")]]
-        [UsrEv . SourceViewEv <$> renderModuleTree srcUI ss]
-    , divClass
+        [UsrEv . SourceViewEv <$> renderModuleTree srcUI ss],
+      divClass
         "column box is-four-fifths"
         [style [("overflow", "scroll")]]
         [renderSourceView srcUI ss]

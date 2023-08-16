@@ -1,19 +1,20 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module GHCSpecter.Worker.Hie (
-  hieWorker,
-  moduleSourceWorker,
-) where
+module GHCSpecter.Worker.Hie
+  ( hieWorker,
+    moduleSourceWorker,
+  )
+where
 
 import Control.Arrow ((&&&))
-import Control.Concurrent.STM (
-  TQueue,
-  TVar,
-  atomically,
-  modifyTVar',
-  writeTQueue,
- )
+import Control.Concurrent.STM
+  ( TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+    writeTQueue,
+  )
 import Control.Lens ((%~), (.~))
 import Data.Bifunctor (bimap)
 import Data.Foldable (find, for_)
@@ -24,45 +25,45 @@ import Data.Monoid (First (..))
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8With)
 import Data.Text.IO qualified as TIO
-import GHC.Iface.Ext.Binary (
-  HieFileResult (..),
-  NameCacheUpdater (NCU),
-  readHieFile,
- )
-import GHC.Iface.Ext.Types (
-  BindType (..),
-  ContextInfo (..),
-  HieFile (..),
-  Identifier (..),
-  IdentifierDetails (..),
-  Span (..),
-  getAsts,
- )
+import GHC.Iface.Ext.Binary
+  ( HieFileResult (..),
+    NameCacheUpdater (NCU),
+    readHieFile,
+  )
+import GHC.Iface.Ext.Types
+  ( BindType (..),
+    ContextInfo (..),
+    HieFile (..),
+    Identifier (..),
+    IdentifierDetails (..),
+    Span (..),
+    getAsts,
+  )
 import GHC.Iface.Ext.Utils (generateReferencesMap)
 import GHC.Types.Name (nameModule_maybe, nameOccName, nameSrcSpan, occNameString)
 import GHC.Types.Name.Cache (initNameCache)
-import GHC.Types.SrcLoc (
-  SrcSpan (RealSrcSpan),
-  srcSpanEndCol,
-  srcSpanEndLine,
-  srcSpanStartCol,
-  srcSpanStartLine,
- )
+import GHC.Types.SrcLoc
+  ( SrcSpan (RealSrcSpan),
+    srcSpanEndCol,
+    srcSpanEndLine,
+    srcSpanStartCol,
+    srcSpanStartLine,
+  )
 import GHC.Types.Unique.Supply (mkSplitUniqSupply)
 import GHC.Unit.Types (GenModule (..), Unit, moduleName)
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Data.GHC.Hie (
-  DeclRow' (..),
-  DefRow' (..),
-  HasModuleHieInfo (..),
-  RefRow' (..),
-  emptyModuleHieInfo,
- )
-import GHCSpecter.Server.Types (
-  HasHieState (..),
-  HasServerState (..),
-  ServerState (..),
- )
+import GHCSpecter.Data.GHC.Hie
+  ( DeclRow' (..),
+    DefRow' (..),
+    HasModuleHieInfo (..),
+    RefRow' (..),
+    emptyModuleHieInfo,
+  )
+import GHCSpecter.Server.Types
+  ( HasHieState (..),
+    HasServerState (..),
+    ServerState (..),
+  )
 import GHCSpecter.Util.GHC (moduleNameString)
 import GHCSpecter.Worker.CallGraph qualified as CallGraph
 
@@ -81,14 +82,14 @@ genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
       | Just mod <- nameModule_maybe name =
           Just $
             RefRow'
-              { _ref'Src = path
-              , _ref'NameOcc = T.pack $ occNameString occ
-              , _ref'NameMod = T.pack $ moduleNameString $ moduleName mod
-              , _ref'NameUnit = T.pack $ show $ moduleUnit mod
-              , _ref'SLine = sl
-              , _ref'SCol = sc
-              , _ref'ELine = el
-              , _ref'ECol = ec
+              { _ref'Src = path,
+                _ref'NameOcc = T.pack $ occNameString occ,
+                _ref'NameMod = T.pack $ moduleNameString $ moduleName mod,
+                _ref'NameUnit = T.pack $ show $ moduleUnit mod,
+                _ref'SLine = sl,
+                _ref'SCol = sc,
+                _ref'ELine = el,
+                _ref'ECol = ec
               }
       where
         occ = nameOccName name
@@ -99,25 +100,25 @@ genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
     goRef _ = Nothing
 
     goDec (Right name, (_, dets))
-      | Just mod <- nameModule_maybe name
-      , mod == smdl
-      , occ <- nameOccName name
-      , info <- identInfo dets
-      , Just sp <- getBindSpan info
-      , is_root <- isRoot info
-      , sl <- srcSpanStartLine sp
-      , sc <- srcSpanStartCol sp
-      , el <- srcSpanEndLine sp
-      , ec <- srcSpanEndCol sp =
+      | Just mod <- nameModule_maybe name,
+        mod == smdl,
+        occ <- nameOccName name,
+        info <- identInfo dets,
+        Just sp <- getBindSpan info,
+        is_root <- isRoot info,
+        sl <- srcSpanStartLine sp,
+        sc <- srcSpanStartCol sp,
+        el <- srcSpanEndLine sp,
+        ec <- srcSpanEndCol sp =
           Just $
             DeclRow'
-              { _decl'Src = path
-              , _decl'NameOcc = T.pack $ occNameString occ
-              , _decl'SLine = sl
-              , _decl'SCol = sc
-              , _decl'ELine = el
-              , _decl'ECol = ec
-              , _decl'Root = is_root
+              { _decl'Src = path,
+                _decl'NameOcc = T.pack $ occNameString occ,
+                _decl'SLine = sl,
+                _decl'SCol = sc,
+                _decl'ELine = el,
+                _decl'ECol = ec,
+                _decl'Root = is_root
               }
     goDec _ = Nothing
 
@@ -157,22 +158,22 @@ genDefRow path smod refmap = genRows $ M.toList refmap
     isDef _ = False
 
     go (Right name, dets)
-      | Just mod <- nameModule_maybe name
-      , mod == smod
-      , occ <- nameOccName name
-      , Just sp <- getSpan name dets
-      , sl <- srcSpanStartLine sp
-      , sc <- srcSpanStartCol sp
-      , el <- srcSpanEndLine sp
-      , ec <- srcSpanEndCol sp =
+      | Just mod <- nameModule_maybe name,
+        mod == smod,
+        occ <- nameOccName name,
+        Just sp <- getSpan name dets,
+        sl <- srcSpanStartLine sp,
+        sc <- srcSpanStartCol sp,
+        el <- srcSpanEndLine sp,
+        ec <- srcSpanEndCol sp =
           Just $
             DefRow'
-              { _def'Src = path
-              , _def'NameOcc = T.pack $ occNameString occ
-              , _def'SLine = sl
-              , _def'SCol = sc
-              , _def'ELine = el
-              , _def'ECol = ec
+              { _def'Src = path,
+                _def'NameOcc = T.pack $ occNameString occ,
+                _def'SLine = sl,
+                _def'SCol = sc,
+                _def'ELine = el,
+                _def'ECol = ec
               }
     go _ = Nothing
 

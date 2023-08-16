@@ -1,7 +1,8 @@
-module View (
-  computeLabelPositions,
-  hitTest,
-) where
+module View
+  ( computeLabelPositions,
+    hitTest,
+  )
+where
 
 import Data.List qualified as L
 import Data.Map (Map)

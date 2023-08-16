@@ -1,12 +1,13 @@
-module Render.Timeline (
-  -- * conversion function
-  timelineMargin,
-  secToPixel,
-  pixelToSec,
+module Render.Timeline
+  ( -- * conversion function
+    timelineMargin,
+    secToPixel,
+    pixelToSec,
 
-  -- * draw time line view
-  drawTimeline,
-) where
+    -- * draw time line view
+    drawTimeline,
+  )
+where
 
 import Control.Lens ((^.))
 import Data.Fixed (Fixed (MkFixed), Nano)
@@ -17,22 +18,22 @@ import Data.Sequence (Seq)
 import Data.Text qualified as T
 import GHC.RTS.Events (Event (..))
 import GI.Cairo.Render qualified as R
-import Render.Util (
-  canvasWidth,
-  drawText,
-  fontSize,
-  gray,
-  lightBlue,
-  red,
-  setColor,
-  transparentize,
-  white,
- )
-import Types (
-  HasViewState (..),
-  LogcatView,
-  ViewState,
- )
+import Render.Util
+  ( canvasWidth,
+    drawText,
+    fontSize,
+    gray,
+    lightBlue,
+    red,
+    setColor,
+    transparentize,
+    white,
+  )
+import Types
+  ( HasViewState (..),
+    LogcatView,
+    ViewState,
+  )
 import Util.Event (eventInfoEnumMap, eventInfoToString)
 
 timelineMargin :: Double

@@ -1,16 +1,17 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.Session (
-  render,
-) where
+module GHCSpecter.Web.Session
+  ( render,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  classList,
-  onClick,
-  style,
- )
+import Concur.Replica
+  ( classList,
+    onClick,
+    style,
+  )
 import Control.Lens (to, (^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
@@ -18,45 +19,45 @@ import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import GHC.RTS.Flags (RTSFlags)
-import GHCSpecter.Channel.Common.Types (
-  DriverId (..),
-  type ModuleName,
- )
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc,
-  ModuleGraphInfo (..),
-  ProcessInfo (..),
-  SessionInfo (..),
-  Timer,
-  getEnd,
- )
-import GHCSpecter.ConcurReplica.DOM (
-  button,
-  div,
-  p,
-  pre,
-  text,
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc,
+    ModuleGraphInfo (..),
+    ProcessInfo (..),
+    SessionInfo (..),
+    Timer,
+    getEnd,
+  )
+import GHCSpecter.ConcurReplica.DOM
+  ( button,
+    div,
+    p,
+    pre,
+    text,
+  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  KeyMap,
-  forwardLookup,
-  keyMapToList,
-  lookupKey,
- )
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
- )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    KeyMap,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types.Event (
-  Event (..),
-  SessionEvent (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    SessionEvent (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Web.Util (divClass, spanClass)
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
@@ -65,14 +66,14 @@ renderSessionButtons :: SessionInfo -> Widget IHTML Event
 renderSessionButtons session =
   div
     []
-    [ buttonSaveSession
-    , buttonPauseResumeSession
+    [ buttonSaveSession,
+      buttonPauseResumeSession
     ]
   where
     buttonSaveSession =
       button
-        [ UsrEv (SessionEv SaveSessionEv) <$ onClick
-        , classList [("button", True)]
+        [ UsrEv (SessionEv SaveSessionEv) <$ onClick,
+          classList [("button", True)]
         ]
         [text "Save Session"]
     buttonPauseResumeSession =
@@ -80,8 +81,8 @@ renderSessionButtons session =
             | sessionIsPaused session = ("Resume Session", ResumeSessionEv)
             | otherwise = ("Pause Session", PauseSessionEv)
        in button
-            [ UsrEv (SessionEv ev) <$ onClick
-            , classList [("button", True)]
+            [ UsrEv (SessionEv ev) <$ onClick,
+              classList [("button", True)]
             ]
             [text txt]
 
@@ -125,8 +126,8 @@ renderGhcMode sinfo =
   divClass
     "session-section"
     []
-    [ div [] [spanClass "box" [] [text "GHC Mode"], text ": ", text ghcMode]
-    , div [] [spanClass "box" [] [text "Backend"], text ": ", text backend]
+    [ div [] [spanClass "box" [] [text "GHC Mode"], text ": ", text ghcMode],
+      div [] [spanClass "box" [] [text "Backend"], text ": ", text backend]
     ]
   where
     ghcMode = T.pack $ show $ sessionGhcMode sinfo
@@ -137,13 +138,13 @@ renderProcessInfo procinfo =
   divClass
     "session-section"
     []
-    [ div [] [spanClass "box" [] [text "Process ID"], text ": ", msgPID]
-    , div [] [spanClass "box" [] [text "Executable path"], text ": ", msgPath]
-    , div [] [spanClass "box" [] [text "Current Directory"], text ": ", msgCWD]
-    , div
+    [ div [] [spanClass "box" [] [text "Process ID"], text ": ", msgPID],
+      div [] [spanClass "box" [] [text "Executable path"], text ": ", msgPath],
+      div [] [spanClass "box" [] [text "Current Directory"], text ": ", msgCWD],
+      div
         []
-        [ div [] [spanClass "box" [] [text "CLI Arguments"], text ":"]
-        , div
+        [ div [] [spanClass "box" [] [text "CLI Arguments"], text ":"],
+          div
             [style [("height", "10vh"), ("overflow", "scroll")]]
             msgArgs
         ]
@@ -177,43 +178,43 @@ render ss =
             [ divClass
                 "session-section columns"
                 []
-                [ divClass "column is-one-quarter" [] [text messageTime]
-                , divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo]
-                , divClass "column is-half" [] []
+                [ divClass "column is-one-quarter" [] [text messageTime],
+                  divClass "column is-one-quarter" [] [renderSessionButtons sessionInfo],
+                  divClass "column is-half" [] []
                 ]
             ]
           statusPart =
             [ div
                 []
-                [ divClass "session-title" [] [text "Compilation Status"]
-                , renderCompilationStatus (nDone, nInProg, nTot)
-                ]
-            , renderModuleInProgress drvModMap pausedMap timingInProg
+                [ divClass "session-title" [] [text "Compilation Status"],
+                  renderCompilationStatus (nDone, nInProg, nTot)
+                ],
+              renderModuleInProgress drvModMap pausedMap timingInProg
             ]
           infoPart =
             flip (maybe []) (sessionProcess sessionInfo) $ \procinfo ->
               [ div
                   []
-                  [ divClass "session-title" [] [text "GHC Mode"]
-                  , renderGhcMode sessionInfo
-                  ]
-              , div
+                  [ divClass "session-title" [] [text "GHC Mode"],
+                    renderGhcMode sessionInfo
+                  ],
+                div
                   []
-                  [ divClass "session-title" [] [text "Process Info"]
-                  , renderProcessInfo procinfo
-                  ]
-              , div
+                  [ divClass "session-title" [] [text "Process Info"],
+                    renderProcessInfo procinfo
+                  ],
+                div
                   []
-                  [ divClass "session-title" [] [text "GHC RTS Info"]
-                  , renderRTSInfo (procRTSFlags procinfo)
+                  [ divClass "session-title" [] [text "GHC RTS Info"],
+                    renderRTSInfo (procRTSFlags procinfo)
                   ]
               ]
        in divClass
             "box"
             [ style
-                [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
-                , ("position", "relative")
-                , ("overflow", "scroll")
+                [ ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight),
+                  ("position", "relative"),
+                  ("overflow", "scroll")
                 ]
             ]
             (topPart ++ statusPart ++ infoPart)

@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module GHCSpecter.Eventlog.Extract (
-  InfoTableProvEntry (..),
-  InfoTableMap,
-  Chunk (..),
-  getChunkedEvents,
-  chunkStat,
-  addStat,
-  makeGraph,
-  makeClosureInfoItem,
-  extract,
-) where
+module GHCSpecter.Eventlog.Extract
+  ( InfoTableProvEntry (..),
+    InfoTableMap,
+    Chunk (..),
+    getChunkedEvents,
+    chunkStat,
+    addStat,
+    makeGraph,
+    makeClosureInfoItem,
+    extract,
+  )
+where
 
 import Data.ByteString.Lazy qualified as BL
 import Data.HashMap.Strict (HashMap)
@@ -23,47 +24,47 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Word (Word64, Word8)
 import GHC.Exts.Heap.ClosureTypes (ClosureType (..))
-import GHC.RTS.Events (
-  Data (events),
-  Event (evCap, evSpec, evTime),
-  EventInfo (..),
-  EventLog (..),
-  Timestamp,
- )
+import GHC.RTS.Events
+  ( Data (events),
+    Event (evCap, evSpec, evTime),
+    EventInfo (..),
+    EventLog (..),
+    Timestamp,
+  )
 import GHC.RTS.Events.Incremental (readEventLog)
 import GHCSpecter.Eventlog.Types (ClosureInfoItem (..))
 import Numeric (showHex)
 
 data InfoTableProvEntry = IPE
-  { ipeInfo :: Text
-  , ipeTableName :: Text
-  , ipeClosureDesc :: ClosureType
-  , ipeTyDesc :: Text
-  , ipeLabel :: Text
-  , ipeModule :: Text
-  , ipeSrcLoc :: Text
+  { ipeInfo :: Text,
+    ipeTableName :: Text,
+    ipeClosureDesc :: ClosureType,
+    ipeTyDesc :: Text,
+    ipeLabel :: Text,
+    ipeModule :: Text,
+    ipeSrcLoc :: Text
   }
   deriving (Show)
 
 type InfoTableMap = HashMap Text InfoTableProvEntry
 
 data SampleEntry = SampleEntry
-  { seId :: Word8
-  , seResidency :: Word64
-  , seLabel :: Text
+  { seId :: Word8,
+    seResidency :: Word64,
+    seLabel :: Text
   }
   deriving (Show)
 
 data Chunk = Chunk
-  { chunkTimestamp :: Timestamp
-  , chunkSamples :: [SampleEntry]
+  { chunkTimestamp :: Timestamp,
+    chunkSamples :: [SampleEntry]
   }
   deriving (Show)
 
 getChunkedEvents :: EventLog -> (InfoTableMap, [Chunk])
 getChunkedEvents l =
-  ( HM.fromList $ mapMaybe (toIPE . evSpec) infos
-  , mapMaybe toChunk splitted
+  ( HM.fromList $ mapMaybe (toIPE . evSpec) infos,
+    mapMaybe toChunk splitted
   )
   where
     isHeapProf e =
@@ -87,13 +88,13 @@ getChunkedEvents l =
       let i = T.pack ("0x" ++ showHex itInfo "")
           ipe =
             IPE
-              { ipeInfo = i
-              , ipeTableName = itTableName
-              , ipeClosureDesc = toEnum itClosureDesc
-              , ipeTyDesc = itTyDesc
-              , ipeLabel = itLabel
-              , ipeModule = itModule
-              , ipeSrcLoc = itSrcLoc
+              { ipeInfo = i,
+                ipeTableName = itTableName,
+                ipeClosureDesc = toEnum itClosureDesc,
+                ipeTyDesc = itTyDesc,
+                ipeLabel = itLabel,
+                ipeModule = itModule,
+                ipeSrcLoc = itSrcLoc
               }
        in Just (i, ipe)
     toIPE _ = Nothing
@@ -101,9 +102,9 @@ getChunkedEvents l =
     toSE HeapProfSampleString {..} =
       Just $
         SampleEntry
-          { seId = heapProfId
-          , seResidency = heapProfResidency
-          , seLabel = heapProfLabel
+          { seId = heapProfId,
+            seResidency = heapProfResidency,
+            seLabel = heapProfLabel
           }
     toSE _ = Nothing
 
@@ -139,16 +140,16 @@ makeClosureInfoItem :: InfoTableMap -> (Text, [(Timestamp, Word64)]) -> Maybe Cl
 makeClosureInfoItem ipeMap (cid, graph) =
   Just $
     ClosureInfoItem
-      { clsGraph = graph'
-      , -- TODO: find the way to get this info.
-        clsN = 0
-      , clsLabel = cid
-      , clsDesc = maybe "" ipeTableName mipe
-      , clsCTy = maybe "" (T.pack . show . ipeClosureDesc) mipe
-      , clsType = maybe "" ipeTyDesc mipe
-      , clsModule = maybe "" ipeModule mipe
-      , clsLoc = maybe "" ipeSrcLoc mipe
-      , clsSize = accSize
+      { clsGraph = graph',
+        -- TODO: find the way to get this info.
+        clsN = 0,
+        clsLabel = cid,
+        clsDesc = maybe "" ipeTableName mipe,
+        clsCTy = maybe "" (T.pack . show . ipeClosureDesc) mipe,
+        clsType = maybe "" ipeTyDesc mipe,
+        clsModule = maybe "" ipeModule mipe,
+        clsLoc = maybe "" ipeSrcLoc mipe,
+        clsSize = accSize
       }
   where
     toSec :: Timestamp -> Double

@@ -1,21 +1,22 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Layouter.Graph.Types (
-  -- * graph visualization information
-  Point (..),
-  HasPoint (..),
-  toTuple,
-  Dimension (..),
-  HasDimension (..),
-  NodeLayout (..),
-  HasNodeLayout (..),
-  EdgeLayout (..),
-  HasEdgeLayout (..),
-  GraphVisInfo (..),
-  HasGraphVisInfo (..),
-  transposeGraphVis,
-) where
+module GHCSpecter.Layouter.Graph.Types
+  ( -- * graph visualization information
+    Point (..),
+    HasPoint (..),
+    toTuple,
+    Dimension (..),
+    HasDimension (..),
+    NodeLayout (..),
+    HasNodeLayout (..),
+    EdgeLayout (..),
+    HasEdgeLayout (..),
+    GraphVisInfo (..),
+    HasGraphVisInfo (..),
+    transposeGraphVis,
+  )
+where
 
 import Control.Lens (makeClassy)
 import Data.Aeson (FromJSON, ToJSON)
@@ -23,8 +24,8 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 
 data Point = Point
-  { _pointX :: Double
-  , _pointY :: Double
+  { _pointX :: Double,
+    _pointY :: Double
   }
   deriving (Show, Generic)
 
@@ -38,8 +39,8 @@ toTuple :: Point -> (Double, Double)
 toTuple (Point x y) = (x, y)
 
 data Dimension = Dim
-  { _dimWidth :: Double
-  , _dimHeight :: Double
+  { _dimWidth :: Double,
+    _dimHeight :: Double
   }
   deriving (Show, Generic)
 
@@ -50,12 +51,12 @@ instance FromJSON Dimension
 instance ToJSON Dimension
 
 data NodeLayout a = NodeLayout
-  { _nodePayload :: a
-  -- ^ information in node
-  , _nodePosition :: Point
-  -- ^ node center position
-  , _nodeSize :: Dimension
-  -- ^ node width and height
+  { -- | information in node
+    _nodePayload :: a,
+    -- | node center position
+    _nodePosition :: Point,
+    -- | node width and height
+    _nodeSize :: Dimension
   }
   deriving (Show, Generic)
 
@@ -66,14 +67,14 @@ instance FromJSON a => FromJSON (NodeLayout a)
 instance ToJSON a => ToJSON (NodeLayout a)
 
 data EdgeLayout = EdgeLayout
-  { _edgeId :: Int
-  -- ^ edge id from the graph layouter
-  , _edgeEndNodes :: (Int, Int)
-  -- ^ (source node, target node)
-  , _edgeStartEndPoints :: (Point, Point)
-  -- ^ edge start point, end point
-  , _edgeBendPoints :: [Point]
-  -- ^ edge bend points
+  { -- | edge id from the graph layouter
+    _edgeId :: Int,
+    -- | (source node, target node)
+    _edgeEndNodes :: (Int, Int),
+    -- | edge start point, end point
+    _edgeStartEndPoints :: (Point, Point),
+    -- | edge bend points
+    _edgeBendPoints :: [Point]
   }
   deriving (Show, Generic)
 
@@ -84,9 +85,9 @@ instance FromJSON EdgeLayout
 instance ToJSON EdgeLayout
 
 data GraphVisInfo = GraphVisInfo
-  { _gviCanvasDim :: Dimension
-  , _gviNodes :: [NodeLayout (Int, Text)]
-  , _gviEdges :: [EdgeLayout]
+  { _gviCanvasDim :: Dimension,
+    _gviNodes :: [NodeLayout (Int, Text)],
+    _gviEdges :: [EdgeLayout]
   }
   deriving (Show, Generic)
 

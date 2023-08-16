@@ -10,12 +10,13 @@
 -- | This module is originated from Network.Wai.Handler.Replica.
 -- When IHTML can be marked with the non-update (the Left case) directive,
 -- the DOM diff updating is bypassed.
-module GHCSpecter.ConcurReplica.WaiHandler (
-  Event (..),
-  Callback (..),
-  Context (..),
-  app,
-) where
+module GHCSpecter.ConcurReplica.WaiHandler
+  ( Event (..),
+    Callback (..),
+    Context (..),
+    app,
+  )
+where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar, retry, writeTVar)
@@ -43,10 +44,10 @@ import Replica.VDOM.Render qualified as R
 -- | Events are sent from the client to the server.
 data Event
   = Event
-      { evtType :: T.Text
-      , evtEvent :: A.Value
-      , evtPath :: [Int]
-      , evtClientFrame :: Int
+      { evtType :: T.Text,
+        evtEvent :: A.Value,
+        evtPath :: [Int],
+        evtClientFrame :: Int
       }
   | CallCallback A.Value Int
   deriving (Show)
@@ -87,21 +88,21 @@ data Update
 instance A.ToJSON Update where
   toJSON (ReplaceDOM dom) =
     A.object
-      [ "type" .= V.t "replace"
-      , "dom" .= dom
+      [ "type" .= V.t "replace",
+        "dom" .= dom
       ]
   toJSON (UpdateDOM serverFrame clientFrame ddiff) =
     A.object
-      [ "type" .= V.t "update"
-      , "serverFrame" .= serverFrame
-      , "clientFrame" .= clientFrame
-      , "diff" .= ddiff
+      [ "type" .= V.t "update",
+        "serverFrame" .= serverFrame,
+        "clientFrame" .= clientFrame,
+        "diff" .= ddiff
       ]
   toJSON (Call arg js) =
     A.object
-      [ "type" .= V.t "call"
-      , "arg" .= arg
-      , "js" .= js
+      [ "type" .= V.t "call",
+        "arg" .= arg,
+        "js" .= js
       ]
 
 newtype Callback = Callback Int
@@ -121,9 +122,9 @@ newtype Callback = Callback Int
 --
 -- > callCallback(arg, <data-to-pass-to-the-server>)
 data Context = Context
-  { registerCallback :: forall a. A.FromJSON a => (a -> IO ()) -> IO Callback
-  , unregisterCallback :: Callback -> IO ()
-  , call :: forall a. A.ToJSON a => a -> T.Text -> IO ()
+  { registerCallback :: forall a. A.FromJSON a => (a -> IO ()) -> IO Callback,
+    unregisterCallback :: Callback -> IO (),
+    call :: forall a. A.ToJSON a => a -> T.Text -> IO ()
   }
 
 app ::
@@ -156,17 +157,16 @@ websocketApp initial step pendingConn = do
   let ctx =
         Context
           { registerCallback = \cb -> atomicModifyIORef' cbs $ \(cbId, cbs') ->
-              (
-                ( cbId + 1
-                , flip (M.insert cbId) cbs' $ \arg -> case A.fromJSON arg of
+              ( ( cbId + 1,
+                  flip (M.insert cbId) cbs' $ \arg -> case A.fromJSON arg of
                     A.Success arg' -> cb arg'
                     _ -> pure ()
-                )
-              , Callback cbId
-              )
-          , unregisterCallback = \(Callback cbId') -> atomicModifyIORef' cbs $ \(cbId, cbs') ->
-              ((cbId, M.delete cbId' cbs'), ())
-          , call = \arg js -> sendTextData conn $ A.encode $ Call (A.toJSON arg) js
+                ),
+                Callback cbId
+              ),
+            unregisterCallback = \(Callback cbId') -> atomicModifyIORef' cbs $ \(cbId, cbs') ->
+              ((cbId, M.delete cbId' cbs'), ()),
+            call = \arg js -> sendTextData conn $ A.encode $ Call (A.toJSON arg) js
           }
 
   forkPingThread conn 30

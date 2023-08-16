@@ -1,56 +1,57 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web (
-  render,
-) where
+module GHCSpecter.Web
+  ( render,
+  )
+where
 
 import Concur.Core (Widget (..))
-import Concur.Replica (
-  classList,
-  height,
-  onClick,
-  src,
-  style,
-  textProp,
-  width,
- )
+import Concur.Replica
+  ( classList,
+    height,
+    onClick,
+    src,
+    style,
+    textProp,
+    width,
+  )
 import Control.Lens (to, (^.))
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.ConcurReplica.DOM (
-  div,
-  el,
-  img,
-  nav,
-  p,
-  progress,
-  section,
-  text,
- )
+import GHCSpecter.ConcurReplica.DOM
+  ( div,
+    el,
+    img,
+    nav,
+    p,
+    progress,
+    section,
+    text,
+  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Assets (HasAssets (..))
 import GHCSpecter.Data.Map (forwardLookup, keyMapToList, lookupKey)
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  ServerState (..),
- )
+import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.Help (consoleCommandList)
-import GHCSpecter.UI.Types (
-  HasConsoleUI (..),
-  HasUIModel (..),
-  HasUIState (..),
-  UIModel (..),
-  UIState (..),
- )
-import GHCSpecter.UI.Types.Event (
-  ConsoleEvent (..),
-  Event (..),
-  Tab (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Types
+  ( HasConsoleUI (..),
+    HasUIModel (..),
+    HasUIState (..),
+    UIModel (..),
+    UIState (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( ConsoleEvent (..),
+    Event (..),
+    Tab (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Web.Console qualified as Console
 import GHCSpecter.Web.ModuleGraph qualified as ModuleGraph
 import GHCSpecter.Web.Session qualified as Session
@@ -64,15 +65,15 @@ renderBanner png fraction = divClass "banner" [] [contents]
   where
     progressBar =
       progress
-        [ textProp "value" (T.pack $ show $ floor @_ @Int (fraction * 100.0))
-        , textProp "max" "100"
+        [ textProp "value" (T.pack $ show $ floor @_ @Int (fraction * 100.0)),
+          textProp "max" "100"
         ]
         []
     contents =
       div
         []
-        [ img [src png, width "150px", height "150px"]
-        , div [] [p [] [text "ghc-specter"], p [] [progressBar]]
+        [ img [src png, width "150px", height "150px"],
+          div [] [p [] [text "ghc-specter"], p [] [progressBar]]
         ]
 
 renderNavbar :: Tab -> Widget IHTML Event
@@ -81,10 +82,10 @@ renderNavbar tab =
     [classList [("navbar", True)]]
     [ navbarMenu
         [ navbarStart
-            [ UsrEv (TabEv TabSession) <$ navItem (tab == TabSession) [text "Session"]
-            , UsrEv (TabEv TabModuleGraph) <$ navItem (tab == TabModuleGraph) [text "Module Graph"]
-            , UsrEv (TabEv TabSourceView) <$ navItem (tab == TabSourceView) [text "Source View"]
-            , UsrEv (TabEv TabTiming) <$ navItem (tab == TabTiming) [text "Timing"]
+            [ UsrEv (TabEv TabSession) <$ navItem (tab == TabSession) [text "Session"],
+              UsrEv (TabEv TabModuleGraph) <$ navItem (tab == TabModuleGraph) [text "Module Graph"],
+              UsrEv (TabEv TabSourceView) <$ navItem (tab == TabSourceView) [text "Source View"],
+              UsrEv (TabEv TabTiming) <$ navItem (tab == TabTiming) [text "Timing"]
             ]
         ]
     ]
@@ -155,26 +156,26 @@ renderMainView :: (UIModel, ServerState) -> Widget IHTML Event
 renderMainView (model, ss) = do
   let (mainPanel, bottomPanel)
         | ss ^. serverMessageSN == 0 =
-            ( div [] [text "No GHC process yet"]
-            , divClass "box" [] [text "No Messages"]
+            ( div [] [text "No GHC process yet"],
+              divClass "box" [] [text "No Messages"]
             )
         | otherwise =
             ( section
                 [ style
-                    [ ("max-height", "95vh")
-                    , ("overflow", "hidden")
+                    [ ("max-height", "95vh"),
+                      ("overflow", "hidden")
                     ]
                 ]
-                [renderMainPanel model ss]
-            , section [] [renderBottomPanel model ss]
+                [renderMainPanel model ss],
+              section [] [renderBottomPanel model ss]
             )
   div
-    [ classList [("is-fullheight", True)]
-    , style [("overflow", "hidden")]
+    [ classList [("is-fullheight", True)],
+      style [("overflow", "hidden")]
     ]
-    [ renderNavbar (model ^. modelTab)
-    , mainPanel
-    , bottomPanel
+    [ renderNavbar (model ^. modelTab),
+      mainPanel,
+      bottomPanel
     ]
 
 render ::

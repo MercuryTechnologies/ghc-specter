@@ -2,24 +2,25 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Web.ModuleGraph (
-  renderModuleGraph,
-  renderGraph,
+module GHCSpecter.Web.ModuleGraph
+  ( renderModuleGraph,
+    renderGraph,
 
-  -- * Render HTML for the Module Graph tab
-  render,
-) where
+    -- * Render HTML for the Module Graph tab
+    render,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  classList,
-  onClick,
-  onInput,
-  onMouseEnter,
-  onMouseLeave,
-  style,
-  width,
- )
+import Concur.Replica
+  ( classList,
+    onClick,
+    onInput,
+    onMouseEnter,
+    onMouseLeave,
+    style,
+    width,
+  )
 import Concur.Replica.DOM.Props qualified as DP (checked, name, type_)
 import Concur.Replica.SVG.Props qualified as SP
 import Control.Error.Util (note)
@@ -31,55 +32,55 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId, type ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
-  SessionInfo (..),
-  Timer,
- )
-import GHCSpecter.ConcurReplica.DOM (
-  div,
-  input,
-  label,
-  pre,
-  text,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    SessionInfo (..),
+    Timer,
+  )
+import GHCSpecter.ConcurReplica.DOM
+  ( div,
+    input,
+    label,
+    pre,
+    text,
+  )
 import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (
-  HitEvent (..),
-  Scene (..),
- )
-import GHCSpecter.Layouter.Graph.Types (
-  Dimension (..),
-  GraphVisInfo (..),
-  HasGraphVisInfo (..),
- )
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
- )
-import GHCSpecter.UI.Components.GraphView (
-  buildGraph,
-  buildModuleGraph,
- )
+import GHCSpecter.Graphics.DSL
+  ( HitEvent (..),
+    Scene (..),
+  )
+import GHCSpecter.Layouter.Graph.Types
+  ( Dimension (..),
+    GraphVisInfo (..),
+    HasGraphVisInfo (..),
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+  )
+import GHCSpecter.UI.Components.GraphView
+  ( buildGraph,
+    buildModuleGraph,
+  )
 import GHCSpecter.UI.Constants (widgetHeight)
-import GHCSpecter.UI.Types (
-  HasModuleGraphUI (..),
-  HasUIModel (..),
-  ModuleGraphUI (..),
-  UIModel,
- )
-import GHCSpecter.UI.Types.Event (
-  DetailLevel (..),
-  Event (..),
-  ModuleGraphEvent (..),
-  SubModuleEvent (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Types
+  ( HasModuleGraphUI (..),
+    HasUIModel (..),
+    ModuleGraphUI (..),
+    UIModel,
+  )
+import GHCSpecter.UI.Types.Event
+  ( DetailLevel (..),
+    Event (..),
+    ModuleGraphEvent (..),
+    SubModuleEvent (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Web.ConcurReplicaSVG (renderPrimitive)
 import GHCSpecter.Web.Util (xmlns)
 import Text.Printf (printf)
@@ -104,22 +105,22 @@ renderModuleGraph
     let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
         handlers hitEvent =
           catMaybes
-            [ fmap (\ev -> ev <$ onMouseEnter) (hitEventHoverOn hitEvent)
-            , fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent)
-            , fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
+            [ fmap (\ev -> ev <$ onMouseEnter) (hitEventHoverOn hitEvent),
+              fmap (\ev -> ev <$ onMouseLeave) (hitEventHoverOff hitEvent),
+              fmap (\ev -> fromEither ev <$ onClick) (hitEventClick hitEvent)
             ]
     scene <- buildModuleGraph nameMap valueFor grVisInfo (mfocused, mhinted)
     let rexp = sceneElements scene
     let svgProps =
-          [ width (T.pack (show (canvasWidth + 100)))
-          , SP.viewBox
+          [ width (T.pack (show (canvasWidth + 100))),
+            SP.viewBox
               ( "0 0 "
                   <> T.pack (show (canvasWidth + 100))
                   <> " "
                   <> T.pack (show (canvasHeight + 100))
-              )
-          , SP.version "1.1"
-          , xmlns
+              ),
+            SP.version "1.1",
+            xmlns
           ]
         svgElement =
           S.svg
@@ -135,15 +136,15 @@ renderGraph cond grVisInfo = do
   let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
   rexp <- buildGraph cond grVisInfo
   let svgProps =
-        [ width (T.pack (show (canvasWidth + 100)))
-        , SP.viewBox
+        [ width (T.pack (show (canvasWidth + 100))),
+          SP.viewBox
             ( "0 0 "
                 <> T.pack (show (canvasWidth + 100))
                 <> " "
                 <> T.pack (show (canvasHeight + 100))
-            )
-        , SP.version "1.1"
-        , xmlns
+            ),
+          SP.version "1.1",
+          xmlns
         ]
       svgElement =
         S.svg
@@ -171,8 +172,8 @@ renderMainModuleGraph
   grVisInfo
   mgUI =
     div
-      [ classList [("box", True)]
-      , style [("overflow", "scroll")]
+      [ classList [("box", True)],
+        style [("overflow", "scroll")]
       ]
       [ UsrEv . MainModuleEv
           <$> renderModuleGraph
@@ -229,8 +230,8 @@ renderSubModuleGraph
                   | isModuleCompilationDone drvModMap timing name = 1
                   | otherwise = 0
              in div
-                  [ classList [("box", True)]
-                  , style [("overflow", "scroll")]
+                  [ classList [("box", True)],
+                    style [("overflow", "scroll")]
                   ]
                   [ UsrEv . SubModuleEv . SubModuleGraphEv
                       <$> renderModuleGraph
@@ -244,8 +245,8 @@ renderDetailLevel :: UIModel -> Widget IHTML Event
 renderDetailLevel model =
   UsrEv . SubModuleEv . SubModuleLevelEv
     <$> div
-      [ classList [("control", True)]
-      , style [("position", "absolute"), ("top", "0"), ("right", "0")]
+      [ classList [("control", True)],
+        style [("position", "absolute"), ("top", "0"), ("right", "0")]
       ]
       [detail30, detail100, detail300]
   where
@@ -253,8 +254,8 @@ renderDetailLevel model =
     mkRadioItem ev txt isChecked =
       label
         [classList [("radio", True)]]
-        [ input [DP.type_ "radio", DP.name "detail", DP.checked isChecked, ev <$ onInput]
-        , text txt
+        [ input [DP.type_ "radio", DP.name "detail", DP.checked isChecked, ev <$ onInput],
+          text txt
         ]
 
     detail30 = mkRadioItem UpTo30 "< 30" (currLevel == UpTo30)
@@ -270,8 +271,8 @@ render model ss =
     Just _ ->
       div
         [ style
-            [ ("overflow", "scroll")
-            , ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
+            [ ("overflow", "scroll"),
+              ("height", ss ^. serverSessionInfo . to sessionIsPaused . to widgetHeight)
             ]
         ]
         ( case mgs ^. mgsClusterGraph of
@@ -283,15 +284,15 @@ render model ss =
                   timing
                   clustering
                   grVisInfo
-                  (model ^. modelMainModuleGraph)
-              , div
+                  (model ^. modelMainModuleGraph),
+                div
                   [ style
-                      [ ("width", "100%")
-                      , ("position", "relative")
+                      [ ("width", "100%"),
+                        ("position", "relative")
                       ]
                   ]
-                  [ renderDetailLevel model
-                  , renderSubModuleGraph
+                  [ renderDetailLevel model,
+                    renderSubModuleGraph
                       nameMap
                       drvModMap
                       timing

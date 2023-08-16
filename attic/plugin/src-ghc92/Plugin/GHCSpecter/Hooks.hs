@@ -1,19 +1,20 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
 
-module Plugin.GHCSpecter.Hooks (
-  -- * utility
-  getMemInfo,
+module Plugin.GHCSpecter.Hooks
+  ( -- * utility
+    getMemInfo,
 
-  -- * send information
-  sendModuleStart,
-  sendModuleName,
+    -- * send information
+    sendModuleStart,
+    sendModuleName,
 
-  -- * hooks
-  runRnSpliceHook',
-  runMetaHook',
-  runPhaseHook',
-) where
+    -- * hooks
+    runRnSpliceHook',
+    runMetaHook',
+    runPhaseHook',
+  )
+where
 
 import Control.Monad.Extra (ifM)
 import Control.Monad.IO.Class (liftIO)
@@ -25,46 +26,46 @@ import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Phases (Phase (As, StopLn))
 import GHC.Driver.Pipeline (runPhase)
-import GHC.Driver.Pipeline.Monad (
-  CompPipeline,
-  PhasePlus (HscOut, RealPhase),
-  getPipeSession,
- )
-import GHC.Driver.Plugins (
-  PluginWithArgs (..),
-  StaticPlugin (..),
- )
+import GHC.Driver.Pipeline.Monad
+  ( CompPipeline,
+    PhasePlus (HscOut, RealPhase),
+    getPipeSession,
+  )
+import GHC.Driver.Plugins
+  ( PluginWithArgs (..),
+    StaticPlugin (..),
+  )
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
-import GHC.Stats (
-  GCDetails (..),
-  RTSStats (..),
-  getRTSStats,
-  getRTSStatsEnabled,
- )
+import GHC.Stats
+  ( GCDetails (..),
+    RTSStats (..),
+    getRTSStats,
+    getRTSStatsEnabled,
+  )
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
 import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc (..),
-  ChanMessage (..),
-  MemInfo (..),
-  Timer (..),
-  TimerTag (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc (..),
+    ChanMessage (..),
+    MemInfo (..),
+    Timer (..),
+    TimerTag (..),
+  )
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Expr (HsSplice)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Tasks (
-  postMetaCommands,
-  postPhaseCommands,
-  preMetaCommands,
-  prePhaseCommands,
-  rnSpliceCommands,
- )
+import Plugin.GHCSpecter.Tasks
+  ( postMetaCommands,
+    postPhaseCommands,
+    preMetaCommands,
+    prePhaseCommands,
+    rnSpliceCommands,
+  )
 import Safe (readMay)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Mem (getAllocationCounter)

@@ -1,43 +1,44 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.UI.Constants (
-  -- * time interval
-  chanUpdateInterval,
-  uiUpdateInterval,
-  tickInterval,
+module GHCSpecter.UI.Constants
+  ( -- * time interval
+    chanUpdateInterval,
+    uiUpdateInterval,
+    tickInterval,
 
-  -- * Timing view
-  timingMaxWidth,
-  timingWidth,
-  timingHeight,
-  timingRangeHeight,
+    -- * Timing view
+    timingMaxWidth,
+    timingWidth,
+    timingHeight,
+    timingRangeHeight,
 
-  -- * module graph
-  modGraphWidth,
-  modGraphHeight,
+    -- * module graph
+    modGraphWidth,
+    modGraphHeight,
 
-  -- * session
-  sessionModStatusDim,
+    -- * session
+    sessionModStatusDim,
 
-  -- * console
-  consoleInputHeight,
+    -- * console
+    consoleInputHeight,
 
-  -- * global
-  canvasDim,
-  tabHeight,
+    -- * global
+    canvasDim,
+    tabHeight,
 
-  -- * web
-  widgetHeight,
+    -- * web
+    widgetHeight,
 
-  -- * widget config types
-  WidgetConfig (..),
-  HasWidgetConfig (..),
-  emptyWidgetConfig,
+    -- * widget config types
+    WidgetConfig (..),
+    HasWidgetConfig (..),
+    emptyWidgetConfig,
 
-  -- * default widget config
-  appWidgetConfig,
-) where
+    -- * default widget config
+    appWidgetConfig,
+  )
+where
 
 import Control.Lens (makeClassy, to, (^.), _1, _2)
 import Data.Map (Map)
@@ -96,11 +97,11 @@ widgetHeight isPaused
 
 -- | Each widget placing in the global canvas.
 data WidgetConfig = WidgetConfig
-  { _wcfgTopLevel :: Map Text ViewPort
-  , _wcfgSession :: Map Text ViewPort
-  , _wcfgModuleGraph :: Map Text ViewPort
-  , _wcfgSourceView :: Map Text ViewPort
-  , _wcfgTiming :: Map Text ViewPort
+  { _wcfgTopLevel :: Map Text ViewPort,
+    _wcfgSession :: Map Text ViewPort,
+    _wcfgModuleGraph :: Map Text ViewPort,
+    _wcfgSourceView :: Map Text ViewPort,
+    _wcfgTiming :: Map Text ViewPort
   }
 
 makeClassy ''WidgetConfig
@@ -108,11 +109,11 @@ makeClassy ''WidgetConfig
 emptyWidgetConfig :: WidgetConfig
 emptyWidgetConfig =
   WidgetConfig
-    { _wcfgTopLevel = Map.empty
-    , _wcfgSession = Map.empty
-    , _wcfgModuleGraph = Map.empty
-    , _wcfgSourceView = Map.empty
-    , _wcfgTiming = Map.empty
+    { _wcfgTopLevel = Map.empty,
+      _wcfgSession = Map.empty,
+      _wcfgModuleGraph = Map.empty,
+      _wcfgSourceView = Map.empty,
+      _wcfgTiming = Map.empty
     }
 
 -- TODO: use type-level literal or something to be more safe.
@@ -122,67 +123,58 @@ appWidgetConfig =
   WidgetConfig
     { _wcfgTopLevel =
         Map.fromList
-          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight))
-          ,
-            ( "console-tab"
-            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
+          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight)),
+            ( "console-tab",
+              ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
+            ),
+            ( "console-main",
+              ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consoleInputHeight)
+            ),
+            ( "console-input",
+              ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim
+            ),
+            ( "console-help",
+              ViewPort (canvasDim ^. _1 - 200, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight + 200)
             )
-          ,
-            ( "console-main"
-            , ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consoleInputHeight)
-            )
-          ,
-            ( "console-input"
-            , ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim
-            )
-          ,
-            ( "console-help"
-            , ViewPort (canvasDim ^. _1 - 200, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight + 200)
-            )
-          ]
-    , _wcfgSession =
+          ],
+      _wcfgSession =
         Map.fromList
-          [
-            ( "module-status"
-            , ViewPort
+          [ ( "module-status",
+              ViewPort
                 (canvasDim ^. _1 - sessionModStatusDim ^. _1, tabHeight)
                 (canvasDim ^. _1, sessionModStatusDim ^. _2 + tabHeight)
+            ),
+            ( "session-main",
+              ViewPort (5, tabHeight + 5) canvasDim
+            ),
+            ( "session-process",
+              ViewPort (5, 100) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 400)
+            ),
+            ( "session-rts",
+              ViewPort (5, 405) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 700)
+            ),
+            ( "session-button",
+              ViewPort (1000, tabHeight) (1100, tabHeight + 15)
             )
-          ,
-            ( "session-main"
-            , ViewPort (5, tabHeight + 5) canvasDim
-            )
-          ,
-            ( "session-process"
-            , ViewPort (5, 100) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 400)
-            )
-          ,
-            ( "session-rts"
-            , ViewPort (5, 405) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 700)
-            )
-          ,
-            ( "session-button"
-            , ViewPort (1000, tabHeight) (1100, tabHeight + 15)
-            )
-          ]
-    , _wcfgModuleGraph =
+          ],
+      _wcfgModuleGraph =
         Map.fromList
-          [ ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight))
-          , ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
-          ]
-    , _wcfgSourceView =
+          [ ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight)),
+            ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          ],
+      _wcfgSourceView =
         Map.fromList
-          [ ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2))
-          , ("source-view", ViewPort (canvasDim ^. _1 . to (* 0.2), tabHeight) (canvasDim ^. _1 . to (* 0.6), canvasDim ^. _2))
-          , ("supple-view", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
-          , ("supple-view-tab", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, tabHeight + tabHeight))
-          , ("supple-view-contents", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
-          ]
-    , _wcfgTiming =
+          [ ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2)),
+            ("source-view", ViewPort (canvasDim ^. _1 . to (* 0.2), tabHeight) (canvasDim ^. _1 . to (* 0.6), canvasDim ^. _2)),
+            ("supple-view", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, canvasDim ^. _2)),
+            ("supple-view-tab", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight) (canvasDim ^. _1, tabHeight + tabHeight)),
+            ("supple-view-contents", ViewPort (canvasDim ^. _1 . to (* 0.6), tabHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          ],
+      _wcfgTiming =
         Map.fromList
-          [ ("timing-chart", ViewPort (0, tabHeight) (0.8 * timingWidth, timingHeight + tabHeight))
-          , ("mem-chart", ViewPort (0.8 * timingWidth, tabHeight) (timingWidth, timingHeight + tabHeight))
-          , ("timing-range", ViewPort (0, timingHeight + tabHeight) (timingWidth, timingHeight + timingRangeHeight + tabHeight))
-          , ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+          [ ("timing-chart", ViewPort (0, tabHeight) (0.8 * timingWidth, timingHeight + tabHeight)),
+            ("mem-chart", ViewPort (0.8 * timingWidth, tabHeight) (timingWidth, timingHeight + tabHeight)),
+            ("timing-range", ViewPort (0, timingHeight + tabHeight) (timingWidth, timingHeight + timingRangeHeight + tabHeight)),
+            ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
           ]
     }

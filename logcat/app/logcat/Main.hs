@@ -24,35 +24,35 @@ import GI.Gtk qualified as Gtk
 import GI.Pango qualified as P
 import GI.PangoCairo qualified as PC
 import Log (dumpLog, flushEventQueue, recordEvent)
-import Network.Socket (
-  Family (AF_UNIX),
-  SockAddr (SockAddrUnix),
-  SocketType (Stream),
-  close,
-  connect,
-  socket,
-  withSocketsDo,
- )
-import Render (
-  drawLogcatState,
-  flushDoubleBuffer,
- )
-import Render.Util (
-  canvasHeight,
-  canvasWidth,
-  xoffset,
-  yoffset,
- )
+import Network.Socket
+  ( Family (AF_UNIX),
+    SockAddr (SockAddrUnix),
+    SocketType (Stream),
+    close,
+    connect,
+    socket,
+    withSocketsDo,
+  )
+import Render
+  ( drawLogcatState,
+    flushDoubleBuffer,
+  )
+import Render.Util
+  ( canvasHeight,
+    canvasWidth,
+    xoffset,
+    yoffset,
+  )
 import System.Exit (exitFailure)
-import Types (
-  CEvent (..),
-  HasLogcatState (..),
-  HasLogcatView (..),
-  HasViewState (..),
-  LogcatState,
-  LogcatView (..),
-  emptyLogcatState,
- )
+import Types
+  ( CEvent (..),
+    HasLogcatState (..),
+    HasLogcatView (..),
+    HasViewState (..),
+    LogcatState,
+    LogcatView (..),
+    emptyLogcatState,
+  )
 import View (computeLabelPositions, hitTest)
 
 receiver :: MVar CEvent -> IO ()
@@ -132,10 +132,10 @@ initDrawingAreaAndView sref = do
     Just (pctxt, desc) -> do
       let view =
             LogcatView
-              { _logcatViewSurface = sfc
-              , _logcatViewPangoContext = pctxt
-              , _logcatViewFontDesc = desc
-              , _logcatViewUpdater = updater
+              { _logcatViewSurface = sfc,
+                _logcatViewPangoContext = pctxt,
+                _logcatViewFontDesc = desc,
+                _logcatViewUpdater = updater
               }
       pure (drawingArea, view)
 
@@ -163,9 +163,9 @@ main = do
     pure True
   #addEvents
     drawingArea
-    [ Gdk.EventMaskButtonPressMask
-    , Gdk.EventMaskButtonReleaseMask
-    , Gdk.EventMaskPointerMotionMask
+    [ Gdk.EventMaskButtonPressMask,
+      Gdk.EventMaskButtonReleaseMask,
+      Gdk.EventMaskPointerMotionMask
     ]
   layout <- do
     vbox <- new Gtk.Box [#orientation := Gtk.OrientationVertical, #spacing := 0]

@@ -1,36 +1,37 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Data.GHC.Core (
-  -- * Simplified GHC Core data type
-  Id (..),
-  Bind (..),
-  Literal (..),
-  AltCon (..),
-  Alt (..),
-  Expr (..),
+module GHCSpecter.Data.GHC.Core
+  ( -- * Simplified GHC Core data type
+    Id (..),
+    Bind (..),
+    Literal (..),
+    AltCon (..),
+    Alt (..),
+    Expr (..),
 
-  -- * conversion
-  toListTree,
-  toVar,
-  toBind,
-  toLiteral,
-  toAltCon,
-  toAlt,
-  toExpr,
-) where
+    -- * conversion
+    toListTree,
+    toVar,
+    toBind,
+    toLiteral,
+    toAltCon,
+    toAlt,
+    toExpr,
+  )
+where
 
 import Control.Monad ((<=<))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (Tree (..))
-import GHCSpecter.Util.GHC (
-  coreTypeAlt,
-  coreTypeAltCon,
-  coreTypeBind,
-  coreTypeExpr,
-  coreTypeLiteral,
- )
+import GHCSpecter.Util.GHC
+  ( coreTypeAlt,
+    coreTypeAltCon,
+    coreTypeBind,
+    coreTypeExpr,
+    coreTypeLiteral,
+  )
 import Text.Read (readMaybe)
 
 -- TODO: eventually these will be isomorphic to CoreExpr

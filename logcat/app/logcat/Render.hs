@@ -2,13 +2,14 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Render (
-  -- * draw all
-  drawLogcatState,
+module Render
+  ( -- * draw all
+    drawLogcatState,
 
-  -- * flush double buffer
-  flushDoubleBuffer,
-) where
+    -- * flush double buffer
+    flushDoubleBuffer,
+  )
+where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Lens ((^.))
@@ -22,18 +23,18 @@ import Render.Heap (drawHeapView)
 import Render.Hist (drawHisto)
 import Render.Stat (drawStats)
 import Render.Timeline (drawTimeline)
-import Render.Util (
-  clear,
-  drawSeparator,
-  separatorPosY,
- )
-import Types (
-  HasLogcatState (..),
-  HasViewState (..),
-  HeapSizeItem (..),
-  LogcatState,
-  LogcatView,
- )
+import Render.Util
+  ( clear,
+    drawSeparator,
+    separatorPosY,
+  )
+import Types
+  ( HasLogcatState (..),
+    HasViewState (..),
+    HeapSizeItem (..),
+    LogcatState,
+    LogcatView,
+  )
 
 drawLogcatState :: LogcatView -> TVar LogcatState -> R.Render ()
 drawLogcatState vw sref = do

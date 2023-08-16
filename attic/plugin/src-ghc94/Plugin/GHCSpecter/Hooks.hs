@@ -3,19 +3,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Plugin.GHCSpecter.Hooks (
-  -- * utility
-  getMemInfo,
+module Plugin.GHCSpecter.Hooks
+  ( -- * utility
+    getMemInfo,
 
-  -- * send information
-  sendModuleStart,
-  sendModuleName,
+    -- * send information
+    sendModuleStart,
+    sendModuleName,
 
-  -- * hooks
-  runRnSpliceHook',
-  runMetaHook',
-  runPhaseHook',
-) where
+    -- * hooks
+    runRnSpliceHook',
+    runMetaHook',
+    runPhaseHook',
+  )
+where
 
 import Control.Applicative ((<|>))
 import Control.Concurrent.STM (atomically, modifyTVar', readTVar, writeTVar)
@@ -31,19 +32,19 @@ import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Pipeline (PipeEnv (..), runPhase)
-import GHC.Driver.Pipeline.Phases (
-  PhaseHook (..),
-  TPhase (..),
- )
+import GHC.Driver.Pipeline.Phases
+  ( PhaseHook (..),
+    TPhase (..),
+  )
 import GHC.Driver.Plugins (PluginWithArgs (..), StaticPlugin (..), staticPlugins)
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn)
-import GHC.Stats (
-  GCDetails (..),
-  RTSStats (..),
-  getRTSStats,
-  getRTSStatsEnabled,
- )
+import GHC.Stats
+  ( GCDetails (..),
+    RTSStats (..),
+    getRTSStats,
+    getRTSStatsEnabled,
+  )
 import GHC.Tc.Gen.Splice (defaultRunMeta)
 import GHC.Tc.Types (Env (..), RnM, TcM)
 import GHC.Types.Meta (MetaHook, MetaRequest (..), MetaResult)
@@ -52,36 +53,36 @@ import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHC.Unit.Module.Name (moduleNameString)
 import GHC.Utils.Outputable (Outputable)
 import GHCSpecter.Channel.Common.Types (DriverId (..), type ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc (..),
-  ChanMessage (..),
-  MemInfo (..),
-  ModuleGraphInfo (..),
-  Timer (..),
-  TimerTag (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc (..),
+    ChanMessage (..),
+    MemInfo (..),
+    ModuleGraphInfo (..),
+    Timer (..),
+    TimerTag (..),
+  )
 import GHCSpecter.Data.Map (backwardLookup, insertToBiKeyMap)
-import GHCSpecter.Util.GHC (
-  extractModuleGraphInfo,
-  extractModuleSources,
-  getModuleName,
- )
+import GHCSpecter.Util.GHC
+  ( extractModuleGraphInfo,
+    extractModuleSources,
+    getModuleName,
+  )
 import Language.Haskell.Syntax.Expr (HsSplice)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Tasks (
-  postMetaCommands,
-  postPhaseCommands,
-  preMetaCommands,
-  prePhaseCommands,
-  rnSpliceCommands,
- )
-import Plugin.GHCSpecter.Types (
-  PluginSession (..),
-  getModuleFileFromDriverId,
-  getModuleFromDriverId,
-  sessionRef,
- )
+import Plugin.GHCSpecter.Tasks
+  ( postMetaCommands,
+    postPhaseCommands,
+    preMetaCommands,
+    prePhaseCommands,
+    rnSpliceCommands,
+  )
+import Plugin.GHCSpecter.Types
+  ( PluginSession (..),
+    getModuleFileFromDriverId,
+    getModuleFromDriverId,
+    sessionRef,
+  )
 import Safe (readMay)
 import System.Directory (canonicalizePath)
 import System.IO.Unsafe (unsafePerformIO)
@@ -247,9 +248,9 @@ issueNewDriverId modSummary = do
             Just modFile -> insertToBiKeyMap (drvId, modFile) drvModFileMap
         s' =
           s
-            { psDrvIdModuleMap = drvModMap'
-            , psDrvIdModuleFileMap = drvModFileMap'
-            , psNextDriverId = drvId + 1
+            { psDrvIdModuleMap = drvModMap',
+              psDrvIdModuleFileMap = drvModFileMap',
+              psNextDriverId = drvId + 1
             }
     writeTVar sessionRef s'
     pure drvId
@@ -283,10 +284,9 @@ sendCompStateOnPhase drvId phase pt = do
           shouldUpdate <-
             atomically $ do
               (modGraphInfo0, _) <- psModuleGraph <$> readTVar sessionRef
-              let
-                -- TODO: this check is incorrect. need a better method for detecting changes.
-                shouldUpdate =
-                  IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)
+              let -- TODO: this check is incorrect. need a better method for detecting changes.
+                  shouldUpdate =
+                    IM.size (mginfoModuleNameMap modGraphInfo0) < IM.size (mginfoModuleNameMap modGraphInfo1)
               when shouldUpdate $
                 modifyTVar' sessionRef (\ps -> ps {psModuleGraph = (modGraphInfo1, modSources1)})
               pure shouldUpdate
@@ -361,18 +361,16 @@ runPhaseHook' = PhaseHook $ \phase -> do
               mpenv >>= \(PipeEnv {..}) -> backwardLookup src_filename (psDrvIdModuleFileMap s)
         pure (lookupByModuleName <|> lookupBySourceFile)
   let updateEnvWithDrvId env =
-        let
-          -- NOTE: This rewrite all the arguments regardless of what the plugin is.
-          -- TODO: find way to update the plugin options only for ghc-specter-plugin.
-          provideContext (StaticPlugin pa) =
-            let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId}
-             in StaticPlugin pa'
-          plugins = hsc_plugins env
-          splugins = staticPlugins plugins
-          splugins' = fmap provideContext splugins
-          plugins' = plugins {staticPlugins = splugins'}
-         in
-          env {hsc_plugins = plugins'}
+        let -- NOTE: This rewrite all the arguments regardless of what the plugin is.
+            -- TODO: find way to update the plugin options only for ghc-specter-plugin.
+            provideContext (StaticPlugin pa) =
+              let pa' = pa {paArguments = maybe [] (\x -> [show (unDriverId x)]) mdrvId}
+               in StaticPlugin pa'
+            plugins = hsc_plugins env
+            splugins = staticPlugins plugins
+            splugins' = fmap provideContext splugins
+            plugins' = plugins {staticPlugins = splugins'}
+         in env {hsc_plugins = plugins'}
       phase' = modifyHscEnvInTPhase updateEnvWithDrvId phase
   case mdrvId of
     Nothing -> runPhase phase'

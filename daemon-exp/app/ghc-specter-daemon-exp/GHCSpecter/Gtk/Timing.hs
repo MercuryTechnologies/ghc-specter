@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Gtk.Timing (
-  renderTiming,
-) where
+module GHCSpecter.Gtk.Timing
+  ( renderTiming,
+  )
+where
 
 import Control.Concurrent.STM (atomically, readTVar)
 import Control.Lens ((^.))
@@ -13,27 +14,27 @@ import Data.List qualified as L
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Data.Map (BiKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable)
-import GHCSpecter.Graphics.DSL (
-  Scene (..),
-  Stage (..),
-  ViewPort (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    Stage (..),
+    ViewPort (..),
+  )
 import GHCSpecter.Gtk.Renderer (render)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
-import GHCSpecter.UI.Components.TimingView (
-  buildBlockers,
-  buildMemChart,
-  buildTimingChart,
-  buildTimingRange,
- )
-import GHCSpecter.UI.Constants (
-  timingRangeHeight,
-  timingWidth,
- )
-import GHCSpecter.UI.Types (
-  HasTimingUI (..),
-  TimingUI,
- )
+import GHCSpecter.UI.Components.TimingView
+  ( buildBlockers,
+    buildMemChart,
+    buildTimingChart,
+    buildTimingRange,
+  )
+import GHCSpecter.UI.Constants
+  ( timingRangeHeight,
+    timingWidth,
+  )
+import GHCSpecter.UI.Types
+  ( HasTimingUI (..),
+    TimingUI,
+  )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 
 renderTiming ::
@@ -50,8 +51,8 @@ renderTiming drvModMap tui ttable = do
     sceneTimingChart <- fmap (fmap TimingEv) <$> buildTimingChart drvModMap tui ttable
     let sceneTimingChart' =
           sceneTimingChart
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneTimingChart'
     -- mem chart
@@ -59,8 +60,8 @@ renderTiming drvModMap tui ttable = do
       sceneMemChart <- buildMemChart drvModMap tui ttable
       let sceneMemChart' =
             sceneMemChart
-              { sceneGlobalViewPort = sceneGlobalViewPort scene1
-              , sceneLocalViewPort = ViewPort (0, vy0) (300, vy1)
+              { sceneGlobalViewPort = sceneGlobalViewPort scene1,
+                sceneLocalViewPort = ViewPort (0, vy0) (300, vy1)
               }
       render sceneMemChart'
     -- timing range bar
@@ -68,8 +69,8 @@ renderTiming drvModMap tui ttable = do
       let sceneTimingRange = buildTimingRange tui ttable
           sceneTimingRange' =
             sceneTimingRange
-              { sceneGlobalViewPort = sceneGlobalViewPort scene1
-              , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
+              { sceneGlobalViewPort = sceneGlobalViewPort scene1,
+                sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
               }
       render sceneTimingRange'
     -- blocker lines

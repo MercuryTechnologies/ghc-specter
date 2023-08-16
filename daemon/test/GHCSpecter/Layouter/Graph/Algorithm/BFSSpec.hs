@@ -2,30 +2,30 @@ module GHCSpecter.Layouter.Graph.Algorithm.BFSSpec (spec) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.IntMap qualified as IM
-import GHCSpecter.Layouter.Graph.Algorithm.BFS (
-  runMultiseedStagedBFS,
-  runStagedBFS,
- )
+import GHCSpecter.Layouter.Graph.Algorithm.BFS
+  ( runMultiseedStagedBFS,
+    runStagedBFS,
+  )
 import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeBiDep)
-import Test.Hspec (
-  Spec,
-  describe,
-  it,
-  shouldBe,
- )
+import Test.Hspec
+  ( Spec,
+    describe,
+    it,
+    shouldBe,
+  )
 
 testGraph :: [(Int, [Int])]
 testGraph =
-  [ (1, [])
-  , (2, [1, 4, 5, 6])
-  , (3, [6])
-  , (4, [])
-  , (5, [4, 7, 8])
-  , (6, [8])
-  , (7, [9, 10])
-  , (8, [9])
-  , (9, [])
-  , (10, [])
+  [ (1, []),
+    (2, [1, 4, 5, 6]),
+    (3, [6]),
+    (4, []),
+    (5, [4, 7, 8]),
+    (6, [8]),
+    (7, [9, 10]),
+    (8, [9]),
+    (9, []),
+    (10, [])
   ]
 
 spec :: Spec

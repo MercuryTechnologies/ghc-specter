@@ -1,23 +1,24 @@
-module GHCSpecter.Layouter.Packer (
-  -- * flow
-  toSizedLine,
-  flowInline,
-  flowLineByLine,
-) where
+module GHCSpecter.Layouter.Packer
+  ( -- * flow
+    toSizedLine,
+    flowInline,
+    flowLineByLine,
+  )
+where
 
 import Data.List qualified as L
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NE
-import GHCSpecter.Graphics.DSL (
-  Primitive (..),
-  ViewPort (..),
-  getLeastUpperBoundingBox,
-  moveBoundingBoxBy,
-  movePrimitiveBy,
-  viewPortHeight,
-  viewPortSum,
-  viewPortWidth,
- )
+import GHCSpecter.Graphics.DSL
+  ( Primitive (..),
+    ViewPort (..),
+    getLeastUpperBoundingBox,
+    moveBoundingBoxBy,
+    movePrimitiveBy,
+    viewPortHeight,
+    viewPortSum,
+    viewPortWidth,
+  )
 
 toSizedLine :: NonEmpty (Primitive a) -> (ViewPort, NonEmpty (Primitive a))
 toSizedLine xs = (getLeastUpperBoundingBox xs, xs)

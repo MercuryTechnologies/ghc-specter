@@ -1,26 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.GHCCore (
-  renderTopBind,
-) where
+module GHCSpecter.Web.GHCCore
+  ( renderTopBind,
+  )
+where
 
 import Concur.Core (Widget)
 import Data.List qualified as L
 import Data.Text qualified as T
-import GHCSpecter.ConcurReplica.DOM (
-  pre,
-  span,
-  text,
- )
+import GHCSpecter.ConcurReplica.DOM
+  ( pre,
+    span,
+    text,
+  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Data.GHC.Core (
-  Alt (..),
-  AltCon (..),
-  Bind (..),
-  Expr (..),
-  Id (..),
-  Literal (..),
- )
+import GHCSpecter.Data.GHC.Core
+  ( Alt (..),
+    AltCon (..),
+    Bind (..),
+    Expr (..),
+    Id (..),
+    Literal (..),
+  )
 import GHCSpecter.Web.Util (divClass, spanClass)
 import Prelude hiding (div, span)
 
@@ -92,15 +93,15 @@ renderTopBind bind = goB 0 bind
            in divClass
                 (cls lvl)
                 []
-                [ parenLEl
-                , e1El
-                , parenREl
-                , divClass
+                [ parenLEl,
+                  e1El,
+                  parenREl,
+                  divClass
                     (cls (lvl + 1))
                     []
-                    [ parenLEl
-                    , e2El
-                    , parenREl
+                    [ parenLEl,
+                      e2El,
+                      parenREl
                     ]
                 ]
 

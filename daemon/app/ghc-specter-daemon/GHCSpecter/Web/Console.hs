@@ -1,38 +1,39 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.Console (
-  render,
-) where
+module GHCSpecter.Web.Console
+  ( render,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  classList,
-  onClick,
-  onInput,
-  onKeyPress,
-  style,
-  textProp,
- )
+import Concur.Replica
+  ( classList,
+    onClick,
+    onInput,
+    onKeyPress,
+    style,
+    textProp,
+  )
 import Concur.Replica.DOM.Events qualified as DE
 import Control.Monad (join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Text (Text)
-import GHCSpecter.ConcurReplica.DOM (
-  button,
-  div,
-  el,
-  input,
-  nav,
-  p,
-  script,
-  text,
- )
+import GHCSpecter.ConcurReplica.DOM
+  ( button,
+    div,
+    el,
+    input,
+    nav,
+    p,
+    script,
+    text,
+  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Data.Map (
-  IsKey (..),
-  KeyMap,
-  lookupKey,
- )
+import GHCSpecter.Data.Map
+  ( IsKey (..),
+    KeyMap,
+    lookupKey,
+  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import GHCSpecter.Web.ConsoleItem qualified as CI (render)
@@ -85,10 +86,10 @@ render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
                   \observer.observe(myParent, config);\n"
               ]
        in div
-            [ classList [("box", True)]
-            , style
-                [ ("height", "200px")
-                , ("overflow", "scroll")
+            [ classList [("box", True)],
+              style
+                [ ("height", "200px"),
+                  ("overflow", "scroll")
                 ]
             ]
             (scriptContent : fmap CI.render (join (maybeToList mtxts)))
@@ -97,12 +98,12 @@ render tabs contents getHelp mfocus inputEntry = div [] [consoleTabs, console]
         "console-input"
         []
         [ input
-            [ ConsoleInput . DE.targetValue . DE.target <$> onInput
-            , ConsoleKey . DE.kbdKey <$> onKeyPress
-            , classList [("input", True)]
-            , textProp "type" "text"
-            , textProp "placeholder" "type inspection command"
-            , textProp "value" inputEntry
+            [ ConsoleInput . DE.targetValue . DE.target <$> onInput,
+              ConsoleKey . DE.kbdKey <$> onKeyPress,
+              classList [("input", True)],
+              textProp "type" "text",
+              textProp "placeholder" "type inspection command",
+              textProp "value" inputEntry
             ]
         ]
     consoleHelp =

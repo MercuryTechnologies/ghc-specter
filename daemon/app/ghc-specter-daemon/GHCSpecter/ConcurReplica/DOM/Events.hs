@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.ConcurReplica.DOM.Events (
-  onMouseMove,
-  onMouseDown,
-  onMouseUp,
-) where
+module GHCSpecter.ConcurReplica.DOM.Events
+  ( onMouseMove,
+    onMouseDown,
+    onMouseUp,
+  )
+where
 
 import Concur.Replica.DOM.Props (Prop (PropEvent), Props (Props))
 import Data.Aeson qualified as A

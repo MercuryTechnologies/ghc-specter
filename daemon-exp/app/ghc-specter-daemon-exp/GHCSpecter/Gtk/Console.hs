@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Gtk.Console (
-  renderConsole,
-) where
+module GHCSpecter.Gtk.Console
+  ( renderConsole,
+  )
+where
 
 import Control.Concurrent.STM (atomically, readTVar)
 import Control.Lens ((^.))
@@ -12,36 +13,36 @@ import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Data.Map (
-  forwardLookup,
-  keyMapToList,
-  lookupKey,
- )
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  Scene (..),
-  Stage (..),
- )
+import GHCSpecter.Data.Map
+  ( forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    Scene (..),
+    Stage (..),
+  )
 import GHCSpecter.Gtk.Renderer (render, setColor)
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (boxFill, boxRules)
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  ServerState,
- )
-import GHCSpecter.UI.Console (
-  buildConsoleHelp,
-  buildConsoleInput,
-  buildConsoleMain,
-  buildConsoleTab,
- )
+import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    ServerState,
+  )
+import GHCSpecter.UI.Console
+  ( buildConsoleHelp,
+    buildConsoleInput,
+    buildConsoleMain,
+    buildConsoleTab,
+  )
 import GHCSpecter.UI.Help (consoleCommandList)
-import GHCSpecter.UI.Types (
-  HasConsoleUI (..),
-  HasUIModel (..),
-  HasUIState (..),
-  UIState,
- )
+import GHCSpecter.UI.Types
+  ( HasConsoleUI (..),
+    HasUIModel (..),
+    HasUIState (..),
+    UIState,
+  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..), UserEvent (..))
 
 renderConsole :: UIState -> ServerState -> GtkRender UserEvent ()
@@ -78,8 +79,8 @@ renderConsole ui ss = do
     sceneTab <- fmap (fmap ConsoleEv) <$> buildConsoleTab tabs mconsoleFocus
     let sceneTab' =
           sceneTab
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneTab'
   for_ (L.find ((== "console-main") . sceneId) stage) $ \scene0 -> do
@@ -87,8 +88,8 @@ renderConsole ui ss = do
     sceneMain <- fmap (fmap ConsoleEv) <$> buildConsoleMain consoleMap mconsoleFocus
     let sceneMain' =
           sceneMain
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneMain'
   for_ (L.find ((== "console-help") . sceneId) stage) $ \scene0 -> do
@@ -97,8 +98,8 @@ renderConsole ui ss = do
     sceneHelp <- fmap (fmap ConsoleEv) <$> buildConsoleHelp getHelp mconsoleFocus
     let sceneHelp' =
           sceneHelp
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneHelp'
   for_ (L.find ((== "console-input") . sceneId) stage) $ \scene0 -> do
@@ -107,7 +108,7 @@ renderConsole ui ss = do
     sceneInput <- buildConsoleInput inputEntry
     let sceneInput' =
           sceneInput
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneInput'

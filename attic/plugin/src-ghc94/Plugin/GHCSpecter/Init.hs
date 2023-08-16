@@ -1,44 +1,45 @@
-module Plugin.GHCSpecter.Init (
-  -- * init ghc session and send the info
-  initGhcSession,
-) where
+module Plugin.GHCSpecter.Init
+  ( -- * init ghc session and send the info
+    initGhcSession,
+  )
+where
 
 import Control.Concurrent (forkOS)
-import Control.Concurrent.STM (
-  atomically,
-  modifyTVar',
-  readTVar,
-  stateTVar,
- )
+import Control.Concurrent.STM
+  ( atomically,
+    modifyTVar',
+    readTVar,
+    stateTVar,
+  )
 import Control.Monad (void, when)
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Backend qualified as GHC (Backend (..))
 import GHC.Driver.Env (HscEnv (..))
 import GHC.Driver.Session qualified as GHC (DynFlags (..), GhcMode (..))
 import GHC.RTS.Flags (getRTSFlags)
-import GHCSpecter.Channel.Outbound.Types (
-  Backend (..),
-  ChanMessage (..),
-  GhcMode (..),
-  ProcessInfo (..),
-  SessionInfo (..),
- )
-import GHCSpecter.Config (
-  Config (..),
-  defaultGhcSpecterConfigFile,
-  emptyConfig,
-  loadConfig,
- )
-import GHCSpecter.Util.GHC (
-  extractModuleGraphInfo,
-  extractModuleSources,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( Backend (..),
+    ChanMessage (..),
+    GhcMode (..),
+    ProcessInfo (..),
+    SessionInfo (..),
+  )
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    emptyConfig,
+    loadConfig,
+  )
+import GHCSpecter.Util.GHC
+  ( extractModuleGraphInfo,
+    extractModuleSources,
+  )
 import Plugin.GHCSpecter.Comm (queueMessage, runMessageQueue)
-import Plugin.GHCSpecter.Types (
-  PluginSession (..),
-  initMsgQueue,
-  sessionRef,
- )
+import Plugin.GHCSpecter.Types
+  ( PluginSession (..),
+    initMsgQueue,
+    sessionRef,
+  )
 import System.Directory (canonicalizePath, getCurrentDirectory)
 import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
@@ -89,20 +90,20 @@ initGhcSession env = do
                   GHC.NoBackend -> NoBackend
               newGhcSessionInfo =
                 SessionInfo
-                  { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags)
-                  , sessionGhcMode = ghcMode
-                  , sessionBackend = backend
-                  , sessionStartTime = Just startTime
-                  , sessionIsPaused = configStartWithBreakpoint cfg
-                  , sessionPreferredModuleClusterSize = Just (configModuleClusterSize cfg)
+                  { sessionProcess = Just (ProcessInfo pid execPath cwd args rtsflags),
+                    sessionGhcMode = ghcMode,
+                    sessionBackend = backend,
+                    sessionStartTime = Just startTime,
+                    sessionIsPaused = configStartWithBreakpoint cfg,
+                    sessionPreferredModuleClusterSize = Just (configModuleClusterSize cfg)
                   }
           modifyTVar'
             sessionRef
             ( \s ->
                 s
-                  { psSessionConfig = cfg
-                  , psSessionInfo = newGhcSessionInfo
-                  , psMessageQueue = Just queue_
+                  { psSessionConfig = cfg,
+                    psSessionInfo = newGhcSessionInfo,
+                    psMessageQueue = Just queue_
                   }
             )
           pure (True, queue_)

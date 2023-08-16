@@ -19,8 +19,8 @@ data Foo = Foo Int
   deriving (Show)
 
 data Bar = Bar
-  { barX :: Double
-  , barY :: Double
+  { barX :: Double,
+    barY :: Double
   }
   deriving (Show)
 

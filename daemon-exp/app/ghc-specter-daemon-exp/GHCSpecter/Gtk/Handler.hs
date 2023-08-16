@@ -2,33 +2,34 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Gtk.Handler (
-  handleClick,
-  handleMotion,
-  handleScroll,
-  handleZoomUpdate,
-  handleZoomEnd,
-  handleKeyPressed,
-) where
+module GHCSpecter.Gtk.Handler
+  ( handleClick,
+    handleMotion,
+    handleScroll,
+    handleZoomUpdate,
+    handleZoomEnd,
+    handleKeyPressed,
+  )
+where
 
 import Control.Applicative ((<|>))
-import Control.Concurrent.STM (
-  TQueue,
-  atomically,
-  writeTQueue,
- )
+import Control.Concurrent.STM
+  ( TQueue,
+    atomically,
+    writeTQueue,
+  )
 import Data.Foldable (for_)
 import Data.GI.Base (get)
 import Data.Text (Text)
 import Data.Word (Word32)
-import GHCSpecter.UI.Types.Event (
-  Event (..),
-  KeyEvent (..),
-  MouseEvent (..),
-  ScrollDirection (..),
-  SpecialKey (..),
-  UserEvent (..),
- )
+import GHCSpecter.UI.Types.Event
+  ( Event (..),
+    KeyEvent (..),
+    MouseEvent (..),
+    ScrollDirection (..),
+    SpecialKey (..),
+    UserEvent (..),
+  )
 import GI.Gdk qualified as Gdk
 
 handleClick ::

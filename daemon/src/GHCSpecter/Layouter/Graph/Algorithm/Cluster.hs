@@ -1,27 +1,28 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module GHCSpecter.Layouter.Graph.Algorithm.Cluster (
-  ClusterState (..),
-  ClusterVertex (..),
-  GraphState (..),
-  ICVertex (..),
-  annotateLevel,
+module GHCSpecter.Layouter.Graph.Algorithm.Cluster
+  ( ClusterState (..),
+    ClusterVertex (..),
+    GraphState (..),
+    ICVertex (..),
+    annotateLevel,
 
-  -- * invariant checks
-  degreeInvariant,
-  totalNumberInvariant,
+    -- * invariant checks
+    degreeInvariant,
+    totalNumberInvariant,
 
-  -- * reduction without clustering
-  reduceGraphByPath,
+    -- * reduction without clustering
+    reduceGraphByPath,
 
-  -- * reduction with clustering
-  diffCluster,
-  filterOutSmallNodes,
-  fullStep,
-  makeSeedState,
-  makeDivisionsInOrder,
-) where
+    -- * reduction with clustering
+    diffCluster,
+    filterOutSmallNodes,
+    fullStep,
+    makeSeedState,
+    makeDivisionsInOrder,
+  )
+where
 
 import Control.Monad.Trans.State (execState, get, modify')
 import Data.Discrimination (inner)
@@ -51,14 +52,14 @@ getUnclustered =
 
 -- cluster and elements
 data ClusterState = ClusterState
-  { clusterStateClustered :: [(ClusterVertex, [Int])]
-  , clusterStateUnclustered :: [Int]
+  { clusterStateClustered :: [(ClusterVertex, [Int])],
+    clusterStateUnclustered :: [Int]
   }
   deriving (Show)
 
 data GraphState = GraphState
-  { graphStateClustered :: [(ClusterVertex, ([ICVertex], [ICVertex]))]
-  , graphStateUnclustered :: [(Int, ([ICVertex], [ICVertex]))]
+  { graphStateClustered :: [(ClusterVertex, ([ICVertex], [ICVertex]))],
+    graphStateUnclustered :: [(Int, ([ICVertex], [ICVertex]))]
   }
   deriving (Show)
 

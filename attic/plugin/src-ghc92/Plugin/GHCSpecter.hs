@@ -2,18 +2,19 @@
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
-module Plugin.GHCSpecter (
-  -- * main plugin entry point
+module Plugin.GHCSpecter
+  ( -- * main plugin entry point
 
-  -- NOTE: The name "plugin" should be used as a GHC plugin.
-  plugin,
-) where
+    -- NOTE: The name "plugin" should be used as a GHC plugin.
+    plugin,
+  )
+where
 
-import Control.Concurrent.STM (
-  atomically,
-  modifyTVar',
-  readTVar,
- )
+import Control.Concurrent.STM
+  ( atomically,
+    modifyTVar',
+    readTVar,
+  )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
@@ -24,13 +25,13 @@ import GHC.Core.Opt.Monad (CoreM, CoreToDo (..), getDynFlags)
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
-import GHC.Driver.Plugins (
-  Plugin (..),
-  PluginWithArgs (..),
-  StaticPlugin (..),
-  defaultPlugin,
-  type CommandLineOption,
- )
+import GHC.Driver.Plugins
+  ( Plugin (..),
+    PluginWithArgs (..),
+    StaticPlugin (..),
+    defaultPlugin,
+    type CommandLineOption,
+  )
 import GHC.Driver.Session (gopt)
 import GHC.Hs (HsParsedModule)
 import GHC.Hs.Extension (GhcRn, GhcTc)
@@ -38,31 +39,31 @@ import GHC.Tc.Types (TcGblEnv (..), TcM, TcPlugin (..), TcPluginResult (TcPlugin
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc (..),
-  ChanMessage (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc (..),
+    ChanMessage (..),
+  )
 import GHCSpecter.Util.GHC (getModuleName, showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Hooks (
-  getMemInfo,
-  runMetaHook',
-  runPhaseHook',
-  runRnSpliceHook',
-  sendModuleName,
-  sendModuleStart,
- )
+import Plugin.GHCSpecter.Hooks
+  ( getMemInfo,
+    runMetaHook',
+    runPhaseHook',
+    runRnSpliceHook',
+    sendModuleName,
+    sendModuleStart,
+  )
 import Plugin.GHCSpecter.Init (initGhcSession)
 import Plugin.GHCSpecter.Tasks (core2coreCommands, driverCommands, emptyCommandSet, parsedResultActionCommands, renamedResultActionCommands, spliceRunActionCommands, typecheckResultActionCommands)
-import Plugin.GHCSpecter.Types (
-  PluginSession (..),
-  assignModuleFileToDriverId,
-  assignModuleToDriverId,
-  sessionRef,
- )
+import Plugin.GHCSpecter.Types
+  ( PluginSession (..),
+    assignModuleFileToDriverId,
+    assignModuleToDriverId,
+    sessionRef,
+  )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath)
 import System.Mem (setAllocationCounter)
@@ -149,15 +150,15 @@ typecheckPlugin opts =
               drvId
               TypecheckInit
               emptyCommandSet
-            pure ()
-      , tcPluginSolve = \_ _ _ _ ->
+            pure (),
+        tcPluginSolve = \_ _ _ _ ->
           unsafeTcPluginTcM $ do
             breakPoint
               drvId
               TypecheckSolve
               emptyCommandSet
-            pure (TcPluginOk [] [])
-      , tcPluginStop = \_ ->
+            pure (TcPluginOk [] []),
+        tcPluginStop = \_ ->
           unsafeTcPluginTcM $ do
             breakPoint
               drvId
@@ -240,12 +241,12 @@ driver _opts env0 = do
   let opts' = [show (unDriverId drvId)] -- ignore opts
       newPlugin =
         plugin
-          { installCoreToDos = corePlugin
-          , parsedResultAction = parsedResultActionPlugin
-          , renamedResultAction = renamedResultActionPlugin
-          , spliceRunAction = spliceRunActionPlugin
-          , tcPlugin = typecheckPlugin
-          , typeCheckResultAction = typeCheckResultActionPlugin
+          { installCoreToDos = corePlugin,
+            parsedResultAction = parsedResultActionPlugin,
+            renamedResultAction = renamedResultActionPlugin,
+            spliceRunAction = spliceRunActionPlugin,
+            tcPlugin = typecheckPlugin,
+            typeCheckResultAction = typeCheckResultActionPlugin
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts')
       env = env0 {hsc_static_plugins = [splugin]}
@@ -258,9 +259,9 @@ driver _opts env0 = do
   let hooks = hsc_hooks env
       hooks' =
         hooks
-          { runRnSpliceHook = Just runRnSpliceHook'
-          , runMetaHook = Just runMetaHook'
-          , runPhaseHook = Just runPhaseHook'
+          { runRnSpliceHook = Just runRnSpliceHook',
+            runMetaHook = Just runMetaHook',
+            runPhaseHook = Just runPhaseHook'
           }
       env' = env {hsc_hooks = hooks'}
   pure env'

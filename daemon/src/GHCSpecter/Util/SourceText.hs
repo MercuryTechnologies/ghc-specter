@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Util.SourceText (
-  -- * Line-Column utility
-  splitLineColumn,
-  isContainedIn,
-  sliceText,
-  findText,
-  addLineCol,
+module GHCSpecter.Util.SourceText
+  ( -- * Line-Column utility
+    splitLineColumn,
+    isContainedIn,
+    sliceText,
+    findText,
+    addLineCol,
 
-  -- * Top-level declaration extraction
-  filterTopLevel,
-  reduceDeclRange,
-) where
+    -- * Top-level declaration extraction
+    filterTopLevel,
+    reduceDeclRange,
+  )
+where
 
 import Control.Monad (guard)
 import Control.Monad.Trans.State (State, get, put, runState)

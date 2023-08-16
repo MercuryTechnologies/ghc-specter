@@ -1,32 +1,33 @@
-module GHCSpecter.UI.Types.Event (
-  -- * Enums
-  Tab (..),
-  DetailLevel (..),
-  BlockerDetailLevel (..),
-  blockerThreshold,
-  ComponentTag (..),
-  ScrollDirection (..),
-  SpecialKey (..),
+module GHCSpecter.UI.Types.Event
+  ( -- * Enums
+    Tab (..),
+    DetailLevel (..),
+    BlockerDetailLevel (..),
+    blockerThreshold,
+    ComponentTag (..),
+    ScrollDirection (..),
+    SpecialKey (..),
 
-  -- * Low-level events
-  MouseEvent (..),
-  KeyEvent (..),
-  BackgroundEvent (..),
+    -- * Low-level events
+    MouseEvent (..),
+    KeyEvent (..),
+    BackgroundEvent (..),
 
-  -- * High-level events
-  SourceViewEvent (..),
-  SubModuleEvent (..),
-  ModuleGraphEvent (..),
-  SessionEvent (..),
-  BlockerModuleGraphEvent (..),
-  TimingEvent (..),
-  ConsoleEvent (..),
+    -- * High-level events
+    SourceViewEvent (..),
+    SubModuleEvent (..),
+    ModuleGraphEvent (..),
+    SessionEvent (..),
+    BlockerModuleGraphEvent (..),
+    TimingEvent (..),
+    ConsoleEvent (..),
 
-  -- * top-level events
-  UserEvent (..),
-  SystemEvent (..),
-  Event (..),
-) where
+    -- * top-level events
+    UserEvent (..),
+    SystemEvent (..),
+    Event (..),
+  )
+where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)

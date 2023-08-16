@@ -12,11 +12,11 @@ import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time.Clock (
-  diffUTCTime,
-  getCurrentTime,
-  nominalDiffTimeToSeconds,
- )
+import Data.Time.Clock
+  ( diffUTCTime,
+    getCurrentTime,
+    nominalDiffTimeToSeconds,
+  )
 import Data.Traversable (for)
 import GHCSpecter.Eventlog.Extract qualified as E
 import GHCSpecter.Eventlog.Types (ClosureInfoItem (..))
@@ -34,8 +34,8 @@ data ViewPort = ViewPort (Double, Double) (Double, Double)
   deriving (Show)
 
 data GridState = GridState
-  { gridViewPort :: ViewPort
-  , gridTempViewPort :: Maybe ViewPort
+  { gridViewPort :: ViewPort,
+    gridTempViewPort :: Maybe ViewPort
   }
   deriving (Show)
 
@@ -225,8 +225,8 @@ main = do
   drawingArea <- new Gtk.DrawingArea []
   #addEvents
     drawingArea
-    [ Gdk.EventMaskScrollMask
-    , Gdk.EventMaskTouchpadGestureMask
+    [ Gdk.EventMaskScrollMask,
+      Gdk.EventMaskTouchpadGestureMask
     ]
   _ <- drawingArea
     `on` #draw
@@ -258,8 +258,8 @@ main = do
             scale = (cx1 - cx0) / (vx1 - vx0)
             vp' = transformScroll dir scale (dx, dy) vp
          in s
-              { gridViewPort = vp'
-              , gridTempViewPort = Nothing
+              { gridViewPort = vp',
+                gridTempViewPort = Nothing
               }
       postGUIASync (#queueDraw drawingArea)
       pure True
@@ -286,8 +286,8 @@ main = do
         let vp = gridViewPort s
             mtvp = gridTempViewPort s
          in s
-              { gridViewPort = fromMaybe vp mtvp
-              , gridTempViewPort = Nothing
+              { gridViewPort = fromMaybe vp mtvp,
+                gridTempViewPort = Nothing
               }
       postGUIASync (#queueDraw drawingArea)
   #setPropagationPhase gzoom Gtk.PropagationPhaseBubble

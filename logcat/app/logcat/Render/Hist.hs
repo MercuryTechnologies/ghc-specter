@@ -1,6 +1,7 @@
-module Render.Hist (
-  drawHisto,
-) where
+module Render.Hist
+  ( drawHisto,
+  )
+where
 
 import Control.Lens (at, (^.))
 import Data.Foldable (for_)
@@ -8,17 +9,17 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
-import Render.Util (
-  drawText,
-  fontSize,
-  gray,
-  red,
-  setColor,
- )
-import Types (
-  LogcatView,
-  Rectangle (..),
- )
+import Render.Util
+  ( drawText,
+    fontSize,
+    gray,
+    red,
+    setColor,
+  )
+import Types
+  ( LogcatView,
+    Rectangle (..),
+  )
 
 drawHistBar ::
   LogcatView ->

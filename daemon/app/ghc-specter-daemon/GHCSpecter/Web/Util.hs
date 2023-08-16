@@ -1,24 +1,25 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Web.Util (
-  xmlns,
-  divClass,
-  spanClass,
-  cssLink,
-) where
+module GHCSpecter.Web.Util
+  ( xmlns,
+    divClass,
+    spanClass,
+    cssLink,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  Props,
-  classList,
-  textProp,
- )
+import Concur.Replica
+  ( Props,
+    classList,
+    textProp,
+  )
 import Data.Text (Text)
-import GHCSpecter.ConcurReplica.DOM (
-  div,
-  link,
-  span,
- )
+import GHCSpecter.ConcurReplica.DOM
+  ( div,
+    link,
+    span,
+  )
 import GHCSpecter.ConcurReplica.Types (IHTML)
 import Prelude hiding (div, span)
 
@@ -34,6 +35,6 @@ spanClass cls props = span (classList [(cls, True)] : props)
 cssLink :: Text -> Widget IHTML a
 cssLink url =
   link
-    [ textProp "rel" "stylesheet"
-    , textProp "href" url
+    [ textProp "rel" "stylesheet",
+      textProp "href" url
     ]

@@ -1,18 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module GHCSpecter.Web.ConcurReplicaSVG (
-  makePolylineText,
-  renderColor,
-  renderPrimitive,
-) where
+module GHCSpecter.Web.ConcurReplicaSVG
+  ( makePolylineText,
+    renderColor,
+    renderPrimitive,
+  )
+where
 
 import Concur.Core (Widget)
-import Concur.Replica (
-  classList,
-  height,
-  width,
- )
+import Concur.Replica
+  ( classList,
+    height,
+    width,
+  )
 import Concur.Replica.DOM.Props (Props)
 import Concur.Replica.SVG.Props qualified as SP
 import Data.Maybe (isJust)
@@ -21,15 +22,15 @@ import Data.Text qualified as T
 import GHCSpecter.ConcurReplica.DOM (text)
 import GHCSpecter.ConcurReplica.SVG qualified as S
 import GHCSpecter.ConcurReplica.Types (IHTML)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  DrawText (..),
-  HitEvent (..),
-  Polyline (..),
-  Primitive (..),
-  Rectangle (..),
-  Shape (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    DrawText (..),
+    HitEvent (..),
+    Polyline (..),
+    Primitive (..),
+    Rectangle (..),
+    Shape (..),
+  )
 import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import Text.Printf (printf)
 import Prelude hiding (div)
@@ -70,33 +71,33 @@ renderPrimitive ::
 renderPrimitive handlers (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ mhitEvent) =
   S.rect
     ( maybe [] handlers mhitEvent
-        ++ [ SP.x (T.pack $ show x)
-           , SP.y (T.pack $ show y)
-           , width (T.pack $ show w)
-           , height (T.pack $ show h)
-           , SP.stroke (maybe "none" renderColor mline)
-           , SP.fill (maybe "none" renderColor mbkg)
-           , SP.pointerEvents (if isJust mhitEvent then "visible" else "none")
+        ++ [ SP.x (T.pack $ show x),
+             SP.y (T.pack $ show y),
+             width (T.pack $ show w),
+             height (T.pack $ show h),
+             SP.stroke (maybe "none" renderColor mline),
+             SP.fill (maybe "none" renderColor mbkg),
+             SP.pointerEvents (if isJust mhitEvent then "visible" else "none")
            ]
         ++ maybe [] (pure . SP.strokeWidth . T.pack . show) mlwidth
     )
     []
 renderPrimitive _ (Primitive (SPolyline (Polyline start xys end color swidth)) _ _) =
   S.polyline
-    [ SP.points (makePolylineText (start, end) xys)
-    , SP.stroke (renderColor color)
-    , SP.strokeWidth (T.pack $ show swidth)
-    , SP.fill "none"
+    [ SP.points (makePolylineText (start, end) xys),
+      SP.stroke (renderColor color),
+      SP.strokeWidth (T.pack $ show swidth),
+      SP.fill "none"
     ]
     []
 renderPrimitive _ (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _ _) =
   S.text
-    [ SP.x (T.pack $ show x)
-    , SP.y (T.pack $ show y)
-    , -- TODO: proper font size later
-      classList [("small", True)]
-    , SP.fill (renderColor color)
-    , SP.pointerEvents "none"
+    [ SP.x (T.pack $ show x),
+      SP.y (T.pack $ show y),
+      -- TODO: proper font size later
+      classList [("small", True)],
+      SP.fill (renderColor color),
+      SP.pointerEvents "none"
     ]
     [text msg]
 

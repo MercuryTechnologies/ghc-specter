@@ -1,11 +1,12 @@
-module Control (
-  ControlF (..),
-  Control,
-  updateState,
-  updateView,
-  nextEvent,
-  stepControl,
-) where
+module Control
+  ( ControlF (..),
+    Control,
+    updateState,
+    updateView,
+    nextEvent,
+    stepControl,
+  )
+where
 
 import Control.Concurrent.MVar (MVar, takeMVar)
 import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
@@ -13,12 +14,12 @@ import Control.Lens ((^.))
 import Control.Monad.Free (Free (..), liftF)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
-import Types (
-  CEvent (..),
-  HasLogcatView (..),
-  LogcatState,
-  LogcatView,
- )
+import Types
+  ( CEvent (..),
+    HasLogcatView (..),
+    LogcatState,
+    LogcatView,
+  )
 
 data ControlF r
   = UpdateState (LogcatState -> (Bool, LogcatState)) (Bool -> r)

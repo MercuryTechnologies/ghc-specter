@@ -1,18 +1,19 @@
-module Render.Stat (
-  drawStats,
-) where
+module Render.Stat
+  ( drawStats,
+  )
+where
 
 import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
-import Render.Util (
-  black,
-  canvasHeight,
-  canvasWidth,
-  drawText,
-  fontSize,
-  setColor,
-  white,
- )
+import Render.Util
+  ( black,
+    canvasHeight,
+    canvasWidth,
+    drawText,
+    fontSize,
+    setColor,
+    white,
+  )
 import Types (LogcatView)
 
 drawStats :: LogcatView -> Int -> R.Render ()

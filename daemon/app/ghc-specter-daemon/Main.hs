@@ -1,20 +1,20 @@
 module Main (main) where
 
 import Control.Concurrent (forkOS)
-import Control.Concurrent.STM (
-  atomically,
-  newTChanIO,
-  newTQueueIO,
-  newTVar,
- )
+import Control.Concurrent.STM
+  ( atomically,
+    newTChanIO,
+    newTQueueIO,
+    newTVar,
+  )
 import Data.Aeson (eitherDecode')
 import Data.ByteString.Lazy qualified as BL
 import Data.Maybe (fromMaybe)
-import GHCSpecter.Config (
-  Config (..),
-  defaultGhcSpecterConfigFile,
-  loadConfig,
- )
+import GHCSpecter.Config
+  ( Config (..),
+    defaultGhcSpecterConfigFile,
+    loadConfig,
+  )
 import GHCSpecter.Driver.Comm qualified as Comm
 import GHCSpecter.Driver.Session.Types (ServerSession (..))
 import GHCSpecter.Driver.Web (webServer)

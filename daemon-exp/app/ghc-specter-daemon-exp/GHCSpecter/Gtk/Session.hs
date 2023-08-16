@@ -10,34 +10,34 @@ import Data.Foldable (for_)
 import Data.List (partition)
 import Data.List qualified as L
 import Data.Maybe (isJust)
-import GHCSpecter.Channel.Outbound.Types (
-  getEnd,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( getEnd,
+  )
 import GHCSpecter.Data.Map (keyMapToList)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  Scene (..),
-  Stage (..),
-  ViewPort (..),
- )
-import GHCSpecter.Gtk.Renderer (
-  render,
-  setColor,
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    Scene (..),
+    Stage (..),
+    ViewPort (..),
+  )
+import GHCSpecter.Gtk.Renderer
+  ( render,
+    setColor,
+  )
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..))
 import GHCSpecter.Gtk.Util.Rules (boxRules)
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState,
- )
-import GHCSpecter.UI.Session (
-  buildModuleInProgress,
-  buildPauseResume,
-  buildProcessPanel,
-  buildRtsPanel,
-  buildSession,
- )
+import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    HasTimingState (..),
+    ServerState,
+  )
+import GHCSpecter.UI.Session
+  ( buildModuleInProgress,
+    buildPauseResume,
+    buildProcessPanel,
+    buildRtsPanel,
+    buildSession,
+  )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 import GI.Cairo.Render qualified as R
 
@@ -51,8 +51,8 @@ renderSession ss = do
     sceneMain <- buildSession ss
     let sceneMain' =
           sceneMain
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneMain'
   for_ (L.find ((== "session-process") . sceneId) stage) $ \scene0 -> do
@@ -60,8 +60,8 @@ renderSession ss = do
     sceneProcess <- buildProcessPanel ss
     let sceneProcess' =
           sceneProcess
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneProcess'
   for_ (L.find ((== "session-rts") . sceneId) stage) $ \scene0 -> do
@@ -69,8 +69,8 @@ renderSession ss = do
     sceneRts <- buildRtsPanel ss
     let sceneRts' =
           sceneRts
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneRts'
   for_ (L.find ((== "module-status") . sceneId) stage) $ \scene0 -> do
@@ -90,8 +90,8 @@ renderSession ss = do
     sceneModStatus <- buildModuleInProgress drvModMap pausedMap timingInProg
     let sceneModStatus' =
           sceneModStatus
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render sceneModStatus'
   for_ (L.find ((== "session-button") . sceneId) stage) $ \scene0 -> do
@@ -99,7 +99,7 @@ renderSession ss = do
     scenePause <- fmap (fmap SessionEv) <$> buildPauseResume sessionInfo
     let scenePause' =
           scenePause
-            { sceneGlobalViewPort = sceneGlobalViewPort scene0
-            , sceneLocalViewPort = sceneLocalViewPort scene0
+            { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+              sceneLocalViewPort = sceneLocalViewPort scene0
             }
     render scenePause'

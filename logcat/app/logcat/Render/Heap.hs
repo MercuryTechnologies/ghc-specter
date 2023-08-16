@@ -1,11 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Render.Heap (
-  heapViewWidth,
-  secToPixel,
-  pixelToSec,
-  drawHeapView,
-) where
+module Render.Heap
+  ( heapViewWidth,
+    secToPixel,
+    pixelToSec,
+    drawHeapView,
+  )
+where
 
 import Control.Lens ((^.))
 import Data.Fixed (Nano)
@@ -15,26 +16,26 @@ import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
 import GI.Cairo.Render qualified as R
-import Render.Util (
-  black,
-  canvasWidth,
-  drawText,
-  gray,
-  green,
-  lightBlue,
-  red,
-  separatorPosY,
-  setColor,
-  transparentize,
-  white,
- )
-import Types (
-  HasViewState (..),
-  HeapSizeItem (..),
-  LogcatView,
-  Rectangle (..),
-  ViewState,
- )
+import Render.Util
+  ( black,
+    canvasWidth,
+    drawText,
+    gray,
+    green,
+    lightBlue,
+    red,
+    separatorPosY,
+    setColor,
+    transparentize,
+    white,
+  )
+import Types
+  ( HasViewState (..),
+    HeapSizeItem (..),
+    LogcatView,
+    Rectangle (..),
+    ViewState,
+  )
 
 scale :: Double
 scale = 1

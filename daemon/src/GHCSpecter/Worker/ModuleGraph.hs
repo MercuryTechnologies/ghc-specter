@@ -1,9 +1,10 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module GHCSpecter.Worker.ModuleGraph (
-  moduleGraphWorker,
-) where
+module GHCSpecter.Worker.ModuleGraph
+  ( moduleGraphWorker,
+  )
+where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
 import Control.Lens ((.~), (^.))
@@ -17,28 +18,28 @@ import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+  )
 import GHCSpecter.Layouter.Graph.Algorithm.BFS (runMultiseedStagedBFS)
-import GHCSpecter.Layouter.Graph.Algorithm.Builder (
-  makeBiDep,
-  makeEdges,
-  makeRevDep,
- )
-import GHCSpecter.Layouter.Graph.Algorithm.Cluster (
-  filterOutSmallNodes,
-  makeDivisionsInOrder,
-  reduceGraphByPath,
- )
+import GHCSpecter.Layouter.Graph.Algorithm.Builder
+  ( makeBiDep,
+    makeEdges,
+    makeRevDep,
+  )
+import GHCSpecter.Layouter.Graph.Algorithm.Cluster
+  ( filterOutSmallNodes,
+    makeDivisionsInOrder,
+    reduceGraphByPath,
+  )
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo (..))
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  ServerState (..),
-  incrementSN,
- )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    ServerState (..),
+    incrementSN,
+  )
 import GHCSpecter.UI.Types.Event (DetailLevel (..))
 import GHCSpecter.Util.SourceTree (makeSourceTree)
 import Text.Printf (printf)

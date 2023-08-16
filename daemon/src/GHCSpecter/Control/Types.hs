@@ -1,12 +1,13 @@
 {-# LANGUAGE GADTs #-}
 
-module GHCSpecter.Control.Types (
-  -- * eDSL Types
-  ControlF (..),
-  Control',
-  Control,
-  liftF,
-) where
+module GHCSpecter.Control.Types
+  ( -- * eDSL Types
+    ControlF (..),
+    Control',
+    Control,
+    liftF,
+  )
+where
 
 import Control.Concurrent.STM (TVar)
 import Control.Monad.Indexed (IxFunctor (..))
@@ -18,10 +19,10 @@ import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Graphics.DSL (EventMap, Scene)
 import GHCSpecter.Server.Types (ServerState)
 import GHCSpecter.UI.Types (UIState)
-import GHCSpecter.UI.Types.Event (
-  Event,
-  UserEvent,
- )
+import GHCSpecter.UI.Types.Event
+  ( Event,
+    UserEvent,
+  )
 
 -- | Pattern functor for effects of Control DSL.
 -- TODO: once commit (atomic state update) and refresh frame are cleared,

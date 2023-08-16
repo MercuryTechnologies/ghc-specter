@@ -1,39 +1,40 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Worker.CallGraph (
-  -- * UnitSymbol
-  UnitSymbol (..),
-  HasUnitSymbol (..),
-  ModuleCallGraph (..),
-  HasModuleCallGraph (..),
+module GHCSpecter.Worker.CallGraph
+  ( -- * UnitSymbol
+    UnitSymbol (..),
+    HasUnitSymbol (..),
+    ModuleCallGraph (..),
+    HasModuleCallGraph (..),
 
-  -- * top-level decl
-  getTopLevelDecls,
-  getReducedTopLevelDecls,
-  breakSourceText,
+    -- * top-level decl
+    getTopLevelDecls,
+    getReducedTopLevelDecls,
+    breakSourceText,
 
-  -- * call graph
-  makeCallGraph,
+    -- * call graph
+    makeCallGraph,
 
-  -- * layout
-  layOutCallGraph,
+    -- * layout
+    layOutCallGraph,
 
-  -- * worker
-  worker,
-) where
+    -- * worker
+    worker,
+  )
+where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens (
-  makeClassy,
-  to,
-  (%~),
-  (^.),
-  (^..),
-  _1,
-  _2,
-  _3,
- )
+import Control.Lens
+  ( makeClassy,
+    to,
+    (%~),
+    (^.),
+    (^..),
+    _1,
+    _2,
+    _3,
+  )
 import Control.Monad.Trans.State (runState)
 import Data.Function (on)
 import Data.IntMap (IntMap)
@@ -47,31 +48,31 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (ModuleName)
-import GHCSpecter.Data.GHC.Hie (
-  HasDeclRow' (..),
-  HasModuleHieInfo (..),
-  HasRefRow' (..),
-  ModuleHieInfo,
- )
+import GHCSpecter.Data.GHC.Hie
+  ( HasDeclRow' (..),
+    HasModuleHieInfo (..),
+    HasRefRow' (..),
+    ModuleHieInfo,
+  )
 import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
-import GHCSpecter.Server.Types (
-  HasServerState (..),
-  ServerState (..),
-  SupplementaryView (..),
- )
-import GHCSpecter.Util.SourceText (
-  filterTopLevel,
-  isContainedIn,
-  reduceDeclRange,
-  splitLineColumn,
- )
+import GHCSpecter.Server.Types
+  ( HasServerState (..),
+    ServerState (..),
+    SupplementaryView (..),
+  )
+import GHCSpecter.Util.SourceText
+  ( filterTopLevel,
+    isContainedIn,
+    reduceDeclRange,
+    splitLineColumn,
+  )
 
 -- | Symbol only in the current (inplace) unit (package)
 data UnitSymbol = UnitSymbol
-  { _symModule :: Maybe ModuleName
-  , _symName :: Text
+  { _symModule :: Maybe ModuleName,
+    _symName :: Text
   }
   deriving (Eq, Ord, Show)
 
@@ -80,8 +81,8 @@ makeClassy ''UnitSymbol
 -- | Call graph inside a module in the current unit scope
 -- the index runs from 1 through the number of symbols.
 data ModuleCallGraph = ModuleCallGraph
-  { _modCallSymMap :: IntMap UnitSymbol
-  , _modCallGraph :: IntMap [Int]
+  { _modCallSymMap :: IntMap UnitSymbol,
+    _modCallGraph :: IntMap [Int]
   }
   deriving (Show)
 

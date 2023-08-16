@@ -2,10 +2,11 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Components.GraphView (
-  buildModuleGraph,
-  buildGraph,
-) where
+module GHCSpecter.UI.Components.GraphView
+  ( buildModuleGraph,
+    buildGraph,
+  )
+where
 
 import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
@@ -15,31 +16,31 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive (..),
-  Scene (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
-  polyline,
-  rectangle,
- )
-import GHCSpecter.Layouter.Graph.Types (
-  Dimension (..),
-  EdgeLayout (..),
-  GraphVisInfo (..),
-  HasGraphVisInfo (..),
-  HasNodeLayout (..),
-  NodeLayout (..),
-  Point (..),
-  toTuple,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive (..),
+    Scene (..),
+    TextFontFace (..),
+    TextPosition (..),
+    ViewPort (..),
+    polyline,
+    rectangle,
+  )
+import GHCSpecter.Layouter.Graph.Types
+  ( Dimension (..),
+    EdgeLayout (..),
+    GraphVisInfo (..),
+    HasGraphVisInfo (..),
+    HasNodeLayout (..),
+    NodeLayout (..),
+    Point (..),
+    toTuple,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
 import GHCSpecter.UI.Types.Event (ModuleGraphEvent (..))
 import Prelude hiding (div)
 
@@ -104,30 +105,30 @@ buildModuleGraph
                 | otherwise = Ivory
               hitEvent =
                 HitEvent
-                  { hitEventHoverOn = Just (HoverOnModuleEv (Just name))
-                  , hitEventHoverOff = Just (HoverOnModuleEv Nothing)
-                  , hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
+                  { hitEventHoverOn = Just (HoverOnModuleEv (Just name)),
+                    hitEventHoverOff = Just (HoverOnModuleEv Nothing),
+                    hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
           renderedText <- drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
           -- TODO: width and height should be replaced by correct impl.
           pure
-            [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent)
-            , rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing
-            , rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing
-            , renderedText
+            [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent),
+              rectangle (x + offX, y + h * offYFactor + h + 3) (w * aFactor) 4 (Just Black) (Just White) (Just 0.8) Nothing,
+              rectangle (x + offX, y + h * offYFactor + h + 3) (w' * aFactor) 4 Nothing (Just Blue) Nothing Nothing,
+              renderedText
             ]
     renderedNodes <-
       concat <$> traverse node (grVisInfo ^. gviNodes)
     pure
       Scene
-        { sceneId = "main-module-graph"
-        , sceneGlobalViewPort = extent
-        , sceneLocalViewPort = extent
-        , sceneElements =
+        { sceneId = "main-module-graph",
+          sceneGlobalViewPort = extent,
+          sceneLocalViewPort = extent,
+          sceneElements =
             [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
               ++ fmap edge (grVisInfo ^. gviEdges)
-              ++ renderedNodes
-        , sceneExtents = Just extent
+              ++ renderedNodes,
+          sceneExtents = Just extent
         }
 
 -- | build graph more simply to graphics DSL
@@ -171,8 +172,8 @@ buildGraph cond grVisInfo = do
         renderedText <-
           drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
         pure
-          [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing
-          , renderedText
+          [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing,
+            renderedText
           ]
   renderedNodes <-
     concat <$> traverse node (grVisInfo ^. gviNodes)

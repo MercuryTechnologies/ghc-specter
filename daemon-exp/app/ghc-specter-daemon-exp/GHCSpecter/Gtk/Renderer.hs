@@ -1,21 +1,22 @@
 {-# LANGUAGE OverloadedLabels #-}
 
-module GHCSpecter.Gtk.Renderer (
-  -- * drawing
-  setColor,
-  drawText,
-  renderPrimitive,
-  renderScene,
+module GHCSpecter.Gtk.Renderer
+  ( -- * drawing
+    setColor,
+    drawText,
+    renderPrimitive,
+    renderScene,
 
-  -- * event map
-  addEventMap,
-  render,
-) where
+    -- * event map
+    addEventMap,
+    render,
+  )
+where
 
-import Control.Concurrent.STM (
-  atomically,
-  modifyTVar',
- )
+import Control.Concurrent.STM
+  ( atomically,
+    modifyTVar',
+  )
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
@@ -23,19 +24,19 @@ import Data.Foldable (for_, traverse_)
 import Data.Int (Int32)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  DrawText (..),
-  Polyline (..),
-  Primitive (..),
-  Rectangle (..),
-  Scene (..),
-  Shape (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
-  overlapsWith,
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    DrawText (..),
+    Polyline (..),
+    Primitive (..),
+    Rectangle (..),
+    Scene (..),
+    Shape (..),
+    TextFontFace (..),
+    TextPosition (..),
+    ViewPort (..),
+    overlapsWith,
+  )
 import GHCSpecter.Gtk.Types (GtkRender, ViewBackend (..), ViewBackendResource (..))
 import GI.Cairo.Render qualified as R
 import GI.Cairo.Render.Connector qualified as RC
@@ -134,12 +135,11 @@ renderScene scene = do
 addEventMap :: Scene (Primitive e) -> GtkRender e ()
 addEventMap scene = do
   emapRef <- vbEventMap <$> ask
-  let
-    -- TODO: handle events for other shapes
-    extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
-      Just (hitEvent, ViewPort (x, y) (x + w, y + h))
-    extractEvent _ = Nothing
-    emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
+  let -- TODO: handle events for other shapes
+      extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
+        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
+      extractEvent _ = Nothing
+      emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
   liftIO $
     atomically $
       modifyTVar' emapRef (\emaps -> emap : emaps)

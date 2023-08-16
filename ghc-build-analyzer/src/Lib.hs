@@ -7,10 +7,10 @@ import Data.Aeson.Types as A
 --
 -- NB. I've never seen the `msgSpan` or `reason` fields be anything but @null@.
 data GhcMessage = GhcMessage
-  { msgSpan :: Maybe String
-  , doc :: String
-  , severity :: Severity
-  , reason :: Maybe String
+  { msgSpan :: Maybe String,
+    doc :: String,
+    severity :: Severity,
+    reason :: Maybe String
   }
   deriving (Show)
 

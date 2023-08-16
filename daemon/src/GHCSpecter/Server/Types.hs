@@ -1,37 +1,38 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Server.Types (
-  type ChanModule,
-  type Inbox,
+module GHCSpecter.Server.Types
+  ( type ChanModule,
+    type Inbox,
 
-  -- * Timing state
-  TimingState (..),
-  HasTimingState (..),
-  emptyTimingState,
+    -- * Timing state
+    TimingState (..),
+    HasTimingState (..),
+    emptyTimingState,
 
-  -- * ModuleGraph state
-  ModuleGraphState (..),
-  HasModuleGraphState (..),
-  emptyModuleGraphState,
+    -- * ModuleGraph state
+    ModuleGraphState (..),
+    HasModuleGraphState (..),
+    emptyModuleGraphState,
 
-  -- * Hie state
-  HieState (..),
-  HasHieState (..),
-  emptyHieState,
+    -- * Hie state
+    HieState (..),
+    HasHieState (..),
+    emptyHieState,
 
-  -- * Supplementary view
-  SupplementaryView (..),
+    -- * Supplementary view
+    SupplementaryView (..),
 
-  -- * console
-  ConsoleItem (..),
+    -- * console
+    ConsoleItem (..),
 
-  -- * Server state
-  ServerState (..),
-  HasServerState (..),
-  initServerState,
-  incrementSN,
-) where
+    -- * Server state
+    ServerState (..),
+    HasServerState (..),
+    initServerState,
+    incrementSN,
+  )
+where
 
 import Control.Lens (makeClassy, (%~))
 import Data.Aeson (FromJSON, ToJSON)
@@ -41,19 +42,19 @@ import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Tree (Forest, Tree)
 import GHC.Generics (Generic)
-import GHCSpecter.Channel.Common.Types (
-  DriverId,
-  type ModuleName,
- )
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc,
-  Channel,
-  ModuleGraphInfo (..),
-  SessionInfo (..),
-  Timer,
-  emptyModuleGraphInfo,
-  emptySessionInfo,
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId,
+    type ModuleName,
+  )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc,
+    Channel,
+    ModuleGraphInfo (..),
+    SessionInfo (..),
+    Timer,
+    emptyModuleGraphInfo,
+    emptySessionInfo,
+  )
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo)
 import GHCSpecter.Data.Map (BiKeyMap, KeyMap, emptyBiKeyMap, emptyKeyMap)
 import GHCSpecter.Data.Timing.Types (TimingTable, emptyTimingTable)
@@ -65,14 +66,14 @@ type ChanModule = (Channel, Text)
 type Inbox = Map ChanModule Text
 
 data TimingState = TimingState
-  { _tsTimingMap :: KeyMap DriverId Timer
-  , -- TODO1: This cached state (TimingTable) should be separated out
+  { _tsTimingMap :: KeyMap DriverId Timer,
+    -- TODO1: This cached state (TimingTable) should be separated out
     -- as we do not want to serialize this.
     -- TODO2: The name TimingTable is rather confusing. choose different one.
-    _tsTimingTable :: TimingTable
-  , _tsBlockerGraph :: IntMap [Int]
-  , _tsBlockerGraphViz :: Maybe GraphVisInfo
-  , _tsBlockerDetailLevel :: BlockerDetailLevel
+    _tsTimingTable :: TimingTable,
+    _tsBlockerGraph :: IntMap [Int],
+    _tsBlockerGraphViz :: Maybe GraphVisInfo,
+    _tsBlockerDetailLevel :: BlockerDetailLevel
   }
   deriving (Show, Generic)
 
@@ -85,19 +86,19 @@ instance ToJSON TimingState
 emptyTimingState :: TimingState
 emptyTimingState =
   TimingState
-    { _tsTimingMap = emptyKeyMap
-    , _tsTimingTable = emptyTimingTable
-    , _tsBlockerGraph = IM.empty
-    , _tsBlockerGraphViz = Nothing
-    , _tsBlockerDetailLevel = Blocking5
+    { _tsTimingMap = emptyKeyMap,
+      _tsTimingTable = emptyTimingTable,
+      _tsBlockerGraph = IM.empty,
+      _tsBlockerGraphViz = Nothing,
+      _tsBlockerDetailLevel = Blocking5
     }
 
 data ModuleGraphState = ModuleGraphState
-  { _mgsModuleGraphInfo :: ModuleGraphInfo
-  , _mgsModuleForest :: Forest ModuleName
-  , _mgsClusterGraph :: Maybe GraphVisInfo
-  , _mgsClustering :: [(ModuleName, [ModuleName])]
-  , _mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
+  { _mgsModuleGraphInfo :: ModuleGraphInfo,
+    _mgsModuleForest :: Forest ModuleName,
+    _mgsClusterGraph :: Maybe GraphVisInfo,
+    _mgsClustering :: [(ModuleName, [ModuleName])],
+    _mgsSubgraph :: [(DetailLevel, [(ModuleName, GraphVisInfo)])]
   }
   deriving (Show, Generic)
 
@@ -110,11 +111,11 @@ instance ToJSON ModuleGraphState
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState =
   ModuleGraphState
-    { _mgsModuleGraphInfo = emptyModuleGraphInfo
-    , _mgsModuleForest = []
-    , _mgsClusterGraph = Nothing
-    , _mgsClustering = []
-    , _mgsSubgraph = []
+    { _mgsModuleGraphInfo = emptyModuleGraphInfo,
+      _mgsModuleForest = [],
+      _mgsClusterGraph = Nothing,
+      _mgsClustering = [],
+      _mgsSubgraph = []
     }
 
 newtype HieState = HieState
@@ -159,19 +160,19 @@ instance FromJSON SupplementaryView
 instance ToJSON SupplementaryView
 
 data ServerState = ServerState
-  { _serverMessageSN :: Int
-  , _serverShouldUpdate :: Bool
-  , _serverInbox :: Inbox
-  , _serverSessionInfo :: SessionInfo
-  , _serverDriverModuleMap :: BiKeyMap DriverId ModuleName
-  , _serverTiming :: TimingState
-  , _serverPaused :: KeyMap DriverId BreakpointLoc
-  , _serverConsole :: KeyMap DriverId [ConsoleItem]
-  , _serverSuppView :: Map ModuleName [((Text, Int), SupplementaryView)]
-  , _serverModuleGraphState :: ModuleGraphState
-  , _serverHieState :: HieState
-  , _serverModuleBreakpoints :: [ModuleName]
-  , -- TODO: These numbers from configuration should be separated to an env in ReaderT.
+  { _serverMessageSN :: Int,
+    _serverShouldUpdate :: Bool,
+    _serverInbox :: Inbox,
+    _serverSessionInfo :: SessionInfo,
+    _serverDriverModuleMap :: BiKeyMap DriverId ModuleName,
+    _serverTiming :: TimingState,
+    _serverPaused :: KeyMap DriverId BreakpointLoc,
+    _serverConsole :: KeyMap DriverId [ConsoleItem],
+    _serverSuppView :: Map ModuleName [((Text, Int), SupplementaryView)],
+    _serverModuleGraphState :: ModuleGraphState,
+    _serverHieState :: HieState,
+    _serverModuleBreakpoints :: [ModuleName],
+    -- TODO: These numbers from configuration should be separated to an env in ReaderT.
     _serverModuleClusterSize :: Int
   }
   deriving (Show, Generic)
@@ -185,19 +186,19 @@ instance ToJSON ServerState
 initServerState :: Int -> ServerState
 initServerState nodeSizeLimit =
   ServerState
-    { _serverMessageSN = 0
-    , _serverShouldUpdate = True
-    , _serverInbox = mempty
-    , _serverSessionInfo = emptySessionInfo
-    , _serverDriverModuleMap = emptyBiKeyMap
-    , _serverTiming = emptyTimingState
-    , _serverPaused = emptyKeyMap
-    , _serverConsole = emptyKeyMap
-    , _serverSuppView = mempty
-    , _serverModuleGraphState = emptyModuleGraphState
-    , _serverHieState = emptyHieState
-    , _serverModuleBreakpoints = []
-    , _serverModuleClusterSize = nodeSizeLimit
+    { _serverMessageSN = 0,
+      _serverShouldUpdate = True,
+      _serverInbox = mempty,
+      _serverSessionInfo = emptySessionInfo,
+      _serverDriverModuleMap = emptyBiKeyMap,
+      _serverTiming = emptyTimingState,
+      _serverPaused = emptyKeyMap,
+      _serverConsole = emptyKeyMap,
+      _serverSuppView = mempty,
+      _serverModuleGraphState = emptyModuleGraphState,
+      _serverHieState = emptyHieState,
+      _serverModuleBreakpoints = [],
+      _serverModuleClusterSize = nodeSizeLimit
     }
 
 incrementSN :: ServerState -> ServerState

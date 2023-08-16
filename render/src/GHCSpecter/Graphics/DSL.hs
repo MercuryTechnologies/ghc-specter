@@ -1,50 +1,51 @@
-module GHCSpecter.Graphics.DSL (
-  -- * enum types
-  Color (..),
-  TextFontFace (..),
-  TextPosition (..),
+module GHCSpecter.Graphics.DSL
+  ( -- * enum types
+    Color (..),
+    TextFontFace (..),
+    TextPosition (..),
 
-  -- * view port
-  ViewPort (..),
+    -- * view port
+    ViewPort (..),
 
-  -- * ViewPort util
-  viewPortWidth,
-  viewPortHeight,
-  viewPortSum,
-  isInside,
-  overlapsWith,
+    -- * ViewPort util
+    viewPortWidth,
+    viewPortHeight,
+    viewPortSum,
+    isInside,
+    overlapsWith,
 
-  -- * event type
-  HitEvent (..),
+    -- * event type
+    HitEvent (..),
 
-  -- * graphics primitives
-  Rectangle (..),
-  Polyline (..),
-  DrawText (..),
-  Shape (..),
-  Primitive (..),
+    -- * graphics primitives
+    Rectangle (..),
+    Polyline (..),
+    DrawText (..),
+    Shape (..),
+    Primitive (..),
 
-  -- * smart constructors
-  rectangle,
-  polyline,
+    -- * smart constructors
+    rectangle,
+    polyline,
 
-  -- * primitive util
-  moveShapeBy,
-  moveBoundingBoxBy,
-  movePrimitiveBy,
-  getLeastUpperBoundingBox,
+    -- * primitive util
+    moveShapeBy,
+    moveBoundingBoxBy,
+    movePrimitiveBy,
+    getLeastUpperBoundingBox,
 
-  -- * scene
-  Scene (..),
-  EventMap,
-  eventMapId,
-  eventMapGlobalViewPort,
-  eventMapLocalViewPort,
-  eventMapElements,
+    -- * scene
+    Scene (..),
+    EventMap,
+    eventMapId,
+    eventMapGlobalViewPort,
+    eventMapLocalViewPort,
+    eventMapElements,
 
-  -- * stage
-  Stage (..),
-) where
+    -- * stage
+    Stage (..),
+  )
+where
 
 import Data.Bifunctor (bimap)
 import Data.List.NonEmpty (NonEmpty)
@@ -85,8 +86,8 @@ data TextFontFace = Sans | Mono
 --
 
 data ViewPort = ViewPort
-  { topLeft :: (Double, Double)
-  , bottomRight :: (Double, Double)
+  { topLeft :: (Double, Double),
+    bottomRight :: (Double, Double)
   }
   deriving (Show)
 
@@ -135,10 +136,10 @@ overlapsWith (ViewPort (x0, y0) (x1, y1)) (ViewPort (x0', y0') (x1', y1')) =
 --
 
 data HitEvent e = HitEvent
-  { hitEventHoverOn :: Maybe e
-  , hitEventHoverOff :: Maybe e
-  , hitEventClick :: Maybe (Either e e)
-  -- ^ Left: on -> off, Right: off -> on. If no toggle state, it's always Right.
+  { hitEventHoverOn :: Maybe e,
+    hitEventHoverOff :: Maybe e,
+    -- | Left: on -> off, Right: off -> on. If no toggle state, it's always Right.
+    hitEventClick :: Maybe (Either e e)
   }
   deriving (Show)
 
@@ -146,48 +147,48 @@ instance Functor HitEvent where
   fmap f (HitEvent mx my mz) = HitEvent (fmap f mx) (fmap f my) (fmap (bimap f f) mz)
 
 data Rectangle = Rectangle
-  { rectXY :: (Double, Double)
-  -- ^ (x, y)
-  , rectWidth :: Double
-  -- ^ w
-  , rectHeight :: Double
-  -- ^ h
-  , rectLineColor :: Maybe Color
-  -- ^ line_color
-  , rectFillColor :: Maybe Color
-  -- ^ fill_color
-  , rectLineWidth :: Maybe Double
-  -- ^ line_width
+  { -- | (x, y)
+    rectXY :: (Double, Double),
+    -- | w
+    rectWidth :: Double,
+    -- | h
+    rectHeight :: Double,
+    -- | line_color
+    rectLineColor :: Maybe Color,
+    -- | fill_color
+    rectFillColor :: Maybe Color,
+    -- | line_width
+    rectLineWidth :: Maybe Double
   }
   deriving (Show)
 
 data Polyline = Polyline
-  { plineStart :: (Double, Double)
-  -- ^ start
-  , plineBends :: [(Double, Double)]
-  -- ^ bend_point
-  , plineEnd :: (Double, Double)
-  -- ^ end
-  , plineColor :: Color
-  -- ^ line_color
-  , plineWidth :: Double
-  -- ^ line_width
+  { -- | start
+    plineStart :: (Double, Double),
+    -- | bend_point
+    plineBends :: [(Double, Double)],
+    -- | end
+    plineEnd :: (Double, Double),
+    -- | line_color
+    plineColor :: Color,
+    -- | line_width
+    plineWidth :: Double
   }
   deriving (Show)
 
 data DrawText = DrawText
-  { dtextXY :: (Double, Double)
-  -- ^ (x, y)
-  , dtextScheme :: TextPosition
-  -- ^ text_pos
-  , dtextFont :: TextFontFace
-  -- ^ font_face
-  , dtextColor :: Color
-  -- ^ font_color
-  , dtextFontSize :: Int
-  -- ^ font_size
-  , dtextContent :: Text
-  -- ^ text
+  { -- | (x, y)
+    dtextXY :: (Double, Double),
+    -- | text_pos
+    dtextScheme :: TextPosition,
+    -- | font_face
+    dtextFont :: TextFontFace,
+    -- | font_color
+    dtextColor :: Color,
+    -- | font_size
+    dtextFontSize :: Int,
+    -- | text
+    dtextContent :: Text
   }
   deriving (Show)
 
@@ -198,9 +199,9 @@ data Shape
   deriving (Show)
 
 data Primitive e = Primitive
-  { primShape :: Shape
-  , primBoundingBox :: ViewPort
-  , primHitEvent :: Maybe (HitEvent e)
+  { primShape :: Shape,
+    primBoundingBox :: ViewPort,
+    primHitEvent :: Maybe (HitEvent e)
   }
   deriving (Show, Functor)
 
@@ -229,9 +230,9 @@ moveShapeBy (dx, dy) (SPolyline (poly@Polyline {})) =
       f (x, y) = (x + dx, y + dy)
       poly' =
         poly
-          { plineStart = f (x0, y0)
-          , plineBends = fmap f xs
-          , plineEnd = f (x1, y1)
+          { plineStart = f (x0, y0),
+            plineBends = fmap f xs,
+            plineEnd = f (x1, y1)
           }
    in SPolyline poly'
 moveShapeBy (dx, dy) (SRectangle (rect@Rectangle {})) =
@@ -257,11 +258,11 @@ getLeastUpperBoundingBox itms =
 
 -- scene has local view port matched with global canvas
 data Scene elem = Scene
-  { sceneId :: Text
-  , sceneGlobalViewPort :: ViewPort
-  , sceneLocalViewPort :: ViewPort
-  , sceneElements :: [elem]
-  , sceneExtents :: Maybe ViewPort
+  { sceneId :: Text,
+    sceneGlobalViewPort :: ViewPort,
+    sceneLocalViewPort :: ViewPort,
+    sceneElements :: [elem],
+    sceneExtents :: Maybe ViewPort
   }
   deriving (Show, Functor)
 

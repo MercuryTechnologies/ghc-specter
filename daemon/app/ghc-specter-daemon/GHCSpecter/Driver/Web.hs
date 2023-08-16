@@ -1,68 +1,69 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Driver.Web (
-  webServer,
-) where
+module GHCSpecter.Driver.Web
+  ( webServer,
+  )
+where
 
 import Concur.Core (Widget, liftSTM, unsafeBlockingIO)
 import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.STM (
-  TChan,
-  TQueue,
-  TVar,
-  atomically,
-  newTChanIO,
-  newTQueueIO,
-  newTVarIO,
-  readTChan,
-  readTQueue,
-  readTVar,
-  retry,
-  writeTChan,
-  writeTQueue,
- )
+import Control.Concurrent.STM
+  ( TChan,
+    TQueue,
+    TVar,
+    atomically,
+    newTChanIO,
+    newTQueueIO,
+    newTVarIO,
+    readTChan,
+    readTQueue,
+    readTVar,
+    retry,
+    writeTChan,
+    writeTQueue,
+  )
 import Control.Lens (makeClassy, (.~), (^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (runReaderT)
 import Data.IORef (newIORef)
-import Data.Time.Clock (
-  getCurrentTime,
-  nominalDiffTimeToSeconds,
- )
+import Data.Time.Clock
+  ( getCurrentTime,
+    nominalDiffTimeToSeconds,
+  )
 import GHCSpecter.ConcurReplica.Run (runDefaultWithStyle)
-import GHCSpecter.ConcurReplica.Types (
-  IHTML,
-  blockDOMUpdate,
-  unblockDOMUpdate,
- )
+import GHCSpecter.ConcurReplica.Types
+  ( IHTML,
+    blockDOMUpdate,
+    unblockDOMUpdate,
+  )
 import GHCSpecter.Config (Config (..))
 import GHCSpecter.Control qualified as Control (main)
-import GHCSpecter.Control.Runner (
-  RunnerEnv (..),
-  RunnerHandler (..),
-  stepControlUpToEvent,
- )
+import GHCSpecter.Control.Runner
+  ( RunnerEnv (..),
+    RunnerHandler (..),
+    stepControlUpToEvent,
+  )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Data.Assets qualified as Assets
-import GHCSpecter.Driver.Session.Types (
-  HasServerSession (..),
-  ServerSession (..),
- )
+import GHCSpecter.Driver.Session.Types
+  ( HasServerSession (..),
+    ServerSession (..),
+  )
 import GHCSpecter.Server.Types (HasServerState (..), ServerState)
 import GHCSpecter.UI.Constants (chanUpdateInterval)
-import GHCSpecter.UI.Types (
-  HasUIModel (..),
-  HasUIState (..),
-  UIState,
-  emptyUIState,
- )
-import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (..),
-  Event (..),
-  SystemEvent (BkgEv),
- )
+import GHCSpecter.UI.Types
+  ( HasUIModel (..),
+    HasUIState (..),
+    UIState,
+    emptyUIState,
+  )
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (..),
+    Event (..),
+    SystemEvent (BkgEv),
+  )
 import GHCSpecter.Web (render)
 
 --
@@ -72,10 +73,10 @@ import GHCSpecter.Web (render)
 -- TODO: move this to web
 
 data ClientSessionWeb = ClientSessionWeb
-  { _csWebUIStateRef :: TVar UIState
-  , _csWebSubscriberEvent :: TChan Event
-  , _csWebPublisherState :: TChan (UIState, ServerState)
-  , _csWebPublisherEvent :: TQueue Event
+  { _csWebUIStateRef :: TVar UIState,
+    _csWebSubscriberEvent :: TChan Event,
+    _csWebPublisherState :: TChan (UIState, ServerState),
+    _csWebPublisherEvent :: TQueue Event
   }
 
 makeClassy ''ClientSessionWeb
@@ -83,12 +84,12 @@ makeClassy ''ClientSessionWeb
 -- | communication channel that UI renderer needs
 -- Note that subscribe/publish is named according to UI side semantics.
 data UIChannelWeb = UIChannelWeb
-  { uiWebPublisherEvent :: TChan Event
-  -- ^ channel for sending event to control
-  , uiWebSubscriberState :: TChan (UIState, ServerState)
-  -- ^ channel for receiving state from control
-  , uiWebSubscriberEvent :: TQueue Event
-  -- ^ channel for receiving background event
+  { -- | channel for sending event to control
+    uiWebPublisherEvent :: TChan Event,
+    -- | channel for receiving state from control
+    uiWebSubscriberState :: TChan (UIState, ServerState),
+    -- | channel for receiving background event
+    uiWebSubscriberEvent :: TQueue Event
   }
 
 makeClassy ''UIChannelWeb
@@ -173,19 +174,19 @@ webServer cfg servSess = do
       counterRef <- unsafeBlockingIO $ newIORef 0
       let runHandler =
             RunnerHandler
-              { runHandlerRefreshAction = pure ()
-              , runHandlerHitScene = \_ -> pure Nothing
-              , runHandlerGetScene = \_ -> pure Nothing
-              , runHandlerAddToStage = \_ -> pure ()
+              { runHandlerRefreshAction = pure (),
+                runHandlerHitScene = \_ -> pure Nothing,
+                runHandlerGetScene = \_ -> pure Nothing,
+                runHandlerAddToStage = \_ -> pure ()
               }
           runner =
             RunnerEnv
-              { runnerCounter = counterRef
-              , runnerUIState = cliSess ^. csWebUIStateRef
-              , runnerServerState = servSess ^. ssServerStateRef
-              , runnerQEvent = cliSess ^. csWebPublisherEvent
-              , runnerSignalChan = servSess ^. ssSubscriberSignal
-              , runnerHandler = runHandler
+              { runnerCounter = counterRef,
+                runnerUIState = cliSess ^. csWebUIStateRef,
+                runnerServerState = servSess ^. ssServerStateRef,
+                runnerQEvent = cliSess ^. csWebPublisherEvent,
+                runnerSignalChan = servSess ^. ssSubscriberSignal,
+                runnerHandler = runHandler
               }
       unsafeBlockingIO $ mainWeb runner servSess cliSess Control.main
       loopM (step newUIChan) (SysEv (BkgEv RefreshUI))
