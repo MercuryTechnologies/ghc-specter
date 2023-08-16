@@ -25,7 +25,6 @@ import Data.List qualified as L
 import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import GHC.Debug.Stub qualified as Debug
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types (
   ConsoleRequest (..),
@@ -113,11 +112,13 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
             when (not b) $
               modifyTVar' sessionRef (\ps -> ps {psIsInGhcDebug = True})
             pure b
+{-
         when (not isInGhcDebug) $ do
           Debug.withGhcDebug $ do
             atomically $ do
               isInGhcDebug' <- psIsInGhcDebug <$> readTVar sessionRef
               when isInGhcDebug' retry
+-}
         reply $ ConsoleReplyText Nothing "Dump-Heap-finished"
   where
     reply = queueMessage . CMConsole drvId

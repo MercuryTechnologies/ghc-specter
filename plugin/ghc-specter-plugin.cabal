@@ -1,7 +1,7 @@
 cabal-version: 3.8
 
 name:           ghc-specter-plugin
-version:        0.1.0.0
+version:        1.0.0.0
 synopsis:       GHC pipeline inspecter plugin
 description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category:       Development
@@ -54,7 +54,7 @@ library
     , discrimination
     , errors
     , extra
-    , ghc-debug-stub
+    -- , ghc-debug-stub
     , network
     , process
     , safe
