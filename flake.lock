@@ -1,67 +1,5 @@
 {
   "nodes": {
-    "OGDF": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-IHjGsLO9EtwVwSs5z9Bgd8o7jIApCmFTESgVHwdxr6k=",
-        "type": "tarball",
-        "url": "https://hackage.haskell.org/package/OGDF-1.0.0.0/OGDF-1.0.0.0.tar.gz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://hackage.haskell.org/package/OGDF-1.0.0.0/OGDF-1.0.0.0.tar.gz"
-      }
-    },
-    "concur": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1658195376,
-        "narHash": "sha256-sMo4i3x821XAlbLpzM3yjVnPSt7EGRaSb5dnCRyVEsg=",
-        "owner": "wavewave",
-        "repo": "concur",
-        "rev": "7718678e6e4907fb53bfd9248eda8fc175626f05",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "ghc-9.2",
-        "repo": "concur",
-        "type": "github"
-      }
-    },
-    "concur-replica": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1603057542,
-        "narHash": "sha256-G/z7f2DF8M6a1FwGMtjQw5fLpJygje0riOBrAjozJdw=",
-        "owner": "wavewave",
-        "repo": "concur-replica",
-        "rev": "e15785b3b09e97790ae23c8ae8671c191d039a2c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "ghc-9.2",
-        "repo": "concur-replica",
-        "type": "github"
-      }
-    },
-    "flake-compat": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1668681692,
-        "narHash": "sha256-Ht91NGdewz8IQLtWZ9LCeNXMSXHUss+9COoqu6JLmXU=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "009399224d5e398d03b22badca40a37ac85412a1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "locked": {
         "lastModified": 1656928814,
@@ -74,34 +12,6 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "ghc_nix": {
-      "inputs": {
-        "all-cabal-hashes": [
-          "hackage-index"
-        ],
-        "flake-compat": "flake-compat",
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "nixpkgs-unstable": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1677005603,
-        "narHash": "sha256-0E6Cn7WZP7sCbcI6nsoEVLlWGfmLhuypHAfxioepy6Q=",
-        "owner": "wavewave",
-        "repo": "ghc.nix",
-        "rev": "9e2907537899555d6da52d6369d89f1f9fc37bd4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "fix-hash-again",
-        "repo": "ghc.nix",
         "type": "github"
       }
     },
@@ -119,11 +29,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1672195622,
-        "narHash": "sha256-Z03+maRn7EC6XzCV1+gf9JuuvSnNduy0v5RJngf+4FA=",
+        "lastModified": 1692215615,
+        "narHash": "sha256-qmNsk2a3rjfQ7z6cLdWbe4QrlYnRnbduvDKR/KJxc0I=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "9a2e72335c6651d5fb16e6901aa4b5c790c243db",
+        "rev": "2739707f974eace4dd317b78026430d96248c66b",
         "type": "github"
       },
       "original": {
@@ -133,50 +43,11 @@
         "type": "github"
       }
     },
-    "nixpkgs-ogdf": {
-      "locked": {
-        "lastModified": 1672271863,
-        "narHash": "sha256-QEbEM6/b05CJnPoyVXtP1Au3RsdUlxHypX6qgUwNf98=",
-        "owner": "wavewave",
-        "repo": "nixpkgs",
-        "rev": "749f28676dcbdeba05295ab21db1e4362a875e40",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "wavewave/ogdf",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "replica": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1658195753,
-        "narHash": "sha256-hD65yVXN3pl1e/FmUfqKJeJbOrh/q7MNwY3HPw5WNoU=",
-        "owner": "wavewave",
-        "repo": "replica",
-        "rev": "a222c76b9e16ee78d784f553bb3d511027272b1f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "wavewave",
-        "ref": "ghc-9.2",
-        "repo": "replica",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
-        "OGDF": "OGDF",
-        "concur": "concur",
-        "concur-replica": "concur-replica",
         "flake-utils": "flake-utils",
-        "ghc_nix": "ghc_nix",
         "hackage-index": "hackage-index",
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-ogdf": "nixpkgs-ogdf",
-        "replica": "replica"
+        "nixpkgs": "nixpkgs"
       }
     }
   },

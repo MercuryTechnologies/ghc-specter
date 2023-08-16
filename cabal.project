@@ -1,6 +1,6 @@
 packages:
-  ./render/*.cabal
-  ./daemon/*.cabal
-  ./plugin/*.cabal
-  ./logcat/*.cabal
-  ./ghc-build-analyzer/*.cabal
+  -- ./render
+  -- ./daemon
+  ./plugin
+  -- ./logcat/*.cabal
+  -- ./ghc-build-analyzer/*.cabal
