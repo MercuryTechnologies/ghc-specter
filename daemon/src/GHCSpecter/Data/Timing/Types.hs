@@ -14,7 +14,6 @@ module GHCSpecter.Data.Timing.Types
 where
 
 import Control.Lens (makeClassy)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
 import Data.Time.Clock (NominalDiffTime)
@@ -33,10 +32,6 @@ data PipelineInfo a = PipelineInfo
 
 makeClassy ''PipelineInfo
 
-instance FromJSON a => FromJSON (PipelineInfo a)
-
-instance ToJSON a => ToJSON (PipelineInfo a)
-
 data TimingTable = TimingTable
   { -- | Start-time-ordered info table.
     _ttableTimingInfos :: [(DriverId, PipelineInfo (NominalDiffTime, Maybe MemInfo))],
@@ -49,7 +44,3 @@ makeClassy ''TimingTable
 
 emptyTimingTable :: TimingTable
 emptyTimingTable = TimingTable [] M.empty M.empty
-
-instance FromJSON TimingTable
-
-instance ToJSON TimingTable

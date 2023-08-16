@@ -19,7 +19,6 @@ module GHCSpecter.Data.GHC.Hie
 where
 
 import Control.Lens (makeClassy)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
@@ -39,10 +38,6 @@ data RefRow' = RefRow'
 
 makeClassy ''RefRow'
 
-instance FromJSON RefRow'
-
-instance ToJSON RefRow'
-
 -- | DeclRow has OccName
 data DeclRow' = DeclRow'
   { _decl'Src :: FilePath,
@@ -57,10 +52,6 @@ data DeclRow' = DeclRow'
 
 makeClassy ''DeclRow'
 
-instance FromJSON DeclRow'
-
-instance ToJSON DeclRow'
-
 -- | DefRow has OccName
 data DefRow' = DefRow'
   { _def'Src :: FilePath,
@@ -74,10 +65,6 @@ data DefRow' = DefRow'
 
 makeClassy ''DefRow'
 
-instance FromJSON DefRow'
-
-instance ToJSON DefRow'
-
 data ModuleHieInfo = ModuleHieInfo
   { _modHieRefs :: [RefRow'],
     _modHieDecls :: [DeclRow'],
@@ -87,10 +74,6 @@ data ModuleHieInfo = ModuleHieInfo
   deriving (Show, Generic)
 
 makeClassy ''ModuleHieInfo
-
-instance FromJSON ModuleHieInfo
-
-instance ToJSON ModuleHieInfo
 
 emptyModuleHieInfo :: ModuleHieInfo
 emptyModuleHieInfo = ModuleHieInfo [] [] [] ""

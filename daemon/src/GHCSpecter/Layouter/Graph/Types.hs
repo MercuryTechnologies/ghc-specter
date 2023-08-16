@@ -19,7 +19,6 @@ module GHCSpecter.Layouter.Graph.Types
 where
 
 import Control.Lens (makeClassy)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
@@ -30,10 +29,6 @@ data Point = Point
   deriving (Show, Generic)
 
 makeClassy ''Point
-
-instance FromJSON Point
-
-instance ToJSON Point
 
 toTuple :: Point -> (Double, Double)
 toTuple (Point x y) = (x, y)
@@ -46,10 +41,6 @@ data Dimension = Dim
 
 makeClassy ''Dimension
 
-instance FromJSON Dimension
-
-instance ToJSON Dimension
-
 data NodeLayout a = NodeLayout
   { -- | information in node
     _nodePayload :: a,
@@ -61,10 +52,6 @@ data NodeLayout a = NodeLayout
   deriving (Show, Generic)
 
 makeClassy ''NodeLayout
-
-instance FromJSON a => FromJSON (NodeLayout a)
-
-instance ToJSON a => ToJSON (NodeLayout a)
 
 data EdgeLayout = EdgeLayout
   { -- | edge id from the graph layouter
@@ -80,10 +67,6 @@ data EdgeLayout = EdgeLayout
 
 makeClassy ''EdgeLayout
 
-instance FromJSON EdgeLayout
-
-instance ToJSON EdgeLayout
-
 data GraphVisInfo = GraphVisInfo
   { _gviCanvasDim :: Dimension,
     _gviNodes :: [NodeLayout (Int, Text)],
@@ -92,10 +75,6 @@ data GraphVisInfo = GraphVisInfo
   deriving (Show, Generic)
 
 makeClassy ''GraphVisInfo
-
-instance FromJSON GraphVisInfo
-
-instance ToJSON GraphVisInfo
 
 -- | swap horizontal and vertical directions.
 transposeGraphVis :: GraphVisInfo -> GraphVisInfo

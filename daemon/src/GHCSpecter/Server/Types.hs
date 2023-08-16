@@ -35,7 +35,6 @@ module GHCSpecter.Server.Types
 where
 
 import Control.Lens (makeClassy, (%~))
-import Data.Aeson (FromJSON, ToJSON)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
@@ -79,10 +78,6 @@ data TimingState = TimingState
 
 makeClassy ''TimingState
 
-instance FromJSON TimingState
-
-instance ToJSON TimingState
-
 emptyTimingState :: TimingState
 emptyTimingState =
   TimingState
@@ -104,10 +99,6 @@ data ModuleGraphState = ModuleGraphState
 
 makeClassy ''ModuleGraphState
 
-instance FromJSON ModuleGraphState
-
-instance ToJSON ModuleGraphState
-
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState =
   ModuleGraphState
@@ -124,10 +115,6 @@ newtype HieState = HieState
   deriving (Show, Generic)
 
 makeClassy ''HieState
-
-instance FromJSON HieState
-
-instance ToJSON HieState
 
 emptyHieState :: HieState
 emptyHieState = HieState mempty
@@ -146,18 +133,10 @@ data ConsoleItem
     ConsoleCore [Tree (Text, Text)]
   deriving (Show, Generic)
 
-instance FromJSON ConsoleItem
-
-instance ToJSON ConsoleItem
-
 data SupplementaryView
   = SuppViewCallgraph GraphVisInfo
   | SuppViewText Text
   deriving (Show, Generic)
-
-instance FromJSON SupplementaryView
-
-instance ToJSON SupplementaryView
 
 data ServerState = ServerState
   { _serverMessageSN :: Int,
@@ -178,10 +157,6 @@ data ServerState = ServerState
   deriving (Show, Generic)
 
 makeClassy ''ServerState
-
-instance FromJSON ServerState
-
-instance ToJSON ServerState
 
 initServerState :: Int -> ServerState
 initServerState nodeSizeLimit =

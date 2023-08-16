@@ -29,7 +29,6 @@ module GHCSpecter.UI.Types.Event
   )
 where
 
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
@@ -44,16 +43,8 @@ data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
 data DetailLevel = UpTo30 | UpTo100 | UpTo300
   deriving (Show, Eq, Ord, Generic)
 
-instance FromJSON DetailLevel
-
-instance ToJSON DetailLevel
-
 data BlockerDetailLevel = Blocking2 | Blocking3 | Blocking4 | Blocking5
   deriving (Show, Eq, Ord, Generic)
-
-instance FromJSON BlockerDetailLevel
-
-instance ToJSON BlockerDetailLevel
 
 blockerThreshold :: BlockerDetailLevel -> Int
 blockerThreshold Blocking2 = 2
