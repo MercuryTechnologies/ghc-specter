@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module GHCSpecter.Channel.Outbound.Types
   ( -- * information types
@@ -29,13 +30,16 @@ module GHCSpecter.Channel.Outbound.Types
 where
 
 import Data.Binary (Binary (..))
--- import Data.Binary.Instances.Time ()
 import Data.Int (Int64)
 import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import Data.Time.Clock.POSIX
+  ( posixSecondsToUTCTime,
+    utcTimeToPOSIXSeconds,
+  )
 import Data.Tree (Forest)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
@@ -104,8 +108,8 @@ data MemInfo = MemInfo
 instance Binary MemInfo
 
 instance Binary UTCTime where
-  get = undefined
-  put = undefined
+  get = posixSecondsToUTCTime . toEnum <$> get
+  put x = put (fromEnum (utcTimeToPOSIXSeconds x))
 
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary)
