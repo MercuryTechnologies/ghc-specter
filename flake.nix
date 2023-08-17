@@ -81,12 +81,14 @@
           ;
       };
 
+      defaultCompiler = "ghc962";
       supportedCompilers = ["ghc962"];
-    in {
+    in rec {
       inherit haskellOverlay;
 
       devShells =
-        pkgs.lib.genAttrs supportedCompilers mkShellFor;
+        pkgs.lib.genAttrs supportedCompilers mkShellFor
+        // {default = devShells.${defaultCompiler};};
 
       packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
     });

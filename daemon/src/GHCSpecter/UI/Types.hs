@@ -228,13 +228,13 @@ data UIState = UIState
     _uiLastUpdated :: UTCTime,
     -- | main UI state
     _uiModel :: UIModel
-    -- | additional assets (such as png files)
+    -- \| additional assets (such as png files)
     -- _uiAssets :: Assets
   }
 
 makeClassy ''UIState
 
-emptyUIState :: {- Assets -> -} UTCTime -> UIState
+emptyUIState {- Assets -> -} :: UTCTime -> UIState
 emptyUIState {- assets -} now =
   UIState
     { _uiShouldUpdate = True,

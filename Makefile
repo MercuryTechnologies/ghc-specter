@@ -8,4 +8,7 @@ build:
 
 .PHONY: format
 format:
-	find . -name "*.hs" -exec ormolu -i -o -XGHC2021 {} \;
+	find ./daemon -name "*.hs" -exec ormolu -i --no-cabal -o -XGHC2021 {} \; && \
+	find ./plugin -name "*.hs" -exec ormolu -i --no-cabal -o -XGHC2021 {} \; && \
+	find ./render -name "*.hs" -exec ormolu -i --no-cabal -o -XGHC2021 {} \; && \
+	find ./ghc-build-analyzer -name "*.hs" -exec ormolu -i --no-cabal -o -XGHC2021 {} \;
