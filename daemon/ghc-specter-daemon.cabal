@@ -30,6 +30,7 @@ library
       GHCSpecter.Data.GHC.Hie
       GHCSpecter.Data.Timing.Types
       GHCSpecter.Data.Timing.Util
+      GHCSpecter.Driver
       GHCSpecter.Driver.Comm
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
@@ -99,6 +100,19 @@ library
   if impl (ghc >= 9.6) && impl (ghc < 9.7)
     hs-source-dirs:
         src-ghc96
+
+executable ghc-specter-daemon-console-only
+  main-is: Main.hs
+  other-modules:
+  hs-source-dirs:
+      app/ghc-specter-daemon-console-only
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.15 && <5
+    , ghc-specter-daemon
+    , ghc-specter-plugin
+    , ghc-specter-render
+  default-language: GHC2021
 
 test-suite ghc-specter-daemon-test
   type: exitcode-stdio-1.0

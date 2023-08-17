@@ -200,6 +200,9 @@ corePlugin opts todos = do
 --   If nothing, do not try to communicate with web frontend.
 driver :: [CommandLineOption] -> HscEnv -> IO HscEnv
 driver opts env0 = do
+  putStrLn "##########################"
+  putStrLn "ghc-specter plugin started"
+  putStrLn "##########################"
   initGhcSession env0
   -- NOTE: this will wipe out all other plugins and fix opts
   -- TODO: if other plugins exist, throw exception.

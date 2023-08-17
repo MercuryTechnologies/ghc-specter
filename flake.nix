@@ -53,7 +53,10 @@
         (hself: hsuper: haskellOverlay pkgs hself hsuper);
 
       mkShellFor = compiler: let
-        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [p.OGDF]);
+        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [
+          p.OGDF
+          p.hspec-discover
+        ]);
         pyenv =
           pkgs.python3.withPackages
           (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);
@@ -65,6 +68,9 @@
             pkgs.alejandra
             pkgs.cabal-install
             pkgs.ormolu
+
+            # for agda
+            pkgs.zlib
           ];
           shellHook = ''
             export PS1="\n[ghc-specter:\w]$ \0"

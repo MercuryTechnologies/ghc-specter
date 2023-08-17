@@ -52,16 +52,6 @@ optsParser =
     (OA.subparser (onlineMode <> viewMode) OA.<**> OA.helper)
     OA.fullDesc
 
-withConfig :: Maybe FilePath -> (Config -> IO ()) -> IO ()
-withConfig mconfigFile action = do
-  let config = fromMaybe defaultGhcSpecterConfigFile mconfigFile
-  ecfg <- loadConfig config
-  case ecfg of
-    Left err -> putStrLn err
-    Right cfg -> do
-      print cfg
-      action cfg
-
 main :: IO ()
 main = do
   mode <- OA.execParser optsParser
