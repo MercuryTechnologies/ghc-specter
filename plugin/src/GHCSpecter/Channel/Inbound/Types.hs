@@ -8,7 +8,6 @@ module GHCSpecter.Channel.Inbound.Types
   )
 where
 
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Binary (Binary (..))
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -22,10 +21,6 @@ data SessionRequest
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary SessionRequest
-
-instance FromJSON SessionRequest
-
-instance ToJSON SessionRequest
 
 data ConsoleRequest
   = Ping Text
@@ -42,17 +37,9 @@ data ConsoleRequest
 
 instance Binary ConsoleRequest
 
-instance FromJSON ConsoleRequest
-
-instance ToJSON ConsoleRequest
-
 data Request
   = SessionReq SessionRequest
   | ConsoleReq DriverId ConsoleRequest
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Request
-
-instance FromJSON Request
-
-instance ToJSON Request

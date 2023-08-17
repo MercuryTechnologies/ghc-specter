@@ -20,7 +20,6 @@ module GHCSpecter.Data.Map
   )
 where
 
-import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
 import Data.Bifunctor (first)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -39,10 +38,6 @@ instance IsKey DriverId where
 
 newtype KeyMap k v = KeyMap {unKeyMap :: IntMap v}
   deriving (Show, Generic)
-
-instance (FromJSON v) => FromJSON (KeyMap k v)
-
-instance (ToJSON v) => ToJSON (KeyMap k v)
 
 emptyKeyMap :: (IsKey k) => KeyMap k v
 emptyKeyMap = KeyMap mempty
@@ -64,10 +59,6 @@ data BiKeyMap k v = BiKeyMap
     backwardMap :: Map v k
   }
   deriving (Show, Generic)
-
-instance (FromJSON k, FromJSON v, FromJSONKey v, Ord v) => FromJSON (BiKeyMap k v)
-
-instance (ToJSON k, ToJSON v, ToJSONKey v) => ToJSON (BiKeyMap k v)
 
 emptyBiKeyMap :: (IsKey k, Ord v) => BiKeyMap k v
 emptyBiKeyMap = BiKeyMap mempty mempty

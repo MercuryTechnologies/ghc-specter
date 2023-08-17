@@ -28,7 +28,6 @@ module GHCSpecter.Channel.Outbound.Types
   )
 where
 
-import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Binary (Binary (..))
 import Data.Binary.Instances.Time ()
 import Data.Int (Int64)
@@ -58,10 +57,6 @@ data Channel
   | Console
   deriving (Enum, Eq, Ord, Show, Generic)
 
-instance FromJSON Channel
-
-instance ToJSON Channel
-
 data BreakpointLoc
   = StartDriver
   | ParsedResultAction
@@ -82,10 +77,6 @@ data BreakpointLoc
 
 instance Binary BreakpointLoc
 
-instance FromJSON BreakpointLoc
-
-instance ToJSON BreakpointLoc
-
 -- TODO: GHC 9.4 changed compilation phase semantics considerably.
 -- We need to introduce GHC version dependent tag concept.
 -- This timer tag is incomplete after all.
@@ -100,10 +91,6 @@ data TimerTag
     TimerEnd
   deriving (Enum, Eq, Ord, Generic, Show)
 
-instance FromJSON TimerTag
-
-instance ToJSON TimerTag
-
 instance Binary TimerTag where
   put tag = put (fromEnum tag)
   get = toEnum <$> get
@@ -116,12 +103,8 @@ data MemInfo = MemInfo
 
 instance Binary MemInfo
 
-instance FromJSON MemInfo
-
-instance ToJSON MemInfo
-
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
-  deriving (Show, Generic, Binary, FromJSON, ToJSON)
+  deriving (Show, Generic, Binary)
 
 getStart :: Timer -> Maybe (UTCTime, Maybe MemInfo)
 getStart (Timer ts) = L.lookup TimerStart ts
@@ -154,10 +137,6 @@ data ModuleGraphInfo = ModuleGraphInfo
   }
   deriving (Show, Read, Generic)
 
-instance FromJSON ModuleGraphInfo
-
-instance ToJSON ModuleGraphInfo
-
 instance Binary ModuleGraphInfo
 
 emptyModuleGraphInfo :: ModuleGraphInfo
@@ -175,29 +154,17 @@ data ProcessInfo = ProcessInfo
 
 instance Binary ProcessInfo
 
-instance FromJSON ProcessInfo
-
-instance ToJSON ProcessInfo
-
 -- | This is the same as GHC.Driver.Session.GhcMode
 data GhcMode = CompManager | OneShot | MkDepend
   deriving (Show, Generic)
 
 instance Binary GhcMode
 
-instance FromJSON GhcMode
-
-instance ToJSON GhcMode
-
 -- | This is the same as GHC.Driver.Backend.Backend
 data Backend = NCG | LLVM | ViaC | Interpreter | NoBackend
   deriving (Show, Generic)
 
 instance Binary Backend
-
-instance FromJSON Backend
-
-instance ToJSON Backend
 
 data SessionInfo = SessionInfo
   { sessionProcess :: Maybe ProcessInfo,
@@ -210,10 +177,6 @@ data SessionInfo = SessionInfo
   deriving (Show, Generic)
 
 instance Binary SessionInfo
-
-instance FromJSON SessionInfo
-
-instance ToJSON SessionInfo
 
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
