@@ -29,8 +29,7 @@ import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Indexed.Free (IxFree (..))
 import Control.Monad.Trans.Reader (ReaderT, ask)
-import Data.Aeson (encode)
-import Data.ByteString.Lazy qualified as BL
+-- import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -56,7 +55,8 @@ import GHCSpecter.UI.Types.Event
     SystemEvent (..),
     UserEvent,
   )
-import System.IO (IOMode (..), withFile)
+
+-- import System.IO (IOMode (..), withFile)
 
 data RunnerHandler e = RunnerHandler
   { runHandlerRefreshAction :: IO (),
@@ -226,11 +226,12 @@ stepControl (Free (ShouldUpdate b next)) = do
   modifyUI' (uiShouldUpdate .~ b)
   pure (Left next)
 stepControl (Free (SaveSession next)) = do
-  ss <- getSS'
+  -- TODO: proper saving
+  {- ss <- getSS'
   -- TODO: use asynchronous worker
   liftIO $
     withFile "session.json" WriteMode $ \h ->
-      BL.hPutStr h (encode ss)
+      BL.hPutStr h (encode ss) -}
   pure (Left next)
 stepControl (Free (Refresh next)) = do
   refreshAction <- runHandlerRefreshAction . runnerHandler <$> ask

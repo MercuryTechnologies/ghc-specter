@@ -47,7 +47,6 @@ import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Data.Assets (Assets)
 import GHCSpecter.Data.Timing.Types (TimingTable)
 import GHCSpecter.Graphics.DSL (ViewPort (..))
 import GHCSpecter.UI.Constants
@@ -228,18 +227,18 @@ data UIState = UIState
     -- | last updated time
     _uiLastUpdated :: UTCTime,
     -- | main UI state
-    _uiModel :: UIModel,
-    -- | additional assets (such as png files)
-    _uiAssets :: Assets
+    _uiModel :: UIModel
+    -- \| additional assets (such as png files)
+    -- _uiAssets :: Assets
   }
 
 makeClassy ''UIState
 
-emptyUIState :: Assets -> UTCTime -> UIState
-emptyUIState assets now =
+emptyUIState {- Assets -> -} :: UTCTime -> UIState
+emptyUIState {- assets -} now =
   UIState
     { _uiShouldUpdate = True,
       _uiLastUpdated = now,
-      _uiModel = emptyUIModel,
-      _uiAssets = assets
+      _uiModel = emptyUIModel
+      -- _uiAssets = assets
     }

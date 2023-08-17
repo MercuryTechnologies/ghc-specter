@@ -26,7 +26,6 @@ library
       GHCSpecter.Control.DSL
       GHCSpecter.Control.Runner
       GHCSpecter.Control.Types
-      GHCSpecter.Data.Assets
       GHCSpecter.Data.GHC.Core
       GHCSpecter.Data.GHC.Hie
       GHCSpecter.Data.Timing.Types
@@ -72,9 +71,7 @@ library
   ghc-options: -Wall -Wunused-packages -Werror
   build-depends:
       OGDF
-    , aeson
     , base >=4.15 && <5
-    , base64-bytestring
     , bytestring
     , containers
     , discrimination
@@ -114,8 +111,7 @@ test-suite ghc-specter-daemon-test
       test
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
-    , base >=4.15 && <5
+      base >=4.15 && <5
     , bytestring
     , containers
     , ghc-specter-daemon
