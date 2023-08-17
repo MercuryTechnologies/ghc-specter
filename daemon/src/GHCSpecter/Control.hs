@@ -348,6 +348,7 @@ handleConsole (ConsoleKey key) = do
   printMsg "ConsoleKey"
   printMsg (T.pack (show key))
   model0 <- (^. uiModel) <$> getUI
+  printMsg (T.pack (show (model0 ^. modelConsole . consoleFocus)))
   if key == "Enter"
     then case model0 ^. modelConsole . consoleFocus of
       Nothing -> pure ()

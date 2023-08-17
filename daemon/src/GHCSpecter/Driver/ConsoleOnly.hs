@@ -42,6 +42,14 @@ main cliSess = do
         case minput of
           Nothing -> pure ()
           Just "quit" -> pure ()
+          Just "focus" -> do
+            outputStrLn $ "Input was: focus"
+            lift $
+              atomically $ do
+                writeTQueue
+                  chanQEv
+                  (UsrEv (ConsoleEv (ConsoleTab 1)))
+            loop
           Just input -> do
             outputStrLn $ "Input was: " <> input
             lift $
@@ -52,12 +60,6 @@ main cliSess = do
                 writeTQueue
                   chanQEv
                   (UsrEv (ConsoleEv (ConsoleKey "Enter")))
-
             loop
   runInputT defaultSettings $ do
-    lift $
-      atomically $ do
-        writeTQueue
-          chanQEv
-          (UsrEv (ConsoleEv (ConsoleTab 1)))
     loop
