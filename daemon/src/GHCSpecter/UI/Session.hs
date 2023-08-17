@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Session (
-  buildModuleInProgress,
-  buildProcessPanel,
-  buildRtsPanel,
-  buildSession,
-  buildPauseResume,
-) where
+module GHCSpecter.UI.Session
+  ( buildModuleInProgress,
+    buildProcessPanel,
+    buildRtsPanel,
+    buildSession,
+    buildPauseResume,
+  )
+where
 
 import Control.Lens ((^.))
 import Data.IntMap qualified as IM
@@ -14,49 +15,49 @@ import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
-import GHCSpecter.Channel.Common.Types (
-  DriverId (..),
-  ModuleName,
- )
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc,
-  ModuleGraphInfo (..),
-  ProcessInfo (..),
-  SessionInfo (..),
-  Timer,
-  getEnd,
- )
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  KeyMap,
-  forwardLookup,
-  keyMapToList,
-  lookupKey,
- )
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive,
-  Scene (..),
-  TextFontFace (Sans),
-  TextPosition (..),
-  ViewPort (..),
-  rectangle,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
-import GHCSpecter.Server.Types (
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    ModuleName,
+  )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc,
+    ModuleGraphInfo (..),
+    ProcessInfo (..),
+    SessionInfo (..),
+    Timer,
+    getEnd,
+  )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    KeyMap,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive,
+    Scene (..),
+    TextFontFace (Sans),
+    TextPosition (..),
+    ViewPort (..),
+    rectangle,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
+import GHCSpecter.Server.Types
+  ( HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.Components.TextView (buildTextView)
-import GHCSpecter.UI.Types.Event (
-  SessionEvent (..),
- )
+import GHCSpecter.UI.Types.Event
+  ( SessionEvent (..),
+  )
 import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
@@ -93,10 +94,10 @@ buildProcessPanel ss = do
       case sessionProcess sessionInfo of
         Nothing -> []
         Just procinfo ->
-          [ "Process ID: " <> msgPID
-          , "Executable path: " <> msgPath
-          , "Current Directory: " <> msgCWD
-          , "CLI Arguments:"
+          [ "Process ID: " <> msgPID,
+            "Executable path: " <> msgPath,
+            "Current Directory: " <> msgCWD,
+            "CLI Arguments:"
           ]
             ++ msgArgs
           where
@@ -120,9 +121,9 @@ buildRtsPanel ss = do
       case procRTSFlags <$> sessionProcess sessionInfo of
         Nothing -> []
         Just rtsflags ->
-          [ ""
-          , "GHC RTS Info"
-          , TL.toStrict $ pShowNoColor rtsflags
+          [ "",
+            "GHC RTS Info",
+            TL.toStrict $ pShowNoColor rtsflags
           ]
 
 buildSession ::
@@ -165,12 +166,12 @@ buildSession ss = do
 
     txt =
       T.unlines
-        [ msgSessionStart
-        , ""
-        , "Compilation Status"
-        , msgCompilationStatus
-        , ""
-        , msgGhcMode
+        [ msgSessionStart,
+          "",
+          "Compilation Status",
+          msgCompilationStatus,
+          "",
+          msgGhcMode
         ]
 
 buildPauseResume ::
@@ -180,18 +181,17 @@ buildPauseResume ::
   m (Scene (Primitive SessionEvent))
 buildPauseResume session = do
   rendered <- drawText' (5, 0) UpperLeft Sans Black 8 buttonTxt
-  let
-    contents =
-      [ rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent)
-      , rendered
-      ]
+  let contents =
+        [ rectangle (0, 0) 100 15 (Just Black) (Just Ivory) (Just 1.0) (Just hitEvent),
+          rendered
+        ]
   pure
     Scene
-      { sceneId = "session-button"
-      , sceneGlobalViewPort = ViewPort (0, 0) (100, 15)
-      , sceneLocalViewPort = ViewPort (0, 0) (100, 15)
-      , sceneElements = contents
-      , sceneExtents = Nothing
+      { sceneId = "session-button",
+        sceneGlobalViewPort = ViewPort (0, 0) (100, 15),
+        sceneLocalViewPort = ViewPort (0, 0) (100, 15),
+        sceneElements = contents,
+        sceneExtents = Nothing
       }
   where
     buttonTxt
@@ -200,13 +200,13 @@ buildPauseResume session = do
     hitEvent
       | sessionIsPaused session =
           HitEvent
-            { hitEventHoverOn = Nothing
-            , hitEventHoverOff = Nothing
-            , hitEventClick = Just (Right ResumeSessionEv)
+            { hitEventHoverOn = Nothing,
+              hitEventHoverOff = Nothing,
+              hitEventClick = Just (Right ResumeSessionEv)
             }
       | otherwise =
           HitEvent
-            { hitEventHoverOn = Nothing
-            , hitEventHoverOff = Nothing
-            , hitEventClick = Just (Right PauseSessionEv)
+            { hitEventHoverOn = Nothing,
+              hitEventHoverOff = Nothing,
+              hitEventClick = Just (Right PauseSessionEv)
             }

@@ -2,33 +2,34 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Util.GHC (
-  -- * pretty print
-  showPpr,
-  printPpr,
+module GHCSpecter.Util.GHC
+  ( -- * pretty print
+    showPpr,
+    printPpr,
 
-  -- * module name
-  Haskell.ModuleName,
-  moduleNameString,
-  getModuleName,
-  mkModuleNameMap,
-  formatName,
-  formatImportedNames,
+    -- * module name
+    Haskell.ModuleName,
+    moduleNameString,
+    getModuleName,
+    mkModuleNameMap,
+    formatName,
+    formatImportedNames,
 
-  -- * module graph
-  getTopSortedModules,
-  extractModuleSources,
-  extractModuleGraphInfo,
+    -- * module graph
+    getTopSortedModules,
+    extractModuleSources,
+    extractModuleGraphInfo,
 
-  -- * Core compat
+    -- * Core compat
 
-  -- TODO: These should be moved into a Compat module.
-  coreTypeBind,
-  coreTypeLiteral,
-  coreTypeAltCon,
-  coreTypeAlt,
-  coreTypeExpr,
-) where
+    -- TODO: These should be moved into a Compat module.
+    coreTypeBind,
+    coreTypeLiteral,
+    coreTypeAltCon,
+    coreTypeAlt,
+    coreTypeExpr,
+  )
+where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Char (isAlpha)
@@ -45,18 +46,18 @@ import GHC.Data.Bag (bagToList)
 import GHC.Data.Graph.Directed qualified as G
 import GHC.Driver.Make (topSortModuleGraph)
 import GHC.Driver.Session (DynFlags)
-import GHC.Plugins (
-  ModSummary,
-  Name,
-  localiseName,
-  showSDoc,
- )
-import GHC.Types.Name.Reader (
-  GlobalRdrElt,
-  GlobalRdrEltX (gre_imp, gre_name),
-  ImpDeclSpec (..),
-  ImportSpec (..),
- )
+import GHC.Plugins
+  ( ModSummary,
+    Name,
+    localiseName,
+    showSDoc,
+  )
+import GHC.Types.Name.Reader
+  ( GlobalRdrElt,
+    GlobalRdrEltX (gre_imp, gre_name),
+    ImpDeclSpec (..),
+    ImportSpec (..),
+  )
 import GHC.Types.SourceFile (HscSource (..))
 import GHC.Unit.Module.Graph (ModuleGraph, ModuleGraphNode (..), mgModSummaries, mgModSummaries', moduleGraphNodes)
 import GHC.Unit.Module.Location (ModLocation (..))

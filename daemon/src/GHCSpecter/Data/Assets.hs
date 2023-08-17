@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.Assets (
-  Assets (..),
-  HasAssets (..),
-  loadAssets,
-) where
+module GHCSpecter.Data.Assets
+  ( Assets (..),
+    HasAssets (..),
+    loadAssets,
+  )
+where
 
 import Control.Lens (makeClassy)
 import Data.ByteString qualified as B
@@ -16,8 +17,8 @@ import Data.Text.IO qualified as TIO
 import Paths_ghc_specter_daemon (getDataFileName)
 
 data Assets = Assets
-  { _assetsGhcSpecterPng :: Text
-  , _assetsGhcSpecterCss :: Text
+  { _assetsGhcSpecterPng :: Text,
+    _assetsGhcSpecterCss :: Text
   }
 
 makeClassy ''Assets
@@ -36,8 +37,8 @@ loadAssets = do
 
   let loadedAssets =
         Assets
-          { _assetsGhcSpecterPng = pngBase64
-          , _assetsGhcSpecterCss = cssContent
+          { _assetsGhcSpecterPng = pngBase64,
+            _assetsGhcSpecterCss = cssContent
           }
 
   pure loadedAssets

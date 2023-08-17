@@ -5,10 +5,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module GHCSpecter.Control (
-  mainLoop,
-  main,
-) where
+module GHCSpecter.Control
+  ( mainLoop,
+    main,
+  )
+where
 
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
@@ -21,105 +22,105 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Channel.Inbound.Types (
-  ConsoleRequest (..),
-  Request (..),
-  SessionRequest (..),
- )
+import GHCSpecter.Channel.Inbound.Types
+  ( ConsoleRequest (..),
+    Request (..),
+    SessionRequest (..),
+  )
 import GHCSpecter.Channel.Outbound.Types (SessionInfo (..))
-import GHCSpecter.Control.DSL (
-  addToStage,
-  asyncWork,
-  getCurrentTime,
-  getLastUpdatedUI,
-  getScene,
-  getUI,
-  hitScene,
-  modifyAndReturn,
-  modifyAndReturnBoth,
-  modifySS,
-  modifyUI,
-  modifyUISS,
-  nextEvent,
-  printMsg,
-  putUI,
-  refresh,
-  refreshUIAfter,
-  saveSession,
-  sendRequest,
-  shouldUpdate,
- )
+import GHCSpecter.Control.DSL
+  ( addToStage,
+    asyncWork,
+    getCurrentTime,
+    getLastUpdatedUI,
+    getScene,
+    getUI,
+    hitScene,
+    modifyAndReturn,
+    modifyAndReturnBoth,
+    modifySS,
+    modifyUI,
+    modifyUISS,
+    nextEvent,
+    printMsg,
+    putUI,
+    refresh,
+    refreshUIAfter,
+    saveSession,
+    sendRequest,
+    shouldUpdate,
+  )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
 import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
-import GHCSpecter.Graphics.DSL (
-  EventMap,
-  HitEvent (..),
-  Scene (..),
-  ViewPort (..),
-  eventMapGlobalViewPort,
-  eventMapId,
-  moveBoundingBoxBy,
- )
-import GHCSpecter.Server.Types (
-  ConsoleItem (..),
-  HasServerState (..),
-  HasTimingState (..),
- )
-import GHCSpecter.UI.Constants (
-  HasWidgetConfig (..),
-  timingHeight,
-  timingMaxWidth,
-  timingWidth,
-  uiUpdateInterval,
- )
-import GHCSpecter.UI.Types (
-  HasConsoleUI (..),
-  HasModuleGraphUI (..),
-  HasSessionUI (..),
-  HasSourceViewUI (..),
-  HasTimingUI (..),
-  HasUIModel (..),
-  HasUIState (..),
-  HasViewPortInfo (..),
-  ModuleGraphUI (..),
-  UIModel,
-  ViewPortInfo (..),
- )
-import GHCSpecter.UI.Types.Event (
-  BackgroundEvent (..),
-  BlockerModuleGraphEvent (..),
-  ConsoleEvent (..),
-  Event (..),
-  KeyEvent (..),
-  ModuleGraphEvent (..),
-  MouseEvent (..),
-  ScrollDirection (..),
-  SessionEvent (..),
-  SourceViewEvent (..),
-  SpecialKey (KeyBackspace, KeyEnter),
-  SubModuleEvent (..),
-  SystemEvent (..),
-  Tab (..),
-  TimingEvent (..),
-  UserEvent (..),
- )
-import GHCSpecter.Util.Transformation (
-  hitItem,
-  isValid,
-  transformScroll,
-  transformZoom,
-  translateToOrigin,
- )
-import GHCSpecter.Worker.Timing (
-  timingBlockerGraphWorker,
-  timingWorker,
- )
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    HitEvent (..),
+    Scene (..),
+    ViewPort (..),
+    eventMapGlobalViewPort,
+    eventMapId,
+    moveBoundingBoxBy,
+  )
+import GHCSpecter.Server.Types
+  ( ConsoleItem (..),
+    HasServerState (..),
+    HasTimingState (..),
+  )
+import GHCSpecter.UI.Constants
+  ( HasWidgetConfig (..),
+    timingHeight,
+    timingMaxWidth,
+    timingWidth,
+    uiUpdateInterval,
+  )
+import GHCSpecter.UI.Types
+  ( HasConsoleUI (..),
+    HasModuleGraphUI (..),
+    HasSessionUI (..),
+    HasSourceViewUI (..),
+    HasTimingUI (..),
+    HasUIModel (..),
+    HasUIState (..),
+    HasViewPortInfo (..),
+    ModuleGraphUI (..),
+    UIModel,
+    ViewPortInfo (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( BackgroundEvent (..),
+    BlockerModuleGraphEvent (..),
+    ConsoleEvent (..),
+    Event (..),
+    KeyEvent (..),
+    ModuleGraphEvent (..),
+    MouseEvent (..),
+    ScrollDirection (..),
+    SessionEvent (..),
+    SourceViewEvent (..),
+    SpecialKey (KeyBackspace, KeyEnter),
+    SubModuleEvent (..),
+    SystemEvent (..),
+    Tab (..),
+    TimingEvent (..),
+    UserEvent (..),
+  )
+import GHCSpecter.Util.Transformation
+  ( hitItem,
+    isValid,
+    transformScroll,
+    transformZoom,
+    translateToOrigin,
+  )
+import GHCSpecter.Worker.Timing
+  ( timingBlockerGraphWorker,
+    timingWorker,
+  )
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
-  { handlerHover :: [(Text, Lens' UIModel (Maybe Text))]
-  , handlerScroll :: [(Text, Lens' UIModel ViewPortInfo)]
-  , handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
+  { handlerHover :: [(Text, Lens' UIModel (Maybe Text))],
+    handlerScroll :: [(Text, Lens' UIModel ViewPortInfo)],
+    handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
   }
 
 nextUserEvent :: (e ~ Event) => Control e UserEvent
@@ -417,13 +418,13 @@ goSession ev = do
         handleHoverScrollZoom
           (\_ -> Nothing)
           HandlerHoverScrollZoom
-            { handlerHover = []
-            , handlerScroll =
-                [ ("module-status", modelSession . sessionUIModStatusViewPort)
-                , ("session-process", modelSession . sessionUIProcessViewPort)
-                , ("session-rts", modelSession . sessionUIRtsViewPort)
-                ]
-            , handlerZoom =
+            { handlerHover = [],
+              handlerScroll =
+                [ ("module-status", modelSession . sessionUIModStatusViewPort),
+                  ("session-process", modelSession . sessionUIProcessViewPort),
+                  ("session-rts", modelSession . sessionUIRtsViewPort)
+                ],
+              handlerZoom =
                 [("session-process", modelSession . sessionUIProcessViewPort)]
             }
           mev
@@ -465,14 +466,14 @@ goModuleGraph ev = do
           HandlerHoverScrollZoom
             { handlerHover =
                 [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
-                ]
-            , handlerScroll =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-                ]
-            , handlerZoom =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-                , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ],
+              handlerScroll =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
+                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                ],
+              handlerZoom =
+                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
+                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
                 ]
             }
           mev
@@ -524,15 +525,15 @@ goSourceView ev = do
         handleHoverScrollZoom
           (\_ -> Nothing)
           HandlerHoverScrollZoom
-            { handlerHover = []
-            , handlerScroll =
-                [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
-                , ("source-view", modelSourceView . srcViewSourceViewPort)
-                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-                ]
-            , handlerZoom =
-                [ ("source-view", modelSourceView . srcViewSourceViewPort)
-                , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+            { handlerHover = [],
+              handlerScroll =
+                [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort),
+                  ("source-view", modelSourceView . srcViewSourceViewPort),
+                  ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                ],
+              handlerZoom =
+                [ ("source-view", modelSourceView . srcViewSourceViewPort),
+                  ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
                 ]
             }
           mev
@@ -627,9 +628,9 @@ goTiming ev = do
         handleHoverScrollZoom
           (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
           HandlerHoverScrollZoom
-            { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)]
-            , handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)]
-            , handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+            { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)],
+              handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)],
+              handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
             }
           mev
     _ -> pure ()
@@ -681,28 +682,28 @@ stageFrame = do
                   let vpi = model ^. l
                    in fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
          in Scene
-              { sceneId = name
-              , sceneGlobalViewPort = gvp
-              , sceneLocalViewPort = lvp
-              , sceneElements = []
-              , sceneExtents = Nothing
+              { sceneId = name,
+                sceneGlobalViewPort = gvp,
+                sceneLocalViewPort = lvp,
+                sceneElements = [],
+                sceneExtents = Nothing
               }
       scenes = fmap mkScene allCfgs
   traverse_ addToStage scenes
   where
     lensMap :: [(Text, Lens' UIModel ViewPortInfo)]
     lensMap =
-      [ ("console-main", modelConsole . consoleViewPort)
-      , ("module-status", modelSession . sessionUIModStatusViewPort)
-      , ("session-process", modelSession . sessionUIProcessViewPort)
-      , ("session-rts", modelSession . sessionUIRtsViewPort)
-      , ("main-module-graph", modelMainModuleGraph . modGraphViewPort)
-      , ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
-      , ("module-tree", modelSourceView . srcViewModuleTreeViewPort)
-      , ("source-view", modelSourceView . srcViewSourceViewPort)
-      , ("supple-view", modelSourceView . srcViewSuppViewPort)
-      , ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
-      , ("timing-chart", modelTiming . timingUIViewPort)
+      [ ("console-main", modelConsole . consoleViewPort),
+        ("module-status", modelSession . sessionUIModStatusViewPort),
+        ("session-process", modelSession . sessionUIProcessViewPort),
+        ("session-rts", modelSession . sessionUIRtsViewPort),
+        ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
+        ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort),
+        ("module-tree", modelSourceView . srcViewModuleTreeViewPort),
+        ("source-view", modelSourceView . srcViewSourceViewPort),
+        ("supple-view", modelSourceView . srcViewSuppViewPort),
+        ("supple-view-contents", modelSourceView . srcViewSuppViewPort),
+        ("timing-chart", modelTiming . timingUIViewPort)
       ]
 
 -- | top-level main loop, branching according to tab event
@@ -737,11 +738,11 @@ mainLoop = do
                 handleHoverScrollZoom
                   (\_ -> Nothing)
                   HandlerHoverScrollZoom
-                    { handlerHover = []
-                    , handlerScroll =
+                    { handlerHover = [],
+                      handlerScroll =
                         [ ("console-main", modelConsole . consoleViewPort)
-                        ]
-                    , handlerZoom =
+                        ],
+                      handlerZoom =
                         [ ("console-main", modelConsole . consoleViewPort)
                         ]
                     }

@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Util.ModuleGraph (
-  -- * show textual info:
-  formatModuleGraphInfo,
-  stat,
-  analyze,
-) where
+module GHCSpecter.Util.ModuleGraph
+  ( -- * show textual info:
+    formatModuleGraphInfo,
+    stat,
+    analyze,
+  )
+where
 
 import Control.Monad.Extra (loop)
 import Data.Foldable qualified as F
@@ -14,9 +15,9 @@ import Data.List qualified as L
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+  )
 import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
 import GHCSpecter.Layouter.Graph.Algorithm.Cluster (filterOutSmallNodes)
 

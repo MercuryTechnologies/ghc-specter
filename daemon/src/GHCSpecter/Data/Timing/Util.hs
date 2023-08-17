@@ -2,15 +2,16 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module GHCSpecter.Data.Timing.Util (
-  -- * timing info utilities
-  isTimeInTimerRange,
-  isModuleCompilationDone,
+module GHCSpecter.Data.Timing.Util
+  ( -- * timing info utilities
+    isTimeInTimerRange,
+    isModuleCompilationDone,
 
-  -- * calculate timing info and blocker graph
-  makeTimingTable,
-  makeBlockerGraph,
-) where
+    -- * calculate timing info and blocker graph
+    makeTimingTable,
+    makeBlockerGraph,
+  )
+where
 
 import Control.Lens (to, (&), (.~), (^.), (^?), _1, _2, _Just)
 import Data.Function (on)
@@ -19,38 +20,38 @@ import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Map.Strict qualified as M
 import Data.Maybe (isJust, mapMaybe)
-import Data.Time.Clock (
-  UTCTime,
-  diffUTCTime,
- )
+import Data.Time.Clock
+  ( UTCTime,
+    diffUTCTime,
+  )
 import Data.Tuple (swap)
-import GHCSpecter.Channel.Common.Types (
-  DriverId (..),
-  type ModuleName,
- )
-import GHCSpecter.Channel.Outbound.Types (
-  ModuleGraphInfo (..),
-  Timer (..),
-  getAs,
-  getEnd,
-  getHscOut,
-  getStart,
- )
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  KeyMap,
-  backwardLookup,
-  forwardLookup,
-  keyMapToList,
-  lookupKey,
- )
-import GHCSpecter.Data.Timing.Types (
-  HasPipelineInfo (..),
-  HasTimingTable (..),
-  PipelineInfo (..),
-  TimingTable,
-  emptyTimingTable,
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
+import GHCSpecter.Channel.Outbound.Types
+  ( ModuleGraphInfo (..),
+    Timer (..),
+    getAs,
+    getEnd,
+    getHscOut,
+    getStart,
+  )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    KeyMap,
+    backwardLookup,
+    forwardLookup,
+    keyMapToList,
+    lookupKey,
+  )
+import GHCSpecter.Data.Timing.Types
+  ( HasPipelineInfo (..),
+    HasTimingTable (..),
+    PipelineInfo (..),
+    TimingTable,
+    emptyTimingTable,
+  )
 
 isTimeInTimerRange :: (Ord a) => a -> PipelineInfo (a, b) -> Bool
 isTimeInTimerRange x tinfo =
@@ -86,10 +87,10 @@ makeTimingTable timing drvModMap mgi sessStart =
           modEndTimeDiff = modEndTime `diffUTCTime` sessStart
           tinfo =
             PipelineInfo
-              { _plStart = (modStartTimeDiff, mmodStartMem)
-              , _plHscOut = (modHscOutTimeDiff, mmodHscOutMem)
-              , _plAs = (modAsTimeDiff, mmodAsMem)
-              , _plEnd = (modEndTimeDiff, mmodEndMem)
+              { _plStart = (modStartTimeDiff, mmodStartMem),
+                _plHscOut = (modHscOutTimeDiff, mmodHscOutMem),
+                _plAs = (modAsTimeDiff, mmodAsMem),
+                _plEnd = (modEndTimeDiff, mmodEndMem)
               }
       pure (modName, tinfo)
     timingInfos =

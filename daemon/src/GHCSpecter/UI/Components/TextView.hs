@@ -1,34 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Components.TextView (
-  -- * predefined layout
-  rowSize,
-  ratio,
-  charSize,
-  topOfBox,
-  bottomOfBox,
-  leftOfBox,
-  rightOfBox,
+module GHCSpecter.UI.Components.TextView
+  ( -- * predefined layout
+    rowSize,
+    ratio,
+    charSize,
+    topOfBox,
+    bottomOfBox,
+    leftOfBox,
+    rightOfBox,
 
-  -- * build
-  buildTextView,
-) where
+    -- * build
+    buildTextView,
+  )
+where
 
 import Data.Text (Text)
 import Data.Text qualified as T
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  Primitive,
-  Scene (..),
-  TextFontFace (Mono),
-  TextPosition (..),
-  ViewPort (..),
-  rectangle,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    Primitive,
+    Scene (..),
+    TextFontFace (Mono),
+    TextPosition (..),
+    ViewPort (..),
+    rectangle,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
 
 -- TODO: generalize and refactor out these layout parameters
 rowSize :: Double
@@ -59,16 +60,15 @@ buildTextView ::
   m (Scene (Primitive e))
 buildTextView txt highlighted = do
   renderedLines <- traverse mkText ls
-  let
-    contents = fmap highlightBox highlighted ++ renderedLines
-    extent = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
+  let contents = fmap highlightBox highlighted ++ renderedLines
+      extent = ViewPort (0, 0) (totalWidth, fromIntegral nTotal * rowSize)
   pure
     Scene
-      { sceneId = "text-view"
-      , sceneGlobalViewPort = extent
-      , sceneLocalViewPort = extent
-      , sceneElements = contents
-      , sceneExtents = Just extent
+      { sceneId = "text-view",
+        sceneGlobalViewPort = extent,
+        sceneLocalViewPort = extent,
+        sceneElements = contents,
+        sceneExtents = Just extent
       }
   where
     -- NOTE: Rows and columns are 1-based following the GHC convention.

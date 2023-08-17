@@ -1,16 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Components.TimingView (
-  diffTime2X,
-  module2Y,
+module GHCSpecter.UI.Components.TimingView
+  ( diffTime2X,
+    module2Y,
 
-  -- * build renderer
-  buildRules,
-  buildTimingChart,
-  buildMemChart,
-  buildTimingRange,
-  buildBlockers,
-) where
+    -- * build renderer
+    buildRules,
+    buildTimingChart,
+    buildMemChart,
+    buildTimingRange,
+    buildBlockers,
+  )
+where
 
 import Control.Lens (to, (%~), (^.), _1, _2)
 import Control.Monad (join)
@@ -20,57 +21,57 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as M
 import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import Data.Semigroup (sconcat)
-import Data.Time.Clock (
-  NominalDiffTime,
-  nominalDiffTimeToSeconds,
-  secondsToNominalDiffTime,
- )
+import Data.Time.Clock
+  ( NominalDiffTime,
+    nominalDiffTimeToSeconds,
+    secondsToNominalDiffTime,
+  )
 import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 import GHCSpecter.Channel.Outbound.Types (MemInfo (..))
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  forwardLookup,
- )
-import GHCSpecter.Data.Timing.Types (
-  HasPipelineInfo (..),
-  HasTimingTable (..),
-  TimingTable,
- )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    forwardLookup,
+  )
+import GHCSpecter.Data.Timing.Types
+  ( HasPipelineInfo (..),
+    HasTimingTable (..),
+    TimingTable,
+  )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive (..),
-  Scene (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
-  polyline,
-  rectangle,
-  viewPortHeight,
- )
-import GHCSpecter.Layouter.Packer (
-  flowLineByLine,
-  toSizedLine,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
-import GHCSpecter.UI.Constants (
-  timingHeight,
-  timingMaxWidth,
-  timingRangeHeight,
-  timingWidth,
- )
-import GHCSpecter.UI.Types (
-  HasTimingUI (..),
-  HasViewPortInfo (..),
-  TimingUI,
- )
-import GHCSpecter.UI.Types.Event (
-  TimingEvent (..),
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive (..),
+    Scene (..),
+    TextFontFace (..),
+    TextPosition (..),
+    ViewPort (..),
+    polyline,
+    rectangle,
+    viewPortHeight,
+  )
+import GHCSpecter.Layouter.Packer
+  ( flowLineByLine,
+    toSizedLine,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingMaxWidth,
+    timingRangeHeight,
+    timingWidth,
+  )
+import GHCSpecter.UI.Types
+  ( HasTimingUI (..),
+    HasViewPortInfo (..),
+    TimingUI,
+  )
+import GHCSpecter.UI.Types.Event
+  ( TimingEvent (..),
+  )
 import Prelude hiding (div)
 
 diffTime2X :: NominalDiffTime -> NominalDiffTime -> Double
@@ -87,12 +88,12 @@ isInRange :: (Int, a) -> (Double, Double) -> Bool
 
 colorCodes :: [Color]
 colorCodes =
-  [ ColorRedLevel5
-  , ColorRedLevel4
-  , ColorRedLevel3
-  , ColorRedLevel2
-  , ColorRedLevel1
-  , ColorRedLevel0
+  [ ColorRedLevel5,
+    ColorRedLevel4,
+    ColorRedLevel3,
+    ColorRedLevel2,
+    ColorRedLevel1,
+    ColorRedLevel0
   ]
 
 buildRules ::
@@ -153,15 +154,15 @@ buildTimingChart drvModMap tui ttable = do
   renderedItems <- concat <$> traverse makeItem filteredItems
   pure
     Scene
-      { sceneId = "timing-chart"
-      , sceneGlobalViewPort = extent
-      , sceneLocalViewPort = extent
-      , sceneElements =
+      { sceneId = "timing-chart",
+        sceneGlobalViewPort = extent,
+        sceneLocalViewPort = extent,
+        sceneElements =
           buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
             ++ renderedItems
             ++ lineToUpstream
-            ++ linesToDownstream
-      , sceneExtents = Just extent
+            ++ linesToDownstream,
+        sceneExtents = Just extent
       }
   where
     extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
@@ -201,9 +202,9 @@ buildTimingChart drvModMap tui ttable = do
             modu <- mmodu
             pure
               HitEvent
-                { hitEventHoverOn = Just (HoverOnModule modu)
-                , hitEventHoverOff = Just (HoverOffModule modu)
-                , hitEventClick = Nothing
+                { hitEventHoverOn = Just (HoverOnModule modu),
+                  hitEventHoverOff = Just (HoverOffModule modu),
+                  hitEventClick = Nothing
                 }
        in rectangle
             (leftOfBox item, module2Y i)
@@ -286,11 +287,11 @@ buildMemChart drvModMap tui ttable = do
   renderedItems <- concat <$> traverse makeItem filteredItems
   pure
     Scene
-      { sceneId = "mem-chart"
-      , sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight)
-      , sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight)
-      , sceneElements = renderedItems
-      , sceneExtents = Nothing
+      { sceneId = "mem-chart",
+        sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight),
+        sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight),
+        sceneElements = renderedItems,
+        sceneExtents = Nothing
       }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -302,12 +303,10 @@ buildMemChart drvModMap tui ttable = do
        in (topLeft vp ^. _2, bottomRight vp ^. _2)
     filteredItems = filter (`isInRange` rangeY) allItems
     alloc2X alloc =
-      let
-        -- ratio to 16 GiB
-        allocRatio :: Double
-        allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
-       in
-        allocRatio * 150
+      let -- ratio to 16 GiB
+          allocRatio :: Double
+          allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
+       in allocRatio * 150
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
     box color lz (i, item) =
       case item ^. _2 . lz . _2 of
@@ -346,11 +345,11 @@ buildTimingRange ::
   Scene (Primitive e)
 buildTimingRange tui ttable =
   Scene
-    { sceneId = "timing-range"
-    , sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
-    , sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
-    , sceneElements = [background, handle]
-    , sceneExtents = Nothing
+    { sceneId = "timing-range",
+      sceneGlobalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight),
+      sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight),
+      sceneElements = [background, handle],
+      sceneExtents = Nothing
     }
   where
     timingInfos = ttable ^. ttableTimingInfos
@@ -404,19 +403,18 @@ buildBlockers hoveredMod ttable = do
   upstreams <- traverse (\t -> toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 t) upMods
   blocking <- toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 "Blocking"
   downstreams <- traverse (\t -> toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 t) downMods
-  let
-    (vp, contentss) =
-      flowLineByLine 0 $
-        selected NE.:| ([line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
-    size = viewPortHeight vp
-    box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
+  let (vp, contentss) =
+        flowLineByLine 0 $
+          selected NE.:| ([line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
+      size = viewPortHeight vp
+      box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
   pure
     Scene
-      { sceneId = "blockers"
-      , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
-      , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-      , sceneElements = box : F.toList (sconcat contentss)
-      , sceneExtents = Nothing
+      { sceneId = "blockers",
+        sceneGlobalViewPort = ViewPort (0, 0) (200, size),
+        sceneLocalViewPort = ViewPort (0, 0) (200, size),
+        sceneElements = box : F.toList (sconcat contentss),
+        sceneExtents = Nothing
       }
   where
     upMods =

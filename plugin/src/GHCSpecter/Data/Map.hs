@@ -1,23 +1,24 @@
-module GHCSpecter.Data.Map (
-  -- * IsKey class
-  IsKey (..),
+module GHCSpecter.Data.Map
+  ( -- * IsKey class
+    IsKey (..),
 
-  -- * KeyMap
-  KeyMap,
-  emptyKeyMap,
-  keyMapToList,
-  lookupKey,
-  insertToKeyMap,
-  alterToKeyMap,
+    -- * KeyMap
+    KeyMap,
+    emptyKeyMap,
+    keyMapToList,
+    lookupKey,
+    insertToKeyMap,
+    alterToKeyMap,
 
-  -- * BiKeyMap
-  BiKeyMap,
-  emptyBiKeyMap,
-  biKeyMapToList,
-  forwardLookup,
-  backwardLookup,
-  insertToBiKeyMap,
-) where
+    -- * BiKeyMap
+    BiKeyMap,
+    emptyBiKeyMap,
+    biKeyMapToList,
+    forwardLookup,
+    backwardLookup,
+    insertToBiKeyMap,
+  )
+where
 
 import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
 import Data.Bifunctor (first)
@@ -59,8 +60,8 @@ alterToKeyMap :: (IsKey k) => (Maybe v -> Maybe v) -> k -> KeyMap k v -> KeyMap 
 alterToKeyMap f k = KeyMap . IM.alter f (fromKey k) . unKeyMap
 
 data BiKeyMap k v = BiKeyMap
-  { forwardMap :: IntMap v
-  , backwardMap :: Map v k
+  { forwardMap :: IntMap v,
+    backwardMap :: Map v k
   }
   deriving (Show, Generic)
 
@@ -85,6 +86,6 @@ insertToBiKeyMap (k, v) m =
   let fwdmap = forwardMap m
       bwdmap = backwardMap m
    in m
-        { forwardMap = IM.insert (fromKey k) v fwdmap
-        , backwardMap = M.insert v k bwdmap
+        { forwardMap = IM.insert (fromKey k) v fwdmap,
+          backwardMap = M.insert v k bwdmap
         }

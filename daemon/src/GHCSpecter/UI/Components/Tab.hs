@@ -1,38 +1,39 @@
-module GHCSpecter.UI.Components.Tab (
-  TabConfig (..),
-  buildTab,
-) where
+module GHCSpecter.UI.Components.Tab
+  ( TabConfig (..),
+    buildTab,
+  )
+where
 
 import Data.Foldable qualified as F
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive (..),
-  Scene (..),
-  TextFontFace (..),
-  TextPosition (..),
-  ViewPort (..),
-  getLeastUpperBoundingBox,
-  polyline,
-  rectangle,
-  viewPortWidth,
- )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive (..),
+    Scene (..),
+    TextFontFace (..),
+    TextPosition (..),
+    ViewPort (..),
+    getLeastUpperBoundingBox,
+    polyline,
+    rectangle,
+    viewPortWidth,
+  )
 import GHCSpecter.Layouter.Packer (flowInline)
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
 import Safe (atMay)
 
 data TabConfig tab = TabConfig
-  { tabCfgId :: Text
-  , tabCfgWidth :: Double
-  , tabCfgHeight :: Double
-  , tabCfgItems :: [(tab, Text)]
+  { tabCfgId :: Text,
+    tabCfgWidth :: Double,
+    tabCfgHeight :: Double,
+    tabCfgItems :: [(tab, Text)]
   }
 
 buildTab ::
@@ -55,11 +56,11 @@ buildTab cfg mtab = do
       rexp = renderedTabItems
   pure
     Scene
-      { sceneId = tabCfgId cfg
-      , sceneGlobalViewPort = vp
-      , sceneLocalViewPort = vp
-      , sceneElements = rexp
-      , sceneExtents = Nothing
+      { sceneId = tabCfgId cfg,
+        sceneGlobalViewPort = vp,
+        sceneLocalViewPort = vp,
+        sceneElements = rexp,
+        sceneExtents = Nothing
       }
   where
     height = tabCfgHeight cfg
@@ -73,9 +74,9 @@ buildTab cfg mtab = do
     mkTab (_, (tab, txt)) = do
       let hitEvent =
             HitEvent
-              { hitEventHoverOn = Nothing
-              , hitEventHoverOff = Nothing
-              , hitEventClick = Just (Right tab)
+              { hitEventHoverOn = Nothing,
+                hitEventHoverOff = Nothing,
+                hitEventClick = Just (Right tab)
               }
       renderedText <- drawText' (5, 2) UpperLeft Sans Black fontSize txt
       let bbox = primBoundingBox renderedText
@@ -90,10 +91,10 @@ buildTab cfg mtab = do
           let ViewPort (x0, _y0) (x1, _y1) = getLeastUpperBoundingBox e
            in polyline
                 (0, height)
-                [ (x0, height)
-                , (x0, 1)
-                , (x1, 1)
-                , (x1, height)
+                [ (x0, height),
+                  (x0, 1),
+                  (x1, 1),
+                  (x1, height)
                 ]
                 (end, height)
                 Black

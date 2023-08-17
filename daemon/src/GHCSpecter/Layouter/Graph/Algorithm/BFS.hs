@@ -1,29 +1,30 @@
 {-# LANGUAGE BangPatterns #-}
 
 -- | Breadth-First-Search (BFS)
-module GHCSpecter.Layouter.Graph.Algorithm.BFS (
-  -- * internal state for BFS
-  BFSState (..),
-  BFSPath (..),
-  MultiBFSPath (..),
+module GHCSpecter.Layouter.Graph.Algorithm.BFS
+  ( -- * internal state for BFS
+    BFSState (..),
+    BFSPath (..),
+    MultiBFSPath (..),
 
-  -- * single-seed use case
-  stepBFS,
-  runStagedBFS,
+    -- * single-seed use case
+    stepBFS,
+    runStagedBFS,
 
-  -- * multi-seed use case
-  stepMultiseedBFS,
-  runMultiseedStagedBFS,
-) where
+    -- * multi-seed use case
+    stepMultiseedBFS,
+    runMultiseedStagedBFS,
+  )
+where
 
 import Control.Monad (join)
 import Control.Monad.Extra (loopM)
-import Control.Monad.Trans.State (
-  StateT (..),
-  evalStateT,
-  get,
-  modify',
- )
+import Control.Monad.Trans.State
+  ( StateT (..),
+    evalStateT,
+    get,
+    modify',
+  )
 import Data.Bifunctor (bimap)
 import Data.Either (partitionEithers)
 import Data.Foldable qualified as F
@@ -48,12 +49,12 @@ newtype BFSState = BFSState
 -- Therefore, note that this BFSPath type is a temporary data and only
 -- bfsSearchResult :: [[Int]] is the final result.
 data BFSPath = BFSPath
-  { bfsSearchResult :: ![[Int]]
-  -- ^ Result of BFS search. Each nested list item is the searched vertices in each stage.
-  , bfsNextStage :: ![Int]
-  -- ^ The plan for the next search.
-  , bfsWhiteList :: Maybe [Int]
-  -- ^ when Just, the vertices in the staged plan should be included in this white list
+  { -- | Result of BFS search. Each nested list item is the searched vertices in each stage.
+    bfsSearchResult :: ![[Int]],
+    -- | The plan for the next search.
+    bfsNextStage :: ![Int],
+    -- | when Just, the vertices in the staged plan should be included in this white list
+    bfsWhiteList :: Maybe [Int]
   }
   deriving (Show)
 
@@ -110,8 +111,8 @@ runStagedBFS hook graph seed = evalStateT (loopM go startPath) startState
       pure e
 
 data MultiBFSPath = MultiBFSPath
-  { mbfsSearchResultDone :: [(Int, [[Int]])]
-  , mbfsSearchResultInProgress :: [(Int, BFSPath)]
+  { mbfsSearchResultDone :: [(Int, [[Int]])],
+    mbfsSearchResultInProgress :: [(Int, BFSPath)]
   }
 
 stepMultiseedBFS ::

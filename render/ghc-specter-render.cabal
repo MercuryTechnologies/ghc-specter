@@ -1,5 +1,4 @@
 cabal-version: 3.0
-
 name:           ghc-specter-render
 version:        0.1.0.0
 synopsis:       render primitives independent of backend
@@ -23,7 +22,7 @@ library
       GHCSpecter.Graphics.DSL
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wunused-packages
   build-depends:
       base >= 4.15 && <5,
       text

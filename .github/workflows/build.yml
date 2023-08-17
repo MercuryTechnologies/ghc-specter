@@ -5,7 +5,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-22.04, macos-12 ]
-        ghc: [ "ghc942", "ghc924" ]
+        ghc: [ "ghc962" ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -35,7 +35,8 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v3
-      # fourmolu-0.10.1.0
-      - uses: fourmolu/fourmolu-action@v6
+      # ormolu-0.5.0.1
+      - uses: mrkkrp/ormolu-action@v14
         with:
-          extra-args: "--no-cabal -o -XGHC2021"
+          version: 0.5.0.1
+          extra-args: --no-cabal -o -XGHC2021

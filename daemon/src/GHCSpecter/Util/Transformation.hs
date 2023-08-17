@@ -1,26 +1,27 @@
-module GHCSpecter.Util.Transformation (
-  isValid,
+module GHCSpecter.Util.Transformation
+  ( isValid,
 
-  -- * transformation function for viewport
-  transformScroll,
-  transformZoom,
-  translateToOrigin,
+    -- * transformation function for viewport
+    transformScroll,
+    transformZoom,
+    translateToOrigin,
 
-  -- * hit test
-  hitScene,
-  hitItem,
-) where
+    -- * hit test
+    hitScene,
+    hitItem,
+  )
+where
 
 import Data.List qualified as L
-import GHCSpecter.Graphics.DSL (
-  EventMap,
-  HitEvent,
-  ViewPort (..),
-  eventMapElements,
-  eventMapGlobalViewPort,
-  eventMapLocalViewPort,
-  isInside,
- )
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    HitEvent,
+    ViewPort (..),
+    eventMapElements,
+    eventMapGlobalViewPort,
+    eventMapLocalViewPort,
+    isInside,
+  )
 import GHCSpecter.UI.Types.Event (ScrollDirection (..))
 
 isValid :: ViewPort -> Bool

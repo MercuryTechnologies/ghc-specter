@@ -8,4 +8,4 @@ build:
 
 .PHONY: format
 format:
-	find . -name "*.hs" -exec fourmolu -i -o -XGHC2021 {} \;
+	find . -name "*.hs" -exec ormolu -i -o -XGHC2021 {} \;

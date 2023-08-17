@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Console (
-  buildConsoleTab,
-  buildConsoleHelp,
-  buildConsoleMain,
-  buildConsoleInput,
-) where
+module GHCSpecter.UI.Console
+  ( buildConsoleTab,
+    buildConsoleHelp,
+    buildConsoleMain,
+    buildConsoleInput,
+  )
+where
 
 import Control.Lens ((^.), _1)
 import Control.Monad (join)
@@ -17,41 +18,41 @@ import Data.Semigroup (sconcat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (drawTree)
-import GHCSpecter.Data.Map (
-  IsKey (..),
-  KeyMap,
-  lookupKey,
- )
-import GHCSpecter.Graphics.DSL (
-  Color (..),
-  HitEvent (..),
-  Primitive (..),
-  Scene (..),
-  TextFontFace (Mono, Sans),
-  TextPosition (..),
-  ViewPort (..),
-  rectangle,
-  viewPortHeight,
-  viewPortWidth,
- )
-import GHCSpecter.Layouter.Packer (
-  flowInline,
-  flowLineByLine,
-  toSizedLine,
- )
-import GHCSpecter.Layouter.Text (
-  MonadTextLayout,
-  drawText',
- )
+import GHCSpecter.Data.Map
+  ( IsKey (..),
+    KeyMap,
+    lookupKey,
+  )
+import GHCSpecter.Graphics.DSL
+  ( Color (..),
+    HitEvent (..),
+    Primitive (..),
+    Scene (..),
+    TextFontFace (Mono, Sans),
+    TextPosition (..),
+    ViewPort (..),
+    rectangle,
+    viewPortHeight,
+    viewPortWidth,
+  )
+import GHCSpecter.Layouter.Packer
+  ( flowInline,
+    flowLineByLine,
+    toSizedLine,
+  )
+import GHCSpecter.Layouter.Text
+  ( MonadTextLayout,
+    drawText',
+  )
 import GHCSpecter.Server.Types (ConsoleItem (..))
-import GHCSpecter.UI.Components.Tab (
-  TabConfig (..),
-  buildTab,
- )
-import GHCSpecter.UI.Constants (
-  canvasDim,
-  consoleInputHeight,
- )
+import GHCSpecter.UI.Components.Tab
+  ( TabConfig (..),
+    buildTab,
+  )
+import GHCSpecter.UI.Constants
+  ( canvasDim,
+    consoleInputHeight,
+  )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
 
@@ -74,10 +75,10 @@ buildConsoleTab tabs mfocus =
   where
     tabCfg =
       TabConfig
-        { tabCfgId = "console-tab"
-        , tabCfgWidth = canvasDim ^. _1
-        , tabCfgHeight = 15
-        , tabCfgItems = tabs
+        { tabCfgId = "console-tab",
+          tabCfgWidth = canvasDim ^. _1,
+          tabCfgHeight = 15,
+          tabCfgItems = tabs
         }
 
 buildConsoleHelp ::
@@ -96,11 +97,11 @@ buildConsoleHelp getHelp mfocus = do
       size = viewPortHeight vp
   pure
     Scene
-      { sceneId = "console-help"
-      , sceneGlobalViewPort = ViewPort (0, 0) (200, size)
-      , sceneLocalViewPort = ViewPort (0, 0) (200, size)
-      , sceneElements = contents
-      , sceneExtents = Nothing
+      { sceneId = "console-help",
+        sceneGlobalViewPort = ViewPort (0, 0) (200, size),
+        sceneLocalViewPort = ViewPort (0, 0) (200, size),
+        sceneElements = contents,
+        sceneExtents = Nothing
       }
   where
     mhelp = getHelp <$> mfocus
@@ -108,9 +109,9 @@ buildConsoleHelp getHelp mfocus = do
     renderItem (Left (txt, ev)) = do
       let hitEvent =
             HitEvent
-              { hitEventHoverOn = Nothing
-              , hitEventHoverOff = Nothing
-              , hitEventClick = Just (Right ev)
+              { hitEventHoverOn = Nothing,
+                hitEventHoverOff = Nothing,
+                hitEventClick = Just (Right ev)
               }
       itm <- drawText' (0, 0) UpperLeft Mono Black 8 txt
       let bbox = primBoundingBox itm
@@ -153,9 +154,9 @@ buildConsoleItem (ConsoleButton buttonss) = do
     mkButton (label, cmd) = do
       let hitEvent =
             HitEvent
-              { hitEventHoverOn = Nothing
-              , hitEventHoverOff = Nothing
-              , hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
+              { hitEventHoverOn = Nothing,
+                hitEventHoverOff = Nothing,
+                hitEventClick = Just (Right (ConsoleButtonPressed False cmd))
               }
       itm <- drawText' (0, 0) UpperLeft Mono Black 8 label
       let bbox = primBoundingBox itm
@@ -187,11 +188,11 @@ buildConsoleMain contents mfocus = do
   let (extent, rendered) = flowLineByLine 0 contentss
   pure
     Scene
-      { sceneId = "console-main"
-      , sceneGlobalViewPort = extent
-      , sceneLocalViewPort = extent
-      , sceneElements = F.toList $ sconcat rendered
-      , sceneExtents = Just extent
+      { sceneId = "console-main",
+        sceneGlobalViewPort = extent,
+        sceneLocalViewPort = extent,
+        sceneElements = F.toList $ sconcat rendered,
+        sceneExtents = Just extent
       }
   where
     mtxts = mfocus >>= (`lookupKey` contents)
@@ -205,9 +206,9 @@ buildConsoleInput inputEntry = do
   rendered <- drawText' (0, 0) UpperLeft Mono Black 8 inputEntry
   pure
     Scene
-      { sceneId = "console-input"
-      , sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-      , sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight)
-      , sceneElements = [rendered]
-      , sceneExtents = Nothing
+      { sceneId = "console-input",
+        sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight),
+        sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight),
+        sceneElements = [rendered],
+        sceneExtents = Nothing
       }

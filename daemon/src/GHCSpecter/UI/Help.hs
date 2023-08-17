@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.UI.Help (
-  -- * list of allowed console commands
-  consoleCommandList,
-) where
+module GHCSpecter.UI.Help
+  ( -- * list of allowed console commands
+    consoleCommandList,
+  )
+where
 
 import Data.Text (Text)
 import GHCSpecter.Channel.Outbound.Types (BreakpointLoc (..))

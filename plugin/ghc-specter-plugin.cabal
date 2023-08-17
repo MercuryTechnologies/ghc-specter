@@ -1,21 +1,14 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.35.0.
---
--- see: https://github.com/sol/hpack
-
+cabal-version:  3.0
 name:           ghc-specter-plugin
-version:        0.1.0.0
+version:        1.0.0.0
 synopsis:       GHC pipeline inspecter plugin
 description:    Please see the README on GitHub at <https://github.com/MercuryTechnologies/ghc-specter#readme>
 category:       Development
 homepage:       https://github.com/MercuryTechnologies/ghc-specter#readme
 bug-reports:    https://github.com/MercuryTechnologies/ghc-specter/issues
-author:         Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
-maintainer:     Rebecca Turner <rebeccat@mercury.com>,
-                Ian-Woo Kim <iank@mercury.com>
-copyright:      © 2022 Mercury Inc. All rights reserved.
+author:         Ian-Woo Kim <ianwookim@gmail.com>
+maintainer:     Ian-Woo Kim <ianwookim@gmail.com>
+copyright:      © 2022-2023 Mercury Inc. All rights reserved.
 build-type:     Simple
 extra-source-files:
     README.md
@@ -47,7 +40,7 @@ library
       Paths_ghc_specter_plugin
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wunused-packages
   build-depends:
       aeson
     , base >=4.15 && <5
@@ -56,17 +49,15 @@ library
     , bytestring
     , containers
     , directory
-    , discrimination
     , errors
     , extra
-    , ghc-debug-stub
+    -- , ghc-debug-stub
     , network
     , process
     , safe
     , stm
     , text
     , time
-    , transformers
     , yaml
   default-language: GHC2021
   if impl (ghc >= 9.7)
@@ -79,13 +70,3 @@ library
         ghc ==9.6.*
     hs-source-dirs:
         src-ghc96
-  if impl (ghc >= 9.4) && impl (ghc < 9.5)
-    build-depends:
-        ghc ==9.4.*
-    hs-source-dirs:
-        src-ghc94
-  if impl (ghc >= 9.2) && impl (ghc < 9.3)
-    build-depends:
-        ghc ==9.2.*
-    hs-source-dirs:
-        src-ghc92

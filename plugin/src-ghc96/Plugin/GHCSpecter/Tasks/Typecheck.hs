@@ -1,13 +1,14 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Plugin.GHCSpecter.Tasks.Typecheck (
-  fetchUnqualifiedImports,
-  showRenamed,
-  showRnSplice,
-  showSpliceExpr,
-  showSpliceResult,
-) where
+module Plugin.GHCSpecter.Tasks.Typecheck
+  ( fetchUnqualifiedImports,
+    showRenamed,
+    showRnSplice,
+    showSpliceExpr,
+    showSpliceResult,
+  )
+where
 
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (readIORef)
@@ -25,16 +26,16 @@ import GHC.Plugins (Name)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
 import GHC.Types.Name.Reader (GlobalRdrElt (..))
 import GHC.Utils.Outputable (Outputable)
-import GHCSpecter.Channel.Common.Types (
-  type ModuleName,
- )
+import GHCSpecter.Channel.Common.Types
+  ( type ModuleName,
+  )
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (
-  formatImportedNames,
-  formatName,
-  mkModuleNameMap,
-  showPpr,
- )
+import GHCSpecter.Util.GHC
+  ( formatImportedNames,
+    formatName,
+    mkModuleNameMap,
+    showPpr,
+  )
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (HsUntypedSplice, LHsExpr)
 

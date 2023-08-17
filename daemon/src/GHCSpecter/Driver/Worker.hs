@@ -1,13 +1,14 @@
-module GHCSpecter.Driver.Worker (
-  runWorkQueue,
-) where
+module GHCSpecter.Driver.Worker
+  ( runWorkQueue,
+  )
+where
 
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.STM (
-  TQueue,
-  atomically,
-  readTQueue,
- )
+import Control.Concurrent.STM
+  ( TQueue,
+    atomically,
+    readTQueue,
+  )
 
 runWorkQueue :: TQueue (IO ()) -> IO ()
 runWorkQueue workQ = go 0

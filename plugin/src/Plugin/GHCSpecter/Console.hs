@@ -1,21 +1,22 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Plugin.GHCSpecter.Console (
-  -- * entry point to console when paused
-  breakPoint,
-) where
+module Plugin.GHCSpecter.Console
+  ( -- * entry point to console when paused
+    breakPoint,
+  )
+where
 
 import Control.Concurrent (forkIO, killThread)
-import Control.Concurrent.STM (
-  TVar,
-  atomically,
-  modifyTVar',
-  newTVarIO,
-  readTVar,
-  retry,
-  writeTVar,
- )
+import Control.Concurrent.STM
+  ( TVar,
+    atomically,
+    modifyTVar',
+    newTVarIO,
+    readTVar,
+    retry,
+    writeTVar,
+  )
 import Control.Concurrent.STM qualified as STM
 import Control.Monad (forever, when)
 import Control.Monad.Extra (loopM)
@@ -25,27 +26,26 @@ import Data.List qualified as L
 import Data.Maybe (isNothing)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
-import GHC.Debug.Stub qualified as Debug
 import GHCSpecter.Channel.Common.Types (DriverId)
-import GHCSpecter.Channel.Inbound.Types (
-  ConsoleRequest (..),
- )
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc (..),
-  ChanMessage (..),
-  ConsoleReply (..),
-  SessionInfo (..),
- )
+import GHCSpecter.Channel.Inbound.Types
+  ( ConsoleRequest (..),
+  )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc (..),
+    ChanMessage (..),
+    ConsoleReply (..),
+    SessionInfo (..),
+  )
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Tasks (CommandSet (..))
-import Plugin.GHCSpecter.Types (
-  ConsoleState (..),
-  MsgQueue (..),
-  PluginSession (..),
-  getModuleFromDriverId,
-  getMsgQueue,
-  sessionRef,
- )
+import Plugin.GHCSpecter.Types
+  ( ConsoleState (..),
+    MsgQueue (..),
+    PluginSession (..),
+    getModuleFromDriverId,
+    getMsgQueue,
+    sessionRef,
+  )
 
 consoleAction ::
   MonadIO m =>
@@ -70,8 +70,8 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
                 pure req
               else retry
     let doCommand cmdStr chkLoc cmdDesc args
-          | chkLoc loc
-          , Just cmd <- L.lookup cmdStr (unCommandSet cmds) = do
+          | chkLoc loc,
+            Just cmd <- L.lookup cmdStr (unCommandSet cmds) = do
               let action = liftIO . reply =<< cmd args
               atomically $
                 writeTVar actionRef (Just action)
@@ -107,17 +107,20 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
         doCommand ":print-core" (\case Core2Core _ -> True; _ -> False) "print core" args
       DumpHeap -> do
         putStrLn "Dump-Heap"
-        isInGhcDebug <-
-          atomically $ do
-            b <- psIsInGhcDebug <$> readTVar sessionRef
-            when (not b) $
-              modifyTVar' sessionRef (\ps -> ps {psIsInGhcDebug = True})
-            pure b
-        when (not isInGhcDebug) $ do
-          Debug.withGhcDebug $ do
-            atomically $ do
-              isInGhcDebug' <- psIsInGhcDebug <$> readTVar sessionRef
-              when isInGhcDebug' retry
+        {-
+                _isInGhcDebug <-
+                  atomically $ do
+                    b <- psIsInGhcDebug <$> readTVar sessionRef
+                    when (not b) $
+                      modifyTVar' sessionRef (\ps -> ps {psIsInGhcDebug = True})
+                    pure b
+
+                when (not isInGhcDebug) $ do
+                  Debug.withGhcDebug $ do
+                    atomically $ do
+                      isInGhcDebug' <- psIsInGhcDebug <$> readTVar sessionRef
+                      when isInGhcDebug' retry
+        -}
         reply $ ConsoleReplyText Nothing "Dump-Heap-finished"
   where
     reply = queueMessage . CMConsole drvId

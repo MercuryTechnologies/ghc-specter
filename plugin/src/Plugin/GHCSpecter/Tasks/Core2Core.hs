@@ -1,22 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Plugin.GHCSpecter.Tasks.Core2Core (
-  listCore,
-  printCore,
-) where
+module Plugin.GHCSpecter.Tasks.Core2Core
+  ( listCore,
+    printCore,
+    --
+    getContent,
+  )
+where
 
 import Control.Error.Util (note)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Short qualified as SB
 import Data.Data (Data (..), cast, dataTypeName)
-import Data.Functor.Const (Const (..))
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Tree (Tree (..))
 import Data.Typeable (Typeable)
 import GHC.Core (Bind (NonRec, Rec))
 import GHC.Core.Class (Class)
@@ -34,12 +35,12 @@ import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (
-  ModuleName,
-  moduleNameString,
-  printPpr,
-  showPpr,
- )
+import GHCSpecter.Util.GHC
+  ( ModuleName,
+    moduleNameString,
+    printPpr,
+    showPpr,
+  )
 
 getOccNameDynamically ::
   forall t a.
@@ -121,16 +122,6 @@ getContent dflags x = (T.pack dtypName, evalue)
       | dtypName == "Var" = Right $ getNameDynamically (Proxy @Var) dflags x
       | otherwise = Left (T.pack (show (toConstr x)))
 
-core2tree :: forall a. Data a => DynFlags -> a -> Tree (Text, Text)
-core2tree dflags a =
-  case getContent dflags a of
-    (typ, Left val) -> Node (typ, val) (getConst (gfoldl k z a))
-    (typ, Right (Just val)) -> Node (typ, val) []
-    (typ, Right Nothing) -> Node (typ, "#######") []
-  where
-    z _ = Const []
-    k (Const acc) x = Const (acc ++ [core2tree dflags x])
-
 listCore :: ModGuts -> CoreM ConsoleReply
 listCore guts = do
   dflags <- getDynFlags
@@ -151,17 +142,16 @@ listCore guts = do
 printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
 printCore guts args = do
   dflags <- getDynFlags
-  let
-    -- check whether a bind is requested by user
-    isReq (NonRec t _) =
-      let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
-       in name `L.elem` args
-    isReq (Rec bs) =
-      let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
-       in not (null (names `L.intersect` args))
-    binds = mg_binds guts
-    binds' = filter isReq binds
-    txt = T.pack (showPpr dflags binds')
+  let -- check whether a bind is requested by user
+      isReq (NonRec t _) =
+        let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+         in name `L.elem` args
+      isReq (Rec bs) =
+        let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
+         in not (null (names `L.intersect` args))
+      binds = mg_binds guts
+      binds' = filter isReq binds
+      txt = T.pack (showPpr dflags binds')
   -- for debug
   mapM_ (liftIO . printPpr dflags) binds'
   pure (ConsoleReplyText (Just "core") txt)

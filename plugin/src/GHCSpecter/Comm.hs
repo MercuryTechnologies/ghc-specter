@@ -1,14 +1,15 @@
 {-# LANGUAGE BangPatterns #-}
 
-module GHCSpecter.Comm (
-  Message (..),
-  runServer,
-  runClient,
-  sendMessage,
-  receiveMessage,
-  sendObject,
-  receiveObject,
-) where
+module GHCSpecter.Comm
+  ( Message (..),
+    runServer,
+    runClient,
+    sendMessage,
+    receiveMessage,
+    sendObject,
+    receiveObject,
+  )
+where
 
 import Control.Concurrent (forkFinally)
 import Control.Exception qualified as E
@@ -18,21 +19,21 @@ import Data.ByteString.Char8 qualified as C
 import Data.ByteString.Lazy.Char8 qualified as CL
 import Data.Foldable (for_)
 import Data.Word (Word32)
-import Network.Socket (
-  Family (AF_UNIX),
-  SockAddr (SockAddrUnix),
-  Socket,
-  SocketType (Stream),
-  accept,
-  bind,
-  close,
-  connect,
-  gracefulClose,
-  listen,
-  maxListenQueue,
-  socket,
-  withSocketsDo,
- )
+import Network.Socket
+  ( Family (AF_UNIX),
+    SockAddr (SockAddrUnix),
+    Socket,
+    SocketType (Stream),
+    accept,
+    bind,
+    close,
+    connect,
+    gracefulClose,
+    listen,
+    maxListenQueue,
+    socket,
+    withSocketsDo,
+  )
 import Network.Socket.ByteString (recv, sendAll)
 
 newtype Message = Message {unMessage :: C.ByteString}

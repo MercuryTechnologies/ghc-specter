@@ -1,19 +1,20 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Driver.Comm (
-  listener,
-) where
+module GHCSpecter.Driver.Comm
+  ( listener,
+  )
+where
 
 import Control.Concurrent (forkIO)
-import Control.Concurrent.STM (
-  TQueue,
-  TVar,
-  atomically,
-  modifyTVar',
-  readTChan,
-  readTVar,
- )
+import Control.Concurrent.STM
+  ( TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+    readTChan,
+    readTVar,
+  )
 import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
@@ -22,41 +23,41 @@ import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types (
-  ChanMessage (..),
-  ChanMessageBox (..),
-  Channel (..),
-  ConsoleReply (..),
-  SessionInfo (..),
-  Timer (..),
- )
-import GHCSpecter.Comm (
-  receiveObject,
-  runServer,
-  sendObject,
- )
-import GHCSpecter.Data.Map (
-  alterToKeyMap,
-  forwardLookup,
-  insertToBiKeyMap,
- )
-import GHCSpecter.Driver.Session.Types (
-  HasServerSession (..),
-  ServerSession (..),
- )
-import GHCSpecter.Server.Types (
-  ConsoleItem (..),
-  HasModuleGraphState (..),
-  HasServerState (..),
-  HasTimingState (..),
-  ServerState (..),
-  SupplementaryView (..),
-  incrementSN,
- )
-import GHCSpecter.Worker.Hie (
-  hieWorker,
-  moduleSourceWorker,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ChanMessage (..),
+    ChanMessageBox (..),
+    Channel (..),
+    ConsoleReply (..),
+    SessionInfo (..),
+    Timer (..),
+  )
+import GHCSpecter.Comm
+  ( receiveObject,
+    runServer,
+    sendObject,
+  )
+import GHCSpecter.Data.Map
+  ( alterToKeyMap,
+    forwardLookup,
+    insertToBiKeyMap,
+  )
+import GHCSpecter.Driver.Session.Types
+  ( HasServerSession (..),
+    ServerSession (..),
+  )
+import GHCSpecter.Server.Types
+  ( ConsoleItem (..),
+    HasModuleGraphState (..),
+    HasServerState (..),
+    HasTimingState (..),
+    ServerState (..),
+    SupplementaryView (..),
+    incrementSN,
+  )
+import GHCSpecter.Worker.Hie
+  ( hieWorker,
+    moduleSourceWorker,
+  )
 import GHCSpecter.Worker.ModuleGraph (moduleGraphWorker)
 
 updateInbox :: ChanMessageBox -> ServerState -> ServerState
