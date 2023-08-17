@@ -39,3 +39,4 @@ jobs:
       - uses: mrkkrp/ormolu-action@v14
         with:
           version: 0.5.0.1
+          extra-args: --no-cabal -o -XGHC2021
