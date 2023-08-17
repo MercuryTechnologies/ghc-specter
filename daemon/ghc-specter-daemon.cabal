@@ -82,6 +82,7 @@ library
     , ghc
     , ghc-specter-plugin
     , ghc-specter-render
+    , haskeline
     , indexed
     , indexed-free
     , lens

@@ -22,7 +22,7 @@ data Config = Config
 -- | default configuration
 -- NOTE: non-trivial default value: cluster size = 150.
 emptyConfig :: Config
-emptyConfig = Config "/tmp/ghc-specter.ipc" "" 0 False {- True -} 65 -- 150
+emptyConfig = Config "/tmp/ghc-specter.ipc" "" 0 True 65 -- 150
 
 defaultGhcSpecterConfigFile :: FilePath
 defaultGhcSpecterConfigFile = "ghc-specter.yaml"
