@@ -59,19 +59,19 @@ instance A.FromJSON Event where
       "event" ->
         Event
           <$> o
-            .: "eventType"
+          .: "eventType"
           <*> o
-            .: "event"
+          .: "event"
           <*> o
-            .: "path"
+          .: "path"
           <*> o
-            .: "clientFrame"
+          .: "clientFrame"
       "call" ->
         CallCallback
           <$> o
-            .: "arg"
+          .: "arg"
           <*> o
-            .: "id"
+          .: "id"
       _ -> fail "Expected \"type\" == \"event\" | \"call\""
   parseJSON _ = fail "Expected object"
 

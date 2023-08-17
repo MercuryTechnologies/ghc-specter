@@ -2,12 +2,13 @@
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
-module Plugin.GHCSpecter (
-  -- * main plugin entry point
+module Plugin.GHCSpecter
+  ( -- * main plugin entry point
 
-  -- NOTE: The name "plugin" should be used as a GHC plugin.
-  plugin,
-) where
+    -- NOTE: The name "plugin" should be used as a GHC plugin.
+    plugin,
+  )
+where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
@@ -22,40 +23,40 @@ import GHC.Driver.Hooks (Hooks (..))
 import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
 import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
-import GHC.Tc.Types (
-  TcGblEnv (..),
-  TcM,
-  TcPlugin (..),
-  TcPluginSolveResult (TcPluginOk),
-  unsafeTcPluginTcM,
- )
+import GHC.Tc.Types
+  ( TcGblEnv (..),
+    TcM,
+    TcPlugin (..),
+    TcPluginSolveResult (TcPluginOk),
+    unsafeTcPluginTcM,
+  )
 import GHC.Types.Unique.FM (emptyUFM)
 import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types (
-  BreakpointLoc (..),
-  ChanMessage (..),
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( BreakpointLoc (..),
+    ChanMessage (..),
+  )
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
 import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
-import Plugin.GHCSpecter.Hooks (
-  runMetaHook',
-  runPhaseHook',
-  runRnSpliceHook',
- )
+import Plugin.GHCSpecter.Hooks
+  ( runMetaHook',
+    runPhaseHook',
+    runRnSpliceHook',
+  )
 import Plugin.GHCSpecter.Init (initGhcSession)
-import Plugin.GHCSpecter.Tasks (
-  core2coreCommands,
-  emptyCommandSet,
-  parsedResultActionCommands,
-  renamedResultActionCommands,
-  spliceRunActionCommands,
-  typecheckResultActionCommands,
- )
+import Plugin.GHCSpecter.Tasks
+  ( core2coreCommands,
+    emptyCommandSet,
+    parsedResultActionCommands,
+    renamedResultActionCommands,
+    spliceRunActionCommands,
+    typecheckResultActionCommands,
+  )
 import Safe (headMay, readMay)
 import System.Directory (canonicalizePath)
 
@@ -122,16 +123,16 @@ typecheckPlugin opts =
               drvId
               TypecheckInit
               emptyCommandSet
-            pure ()
-      , tcPluginSolve = \_ _ _ _ ->
+            pure (),
+        tcPluginSolve = \_ _ _ _ ->
           unsafeTcPluginTcM $ do
             breakPoint
               drvId
               TypecheckSolve
               emptyCommandSet
-            pure (TcPluginOk [] [])
-      , tcPluginRewrite = \_ -> emptyUFM
-      , tcPluginStop = \_ ->
+            pure (TcPluginOk [] []),
+        tcPluginRewrite = \_ -> emptyUFM,
+        tcPluginStop = \_ ->
           unsafeTcPluginTcM $ do
             breakPoint
               drvId
@@ -205,21 +206,21 @@ driver opts env0 = do
   -- TODO: intefaceLoadAction plugin (interfere with driverPlugin due to withPlugin)
   let newPlugin =
         plugin
-          { installCoreToDos = corePlugin
-          , parsedResultAction = parsedResultActionPlugin
-          , renamedResultAction = renamedResultActionPlugin
-          , spliceRunAction = spliceRunActionPlugin
-          , tcPlugin = typecheckPlugin
-          , typeCheckResultAction = typeCheckResultActionPlugin
+          { installCoreToDos = corePlugin,
+            parsedResultAction = parsedResultActionPlugin,
+            renamedResultAction = renamedResultActionPlugin,
+            spliceRunAction = spliceRunActionPlugin,
+            tcPlugin = typecheckPlugin,
+            typeCheckResultAction = typeCheckResultActionPlugin
           }
       splugin = StaticPlugin (PluginWithArgs newPlugin opts)
       env = env0 {hsc_plugins = (hsc_plugins env0) {staticPlugins = [splugin]}}
   let hooks = hsc_hooks env
       hooks' =
         hooks
-          { runRnSpliceHook = Just runRnSpliceHook'
-          , runMetaHook = Just runMetaHook'
-          , runPhaseHook = Just runPhaseHook'
+          { runRnSpliceHook = Just runRnSpliceHook',
+            runMetaHook = Just runMetaHook',
+            runPhaseHook = Just runPhaseHook'
           }
       env' = env {hsc_hooks = hooks'}
   pure env'

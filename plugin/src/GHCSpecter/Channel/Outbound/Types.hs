@@ -2,30 +2,31 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
 
-module GHCSpecter.Channel.Outbound.Types (
-  -- * information types
-  BreakpointLoc (..),
-  TimerTag (..),
-  MemInfo (..),
-  Timer (..),
-  getStart,
-  getHscOut,
-  getAs,
-  getEnd,
-  ModuleGraphInfo (..),
-  emptyModuleGraphInfo,
-  ConsoleReply (..),
-  ProcessInfo (..),
-  GhcMode (..),
-  Backend (..),
-  SessionInfo (..),
-  emptySessionInfo,
+module GHCSpecter.Channel.Outbound.Types
+  ( -- * information types
+    BreakpointLoc (..),
+    TimerTag (..),
+    MemInfo (..),
+    Timer (..),
+    getStart,
+    getHscOut,
+    getAs,
+    getEnd,
+    ModuleGraphInfo (..),
+    emptyModuleGraphInfo,
+    ConsoleReply (..),
+    ProcessInfo (..),
+    GhcMode (..),
+    Backend (..),
+    SessionInfo (..),
+    emptySessionInfo,
 
-  -- * channel
-  Channel (..),
-  ChanMessage (..),
-  ChanMessageBox (..),
-) where
+    -- * channel
+    Channel (..),
+    ChanMessage (..),
+    ChanMessageBox (..),
+  )
+where
 
 import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Binary (Binary (..))
@@ -40,10 +41,10 @@ import Data.Tree (Forest)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.RTS.Flags (RTSFlags)
-import GHCSpecter.Channel.Common.Types (
-  DriverId (..),
-  type ModuleName,
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Data.GHC.Orphans ()
 
 data Channel
@@ -108,8 +109,8 @@ instance Binary TimerTag where
   get = toEnum <$> get
 
 data MemInfo = MemInfo
-  { memLiveBytes :: Word64
-  , memAllocCounter :: Int64
+  { memLiveBytes :: Word64,
+    memAllocCounter :: Int64
   }
   deriving (Show, Generic)
 
@@ -147,9 +148,9 @@ data ConsoleReply
 instance Binary ConsoleReply
 
 data ModuleGraphInfo = ModuleGraphInfo
-  { mginfoModuleNameMap :: IntMap ModuleName
-  , mginfoModuleDep :: IntMap [Int]
-  , mginfoModuleTopSorted :: [Int]
+  { mginfoModuleNameMap :: IntMap ModuleName,
+    mginfoModuleDep :: IntMap [Int],
+    mginfoModuleTopSorted :: [Int]
   }
   deriving (Show, Read, Generic)
 
@@ -164,11 +165,11 @@ emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 
 -- | GHC process info, including process id, command line arguments.
 data ProcessInfo = ProcessInfo
-  { procPID :: Int
-  , procExecPath :: FilePath
-  , procCWD :: FilePath
-  , procArguments :: [String]
-  , procRTSFlags :: RTSFlags
+  { procPID :: Int,
+    procExecPath :: FilePath,
+    procCWD :: FilePath,
+    procArguments :: [String],
+    procRTSFlags :: RTSFlags
   }
   deriving (Show, Generic)
 
@@ -199,12 +200,12 @@ instance FromJSON Backend
 instance ToJSON Backend
 
 data SessionInfo = SessionInfo
-  { sessionProcess :: Maybe ProcessInfo
-  , sessionGhcMode :: GhcMode
-  , sessionBackend :: Backend
-  , sessionStartTime :: Maybe UTCTime
-  , sessionIsPaused :: Bool
-  , sessionPreferredModuleClusterSize :: Maybe Int
+  { sessionProcess :: Maybe ProcessInfo,
+    sessionGhcMode :: GhcMode,
+    sessionBackend :: Backend,
+    sessionStartTime :: Maybe UTCTime,
+    sessionIsPaused :: Bool,
+    sessionPreferredModuleClusterSize :: Maybe Int
   }
   deriving (Show, Generic)
 
@@ -217,12 +218,12 @@ instance ToJSON SessionInfo
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
   SessionInfo
-    { sessionProcess = Nothing
-    , sessionGhcMode = CompManager
-    , sessionBackend = NCG
-    , sessionStartTime = Nothing
-    , sessionIsPaused = True
-    , sessionPreferredModuleClusterSize = Nothing
+    { sessionProcess = Nothing,
+      sessionGhcMode = CompManager,
+      sessionBackend = NCG,
+      sessionStartTime = Nothing,
+      sessionIsPaused = True,
+      sessionPreferredModuleClusterSize = Nothing
     }
 
 data ChanMessage (a :: Channel) where

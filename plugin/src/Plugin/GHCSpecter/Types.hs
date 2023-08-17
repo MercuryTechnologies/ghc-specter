@@ -1,64 +1,65 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 
-module Plugin.GHCSpecter.Types (
-  -- * Message Queue
-  MsgQueue (..),
-  initMsgQueue,
+module Plugin.GHCSpecter.Types
+  ( -- * Message Queue
+    MsgQueue (..),
+    initMsgQueue,
 
-  -- * Console state
-  ConsoleState (..),
-  emptyConsoleState,
+    -- * Console state
+    ConsoleState (..),
+    emptyConsoleState,
 
-  -- * PluginSession
-  PluginSession (..),
-  emptyPluginSession,
+    -- * PluginSession
+    PluginSession (..),
+    emptyPluginSession,
 
-  -- * global variable
-  sessionRef,
+    -- * global variable
+    sessionRef,
 
-  -- * utilities
-  getMsgQueue,
-  assignModuleToDriverId,
-  assignModuleFileToDriverId,
-  getModuleFromDriverId,
-  getModuleFileFromDriverId,
-) where
+    -- * utilities
+    getMsgQueue,
+    assignModuleToDriverId,
+    assignModuleFileToDriverId,
+    getModuleFromDriverId,
+    getModuleFileFromDriverId,
+  )
+where
 
-import Control.Concurrent.STM (
-  STM,
-  TVar,
-  modifyTVar',
-  newTVarIO,
-  readTVar,
- )
+import Control.Concurrent.STM
+  ( STM,
+    TVar,
+    modifyTVar',
+    newTVarIO,
+    readTVar,
+  )
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
-import GHCSpecter.Channel.Common.Types (
-  DriverId (..),
-  type ModuleName,
- )
+import GHCSpecter.Channel.Common.Types
+  ( DriverId (..),
+    type ModuleName,
+  )
 import GHCSpecter.Channel.Inbound.Types (ConsoleRequest (..))
-import GHCSpecter.Channel.Outbound.Types (
-  ChanMessageBox (..),
-  ModuleGraphInfo (..),
-  SessionInfo (..),
-  emptyModuleGraphInfo,
-  emptySessionInfo,
- )
+import GHCSpecter.Channel.Outbound.Types
+  ( ChanMessageBox (..),
+    ModuleGraphInfo (..),
+    SessionInfo (..),
+    emptyModuleGraphInfo,
+    emptySessionInfo,
+  )
 import GHCSpecter.Config (Config, emptyConfig)
-import GHCSpecter.Data.Map (
-  BiKeyMap,
-  emptyBiKeyMap,
-  forwardLookup,
-  insertToBiKeyMap,
- )
+import GHCSpecter.Data.Map
+  ( BiKeyMap,
+    emptyBiKeyMap,
+    forwardLookup,
+    insertToBiKeyMap,
+  )
 import System.IO.Unsafe (unsafePerformIO)
 
 data MsgQueue = MsgQueue
-  { msgSenderQueue :: TVar (Seq ChanMessageBox)
-  , msgReceiverQueue :: TVar (Maybe (DriverId, ConsoleRequest))
+  { msgSenderQueue :: TVar (Seq ChanMessageBox),
+    msgReceiverQueue :: TVar (Maybe (DriverId, ConsoleRequest))
   }
 
 initMsgQueue :: IO MsgQueue
@@ -68,39 +69,39 @@ initMsgQueue = do
   pure $ MsgQueue sQ rQ
 
 newtype ConsoleState = ConsoleState
-  { consoleDriverInStep :: Maybe DriverId
-  -- ^ DriverId in next step operation
+  { -- | DriverId in next step operation
+    consoleDriverInStep :: Maybe DriverId
   }
 
 emptyConsoleState :: ConsoleState
 emptyConsoleState = ConsoleState Nothing
 
 data PluginSession = PluginSession
-  { psSessionConfig :: Config
-  , psSessionInfo :: SessionInfo
-  , psModuleGraph :: (ModuleGraphInfo, Map ModuleName FilePath)
-  , psMessageQueue :: Maybe MsgQueue
-  , psDrvIdModuleMap :: BiKeyMap DriverId ModuleName
-  , psDrvIdModuleFileMap :: BiKeyMap DriverId FilePath
-  , psNextDriverId :: DriverId
-  , psConsoleState :: ConsoleState
-  , psModuleBreakpoints :: [ModuleName]
-  , psIsInGhcDebug :: Bool
+  { psSessionConfig :: Config,
+    psSessionInfo :: SessionInfo,
+    psModuleGraph :: (ModuleGraphInfo, Map ModuleName FilePath),
+    psMessageQueue :: Maybe MsgQueue,
+    psDrvIdModuleMap :: BiKeyMap DriverId ModuleName,
+    psDrvIdModuleFileMap :: BiKeyMap DriverId FilePath,
+    psNextDriverId :: DriverId,
+    psConsoleState :: ConsoleState,
+    psModuleBreakpoints :: [ModuleName],
+    psIsInGhcDebug :: Bool
   }
 
 emptyPluginSession :: PluginSession
 emptyPluginSession =
   PluginSession
-    { psSessionConfig = emptyConfig
-    , psSessionInfo = emptySessionInfo
-    , psModuleGraph = (emptyModuleGraphInfo, Map.empty)
-    , psMessageQueue = Nothing
-    , psDrvIdModuleMap = emptyBiKeyMap
-    , psDrvIdModuleFileMap = emptyBiKeyMap
-    , psNextDriverId = 1
-    , psConsoleState = emptyConsoleState
-    , psModuleBreakpoints = []
-    , psIsInGhcDebug = False
+    { psSessionConfig = emptyConfig,
+      psSessionInfo = emptySessionInfo,
+      psModuleGraph = (emptyModuleGraphInfo, Map.empty),
+      psMessageQueue = Nothing,
+      psDrvIdModuleMap = emptyBiKeyMap,
+      psDrvIdModuleFileMap = emptyBiKeyMap,
+      psNextDriverId = 1,
+      psConsoleState = emptyConsoleState,
+      psModuleBreakpoints = [],
+      psIsInGhcDebug = False
     }
 
 -- | Global variable shared across the session

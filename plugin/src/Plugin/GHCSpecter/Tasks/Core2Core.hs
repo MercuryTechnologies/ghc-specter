@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Plugin.GHCSpecter.Tasks.Core2Core (
-  listCore,
-  printCore,
-  --
-  getContent,
-) where
+module Plugin.GHCSpecter.Tasks.Core2Core
+  ( listCore,
+    printCore,
+    --
+    getContent,
+  )
+where
 
 import Control.Error.Util (note)
 import Control.Monad.IO.Class (liftIO)
@@ -34,12 +35,12 @@ import GHC.Types.Var (Var)
 import GHC.Unit.Module.ModGuts (ModGuts (..))
 import GHC.Unit.Types (Unit, toUnitId, unitString)
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
-import GHCSpecter.Util.GHC (
-  ModuleName,
-  moduleNameString,
-  printPpr,
-  showPpr,
- )
+import GHCSpecter.Util.GHC
+  ( ModuleName,
+    moduleNameString,
+    printPpr,
+    showPpr,
+  )
 
 getOccNameDynamically ::
   forall t a.
@@ -141,17 +142,16 @@ listCore guts = do
 printCore :: ModGuts -> [Text] -> CoreM ConsoleReply
 printCore guts args = do
   dflags <- getDynFlags
-  let
-    -- check whether a bind is requested by user
-    isReq (NonRec t _) =
-      let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
-       in name `L.elem` args
-    isReq (Rec bs) =
-      let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
-       in not (null (names `L.intersect` args))
-    binds = mg_binds guts
-    binds' = filter isReq binds
-    txt = T.pack (showPpr dflags binds')
+  let -- check whether a bind is requested by user
+      isReq (NonRec t _) =
+        let name = fromMaybe "#######" $ getNameDynamically (Proxy @Var) dflags t
+         in name `L.elem` args
+      isReq (Rec bs) =
+        let names = mapMaybe (getNameDynamically (Proxy @Var) dflags . fst) bs
+         in not (null (names `L.intersect` args))
+      binds = mg_binds guts
+      binds' = filter isReq binds
+      txt = T.pack (showPpr dflags binds')
   -- for debug
   mapM_ (liftIO . printPpr dflags) binds'
   pure (ConsoleReplyText (Just "core") txt)
