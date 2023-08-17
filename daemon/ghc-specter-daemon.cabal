@@ -1,4 +1,4 @@
-cabal-version:  3.6
+cabal-version:  3.0
 name:           ghc-specter-daemon
 version:        1.0.0.0
 synopsis:       Daemon process for ghc-specter

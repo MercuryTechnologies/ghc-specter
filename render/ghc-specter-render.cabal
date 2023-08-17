@@ -1,5 +1,4 @@
 cabal-version: 3.0
-
 name:           ghc-specter-render
 version:        0.1.0.0
 synopsis:       render primitives independent of backend

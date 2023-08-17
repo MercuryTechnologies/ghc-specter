@@ -22,23 +22,30 @@
       };
 
       haskellOverlay = final: hself: hsuper: {
-        #"criterion" = final.haskell.lib.dontCheck hsuper.criterion;
+        "criterion" = final.haskell.lib.doJailbreak hsuper.criterion;
         "discrimination" = hself.callHackage "discrimination" "0.5" {};
-        #"http2" = final.haskell.lib.dontCheck hsuper.http2;
-        #"newtype-generics" =
-        #  final.haskell.lib.doJailbreak hsuper.newtype-generics;
-        #"retry" = final.haskell.lib.dontCheck hsuper.retry;
+        "vector-binary-instances" = final.haskell.lib.doJailbreak hsuper.vector-binary-instances;
 
         # fficxx-related
         "fficxx" = hself.callHackage "fficxx" "0.7.0.0" {};
         "fficxx-runtime" = hself.callHackage "fficxx-runtime" "0.7.0.0" {};
         "stdcxx" = hself.callHackage "stdcxx" "0.7.0.0" {};
-        # libOGDF is bundled with libCOIN, so remove COIN dependency.
+
         "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
           COIN = null;
           OGDF = pkgs.ogdf;
         };
         "template" = final.haskell.lib.doJailbreak hsuper.template;
+
+        # ghc-specter-*
+        "ghc-specter-plugin" =
+          hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
+        "ghc-specter-render" =
+          hself.callCabal2nix "ghc-specter-render" ./render {};
+        "ghc-specter-daemon" =
+          hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
+        "ghc-build-analyzer" =
+          hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer {};
       };
 
       hpkgsFor = compiler:
@@ -46,7 +53,7 @@
         (hself: hsuper: haskellOverlay pkgs hself hsuper);
 
       mkShellFor = compiler: let
-        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [ p.OGDF ]);
+        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [p.OGDF]);
         pyenv =
           pkgs.python3.withPackages
           (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);
@@ -63,10 +70,24 @@
             export PS1="\n[ghc-specter:\w]$ \0"
           '';
         };
+
+      mkPackagesFor = compiler: {
+        inherit
+          (hpkgsFor compiler)
+          ghc-specter-plugin
+          ghc-specter-render
+          ghc-specter-daemon
+          ghc-build-analyzer
+          ;
+      };
+
       supportedCompilers = ["ghc962"];
     in {
       inherit haskellOverlay;
+
       devShells =
         pkgs.lib.genAttrs supportedCompilers mkShellFor;
+
+      packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
     });
 }
