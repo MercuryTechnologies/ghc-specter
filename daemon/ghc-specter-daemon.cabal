@@ -32,6 +32,7 @@ library
       GHCSpecter.Data.Timing.Util
       GHCSpecter.Driver
       GHCSpecter.Driver.Comm
+      GHCSpecter.Driver.ConsoleOnly
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Worker
@@ -111,7 +112,8 @@ executable ghc-specter-daemon-console-only
       base >=4.15 && <5
     , ghc-specter-daemon
     , ghc-specter-plugin
-    , ghc-specter-render
+    , stm
+    , time
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test
