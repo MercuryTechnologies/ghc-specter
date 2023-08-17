@@ -24,10 +24,19 @@ import GHCSpecter.Driver.Session.Types
     ServerSession (..),
   )
 import GHCSpecter.UI.Types (emptyUIState)
+import System.IO
+  ( BufferMode (..),
+    hPutStrLn,
+    hSetBuffering,
+    stderr,
+    stdout,
+  )
 
 main :: IO ()
 main = do
-  putStrLn "ghc-specter daemon console only"
+  hSetBuffering stdout LineBuffering
+  hSetBuffering stderr LineBuffering
+  hPutStrLn stderr "ghc-specter daemon console only"
   withConfig Nothing $ \cfg -> do
     -- starting communication channel for plugin
     servSess <- startComm cfg

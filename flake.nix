@@ -71,6 +71,9 @@
 
             # for agda
             pkgs.zlib
+
+            # for socket testing
+            pkgs.socat
           ];
           shellHook = ''
             export PS1="\n[ghc-specter:\w]$ \0"
