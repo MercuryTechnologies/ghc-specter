@@ -1,7 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Util.Dump (dumpTiming) where
+module GHCSpecter.Util.Dump
+  ( dumpTiming,
+    dumpMemory,
+  )
+where
 
 import Data.Functor.Identity (runIdentity)
 import Data.Text (Text)
@@ -115,15 +119,15 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSiz
     <> msg
     <> "</text>"
 
-mkSvg :: ViewPort -> Text -> Text
-mkSvg vp contents =
+mkSvg :: Int -> ViewPort -> Text -> Text
+mkSvg padding vp contents =
   "<svg"
     <> " width="
-    <> quote wtxt
+    <> quote (pShow width)
     <> " height="
-    <> quote htxt
-    <> " view-box="
-    <> quote (T.intercalate " " ["0", "0", wtxt, htxt])
+    <> quote (pShow height)
+    <> " viewBox="
+    <> quote (T.intercalate " " $ fmap pShow [left, top, right, bottom])
     <> " version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" >"
     <> "<style>.small { font: 5px sans-serif; } text { user-select: none; }</style>"
     <> "<g>"
@@ -131,8 +135,13 @@ mkSvg vp contents =
     <> "</g>"
     <> "</svg>"
   where
-    wtxt = T.pack (show (viewPortWidth vp))
-    htxt = T.pack (show (viewPortHeight vp))
+    pShow = T.pack . show
+    left = -padding
+    top = -padding
+    width = floor (viewPortWidth vp) + 2 * padding
+    height = floor (viewPortHeight vp) + 2 * padding
+    right = left + width
+    bottom = top + height
 
 dumpTiming :: UIState -> ServerState -> Text
 dumpTiming ui ss =
@@ -154,4 +163,26 @@ dumpTiming ui ss =
       scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
-   in mkSvg vp rendered
+   in mkSvg 0 vp rendered
+
+dumpMemory :: UIState -> ServerState -> Text
+dumpMemory ui ss =
+  let drvModMap = ss._serverDriverModuleMap
+      tui = ui._uiModel._modelTiming
+      ttable = ss._serverTiming._tsTimingTable
+      timingInfos = ttable._ttableTimingInfos
+
+      nMods = length timingInfos
+      totalHeight = 5 * nMods
+      vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+      tui' =
+        tui
+          { _timingUIPartition = True,
+            _timingUIViewPort = ViewPortInfo vp Nothing
+          }
+
+      scene = runIdentity $ TimingView.buildMemChart True 400 drvModMap tui' ttable
+      elems = sceneElements scene
+      rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
+   in mkSvg 10 vp rendered

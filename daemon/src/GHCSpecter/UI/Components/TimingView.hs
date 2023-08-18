@@ -13,9 +13,10 @@ module GHCSpecter.UI.Components.TimingView
   )
 where
 
-import Control.Lens (to, (%~), (^.), _1, _2)
+import Control.Lens (to, (%~), (^.), (^?), _1, _2, _Just)
 import Control.Monad (join)
 import Data.Foldable qualified as F
+import Data.Function (on)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as M
@@ -279,24 +280,36 @@ buildTimingChart drvModMap tui ttable = do
 buildMemChart ::
   forall m e.
   (MonadTextLayout m) =>
+  -- | is it reverse-ordered w.r.t. memory allocation?
+  Bool ->
+  -- | offset for text
+  Double ->
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   m (Scene (Primitive e))
-buildMemChart drvModMap tui ttable = do
+buildMemChart isOrdered offsetForText drvModMap tui ttable = do
   renderedItems <- concat <$> traverse makeItem filteredItems
   pure
     Scene
       { sceneId = "mem-chart",
         sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight),
         sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight),
-        sceneElements = renderedItems,
+        sceneElements = rules ++ renderedItems,
         sceneExtents = Nothing
       }
   where
     timingInfos = ttable ^. ttableTimingInfos
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    allItems = zip [0 ..] timingInfos'
+    timingInfos' =
+      fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    getMem x = fromMaybe 0 (x ^? _2 . plEnd . _2 . _Just . to (negate . memAllocCounter))
+    timingInfos''
+      | not isOrdered = timingInfos'
+      | otherwise =
+          L.sortBy (flip compare `on` getMem) timingInfos'
+    allItems = zip [0 ..] timingInfos''
+    nMods = length allItems
+    totalHeight = 5 * nMods
     rangeY =
       let vpi = tui ^. timingUIViewPort
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -306,7 +319,14 @@ buildMemChart drvModMap tui ttable = do
       let -- ratio to 16 GiB
           allocRatio :: Double
           allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
-       in allocRatio * 150
+       in allocRatio * span16G
+    -- TODO: this 100 should be a customizable variable
+    span16G :: Double
+    span16G = 100
+    rules =
+      let xs = fmap (\x -> x / 16.0 * span16G) [0, 4 .. 64]
+       in fmap (\x -> polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25) xs
+
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
     box color lz (i, item) =
       case item ^. _2 . lz . _2 of
@@ -324,7 +344,7 @@ buildMemChart drvModMap tui ttable = do
     moduleText (i, (mmodu, _)) = do
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-      drawText' (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+      drawText' (offsetForText, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x = do
       renderedText <- moduleText x
       if (tui ^. timingUIPartition)

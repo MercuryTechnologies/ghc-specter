@@ -50,6 +50,14 @@ main cliSess = do
                       chanQEv
                       (UsrEv (ConsoleEv ConsoleDumpTiming))
                 loop
+            | input == ":dump-memory" -> do
+                outputStrLn $ "Input was: " <> input
+                lift $
+                  atomically $
+                    writeTQueue
+                      chanQEv
+                      (UsrEv (ConsoleEv ConsoleDumpMemory))
+                loop
             | ":focus " `L.isPrefixOf` input -> do
                 outputStrLn $ "Input was: " <> input
                 let mx :: Maybe Int = readMaybe (drop 7 input)
