@@ -1,13 +1,18 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -w #-}
 
 module Main where
 
-import Control.Concurrent (forkOS)
+import Control.Concurrent
+  ( forkOS,
+    threadDelay,
+  )
 import Control.Concurrent.STM
   ( newTChanIO,
     newTQueueIO,
     newTVarIO,
   )
+import Control.Monad (forever)
 import Data.IORef (newIORef)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (withConfig)
@@ -36,7 +41,8 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
-  hPutStrLn stderr "ghc-specter-daemon-terminal"
+  putStrLn "ghc-specter-daemon"
+
   withConfig Nothing $ \cfg -> do
     -- starting communication channel for plugin
     servSess <- startComm cfg
@@ -75,4 +81,5 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    Terminal.main cliSess
+    forever $
+      threadDelay 100_000_000

@@ -18,7 +18,18 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        config.allowBroken = true;
+        # this is temporary. need to use nix expression directly from hs-imgui.
+        config = {
+          allowBroken = true;
+          packageOverrides = self: {
+            imgui = self.callPackage ./nix/imgui/default.nix {
+              frameworks = self.darwin.apple_sdk.frameworks;
+            };
+            implot = self.callPackage ./nix/implot/default.nix {
+              frameworks = self.darwin.apple_sdk.frameworks;
+            };
+          };
+        };
       };
 
       haskellOverlay = final: hself: hsuper: {
@@ -63,10 +74,16 @@
       in
         pkgs.mkShell {
           packages = [
+            # for build
             hsenv
-            pyenv
-            pkgs.alejandra
+            pkgs.ogdf
             pkgs.cabal-install
+
+            # for doc
+            pyenv
+
+            # for formatting
+            pkgs.alejandra
             pkgs.ormolu
 
             # for agda
@@ -74,6 +91,12 @@
 
             # for socket testing
             pkgs.socat
+
+            # for GUI
+            pkgs.pkgconfig
+            pkgs.imgui
+            pkgs.implot
+            pkgs.glfw
           ];
           shellHook = ''
             export PS1="\n[ghc-specter:\w]$ \0"

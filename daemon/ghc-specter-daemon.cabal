@@ -118,6 +118,23 @@ executable ghc-specter-daemon-terminal
     , time
   default-language: GHC2021
 
+executable ghc-specter-daemon
+  main-is: Main.hs
+  other-modules:
+  hs-source-dirs:
+      app/ghc-specter-daemon
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.15 && <5
+    , fficxx-runtime
+    , ghc-specter-daemon
+    , ghc-specter-plugin
+    , imgui
+    , implot
+    , stm
+    , time
+  default-language: GHC2021
+
 test-suite ghc-specter-daemon-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
