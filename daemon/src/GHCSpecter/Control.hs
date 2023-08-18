@@ -380,8 +380,8 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
 handleConsole ConsoleDumpTiming = do
   ui <- getUI
   ss <- getSS
-  let str = dumpTiming ui ss
-  printMsg (T.pack str)
+  let txt = dumpTiming ui ss
+  printMsg txt
 
 -- TODO: this should be separated out with session type.
 handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()
