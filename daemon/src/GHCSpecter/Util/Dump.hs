@@ -22,6 +22,9 @@ import GHCSpecter.Graphics.DSL
     Rectangle (..),
     Scene (..),
     Shape (..),
+    ViewPort (..),
+    viewPortHeight,
+    viewPortWidth,
   )
 import GHCSpecter.Server.Types
   ( ServerState (..),
@@ -38,6 +41,7 @@ import GHCSpecter.UI.Types
   ( TimingUI (..),
     UIModel (..),
     UIState (..),
+    ViewPortInfo (..),
   )
 import Text.Printf (printf)
 
@@ -118,8 +122,8 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSiz
     <> msg
     <> "</text>"
 
-mkSvg :: Text -> Text
-mkSvg contents =
+mkSvg :: ViewPort -> Text -> Text
+mkSvg vp contents =
   "<svg"
     <> " width="
     <> quote wtxt
@@ -134,17 +138,27 @@ mkSvg contents =
     <> "</g>"
     <> "</svg>"
   where
-    wtxt = T.pack (show (timingMaxWidth :: Int))
-    htxt = T.pack (show (timingHeight :: Int))
+    wtxt = T.pack (show (viewPortWidth vp))
+    htxt = T.pack (show (viewPortHeight vp))
 
 dumpTiming :: UIState -> ServerState -> Text
 dumpTiming ui ss =
   let drvModMap = ss._serverDriverModuleMap
       tui = ui._uiModel._modelTiming
-      tui' = tui { _timingUIPartition = True }
       ttable = ss._serverTiming._tsTimingTable
-      scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
+      timingInfos = ttable._ttableTimingInfos
 
+      nMods = length timingInfos
+      totalHeight = 5 * nMods
+      vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+      tui' =
+        tui
+          { _timingUIPartition = True,
+            _timingUIViewPort = ViewPortInfo vp Nothing
+          }
+
+      scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
-   in mkSvg rendered
+   in mkSvg vp rendered

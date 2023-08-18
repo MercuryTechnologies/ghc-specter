@@ -26,7 +26,7 @@ emptyConfig =
     { configSocket = "/tmp/ghc-specter.ipc",
       configSessionFile = "",
       configStartWithBreakpoint = False {- True -},
-      configModuleClusterSize = 65 -- 150
+      configModuleClusterSize = 150
     }
 
 defaultGhcSpecterConfigFile :: FilePath

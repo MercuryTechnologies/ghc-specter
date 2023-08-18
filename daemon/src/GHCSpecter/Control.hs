@@ -124,8 +124,6 @@ import GHCSpecter.Worker.Timing
   )
 import System.IO (IOMode (..), withFile)
 import System.IO.Unsafe (unsafePerformIO)
-import Data.Text.IO qualified as TIO
-
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))],
