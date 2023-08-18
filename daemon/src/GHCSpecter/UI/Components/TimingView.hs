@@ -13,9 +13,10 @@ module GHCSpecter.UI.Components.TimingView
   )
 where
 
-import Control.Lens (to, (%~), (^.), _1, _2)
+import Control.Lens (to, (%~), (^.), (^?), _1, _2, _Just)
 import Control.Monad (join)
 import Data.Foldable qualified as F
+import Data.Function (on)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as M
@@ -279,13 +280,15 @@ buildTimingChart drvModMap tui ttable = do
 buildMemChart ::
   forall m e.
   (MonadTextLayout m) =>
+  -- | is it reverse-ordered w.r.t. memory allocation?
+  Bool ->
   -- | offset for text
   Double ->
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   m (Scene (Primitive e))
-buildMemChart offsetForText drvModMap tui ttable = do
+buildMemChart isOrdered offsetForText drvModMap tui ttable = do
   renderedItems <- concat <$> traverse makeItem filteredItems
   pure
     Scene
@@ -297,8 +300,14 @@ buildMemChart offsetForText drvModMap tui ttable = do
       }
   where
     timingInfos = ttable ^. ttableTimingInfos
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    allItems = zip [0 ..] timingInfos'
+    timingInfos' =
+      fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    getMem x = fromMaybe 0 (x ^? _2 . plEnd . _2 . _Just . to (negate . memAllocCounter))
+    timingInfos''
+      | not isOrdered = timingInfos'
+      | otherwise =
+          L.sortBy (flip compare `on` getMem) timingInfos'
+    allItems = zip [0 ..] timingInfos''
     rangeY =
       let vpi = tui ^. timingUIViewPort
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -308,7 +317,7 @@ buildMemChart offsetForText drvModMap tui ttable = do
       let -- ratio to 16 GiB
           allocRatio :: Double
           allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
-       in allocRatio * 150
+       in allocRatio * 150 -- TODO: this 150 should be a variable
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
     box color lz (i, item) =
       case item ^. _2 . lz . _2 of
