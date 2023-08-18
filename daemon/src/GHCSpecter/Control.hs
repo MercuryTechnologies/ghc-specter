@@ -106,8 +106,8 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
     UserEvent (..),
   )
-import GHCSpecter.Util.Print
-  ( makeStat,
+import GHCSpecter.Util.Dump
+  ( dumpTiming,
   )
 import GHCSpecter.Util.Transformation
   ( hitItem,
@@ -377,10 +377,10 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
     else do
       modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
       refresh
-handleConsole ConsolePrintStat = do
+handleConsole ConsoleDumpTiming = do
   ui <- getUI
   ss <- getSS
-  let str = makeStat ui ss
+  let str = dumpTiming ui ss
   printMsg (T.pack str)
 
 -- TODO: this should be separated out with session type.

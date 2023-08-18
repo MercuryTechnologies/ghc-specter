@@ -42,13 +42,13 @@ main cliSess = do
           Nothing -> pure ()
           Just "quit" -> pure ()
           Just input
-            | input == ":printstat" -> do
+            | input == ":dump-timing" -> do
                 outputStrLn $ "Input was: " <> input
                 lift $
                   atomically $
                     writeTQueue
                       chanQEv
-                      (UsrEv (ConsoleEv ConsolePrintStat))
+                      (UsrEv (ConsoleEv ConsoleDumpTiming))
                 loop
             | ":focus " `L.isPrefixOf` input -> do
                 outputStrLn $ "Input was: " <> input

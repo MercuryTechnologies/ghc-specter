@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -w #-}
 
-module GHCSpecter.Util.Print (makeStat) where
+module GHCSpecter.Util.Dump (dumpTiming) where
 
 import Data.Functor.Identity (runIdentity)
 import GHCSpecter.Channel.Outbound.Types
@@ -20,8 +20,8 @@ import GHCSpecter.UI.Types
     UIState (..),
   )
 
-makeStat :: UIState -> ServerState -> String
-makeStat ui ss =
+dumpTiming :: UIState -> ServerState -> String
+dumpTiming ui ss =
   let drvModMap = ss._serverDriverModuleMap
       tui = ui._uiModel._modelTiming
       ttable = ss._serverTiming._tsTimingTable

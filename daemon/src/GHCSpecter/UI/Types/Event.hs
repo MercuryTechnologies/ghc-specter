@@ -148,7 +148,7 @@ data ConsoleEvent k
   | ConsoleInput Text
   | -- | True: send the command immediately, False: wait for user's Enter.
     ConsoleButtonPressed Bool Text
-  | ConsolePrintStat
+  | ConsoleDumpTiming
   deriving (Show, Eq)
 
 data UserEvent
