@@ -28,6 +28,12 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
+import GHCSpecter.UI.Constants
+  ( timingHeight,
+    timingMaxWidth,
+    timingRangeHeight,
+    widgetHeight,
+  )
 import GHCSpecter.UI.Types
   ( UIModel (..),
     UIState (..),
@@ -111,6 +117,25 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSiz
     <> msg
     <> "</text>"
 
+mkSvg :: Text -> Text
+mkSvg contents =
+  "<svg"
+    <> " width="
+    <> quote wtxt
+    <> " height="
+    <> quote htxt
+    <> " view-box="
+    <> quote (T.intercalate " " ["0", "0", wtxt, htxt])
+    <> " version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" >"
+    <> "<style>.small { font: 5px sans-serif; } text { user-select: none; }</style>"
+    <> "<g>"
+    <> contents
+    <> "</g>"
+    <> "</svg>"
+  where
+    wtxt = T.pack (show (timingMaxWidth :: Int))
+    htxt = T.pack (show (timingHeight :: Int))
+
 dumpTiming :: UIState -> ServerState -> Text
 dumpTiming ui ss =
   let drvModMap = ss._serverDriverModuleMap
@@ -120,4 +145,4 @@ dumpTiming ui ss =
 
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
-   in rendered
+   in mkSvg rendered
