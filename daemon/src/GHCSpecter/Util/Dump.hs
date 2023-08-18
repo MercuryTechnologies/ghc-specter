@@ -1,7 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Util.Dump (dumpTiming) where
+module GHCSpecter.Util.Dump
+  ( dumpTiming,
+    dumpMemory,
+  )
+where
 
 import Data.Functor.Identity (runIdentity)
 import Data.Text (Text)
@@ -152,6 +156,28 @@ dumpTiming ui ss =
           }
 
       scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
+      elems = sceneElements scene
+      rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
+   in mkSvg vp rendered
+
+dumpMemory :: UIState -> ServerState -> Text
+dumpMemory ui ss =
+  let drvModMap = ss._serverDriverModuleMap
+      tui = ui._uiModel._modelTiming
+      ttable = ss._serverTiming._tsTimingTable
+      timingInfos = ttable._ttableTimingInfos
+
+      nMods = length timingInfos
+      totalHeight = 5 * nMods
+      vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+      tui' =
+        tui
+          { _timingUIPartition = True,
+            _timingUIViewPort = ViewPortInfo vp Nothing
+          }
+
+      scene = runIdentity $ TimingView.buildMemChart drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
    in mkSvg vp rendered

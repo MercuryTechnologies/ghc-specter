@@ -108,7 +108,8 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import GHCSpecter.Util.Dump
-  ( dumpTiming,
+  ( dumpMemory,
+    dumpTiming,
   )
 import GHCSpecter.Util.Transformation
   ( hitItem,
@@ -381,13 +382,23 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
       refresh
 handleConsole ConsoleDumpTiming = do
   -- TODO: The dump file name should be customizable.
-  printMsg "dumping timing information to dump.svg"
+  printMsg "dumping timing information to dump-timing.svg"
   ui <- getUI
   -- sorry for this hack for now
   asyncWork $ \ssref -> do
     ss <- readTVarIO ssref
     let txt = dumpTiming ui ss
-    withFile "dump.svg" WriteMode $ \h ->
+    withFile "dump-timing.svg" WriteMode $ \h ->
+      TIO.hPutStrLn h txt
+handleConsole ConsoleDumpMemory = do
+  -- TODO: The dump file name should be customizable.
+  printMsg "dumping timing information to dump-memory.svg"
+  ui <- getUI
+  -- sorry for this hack for now
+  asyncWork $ \ssref -> do
+    ss <- readTVarIO ssref
+    let txt = dumpMemory ui ss
+    withFile "dump-memory.svg" WriteMode $ \h ->
       TIO.hPutStrLn h txt
 
 -- TODO: this should be separated out with session type.
