@@ -119,15 +119,15 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSiz
     <> msg
     <> "</text>"
 
-mkSvg :: ViewPort -> Text -> Text
-mkSvg vp contents =
+mkSvg :: Int -> ViewPort -> Text -> Text
+mkSvg padding vp contents =
   "<svg"
     <> " width="
-    <> quote wtxt
+    <> quote (pShow width)
     <> " height="
-    <> quote htxt
-    <> " view-box="
-    <> quote (T.intercalate " " ["0", "0", wtxt, htxt])
+    <> quote (pShow height)
+    <> " viewBox="
+    <> quote (T.intercalate " " $ fmap pShow [left, top, right, bottom])
     <> " version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" >"
     <> "<style>.small { font: 5px sans-serif; } text { user-select: none; }</style>"
     <> "<g>"
@@ -135,8 +135,13 @@ mkSvg vp contents =
     <> "</g>"
     <> "</svg>"
   where
-    wtxt = T.pack (show (viewPortWidth vp))
-    htxt = T.pack (show (viewPortHeight vp))
+    pShow = T.pack . show
+    left = -padding
+    top = -padding
+    width = floor (viewPortWidth vp) + 2 * padding
+    height = floor (viewPortHeight vp) + 2 * padding
+    right = left + width
+    bottom = top + height
 
 dumpTiming :: UIState -> ServerState -> Text
 dumpTiming ui ss =
@@ -158,7 +163,7 @@ dumpTiming ui ss =
       scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
-   in mkSvg vp rendered
+   in mkSvg 0 vp rendered
 
 dumpMemory :: UIState -> ServerState -> Text
 dumpMemory ui ss =
@@ -177,7 +182,7 @@ dumpMemory ui ss =
             _timingUIViewPort = ViewPortInfo vp Nothing
           }
 
-      scene = runIdentity $ TimingView.buildMemChart drvModMap tui' ttable
+      scene = runIdentity $ TimingView.buildMemChart 500 drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
-   in mkSvg vp rendered
+   in mkSvg 10 vp rendered

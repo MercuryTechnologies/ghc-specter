@@ -279,11 +279,13 @@ buildTimingChart drvModMap tui ttable = do
 buildMemChart ::
   forall m e.
   (MonadTextLayout m) =>
+  -- | offset for text
+  Double ->
   BiKeyMap DriverId ModuleName ->
   TimingUI ->
   TimingTable ->
   m (Scene (Primitive e))
-buildMemChart drvModMap tui ttable = do
+buildMemChart offsetForText drvModMap tui ttable = do
   renderedItems <- concat <$> traverse makeItem filteredItems
   pure
     Scene
@@ -324,7 +326,7 @@ buildMemChart drvModMap tui ttable = do
     moduleText (i, (mmodu, _)) = do
       let fontSize = 4
           moduTxt = fromMaybe "" mmodu
-      drawText' (150, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
+      drawText' (offsetForText, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x = do
       renderedText <- moduleText x
       if (tui ^. timingUIPartition)
