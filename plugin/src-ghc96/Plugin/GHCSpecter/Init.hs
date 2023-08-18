@@ -108,6 +108,9 @@ initGhcSession env = do
           pure (True, queue_)
   -- start message queue
   when isNewStart $ do
+    putStrLn "##########################"
+    putStrLn "ghc-specter plugin started"
+    putStrLn "##########################"
     void $ forkOS $ runMessageQueue cfg queue
     sinfo <-
       atomically $

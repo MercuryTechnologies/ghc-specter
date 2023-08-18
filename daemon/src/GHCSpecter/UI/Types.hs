@@ -22,7 +22,7 @@ module GHCSpecter.UI.Types
     emptySourceViewUI,
 
     -- * TimingUI
-    TimingUI,
+    TimingUI (..),
     HasTimingUI (..),
     emptyTimingUI,
 

@@ -11,6 +11,7 @@ module GHCSpecter.Control
   )
 where
 
+import Control.Concurrent.STM (readTVarIO)
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
 import Data.Foldable (for_, traverse_)
@@ -20,6 +21,7 @@ import Data.Map qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Common.Types (DriverId)
 import GHCSpecter.Channel.Inbound.Types
@@ -105,6 +107,9 @@ import GHCSpecter.UI.Types.Event
     TimingEvent (..),
     UserEvent (..),
   )
+import GHCSpecter.Util.Dump
+  ( dumpTiming,
+  )
 import GHCSpecter.Util.Transformation
   ( hitItem,
     isValid,
@@ -116,6 +121,7 @@ import GHCSpecter.Worker.Timing
   ( timingBlockerGraphWorker,
     timingWorker,
   )
+import System.IO (IOMode (..), withFile)
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))],
@@ -373,6 +379,16 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
     else do
       modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
       refresh
+handleConsole ConsoleDumpTiming = do
+  -- TODO: The dump file name should be customizable.
+  printMsg "dumping timing information to dump.svg"
+  ui <- getUI
+  -- sorry for this hack for now
+  asyncWork $ \ssref -> do
+    ss <- readTVarIO ssref
+    let txt = dumpTiming ui ss
+    withFile "dump.svg" WriteMode $ \h ->
+      TIO.hPutStrLn h txt
 
 -- TODO: this should be separated out with session type.
 handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()

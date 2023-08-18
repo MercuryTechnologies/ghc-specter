@@ -42,6 +42,14 @@ main cliSess = do
           Nothing -> pure ()
           Just "quit" -> pure ()
           Just input
+            | input == ":dump-timing" -> do
+                outputStrLn $ "Input was: " <> input
+                lift $
+                  atomically $
+                    writeTQueue
+                      chanQEv
+                      (UsrEv (ConsoleEv ConsoleDumpTiming))
+                loop
             | ":focus " `L.isPrefixOf` input -> do
                 outputStrLn $ "Input was: " <> input
                 let mx :: Maybe Int = readMaybe (drop 7 input)
@@ -49,7 +57,7 @@ main cliSess = do
                   Nothing -> outputStrLn "cannot parse the driver id"
                   Just x -> do
                     lift $
-                      atomically $ do
+                      atomically $
                         writeTQueue
                           chanQEv
                           (UsrEv (ConsoleEv (ConsoleTab (DriverId x))))

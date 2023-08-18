@@ -58,6 +58,7 @@ library
       GHCSpecter.UI.Tab
       GHCSpecter.UI.Types
       GHCSpecter.UI.Types.Event
+      GHCSpecter.Util.Dump
       GHCSpecter.Util.ModuleGraph
       GHCSpecter.Util.SourceText
       GHCSpecter.Util.SourceTree

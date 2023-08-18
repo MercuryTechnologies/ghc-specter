@@ -4,6 +4,7 @@ module GHCSpecter.Layouter.Text
   )
 where
 
+import Data.Functor.Identity (Identity)
 import Data.Text (Text)
 import GHCSpecter.Graphics.DSL
   ( Color,
@@ -21,6 +22,12 @@ class (Monad m) => MonadTextLayout m where
     Int ->
     Text ->
     m (Double, Double)
+
+-- This is a dummy implementation.
+-- TODO: at least, this should produce a reasonable size, not fixed 120.
+instance MonadTextLayout Identity where
+  calculateTextDimension _ font_size _ =
+    pure (120, fromIntegral font_size + 3)
 
 drawText' ::
   (MonadTextLayout m) =>
