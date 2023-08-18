@@ -295,7 +295,7 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
       { sceneId = "mem-chart",
         sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight),
         sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight),
-        sceneElements = renderedItems,
+        sceneElements = rules ++ renderedItems,
         sceneExtents = Nothing
       }
   where
@@ -308,6 +308,8 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
       | otherwise =
           L.sortBy (flip compare `on` getMem) timingInfos'
     allItems = zip [0 ..] timingInfos''
+    nMods = length allItems
+    totalHeight = 5 * nMods
     rangeY =
       let vpi = tui ^. timingUIViewPort
           vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
@@ -317,7 +319,14 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
       let -- ratio to 16 GiB
           allocRatio :: Double
           allocRatio = fromIntegral alloc / (16 * 1024 * 1024 * 1024)
-       in allocRatio * 150 -- TODO: this 150 should be a variable
+       in allocRatio * span16G
+    -- TODO: this 100 should be a customizable variable
+    span16G :: Double
+    span16G = 100
+    rules =
+      let xs = fmap (\x -> x / 16.0 * span16G) [0, 4 .. 64]
+       in fmap (\x -> polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25) xs
+
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
     box color lz (i, item) =
       case item ^. _2 . lz . _2 of

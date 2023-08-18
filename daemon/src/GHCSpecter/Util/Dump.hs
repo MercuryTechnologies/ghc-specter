@@ -182,7 +182,7 @@ dumpMemory ui ss =
             _timingUIViewPort = ViewPortInfo vp Nothing
           }
 
-      scene = runIdentity $ TimingView.buildMemChart True 500 drvModMap tui' ttable
+      scene = runIdentity $ TimingView.buildMemChart True 400 drvModMap tui' ttable
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
    in mkSvg 10 vp rendered
