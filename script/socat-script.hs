@@ -14,7 +14,7 @@ import System.Process
 main :: IO ()
 main = do
   let ghc_specter_daemon =
-        ( shell "cabal run ghc-specter-daemon:exe:ghc-specter-daemon-console-only"
+        ( shell "cabal run ghc-specter-daemon:exe:ghc-specter-daemon-terminal"
         )
           { std_in = Inherit,
             std_out = Inherit,

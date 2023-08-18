@@ -17,12 +17,12 @@ import GHCSpecter.Control.Runner
     RunnerHandler (..),
   )
 import GHCSpecter.Driver (startComm)
-import GHCSpecter.Driver.ConsoleOnly qualified as ConsoleOnly
 import GHCSpecter.Driver.Session qualified as Session (main)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
+import GHCSpecter.Driver.Terminal qualified as Terminal
 import GHCSpecter.UI.Types (emptyUIState)
 import System.IO
   ( BufferMode (..),
@@ -75,4 +75,4 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    ConsoleOnly.main cliSess
+    Terminal.main cliSess

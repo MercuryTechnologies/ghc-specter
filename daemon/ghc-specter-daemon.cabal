@@ -32,9 +32,9 @@ library
       GHCSpecter.Data.Timing.Util
       GHCSpecter.Driver
       GHCSpecter.Driver.Comm
-      GHCSpecter.Driver.ConsoleOnly
       GHCSpecter.Driver.Session
       GHCSpecter.Driver.Session.Types
+      GHCSpecter.Driver.Terminal
       GHCSpecter.Driver.Worker
       GHCSpecter.Layouter.Text
       GHCSpecter.Layouter.Graph.Algorithm.BFS
@@ -103,11 +103,11 @@ library
     hs-source-dirs:
         src-ghc96
 
-executable ghc-specter-daemon-console-only
+executable ghc-specter-daemon-terminal
   main-is: Main.hs
   other-modules:
   hs-source-dirs:
-      app/ghc-specter-daemon-console-only
+      app/ghc-specter-daemon-terminal
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.15 && <5

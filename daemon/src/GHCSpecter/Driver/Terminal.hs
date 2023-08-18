@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module GHCSpecter.Driver.ConsoleOnly
+module GHCSpecter.Driver.Terminal
   ( main,
   )
 where
