@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.Control
   ( mainLoop,
@@ -121,6 +122,10 @@ import GHCSpecter.Worker.Timing
   ( timingBlockerGraphWorker,
     timingWorker,
   )
+import System.IO (IOMode (..), withFile)
+import System.IO.Unsafe (unsafePerformIO)
+import Data.Text.IO qualified as TIO
+
 
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
   { handlerHover :: [(Text, Lens' UIModel (Maybe Text))],
@@ -382,7 +387,8 @@ handleConsole ConsoleDumpTiming = do
   ui <- getUI
   ss <- getSS
   let txt = dumpTiming ui ss
-  printMsg txt
+  -- sorry for this hack for now
+  (unsafePerformIO $ withFile "dump.svg" WriteMode (\h -> TIO.hPutStrLn h txt)) `seq` printMsg txt
 
 -- TODO: this should be separated out with session type.
 handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()

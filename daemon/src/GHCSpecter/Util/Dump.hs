@@ -35,7 +35,8 @@ import GHCSpecter.UI.Constants
     widgetHeight,
   )
 import GHCSpecter.UI.Types
-  ( UIModel (..),
+  ( TimingUI (..),
+    UIModel (..),
     UIState (..),
   )
 import Text.Printf (printf)
@@ -140,8 +141,9 @@ dumpTiming :: UIState -> ServerState -> Text
 dumpTiming ui ss =
   let drvModMap = ss._serverDriverModuleMap
       tui = ui._uiModel._modelTiming
+      tui' = tui { _timingUIPartition = True }
       ttable = ss._serverTiming._tsTimingTable
-      scene = runIdentity $ TimingView.buildTimingChart drvModMap tui ttable
+      scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
 
       elems = sceneElements scene
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
