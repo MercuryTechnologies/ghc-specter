@@ -379,7 +379,6 @@ handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()
 handleBackground MessageChanUpdated = do
   asyncWork timingWorker
   modifySS (serverShouldUpdate .~ True)
-  printMsg "msg updated"
   refresh
 handleBackground RefreshUI = refresh
 
