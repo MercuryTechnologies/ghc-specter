@@ -781,7 +781,9 @@ mainLoop = do
                   refresh
                   pure True
                 else pure False
-            ConsoleEv cev -> handleConsole cev >> pure False
+            ConsoleEv cev -> do
+              printMsg "I'm here"
+              handleConsole cev >> pure False
             _ -> go ev >> pure False
 
         loop :: Control Event r
