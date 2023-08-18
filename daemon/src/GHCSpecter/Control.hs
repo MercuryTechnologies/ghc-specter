@@ -33,6 +33,7 @@ import GHCSpecter.Control.DSL
     asyncWork,
     getCurrentTime,
     getLastUpdatedUI,
+    getSS,
     getScene,
     getUI,
     hitScene,
@@ -104,6 +105,9 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     TimingEvent (..),
     UserEvent (..),
+  )
+import GHCSpecter.Util.Print
+  ( makeStat,
   )
 import GHCSpecter.Util.Transformation
   ( hitItem,
@@ -373,6 +377,11 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
     else do
       modifyUI (uiModel . modelConsole . consoleInputEntry .~ msg)
       refresh
+handleConsole ConsolePrintStat = do
+  ui <- getUI
+  ss <- getSS
+  let str = makeStat ui ss
+  printMsg (T.pack str)
 
 -- TODO: this should be separated out with session type.
 handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()

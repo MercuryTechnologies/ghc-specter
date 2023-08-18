@@ -21,12 +21,13 @@ data Config = Config
 -- | default configuration
 -- NOTE: non-trivial default value: cluster size = 150.
 emptyConfig :: Config
-emptyConfig = Config
-  { configSocket = "/tmp/ghc-specter.ipc",
-    configSessionFile = "",
-    configStartWithBreakpoint = False {- True -},
-    configModuleClusterSize  = 65 -- 150
-  }
+emptyConfig =
+  Config
+    { configSocket = "/tmp/ghc-specter.ipc",
+      configSessionFile = "",
+      configStartWithBreakpoint = False {- True -},
+      configModuleClusterSize = 65 -- 150
+    }
 
 defaultGhcSpecterConfigFile :: FilePath
 defaultGhcSpecterConfigFile = "ghc-specter.yaml"

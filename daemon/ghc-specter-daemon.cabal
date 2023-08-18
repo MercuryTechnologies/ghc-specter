@@ -59,6 +59,7 @@ library
       GHCSpecter.UI.Types
       GHCSpecter.UI.Types.Event
       GHCSpecter.Util.ModuleGraph
+      GHCSpecter.Util.Print
       GHCSpecter.Util.SourceText
       GHCSpecter.Util.SourceTree
       GHCSpecter.Util.Transformation
