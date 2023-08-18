@@ -175,9 +175,7 @@ showBanner = do
 
 handleConsoleCommand :: (e ~ Event) => DriverId -> Text -> Control e ()
 handleConsoleCommand drvId msg
-  | msg == ":next" = do
-      printMsg ":next is called"
-      sendRequest $ ConsoleReq drvId NextBreakpoint
+  | msg == ":next" = sendRequest $ ConsoleReq drvId NextBreakpoint
   | msg == ":show-renamed" = sendRequest $ ConsoleReq drvId ShowRenamed
   | msg == ":show-expr" = sendRequest $ ConsoleReq drvId ShowExpr
   | msg == ":show-splice" = sendRequest $ ConsoleReq drvId ShowSplice
@@ -345,10 +343,7 @@ handleConsole (ConsoleTab i) = do
   modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
   refresh
 handleConsole (ConsoleKey key) = do
-  printMsg "ConsoleKey"
-  printMsg (T.pack (show key))
   model0 <- (^. uiModel) <$> getUI
-  printMsg (T.pack (show (model0 ^. modelConsole . consoleFocus)))
   if key == "Enter"
     then case model0 ^. modelConsole . consoleFocus of
       Nothing -> pure ()

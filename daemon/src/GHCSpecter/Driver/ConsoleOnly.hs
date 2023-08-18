@@ -1,19 +1,15 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.Driver.ConsoleOnly
   ( main,
   )
 where
 
--- import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
-  ( TQueue,
-    atomically,
+  ( atomically,
     writeTQueue,
   )
--- import Control.Monad (forever)
 import Control.Monad.Trans.Class (lift)
 import Data.Text qualified as T
 import GHCSpecter.Driver.Session.Types (ClientSession (..))
