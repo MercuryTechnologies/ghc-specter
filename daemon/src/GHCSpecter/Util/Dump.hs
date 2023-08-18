@@ -1,22 +1,17 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.Util.Dump (dumpTiming) where
 
 import Data.Functor.Identity (runIdentity)
 import Data.Text (Text)
 import Data.Text qualified as T
-import GHCSpecter.Channel.Outbound.Types
-  ( SessionInfo (..),
-  )
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
   )
 import GHCSpecter.Graphics.DSL
   ( Color (..),
     DrawText (..),
-    HitEvent (..),
     Polyline (..),
     Primitive (..),
     Rectangle (..),
@@ -31,12 +26,7 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants
-  ( timingHeight,
-    timingMaxWidth,
-    timingRangeHeight,
-    widgetHeight,
-  )
+import GHCSpecter.UI.Constants (timingMaxWidth)
 import GHCSpecter.UI.Types
   ( TimingUI (..),
     UIModel (..),
@@ -80,7 +70,7 @@ quote t = "\"" <> t <> "\""
 renderPrimitive ::
   Primitive e ->
   Text
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ mhitEvent) =
+renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) =
   "<rect"
     <> " x="
     <> quote (T.pack $ show x)
@@ -94,7 +84,10 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
     <> quote (maybe "none" renderColor mline)
     <> " fill="
     <> quote (maybe "none" renderColor mbkg)
-    <> maybe " " (\w -> " stroke-width=" <> (quote . T.pack . show) w) mlwidth
+    <> maybe
+      " "
+      (\lwidth -> " stroke-width=" <> (quote . T.pack . show) lwidth)
+      mlwidth
     <> " />"
 renderPrimitive (Primitive (SPolyline (Polyline start xys end color swidth)) _ _) =
   "<polyline"
