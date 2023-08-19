@@ -120,7 +120,9 @@ executable ghc-specter-daemon-terminal
 
 executable ghc-specter-daemon
   main-is: Main.hs
-  other-modules: ImGuiMain
+  other-modules:
+    ImGuiMain
+    Util
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N

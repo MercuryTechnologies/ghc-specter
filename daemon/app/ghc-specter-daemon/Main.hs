@@ -84,5 +84,5 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    forkIO $ Terminal.main cliSess
+    -- forkIO $ Terminal.main cliSess
     uiMain
