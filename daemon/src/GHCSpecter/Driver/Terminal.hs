@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad.Trans.Class (lift)
 import Data.List qualified as L
 import Data.Text qualified as T
-import GHCSpecter.Channel.Common.Types
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Driver.Session.Types (ClientSession (..))
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),

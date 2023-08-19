@@ -20,6 +20,7 @@ import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable (Storable (..))
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
   )
@@ -61,6 +62,12 @@ singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess 
 
   _ <- begin ("Hello, world!" :: CString) nullPtr
   -- Buttons return true when clicked (most widgets return true when edited/activated)
+  whenM (toBool <$> button (":focus 1" :: CString)) $ do
+    let chanQEv = cliSess._csPublisherEvent
+    atomically $
+      writeTQueue
+        chanQEv
+        (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
   whenM (toBool <$> button (":next" :: CString)) $ do
     let chanQEv = cliSess._csPublisherEvent
     atomically $
