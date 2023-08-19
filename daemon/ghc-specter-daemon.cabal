@@ -121,6 +121,7 @@ executable ghc-specter-daemon-terminal
 executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
+    Demo
     ImGuiMain
     Util
   hs-source-dirs:

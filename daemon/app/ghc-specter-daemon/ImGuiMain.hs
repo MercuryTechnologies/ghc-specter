@@ -7,6 +7,11 @@ module ImGuiMain (uiMain) where
 import Control.Monad.Extra (whileM)
 import Data.Foldable (for_)
 import Data.IORef (IORef, modifyIORef', newIORef)
+--
+import Demo
+  ( demoLinePlots,
+    demoTables,
+  )
 import Foreign.C.Types (CDouble (..), CFloat)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array (allocaArray)
@@ -17,9 +22,7 @@ import ImGui
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import System.Random (randomRIO)
 import Util
-  ( demoLinePlots,
-    demoTables,
-    finalize,
+  ( finalize,
     initialize,
     showFramerate,
   )
