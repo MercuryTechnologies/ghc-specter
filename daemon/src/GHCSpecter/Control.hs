@@ -68,6 +68,7 @@ import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     HasServerState (..),
     HasTimingState (..),
+    ServerState,
   )
 import GHCSpecter.UI.Constants
   ( HasWidgetConfig (..),
@@ -87,6 +88,7 @@ import GHCSpecter.UI.Types
     HasViewPortInfo (..),
     ModuleGraphUI (..),
     UIModel,
+    UIState,
     ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event
@@ -109,6 +111,7 @@ import GHCSpecter.UI.Types.Event
   )
 import GHCSpecter.Util.Dump
   ( dumpMemory,
+    dumpModGraph,
     dumpTiming,
   )
 import GHCSpecter.Util.Transformation
@@ -345,6 +348,15 @@ scrollDownConsoleToEnd = do
           vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
        in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
 
+dumpWork :: (UIState -> ServerState -> Text) -> FilePath -> Control Event ()
+dumpWork mkContent file = do
+  ui <- getUI
+  asyncWork $ \ssref -> do
+    ss <- readTVarIO ssref
+    let txt = mkContent ui ss
+    withFile file WriteMode $ \h ->
+      TIO.hPutStrLn h txt
+
 handleConsole :: (e ~ Event) => ConsoleEvent DriverId -> Control e ()
 handleConsole (ConsoleTab i) = do
   modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
@@ -383,23 +395,15 @@ handleConsole (ConsoleButtonPressed isImmediate msg) = do
 handleConsole ConsoleDumpTiming = do
   -- TODO: The dump file name should be customizable.
   printMsg "dumping timing information to dump-timing.svg"
-  ui <- getUI
-  -- sorry for this hack for now
-  asyncWork $ \ssref -> do
-    ss <- readTVarIO ssref
-    let txt = dumpTiming ui ss
-    withFile "dump-timing.svg" WriteMode $ \h ->
-      TIO.hPutStrLn h txt
+  dumpWork dumpTiming "dump-timing.svg"
 handleConsole ConsoleDumpMemory = do
   -- TODO: The dump file name should be customizable.
-  printMsg "dumping timing information to dump-memory.svg"
-  ui <- getUI
-  -- sorry for this hack for now
-  asyncWork $ \ssref -> do
-    ss <- readTVarIO ssref
-    let txt = dumpMemory ui ss
-    withFile "dump-memory.svg" WriteMode $ \h ->
-      TIO.hPutStrLn h txt
+  printMsg "dumping memory alloc information to dump-memory.svg"
+  dumpWork dumpMemory "dump-memory.svg"
+handleConsole ConsoleDumpModGraph = do
+  -- TODO: The dump file name should be customizable.
+  printMsg "dumping module graph information to dump-modgraph.svg"
+  dumpWork (\_ ss -> dumpModGraph ss) "dump-modgraph.svg"
 
 -- TODO: this should be separated out with session type.
 handleBackground :: (e ~ Event) => BackgroundEvent -> Control e ()

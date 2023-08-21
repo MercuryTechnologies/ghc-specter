@@ -148,8 +148,10 @@ data ConsoleEvent k
   | ConsoleInput Text
   | -- | True: send the command immediately, False: wait for user's Enter.
     ConsoleButtonPressed Bool Text
-  | ConsoleDumpTiming
+  | -- TODO: we should have these cases into one and make each case as a nested type.
+    ConsoleDumpTiming
   | ConsoleDumpMemory
+  | ConsoleDumpModGraph
   deriving (Show, Eq)
 
 data UserEvent
