@@ -11,6 +11,7 @@ import Control.Concurrent.STM
     writeTQueue,
   )
 import Control.Monad.Extra (whenM, whileM)
+import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
@@ -27,7 +28,10 @@ import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    ViewPort (..),
+  )
 import GHCSpecter.Server.Types
   ( ModuleGraphState (..),
     ServerState (..),
@@ -46,6 +50,7 @@ import GeneralUtil
     showFramerate,
   )
 import ImGui
+import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import RenderUtil
@@ -57,7 +62,11 @@ import STD.Deletable (delete)
 
 showModuleGraph :: ServerState -> IO ()
 showModuleGraph ss = do
-  _ <- begin ("module graph" :: CString) nullPtr
+  let wflag =
+        fromIntegral $
+          fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
+            .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
+  _ <- begin ("module graph" :: CString) nullPtr wflag
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
@@ -65,7 +74,10 @@ showModuleGraph ss = do
             runIdentity $
               GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
           elems = sceneElements scene
-      -- vp = scene.sceneLocalViewPort
+          (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+          (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+          totalW = realToFrac (vx1 - vx0)
+          totalH = realToFrac (vy1 - vy0)
       draw_list <- getWindowDrawList
       colf <- newImVec4 0.1 0.1 0.4 1.0
       col_ <- newImColor colf
@@ -88,6 +100,10 @@ showModuleGraph ss = do
               }
       runImRender renderState $ do
         traverse_ renderPrimitive elems
+      dummy_sz <- newImVec2 totalW totalH
+      dummy dummy_sz
+      delete dummy_sz
+
   end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
@@ -126,7 +142,7 @@ singleFrame io window servSess cliSess = do
   let ssref = servSess._ssServerStateRef
   ss <- readTVarIO ssref
   showModuleGraph ss
-  _ <- begin ("ghc-specter console" :: CString) nullPtr
+  _ <- begin ("ghc-specter console" :: CString) nullPtr 0
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
     let chanQEv = cliSess._csPublisherEvent

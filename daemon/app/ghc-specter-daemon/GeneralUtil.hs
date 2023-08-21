@@ -138,7 +138,7 @@ finalize ctxt window = do
 
 showFramerate :: ImGuiIO -> IO ()
 showFramerate io = do
-  _ <- begin ("Framerate monitor" :: CString) nullPtr
+  _ <- begin ("Framerate monitor" :: CString) nullPtr 0
   framerate :: Float <- realToFrac <$> imGuiIO_Framerate_get io
   withCString (printf "Application average %.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate) $ \c_str ->
     textUnformatted c_str
