@@ -4,15 +4,20 @@
 module GHCSpecter.Util.Dump
   ( dumpTiming,
     dumpMemory,
+    dumpModGraph,
   )
 where
 
 import Data.Functor.Identity (runIdentity)
+import Data.List qualified as L
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
   )
+import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL
   ( Color (..),
     DrawText (..),
@@ -25,10 +30,16 @@ import GHCSpecter.Graphics.DSL
     viewPortHeight,
     viewPortWidth,
   )
+-- import GHCSpecter.Layouter.Graph.Types
+--   ( Dimension (..),
+--     GraphVisInfo (..),
+--   )
 import GHCSpecter.Server.Types
-  ( ServerState (..),
+  ( ModuleGraphState (..),
+    ServerState (..),
     TimingState (..),
   )
+import GHCSpecter.UI.Components.GraphView qualified as GraphView
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
 import GHCSpecter.UI.Constants (timingMaxWidth)
 import GHCSpecter.UI.Types
@@ -161,7 +172,7 @@ dumpTiming ui ss =
           }
 
       scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
-      elems = sceneElements scene
+      elems = scene.sceneElements
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
    in mkSvg 0 vp rendered
 
@@ -183,6 +194,38 @@ dumpMemory ui ss =
           }
 
       scene = runIdentity $ TimingView.buildMemChart True 400 drvModMap tui' ttable
-      elems = sceneElements scene
+      elems = scene.sceneElements
       rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
    in mkSvg 10 vp rendered
+
+dumpModGraph ::
+  ServerState ->
+  Text
+dumpModGraph ss =
+  case mgs._mgsClusterGraph of
+    Nothing -> ""
+    Just grVisInfo ->
+      let -- Dim _canvasWidth canvasHeight = grVisInfo._gviCanvasDim
+          scene =
+            runIdentity $
+              GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+          vp = scene.sceneLocalViewPort
+          elems = sceneElements scene
+          rendered = T.intercalate "\n" (fmap (renderPrimitive) elems)
+       in mkSvg 0 vp rendered
+  where
+    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
+    drvModMap = ss._serverDriverModuleMap
+    mgs = ss._serverModuleGraphState
+    clustering = mgs._mgsClustering
+    timing = ss._serverTiming._tsTimingMap
+    valueFor name =
+      fromMaybe 0 $ do
+        cluster <- L.lookup name clustering
+        let nTot = length cluster
+        if nTot == 0
+          then Nothing
+          else do
+            let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
+                nCompiled = length compiled
+            pure (fromIntegral nCompiled / fromIntegral nTot)
