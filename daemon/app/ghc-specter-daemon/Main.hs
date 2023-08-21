@@ -4,7 +4,8 @@
 module Main where
 
 import Control.Concurrent
-  ( forkOS,
+  ( forkIO,
+    forkOS,
     threadDelay,
   )
 import Control.Concurrent.STM
@@ -83,7 +84,5 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
+    forkIO $ Terminal.main cliSess
     uiMain
-
--- forever $
---   threadDelay 100_000_000
