@@ -7,18 +7,10 @@ module ImGuiMain (uiMain) where
 
 import Control.Concurrent.STM (atomically, writeTQueue)
 import Control.Monad.Extra (whenM, whileM)
-import Data.Foldable (for_)
-import Data.IORef (IORef, modifyIORef', newIORef)
-import Demo
-  ( demoLinePlots,
-    demoTables,
-  )
 import Foreign.C.String (CString)
-import Foreign.C.Types (CDouble (..), CFloat)
 import Foreign.Marshal.Alloc (alloca)
-import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (toBool)
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Ptr (nullPtr)
 import Foreign.Storable (Storable (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Driver.Session.Types
@@ -36,31 +28,39 @@ import GeneralUtil
   )
 import ImGui
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
-import System.Random (randomRIO)
+import STD.Deletable (delete)
+
+showModuleGraph :: IO ()
+showModuleGraph = do
+  _ <- begin ("module graph" :: CString) nullPtr
+  draw_list <- getWindowDrawList
+  let col = 100098230
+      rnd = 0.0
+      flag = 0
+      th = 3.0
+  v1 <- newImVec2 10 10
+  v2 <- newImVec2 90 90
+  imDrawList_AddRect draw_list v1 v2 col rnd flag th
+  delete v1
+  delete v2
+  end
 
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
-  ImVec4 ->
-  IORef Int ->
-  (Ptr CFloat, Ptr CFloat) ->
-  (Ptr CDouble, Ptr CDouble) ->
-  Ptr CFloat ->
   ClientSession ->
   IO Bool
-singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess = do
-  modifyIORef' ref_offset (+ 1)
+singleFrame io window cliSess = do
   glfwPollEvents
   -- Start the Dear ImGui frame
   imGui_ImplOpenGL3_NewFrame
   imGui_ImplGlfw_NewFrame
   newFrame
 
+  -- main drawing part
   showFramerate io
-  demoLinePlots (px1, py1) (px2, py2)
-  demoTables ref_offset pdat
-
-  _ <- begin ("Hello, world!" :: CString) nullPtr
+  showModuleGraph
+  _ <- begin ("ghc-specter console" :: CString) nullPtr
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
     let chanQEv = cliSess._csPublisherEvent
@@ -79,6 +79,7 @@ singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess 
   render
 
   -- c_draw_shim window clear_color
+  clear_color <- newImVec4 0.45 0.55 0.60 1.00
   alloca $ \p_dispW ->
     alloca $ \p_dispH -> do
       glfwGetFramebufferSize window p_dispW p_dispH
@@ -91,6 +92,7 @@ singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess 
       w <- imVec4_w_get clear_color
       glClearColor (x * w) (y * w) (z * w) w
       glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}
+  delete clear_color
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   glfwSwapBuffers window
 
@@ -101,20 +103,9 @@ uiMain cliSess = do
   (ctxt, io, window) <- initialize
 
   -- Our state
-  clear_color <- newImVec4 0.45 0.55 0.60 1.00
-  ref_offset <- newIORef (5 :: Int)
 
-  allocaArray 1001 $ \(px1 :: Ptr CFloat) ->
-    allocaArray 1001 $ \(py1 :: Ptr CFloat) ->
-      allocaArray 20 $ \(px2 :: Ptr CDouble) ->
-        allocaArray 20 $ \(py2 :: Ptr CDouble) ->
-          allocaArray 100 $ \(pdat :: Ptr CFloat) -> do
-            for_ [0 .. 99] $ \i -> do
-              v <- randomRIO (0, 10)
-              pokeElemOff pdat i v
-
-            -- main loop
-            whileM $
-              singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess
+  -- main loop
+  whileM $
+    singleFrame io window cliSess
 
   finalize ctxt window
