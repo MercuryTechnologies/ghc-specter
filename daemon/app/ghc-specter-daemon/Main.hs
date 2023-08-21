@@ -85,4 +85,4 @@ main = do
 
     -- start UI loop
     -- forkIO $ Terminal.main cliSess
-    uiMain
+    uiMain cliSess

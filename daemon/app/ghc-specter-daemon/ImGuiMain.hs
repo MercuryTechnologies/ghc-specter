@@ -1,23 +1,33 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module ImGuiMain (uiMain) where
 
-import Control.Monad.Extra (whileM)
+import Control.Concurrent.STM (atomically, writeTQueue)
+import Control.Monad.Extra (whenM, whileM)
 import Data.Foldable (for_)
 import Data.IORef (IORef, modifyIORef', newIORef)
---
 import Demo
   ( demoLinePlots,
     demoTables,
   )
+import Foreign.C.String (CString)
 import Foreign.C.Types (CDouble (..), CFloat)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (toBool)
-import Foreign.Ptr (Ptr)
+import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable (Storable (..))
+import GHCSpecter.Driver.Session.Types
+  ( ClientSession (..),
+  )
+import GHCSpecter.UI.Types.Event
+  ( ConsoleEvent (..),
+    Event (..),
+    UserEvent (..),
+  )
 import ImGui
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import System.Random (randomRIO)
@@ -35,8 +45,9 @@ singleFrame ::
   (Ptr CFloat, Ptr CFloat) ->
   (Ptr CDouble, Ptr CDouble) ->
   Ptr CFloat ->
+  ClientSession ->
   IO Bool
-singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat = do
+singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess = do
   modifyIORef' ref_offset (+ 1)
   glfwPollEvents
   -- Start the Dear ImGui frame
@@ -47,6 +58,17 @@ singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat = do
   showFramerate io
   demoLinePlots (px1, py1) (px2, py2)
   demoTables ref_offset pdat
+
+  _ <- begin ("Hello, world!" :: CString) nullPtr
+  -- Buttons return true when clicked (most widgets return true when edited/activated)
+  whenM (toBool <$> button (":next" :: CString)) $ do
+    let chanQEv = cliSess._csPublisherEvent
+    atomically $
+      writeTQueue
+        chanQEv
+        (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
+  end
+
   render
 
   -- c_draw_shim window clear_color
@@ -67,8 +89,8 @@ singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat = do
 
   not . toBool <$> glfwWindowShouldClose window
 
-uiMain :: IO ()
-uiMain = do
+uiMain :: ClientSession -> IO ()
+uiMain cliSess = do
   (ctxt, io, window) <- initialize
 
   -- Our state
@@ -86,6 +108,6 @@ uiMain = do
 
             -- main loop
             whileM $
-              singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat
+              singleFrame io window clear_color ref_offset (px1, py1) (px2, py2) pdat cliSess
 
   finalize ctxt window
