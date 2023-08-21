@@ -19,8 +19,7 @@ import GHCSpecter.Server.Types (initServerState)
 startComm :: Config -> IO ServerSession
 startComm cfg = do
   let socketFile = configSocket cfg
-      nodeSizeLimit = configModuleClusterSize cfg
-  ssRef <- atomically $ newTVar (initServerState nodeSizeLimit)
+  ssRef <- atomically $ newTVar initServerState
   workQ <- newTQueueIO
   chanSignal <- newTChanIO
   let servSess = ServerSession ssRef chanSignal

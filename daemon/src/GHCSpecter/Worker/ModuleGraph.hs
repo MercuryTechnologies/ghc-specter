@@ -1,4 +1,5 @@
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 module GHCSpecter.Worker.ModuleGraph
@@ -6,8 +7,8 @@ module GHCSpecter.Worker.ModuleGraph
   )
 where
 
-import Control.Concurrent.STM (TVar, atomically, modifyTVar', readTVar)
-import Control.Lens ((.~), (^.))
+import Control.Concurrent.STM (TVar, atomically, modifyTVar')
+import Control.Lens ((.~))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -49,11 +50,20 @@ maxSubGraphSize UpTo30 = 30
 maxSubGraphSize UpTo100 = 100
 maxSubGraphSize UpTo300 = 300
 
+-- | Heuristic value for nodeSizeLimit
+--   a * x^n = N
+calcNodeSizeLimit :: ModuleGraphInfo -> Int
+calcNodeSizeLimit mgi =
+  let nMod = length (mgi.mginfoModuleNameMap)
+      a = 0.0344
+      n = 2.27
+      x = floor ((fromIntegral nMod / a) ** (1.0 / n) :: Double)
+   in if x < 1 then 1 else x
+
 moduleGraphWorker :: TVar ServerState -> ModuleGraphInfo -> IO ()
 moduleGraphWorker var mgi = do
-  nodeSizeLimit <-
-    (^. serverModuleClusterSize) <$> atomically (readTVar var)
-  let forest = makeSourceTree mgi
+  let nodeSizeLimit = calcNodeSizeLimit mgi
+      forest = makeSourceTree mgi
       modNameMap = mginfoModuleNameMap mgi
       modDep = mginfoModuleDep mgi
       modBiDep = makeBiDep modDep

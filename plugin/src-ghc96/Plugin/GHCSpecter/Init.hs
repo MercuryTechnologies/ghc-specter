@@ -93,8 +93,7 @@ initGhcSession env = do
                     sessionGhcMode = ghcMode,
                     sessionBackend = backend,
                     sessionStartTime = Just startTime,
-                    sessionIsPaused = configStartWithBreakpoint cfg,
-                    sessionPreferredModuleClusterSize = Just (configModuleClusterSize cfg)
+                    sessionIsPaused = configStartWithBreakpoint cfg
                   }
           modifyTVar'
             sessionRef

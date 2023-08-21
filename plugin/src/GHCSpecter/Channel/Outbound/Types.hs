@@ -179,8 +179,7 @@ data SessionInfo = SessionInfo
     sessionGhcMode :: GhcMode,
     sessionBackend :: Backend,
     sessionStartTime :: Maybe UTCTime,
-    sessionIsPaused :: Bool,
-    sessionPreferredModuleClusterSize :: Maybe Int
+    sessionIsPaused :: Bool
   }
   deriving (Show, Generic)
 
@@ -193,8 +192,7 @@ emptySessionInfo =
       sessionGhcMode = CompManager,
       sessionBackend = NCG,
       sessionStartTime = Nothing,
-      sessionIsPaused = True,
-      sessionPreferredModuleClusterSize = Nothing
+      sessionIsPaused = True
     }
 
 data ChanMessage (a :: Channel) where

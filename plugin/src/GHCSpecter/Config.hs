@@ -13,20 +13,17 @@ import GHC.Generics (Generic)
 data Config = Config
   { configSocket :: FilePath,
     configSessionFile :: FilePath,
-    configStartWithBreakpoint :: Bool,
-    configModuleClusterSize :: Int
+    configStartWithBreakpoint :: Bool
   }
   deriving (Show, Generic)
 
 -- | default configuration
--- NOTE: non-trivial default value: cluster size = 150.
 emptyConfig :: Config
 emptyConfig =
   Config
     { configSocket = "/tmp/ghc-specter.ipc",
       configSessionFile = "",
-      configStartWithBreakpoint = False {- True -},
-      configModuleClusterSize = 150
+      configStartWithBreakpoint = False {- True -}
     }
 
 defaultGhcSpecterConfigFile :: FilePath
