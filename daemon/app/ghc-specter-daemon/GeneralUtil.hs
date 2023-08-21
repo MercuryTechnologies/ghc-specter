@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Util
+module GeneralUtil
   ( finalize,
     initialize,
     makeSparkline,

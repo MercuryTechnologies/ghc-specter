@@ -30,10 +30,6 @@ import GHCSpecter.Graphics.DSL
     viewPortHeight,
     viewPortWidth,
   )
--- import GHCSpecter.Layouter.Graph.Types
---   ( Dimension (..),
---     GraphVisInfo (..),
---   )
 import GHCSpecter.Server.Types
   ( ModuleGraphState (..),
     ServerState (..),
@@ -85,7 +81,7 @@ quote t = "\"" <> t <> "\""
 renderPrimitive ::
   Primitive e ->
   Text
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) =
+renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _) =
   "<rect"
     <> " x="
     <> quote (T.pack $ show x)

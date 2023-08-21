@@ -122,8 +122,9 @@ executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
     Demo
+    GeneralUtil
     ImGuiMain
-    Util
+    RenderUtil
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
@@ -134,12 +135,14 @@ executable ghc-specter-daemon
     , fficxx-runtime
     , ghc-specter-daemon
     , ghc-specter-plugin
+    , ghc-specter-render
     , imgui
     , implot
     , random
     , stdcxx
     , stm
     , time
+    , transformers
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test

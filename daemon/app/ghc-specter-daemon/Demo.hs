@@ -16,13 +16,13 @@ import Foreign.C.Types (CDouble, CFloat)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable (Storable (..))
+import GeneralUtil (makeSparkline)
 import ImGui
 import ImGui.Enum
 import ImPlot qualified
 import ImPlot.Enum
 import ImPlot.Template
 import Text.Printf (printf)
-import Util (makeSparkline)
 
 demoLinePlots :: (Ptr CFloat, Ptr CFloat) -> (Ptr CDouble, Ptr CDouble) -> IO ()
 demoLinePlots (px1, py1) (px2, py2) = do

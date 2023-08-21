@@ -29,14 +29,14 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     UserEvent (..),
   )
-import ImGui
-import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
-import System.Random (randomRIO)
-import Util
+import GeneralUtil
   ( finalize,
     initialize,
     showFramerate,
   )
+import ImGui
+import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
+import System.Random (randomRIO)
 
 singleFrame ::
   ImGuiIO ->
