@@ -103,7 +103,6 @@ showModuleGraph ss = do
       dummy_sz <- newImVec2 totalW totalH
       dummy dummy_sz
       delete dummy_sz
-
   end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap

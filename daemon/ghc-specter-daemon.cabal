@@ -124,6 +124,7 @@ executable ghc-specter-daemon
     GeneralUtil
     ImGuiMain
     RenderUtil
+    StorableInstances
   hs-source-dirs:
       app/ghc-specter-daemon
   cxx-sources: csrc/shim.cpp

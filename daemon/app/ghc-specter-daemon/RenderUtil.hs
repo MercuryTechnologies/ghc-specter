@@ -12,7 +12,12 @@ where
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
+import Data.Traversable (for)
+import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.C.Types (CFloat, CInt, CUInt)
+import Foreign.Marshal.Array (allocaArray)
+import Foreign.Ptr (Ptr, castPtr)
+import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
     Polyline (..),
@@ -22,7 +27,8 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import ImGui
-import STD.Deletable
+import STD.Deletable (delete)
+import StorableInstances ()
 
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
@@ -64,5 +70,31 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
       s.currThickness
     delete v1
     delete v2
-renderPrimitive (Primitive (SPolyline (Polyline start xys end color swidth)) _ _) = pure ()
+renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) = ImRender $ do
+  s <- ask
+  liftIO $ do
+    let (ox, oy) = s.currOrigin
+        (x0, y0) = xy0
+        (x1, y1) = xy1
+        nPoints = length xys + 2
+    -- TODO: make a utility function for this tedious and error-prone process
+    allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
+      p0 <- newImVec2 (realToFrac x0 + ox) (realToFrac y0 + oy)
+      pokeElemOff pp 0 p0
+      delete p0
+      p1 <- newImVec2 (realToFrac x1 + ox) (realToFrac y1 + oy)
+      pokeElemOff pp (nPoints - 1) p1
+      delete p1
+      for (zip [1 ..] xys) $ \(i, (x, y)) -> do
+        p <- newImVec2 (realToFrac x + ox) (realToFrac y + oy)
+        pokeElemOff pp i p
+        delete p
+      let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
+      imDrawList_AddPolyline
+        s.currDrawList
+        p
+        (fromIntegral nPoints)
+        s.currColor
+        0
+        s.currThickness
 renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _ _) = pure ()
