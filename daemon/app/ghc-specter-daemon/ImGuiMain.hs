@@ -22,11 +22,13 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import GeneralUtil
-  ( finalize,
+  ( c_toImU32,
+    finalize,
     initialize,
     showFramerate,
   )
 import ImGui
+import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import STD.Deletable (delete)
 
@@ -34,12 +36,18 @@ showModuleGraph :: IO ()
 showModuleGraph = do
   _ <- begin ("module graph" :: CString) nullPtr
   draw_list <- getWindowDrawList
-  let col = 100098230
-      rnd = 0.0
+  colf <- newImVec4 0.1 0.1 0.4 1.0
+  col_ <- newImColor colf
+  col <- c_toImU32 col_
+  delete colf
+  let rnd = 0.0
       flag = 0
       th = 3.0
-  v1 <- newImVec2 10 10
-  v2 <- newImVec2 90 90
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  v1 <- newImVec2 (px + 10) (py + 10)
+  v2 <- newImVec2 (px + 90) (py + 90)
   imDrawList_AddRect draw_list v1 v2 col rnd flag th
   delete v1
   delete v2

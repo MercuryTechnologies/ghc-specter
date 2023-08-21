@@ -4,8 +4,14 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module GeneralUtil
-  ( finalize,
+  ( -- * shim
+    c_toImU32,
+
+    -- * init/close
     initialize,
+    finalize,
+
+    -- * draw utilities
     makeSparkline,
     showFramerate,
   )
@@ -17,7 +23,7 @@ import Data.String (IsString (..))
 import FFICXX.Runtime.Cast (FPtr (..))
 import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
 import Foreign.C.String (CString, newCString, withCString)
-import Foreign.C.Types (CDouble (..), CFloat, CInt (..))
+import Foreign.C.Types (CDouble (..), CFloat, CInt (..), CUInt (..))
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (Ptr, nullPtr)
 import ImGui
@@ -34,6 +40,9 @@ import ImPlot.Template
 import STD.Deletable (delete)
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf (printf)
+
+foreign import ccall unsafe "toImU32"
+  c_toImU32 :: ImColor -> IO CUInt
 
 instance IsString CString where
   fromString s = unsafePerformIO $ newCString s
@@ -73,31 +82,6 @@ TH.genPlotLine1InstanceFor
         tpinfoSuffix = "float"
       }
   )
-
-showFramerate :: ImGuiIO -> IO ()
-showFramerate io = do
-  _ <- begin ("Framerate monitor" :: CString) nullPtr
-  framerate :: Float <- realToFrac <$> imGuiIO_Framerate_get io
-  withCString (printf "Application average %.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate) $ \c_str ->
-    textUnformatted c_str
-  end
-
-makeSparkline :: Ptr CFloat -> Int -> IO ()
-makeSparkline pdat offset = do
-  spark_size <- newImVec2 (-1) 35
-  zero <- newImVec2 0 0
-  ImPlot.pushStyleVar (fromIntegral (fromEnum ImPlotStyleVar_PlotPadding)) zero
-  let spark_flags =
-        fromIntegral $
-          fromEnum ImPlotFlags_CanvasOnly
-            .|. fromEnum ImPlotFlags_NoChild
-      no_deco = fromIntegral (fromEnum ImPlotAxisFlags_NoDecorations)
-  whenM (toBool <$> ImPlot.beginPlot ("1" :: CString) spark_size spark_flags) $ do
-    ImPlot.setupAxes (nullPtr :: CString) (nullPtr :: CString) no_deco no_deco
-    plotLine1 "##spark" pdat 100 1 0 0 (fromIntegral offset)
-    ImPlot.endPlot
-  delete spark_size
-  delete zero
 
 initialize :: IO (ImGuiContext, ImGuiIO, GLFWwindow)
 initialize = do
@@ -151,3 +135,28 @@ finalize ctxt window = do
 
   glfwDestroyWindow window
   glfwTerminate
+
+showFramerate :: ImGuiIO -> IO ()
+showFramerate io = do
+  _ <- begin ("Framerate monitor" :: CString) nullPtr
+  framerate :: Float <- realToFrac <$> imGuiIO_Framerate_get io
+  withCString (printf "Application average %.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate) $ \c_str ->
+    textUnformatted c_str
+  end
+
+makeSparkline :: Ptr CFloat -> Int -> IO ()
+makeSparkline pdat offset = do
+  spark_size <- newImVec2 (-1) 35
+  zero <- newImVec2 0 0
+  ImPlot.pushStyleVar (fromIntegral (fromEnum ImPlotStyleVar_PlotPadding)) zero
+  let spark_flags =
+        fromIntegral $
+          fromEnum ImPlotFlags_CanvasOnly
+            .|. fromEnum ImPlotFlags_NoChild
+      no_deco = fromIntegral (fromEnum ImPlotAxisFlags_NoDecorations)
+  whenM (toBool <$> ImPlot.beginPlot ("1" :: CString) spark_size spark_flags) $ do
+    ImPlot.setupAxes (nullPtr :: CString) (nullPtr :: CString) no_deco no_deco
+    plotLine1 "##spark" pdat 100 1 0 0 (fromIntegral offset)
+    ImPlot.endPlot
+  delete spark_size
+  delete zero
