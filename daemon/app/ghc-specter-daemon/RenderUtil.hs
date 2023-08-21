@@ -2,13 +2,16 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module RenderUtil
-  ( renderPrimitive,
+  ( ImRenderState (..),
+    ImRender (..),
+    runImRender,
+    renderPrimitive,
   )
 where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Foreign.C.Types (CFloat, CInt, CUInt)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
@@ -23,6 +26,7 @@ import STD.Deletable
 
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
+    currOrigin :: (CFloat, CFloat),
     currColor :: CUInt,
     currRounding :: CFloat,
     currFlag :: CInt,
@@ -34,10 +38,8 @@ newtype ImRender a = ImRender
   }
   deriving (Functor, Applicative, Monad)
 
--- TODO: replace this with proper layout computation when available
-instance MonadTextLayout ImRender where
-  calculateTextDimension _ font_size _ =
-    pure (120, fromIntegral font_size + 3)
+runImRender :: ImRenderState -> ImRender a -> IO a
+runImRender s action = runReaderT (unImRender action) s
 
 renderPrimitive ::
   Primitive e ->
@@ -45,8 +47,9 @@ renderPrimitive ::
 renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) = ImRender $ do
   s <- ask
   liftIO $ do
-    let x' = realToFrac x
-        y' = realToFrac y
+    let (ox, oy) = s.currOrigin
+        x' = ox + realToFrac x
+        y' = oy + realToFrac y
         w' = realToFrac w
         h' = realToFrac h
     v1 <- newImVec2 x' y'
