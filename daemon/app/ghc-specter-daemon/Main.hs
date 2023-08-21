@@ -29,6 +29,8 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Driver.Terminal qualified as Terminal
 import GHCSpecter.UI.Types (emptyUIState)
+--
+import ImGuiMain (uiMain)
 import System.IO
   ( BufferMode (..),
     hPutStrLn,
@@ -81,5 +83,7 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    forever $
-      threadDelay 100_000_000
+    uiMain
+
+-- forever $
+--   threadDelay 100_000_000

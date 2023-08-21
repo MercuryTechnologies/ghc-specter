@@ -120,17 +120,21 @@ executable ghc-specter-daemon-terminal
 
 executable ghc-specter-daemon
   main-is: Main.hs
-  other-modules:
+  other-modules: ImGuiMain
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  frameworks: OpenGL
   build-depends:
       base >=4.15 && <5
+    , extra
     , fficxx-runtime
     , ghc-specter-daemon
     , ghc-specter-plugin
     , imgui
     , implot
+    , random
+    , stdcxx
     , stm
     , time
   default-language: GHC2021
