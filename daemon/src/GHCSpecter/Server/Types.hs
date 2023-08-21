@@ -150,16 +150,14 @@ data ServerState = ServerState
     _serverSuppView :: Map ModuleName [((Text, Int), SupplementaryView)],
     _serverModuleGraphState :: ModuleGraphState,
     _serverHieState :: HieState,
-    _serverModuleBreakpoints :: [ModuleName],
-    -- TODO: These numbers from configuration should be separated to an env in ReaderT.
-    _serverModuleClusterSize :: Int
+    _serverModuleBreakpoints :: [ModuleName]
   }
   deriving (Show, Generic)
 
 makeClassy ''ServerState
 
-initServerState :: Int -> ServerState
-initServerState nodeSizeLimit =
+initServerState {- Int -> -} :: ServerState
+initServerState {- nodeSizeLimit -} =
   ServerState
     { _serverMessageSN = 0,
       _serverShouldUpdate = True,
@@ -172,8 +170,7 @@ initServerState nodeSizeLimit =
       _serverSuppView = mempty,
       _serverModuleGraphState = emptyModuleGraphState,
       _serverHieState = emptyHieState,
-      _serverModuleBreakpoints = [],
-      _serverModuleClusterSize = nodeSizeLimit
+      _serverModuleBreakpoints = []
     }
 
 incrementSN :: ServerState -> ServerState
