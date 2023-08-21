@@ -132,6 +132,7 @@ executable ghc-specter-daemon
   frameworks: OpenGL
   build-depends:
       base >=4.15 && <5
+    , bytestring
     , extra
     , fficxx-runtime
     , ghc-specter-daemon
@@ -142,6 +143,7 @@ executable ghc-specter-daemon
     , random
     , stdcxx
     , stm
+    , text
     , time
     , transformers
   default-language: GHC2021

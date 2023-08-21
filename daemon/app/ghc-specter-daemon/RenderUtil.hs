@@ -12,6 +12,8 @@ where
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
+import Data.ByteString (useAsCString)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Traversable (for)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.C.Types (CFloat, CInt, CUInt)
@@ -24,9 +26,11 @@ import GHCSpecter.Graphics.DSL
     Primitive (..),
     Rectangle (..),
     Shape (..),
+    TextPosition (LowerLeft, UpperLeft),
   )
 import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import ImGui
+import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import StorableInstances ()
 
@@ -97,4 +101,27 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         s.currColor
         0
         s.currThickness
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) _pos _font color _fontSize msg)) _ _) = pure ()
+renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos _font color fontSize msg)) _ _) = ImRender $ do
+  s <- ask
+  liftIO $ do
+    font <- getFont
+    currFontSize <- getFontSize
+    -- TODO: 2.0 is HiDPI adjustment for now
+    imFont_Scale_set font (realToFrac fontSize / currFontSize * 2.0)
+    pushFont font
+    print (pos, fontSize, currFontSize)
+    let (ox, oy) = s.currOrigin
+        offsetY = case pos of
+          UpperLeft -> 0
+          LowerLeft -> -fontSize
+        x' = realToFrac x + ox
+        y' = realToFrac y + oy + fromIntegral offsetY
+    v' <- newImVec2 x' y'
+    useAsCString (encodeUtf8 msg) $ \cstr ->
+      imDrawList_AddText
+        s.currDrawList
+        v'
+        s.currColor
+        cstr
+    delete v'
+    popFont

@@ -56,7 +56,7 @@ main = do
     chanState <- newTChanIO
     chanQEv <- newTQueueIO
 
-    let cliSess = ClientSession uiRef chanState chanQEv
+    let cliSess = ClientSession uiRef chanQEv
 
     -- prepare runner
     -- TODO: make common initialization function (but backend-dep)

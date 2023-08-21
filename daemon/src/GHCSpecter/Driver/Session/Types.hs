@@ -29,7 +29,7 @@ makeClassy ''ServerSession
 
 data ClientSession = ClientSession
   { _csUIStateRef :: TVar UIState,
-    _csPublisherState :: TChan (UIState, ServerState),
+    -- _csPublisherState :: TChan (UIState, ServerState),
     _csPublisherEvent :: TQueue Event
   }
 

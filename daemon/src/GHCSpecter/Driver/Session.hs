@@ -10,7 +10,6 @@ import Control.Concurrent.STM
     readTQueue,
     readTVar,
     retry,
-    writeTChan,
     writeTQueue,
   )
 import Control.Lens ((^.))
@@ -52,9 +51,6 @@ main runner servSess cs controlMain = do
   pure ()
   where
     ssRef = servSess ^. ssServerStateRef
-    uiRef = cs ^. csUIStateRef
-    -- chanEv = cs ^. csSubscriberEvent
-    chanState = cs ^. csPublisherState
     chanQEv = cs ^. csPublisherEvent
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
@@ -79,10 +75,4 @@ main runner servSess cs controlMain = do
       where
         step c = do
           ev <- atomically $ readTQueue chanQEv
-          ec' <-
-            runReaderT (stepControlUpToEvent ev c) runner'
-          atomically $ do
-            ui <- readTVar uiRef
-            ss <- readTVar ssRef
-            writeTChan chanState (ui, ss)
-          pure ec'
+          runReaderT (stepControlUpToEvent ev c) runner'

@@ -33,7 +33,6 @@ import Text.Read (readMaybe)
 main :: ClientSession -> IO ()
 main cliSess = do
   let _uiRef = cliSess._csUIStateRef
-      _chanState = cliSess._csPublisherState
       chanQEv = cliSess._csPublisherEvent
       loop :: InputT IO ()
       loop = do

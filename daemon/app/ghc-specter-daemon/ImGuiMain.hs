@@ -1,7 +1,5 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module ImGuiMain (uiMain) where
 
@@ -85,7 +83,7 @@ showModuleGraph ss = do
       delete colf
       let rnd = 0.0
           flag = 0
-          th = 3.0
+          th = 0.5
       p <- getCursorScreenPos
       px <- imVec2_x_get p
       py <- imVec2_y_get p
