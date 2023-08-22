@@ -4,8 +4,7 @@ module Main where
 
 import Control.Concurrent (forkOS)
 import Control.Concurrent.STM
-  ( newTChanIO,
-    newTQueueIO,
+  ( newTQueueIO,
     newTVarIO,
   )
 import Data.IORef (newIORef)
@@ -44,10 +43,9 @@ main = do
     initTime <- getCurrentTime
     let ui0 = emptyUIState initTime
     uiRef <- newTVarIO ui0
-    chanState <- newTChanIO
     chanQEv <- newTQueueIO
 
-    let cliSess = ClientSession uiRef chanState chanQEv
+    let cliSess = ClientSession uiRef chanQEv
 
     -- prepare runner
     -- TODO: make common initialization function (but backend-dep)
