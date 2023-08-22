@@ -28,6 +28,7 @@ import GHCSpecter.Graphics.DSL
     Primitive (..),
     Rectangle (..),
     Shape (..),
+    TextFontFace (..),
     TextPosition (LowerLeft, UpperLeft),
   )
 import ImGui
@@ -37,7 +38,9 @@ import StorableInstances ()
 
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
-    currOrigin :: (CFloat, CFloat)
+    currOrigin :: (CFloat, CFloat),
+    currFontSans :: ImFont,
+    currFontMono :: ImFont
   }
 
 newtype ImRender a = ImRender
@@ -114,9 +117,12 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         col
         0
         (realToFrac swidth)
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos _font color fontSize msg)) _ _) = ImRender $ do
+renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize msg)) _ _) = ImRender $ do
   s <- ask
   liftIO $ do
+    case font of
+      Sans -> pushFont (s.currFontSans)
+      Mono -> pushFont (s.currFontMono)
     -- font <- getFont
     -- currFontSize <- getFontSize
     -- imFont_Scale_set font (realToFrac fontSize / currFontSize * 2.0)
@@ -136,8 +142,7 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos _font color fontSize 
         col
         cstr
     delete v'
-
--- popFont
+    popFont
 
 --
 -- Color

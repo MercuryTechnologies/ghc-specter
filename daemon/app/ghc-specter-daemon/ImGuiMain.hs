@@ -60,8 +60,8 @@ import RenderUtil
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 
-showModuleGraph :: ServerState -> IO ()
-showModuleGraph ss = do
+showModuleGraph :: (ImFont, ImFont) -> ServerState -> IO ()
+showModuleGraph (fontSans, fontMono) ss = do
   let wflag =
         fromIntegral $
           fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
@@ -85,7 +85,9 @@ showModuleGraph ss = do
       let renderState =
             ImRenderState
               { currDrawList = draw_list,
-                currOrigin = (px, py)
+                currOrigin = (px, py),
+                currFontSans = fontSans,
+                currFontMono = fontMono
               }
       runImRender renderState $ do
         traverse_ renderPrimitive elems
@@ -112,12 +114,13 @@ showModuleGraph ss = do
 
 singleFrame ::
   ImGuiIO ->
+  (ImFont, ImFont) ->
   GLFWwindow ->
   -- TODO: for now. server state should be taken from csPublisherState
   ServerSession ->
   ClientSession ->
   IO Bool
-singleFrame io window servSess cliSess = do
+singleFrame io (fontSans, fontMono) window servSess cliSess = do
   glfwPollEvents
   -- Start the Dear ImGui frame
   imGui_ImplOpenGL3_NewFrame
@@ -129,7 +132,7 @@ singleFrame io window servSess cliSess = do
   -- TODO: temporarily
   let ssref = servSess._ssServerStateRef
   ss <- readTVarIO ssref
-  showModuleGraph ss
+  showModuleGraph (fontSans, fontMono) ss
   _ <- begin ("ghc-specter console" :: CString) nullPtr 0
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
@@ -181,13 +184,13 @@ uiMain servSess cliSess = do
   fontDefault <- imFontAtlas_AddFontDefault fonts
   fontSans <-
     withCString free_sans_path $ \cstr ->
-      imFontAtlas_AddFontFromFileTTF fonts cstr 10
+      imFontAtlas_AddFontFromFileTTF fonts cstr 8
   fontMono <-
-    withCString free_sans_path $ \cstr ->
-      imFontAtlas_AddFontFromFileTTF fonts cstr 10
+    withCString free_mono_path $ \cstr ->
+      imFontAtlas_AddFontFromFileTTF fonts cstr 8
   -- pushFont fontDefault
   -- main loop
   whileM $
-    singleFrame io window servSess cliSess
+    singleFrame io (fontSans, fontMono) window servSess cliSess
 
   finalize ctxt window

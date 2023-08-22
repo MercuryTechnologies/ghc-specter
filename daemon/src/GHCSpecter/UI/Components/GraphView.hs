@@ -109,7 +109,7 @@ buildModuleGraph
                     hitEventHoverOff = Just (HoverOnModuleEv Nothing),
                     hitEventClick = Just (Right (ClickOnModuleEv (Just name)))
                   }
-          renderedText <- drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+          renderedText <- drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Sans Black fontSize name
           -- TODO: width and height should be replaced by correct impl.
           pure
             [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 13 (Just DimGray) (Just color1) (Just 0.8) (Just hitEvent),
