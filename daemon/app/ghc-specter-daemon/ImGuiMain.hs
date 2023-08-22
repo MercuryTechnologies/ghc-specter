@@ -112,46 +112,25 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-singleFrame ::
-  ImGuiIO ->
-  (ImFont, ImFont) ->
-  GLFWwindow ->
-  -- TODO: for now. server state should be taken from csPublisherState
-  ServerSession ->
-  ClientSession ->
-  IO Bool
-singleFrame io (fontSans, fontMono) window servSess cliSess = do
-  glfwPollEvents
-  -- Start the Dear ImGui frame
-  imGui_ImplOpenGL3_NewFrame
-  imGui_ImplGlfw_NewFrame
-  newFrame
-
-  -- main drawing part
-  showFramerate io
-  -- TODO: temporarily
-  let ssref = servSess._ssServerStateRef
-  ss <- readTVarIO ssref
-  showModuleGraph (fontSans, fontMono) ss
+showConsole :: ClientSession -> IO ()
+showConsole cliSess = do
   _ <- begin ("ghc-specter console" :: CString) nullPtr 0
+  let chanQEv = cliSess._csPublisherEvent
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
-    let chanQEv = cliSess._csPublisherEvent
     atomically $
       writeTQueue
         chanQEv
         (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
   whenM (toBool <$> button (":next" :: CString)) $ do
-    let chanQEv = cliSess._csPublisherEvent
     atomically $
       writeTQueue
         chanQEv
         (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
   end
 
-  render
-
-  -- c_draw_shim window clear_color
+drawBackground :: GLFWwindow -> IO ()
+drawBackground window = do
   clear_color <- newImVec4 0.45 0.55 0.60 1.00
   alloca $ \p_dispW ->
     alloca $ \p_dispH -> do
@@ -166,31 +145,66 @@ singleFrame io (fontSans, fontMono) window servSess cliSess = do
       glClearColor (x * w) (y * w) (z * w) w
       glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}
   delete clear_color
+
+singleFrame ::
+  ImGuiIO ->
+  (ImFont, ImFont) ->
+  GLFWwindow ->
+  ServerSession ->
+  ClientSession ->
+  IO Bool
+singleFrame io (fontSans, fontMono) window servSess cliSess = do
+  glfwPollEvents
+  -- Start the Dear ImGui frame
+  imGui_ImplOpenGL3_NewFrame
+  imGui_ImplGlfw_NewFrame
+  newFrame
+
+  let ssref = servSess._ssServerStateRef
+  ss <- readTVarIO ssref
+
+  -- main drawing part
+  showFramerate io
+  -- module graph window
+  showModuleGraph (fontSans, fontMono) ss
+  -- console window
+  showConsole cliSess
+
+  -- render call
+  render
+
+  -- empty background with fill color
+  drawBackground window
+  -- stage the frame
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
+  -- commit the frame
   glfwSwapBuffers window
 
   not . toBool <$> glfwWindowShouldClose window
 
-uiMain :: ServerSession -> ClientSession -> IO ()
-uiMain servSess cliSess = do
-  (ctxt, io, window) <- initialize
-
+prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
+prepareAssets io = do
   dir <- getDataDir
-  -- print dir
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
-  -- print free_sans_path
   fonts <- imGuiIO_Fonts_get io
-  fontDefault <- imFontAtlas_AddFontDefault fonts
+  _fontDefault <- imFontAtlas_AddFontDefault fonts
   fontSans <-
     withCString free_sans_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
-  -- pushFont fontDefault
+  pure (fontSans, fontMono)
+
+uiMain :: ServerSession -> ClientSession -> IO ()
+uiMain servSess cliSess = do
+  -- initialize window
+  (ctxt, io, window) <- initialize
+  -- prepare assets (fonts)
+  assets <- prepareAssets io
   -- main loop
   whileM $
-    singleFrame io (fontSans, fontMono) window servSess cliSess
-
+    singleFrame io assets window servSess cliSess
+  -- close window
   finalize ctxt window
