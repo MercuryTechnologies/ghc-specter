@@ -12,14 +12,12 @@ module RenderUtil
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_)
 import Data.Text.Encoding (encodeUtf8)
-import Data.Traversable (for)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.Types (CFloat, CInt, CUInt)
+import Foreign.C.Types (CFloat, CUInt)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
@@ -32,16 +30,14 @@ import GHCSpecter.Graphics.DSL
     Shape (..),
     TextPosition (LowerLeft, UpperLeft),
   )
-import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import ImGui
-import ImGui.ImFont.Implementation (imFont_Scale_set)
+-- import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import StorableInstances ()
 
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
-    currOrigin :: (CFloat, CFloat),
-    currFlag :: CInt
+    currOrigin :: (CFloat, CFloat)
   }
 
 newtype ImRender a = ImRender
@@ -77,7 +73,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         v2
         col
         0.0
-        s.currFlag
+        0 -- no flag
     for_ ((,) <$> mline <*> mlwidth) $ \(line, lwidth) -> do
       col <- getNamedColor line
       imDrawList_AddRect
@@ -86,7 +82,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         v2
         col
         0.0
-        s.currFlag
+        0 -- no flag
         (realToFrac lwidth)
     delete v1
     delete v2

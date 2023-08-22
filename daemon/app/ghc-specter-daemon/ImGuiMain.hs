@@ -14,7 +14,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
-import Foreign.C.String (CString)
+import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
@@ -48,15 +48,17 @@ import GeneralUtil
   )
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
+import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
+import Paths_ghc_specter_daemon (getDataDir)
 import RenderUtil
   ( ImRenderState (..),
     renderPrimitive,
-    rgb2Color,
     runImRender,
   )
 import STD.Deletable (delete)
+import System.FilePath ((</>))
 
 showModuleGraph :: ServerState -> IO ()
 showModuleGraph ss = do
@@ -77,17 +79,13 @@ showModuleGraph ss = do
           totalW = realToFrac (vx1 - vx0)
           totalH = realToFrac (vy1 - vy0)
       draw_list <- getWindowDrawList
-      let rnd = 0.0
-          flag = 0
-          th = 0.5
       p <- getCursorScreenPos
       px <- imVec2_x_get p
       py <- imVec2_y_get p
       let renderState =
             ImRenderState
               { currDrawList = draw_list,
-                currOrigin = (px, py),
-                currFlag = flag
+                currOrigin = (px, py)
               }
       runImRender renderState $ do
         traverse_ renderPrimitive elems
@@ -174,6 +172,20 @@ uiMain :: ServerSession -> ClientSession -> IO ()
 uiMain servSess cliSess = do
   (ctxt, io, window) <- initialize
 
+  dir <- getDataDir
+  -- print dir
+  let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
+      free_mono_path = dir </> "assets" </> "FreeMono.ttf"
+  -- print free_sans_path
+  fonts <- imGuiIO_Fonts_get io
+  fontDefault <- imFontAtlas_AddFontDefault fonts
+  fontSans <-
+    withCString free_sans_path $ \cstr ->
+      imFontAtlas_AddFontFromFileTTF fonts cstr 10
+  fontMono <-
+    withCString free_sans_path $ \cstr ->
+      imFontAtlas_AddFontFromFileTTF fonts cstr 10
+  -- pushFont fontDefault
   -- main loop
   whileM $
     singleFrame io window servSess cliSess
