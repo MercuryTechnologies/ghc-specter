@@ -128,7 +128,6 @@ showModuleGraph (fontSans, fontMono) ss = do
 showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
 showTimingView (fontSans, fontMono) ui ss = do
   _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
-
   draw_list <- getWindowDrawList
   p <- getCursorScreenPos
   px <- imVec2_x_get p
@@ -145,7 +144,6 @@ showTimingView (fontSans, fontMono) ui ss = do
   dummy_sz <- newImVec2 totalW totalH
   dummy dummy_sz
   delete dummy_sz
-
   end
   where
     drvModMap = ss._serverDriverModuleMap
@@ -171,7 +169,49 @@ showTimingView (fontSans, fontMono) ui ss = do
     totalW = realToFrac (vx1 - vx0)
     totalH = realToFrac (vy1 - vy0)
 
---   in mkSvg 0 vp rendered
+showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
+showMemoryView (fontSans, fontMono) ui ss = do
+  _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
+  draw_list <- getWindowDrawList
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  let renderState =
+        ImRenderState
+          { currDrawList = draw_list,
+            currOrigin = (px, py),
+            currFontSans = fontSans,
+            currFontMono = fontMono
+          }
+  runImRender renderState $ do
+    traverse_ renderPrimitive elems
+  dummy_sz <- newImVec2 totalW totalH
+  dummy dummy_sz
+  delete dummy_sz
+  end
+  where
+    drvModMap = ss._serverDriverModuleMap
+    tui = ui._uiModel._modelTiming
+    ttable = ss._serverTiming._tsTimingTable
+    timingInfos = ttable._ttableTimingInfos
+
+    nMods = length timingInfos
+    totalHeight = 5 * nMods
+    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+    tui' =
+      tui
+        { _timingUIPartition = True,
+          _timingUIViewPort = ViewPortInfo vp Nothing
+        }
+
+    scene = runIdentity $ TimingView.buildMemChart False 200 drvModMap tui' ttable
+    elems = scene.sceneElements
+
+    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+    totalW = realToFrac (vx1 - vx0)
+    totalH = realToFrac (vy1 - vy0)
 
 showConsole :: TQueue Event -> IO ()
 showConsole chanQEv = do
@@ -211,6 +251,8 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
   showModuleGraph (fontSans, fontMono) ss
   -- timing view window
   showTimingView (fontSans, fontMono) ui ss
+  -- memory view window
+  showMemoryView (fontSans, fontMono) ui ss
   -- console window
   showConsole chanQEv
 
