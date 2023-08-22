@@ -21,11 +21,17 @@
         config = {
           allowBroken = true;
           packageOverrides = self: {
-            imgui = self.callPackage ./nix/imgui/default.nix {
-              frameworks = self.darwin.apple_sdk.frameworks;
+            imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
+              frameworks =
+	        if self.stdenv.isDarwin
+		then self.darwin.apple_sdk.frameworks
+		else null;
             };
-            implot = self.callPackage ./nix/implot/default.nix {
-              frameworks = self.darwin.apple_sdk.frameworks;
+            implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
+              frameworks =
+	        if self.stdenv.isDarwin
+		then self.darwin.apple_sdk.frameworks
+		else null;
             };
           };
         };
