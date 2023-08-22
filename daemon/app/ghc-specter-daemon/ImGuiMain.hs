@@ -41,24 +41,24 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     UserEvent (..),
   )
-import GeneralUtil
-  ( finalize,
-    initialize,
-    showFramerate,
-  )
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import Paths_ghc_specter_daemon (getDataDir)
-import RenderUtil
+import STD.Deletable (delete)
+import System.FilePath ((</>))
+import Util.GUI
+  ( finalize,
+    initialize,
+    showFramerate,
+  )
+import Util.Render
   ( ImRenderState (..),
     renderPrimitive,
     runImRender,
   )
-import STD.Deletable (delete)
-import System.FilePath ((</>))
 
 showModuleGraph :: (ImFont, ImFont) -> ServerState -> IO ()
 showModuleGraph (fontSans, fontMono) ss = do

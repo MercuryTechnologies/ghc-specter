@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module RenderUtil
+module Util.Render
   ( ImRenderState (..),
     ImRender (..),
     runImRender,
@@ -32,9 +32,8 @@ import GHCSpecter.Graphics.DSL
     TextPosition (LowerLeft, UpperLeft),
   )
 import ImGui
--- import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
-import StorableInstances ()
+import Util.Orphans ()
 
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
@@ -123,10 +122,6 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize m
     case font of
       Sans -> pushFont (s.currFontSans)
       Mono -> pushFont (s.currFontMono)
-    -- font <- getFont
-    -- currFontSize <- getFontSize
-    -- imFont_Scale_set font (realToFrac fontSize / currFontSize * 2.0)
-    -- pushFont font
     let (ox, oy) = s.currOrigin
         offsetY = case pos of
           UpperLeft -> 0

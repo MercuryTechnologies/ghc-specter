@@ -123,10 +123,12 @@ executable ghc-specter-daemon-terminal
 executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
-    GeneralUtil
     ImGuiMain
-    RenderUtil
-    StorableInstances
+    Util.Orphans
+    Util.GUI
+    Util.Plot
+    Util.Render
+    Paths_ghc_specter_daemon
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
