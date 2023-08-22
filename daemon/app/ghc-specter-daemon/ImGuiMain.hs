@@ -4,7 +4,8 @@
 module ImGuiMain (uiMain) where
 
 import Control.Concurrent.STM
-  ( atomically,
+  ( TQueue,
+    atomically,
     readTVarIO,
     writeTQueue,
   )
@@ -112,10 +113,9 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-showConsole :: ClientSession -> IO ()
-showConsole cliSess = do
+showConsole :: TQueue Event -> IO ()
+showConsole chanQEv = do
   _ <- begin ("ghc-specter console" :: CString) nullPtr 0
-  let chanQEv = cliSess._csPublisherEvent
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
     atomically $
@@ -150,25 +150,23 @@ singleFrame ::
   ImGuiIO ->
   (ImFont, ImFont) ->
   GLFWwindow ->
-  ServerSession ->
-  ClientSession ->
-  IO Bool
-singleFrame io (fontSans, fontMono) window servSess cliSess = do
+  ServerState ->
+  TQueue Event ->
+  IO ()
+singleFrame io (fontSans, fontMono) window ss chanQEv = do
+  -- poll events for this frame
   glfwPollEvents
   -- Start the Dear ImGui frame
   imGui_ImplOpenGL3_NewFrame
   imGui_ImplGlfw_NewFrame
   newFrame
 
-  let ssref = servSess._ssServerStateRef
-  ss <- readTVarIO ssref
-
   -- main drawing part
   showFramerate io
   -- module graph window
   showModuleGraph (fontSans, fontMono) ss
   -- console window
-  showConsole cliSess
+  showConsole chanQEv
 
   -- render call
   render
@@ -179,8 +177,6 @@ singleFrame io (fontSans, fontMono) window servSess cliSess = do
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   -- commit the frame
   glfwSwapBuffers window
-
-  not . toBool <$> glfwWindowShouldClose window
 
 prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
 prepareAssets io = do
@@ -203,8 +199,17 @@ uiMain servSess cliSess = do
   (ctxt, io, window) <- initialize
   -- prepare assets (fonts)
   assets <- prepareAssets io
+
+  -- state and event channel
+  let ssref = servSess._ssServerStateRef
+      chanQEv = cliSess._csPublisherEvent
+
   -- main loop
-  whileM $
-    singleFrame io assets window servSess cliSess
+  whileM $ do
+    ss <- readTVarIO ssref
+    singleFrame io assets window ss chanQEv
+    -- loop is going on while the value from the following statement is True.
+    not . toBool <$> glfwWindowShouldClose window
+
   -- close window
   finalize ctxt window
