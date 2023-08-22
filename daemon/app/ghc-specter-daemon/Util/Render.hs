@@ -15,13 +15,12 @@ import Data.ByteString (useAsCString)
 import Data.Foldable (for_)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.Types (CFloat, CUInt)
+import Foreign.C.Types (CFloat)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
-  ( Color (..),
-    DrawText (..),
+  ( DrawText (..),
     Polyline (..),
     Primitive (..),
     Rectangle (..),

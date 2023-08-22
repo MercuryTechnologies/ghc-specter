@@ -16,10 +16,14 @@ import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Foreign.C.String (CString, withCString)
+import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
+import GHCSpecter.Data.Timing.Types
+  ( TimingTable (..),
+  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
@@ -35,6 +39,14 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.GraphView qualified as GraphView
+import GHCSpecter.UI.Components.TimingView qualified as TimingView
+import GHCSpecter.UI.Constants (timingMaxWidth)
+import GHCSpecter.UI.Types
+  ( TimingUI (..),
+    UIModel (..),
+    UIState (..),
+    ViewPortInfo (..),
+  )
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
     Event (..),
@@ -59,13 +71,15 @@ import Util.Render
     runImRender,
   )
 
+windowFlagsScroll :: CInt
+windowFlagsScroll =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
+      .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
+
 showModuleGraph :: (ImFont, ImFont) -> ServerState -> IO ()
 showModuleGraph (fontSans, fontMono) ss = do
-  let wflag =
-        fromIntegral $
-          fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
-            .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
-  _ <- begin ("module graph" :: CString) nullPtr wflag
+  _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
@@ -111,6 +125,54 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
+showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
+showTimingView (fontSans, fontMono) ui ss = do
+  _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
+
+  draw_list <- getWindowDrawList
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  let renderState =
+        ImRenderState
+          { currDrawList = draw_list,
+            currOrigin = (px, py),
+            currFontSans = fontSans,
+            currFontMono = fontMono
+          }
+  runImRender renderState $ do
+    traverse_ renderPrimitive elems
+  dummy_sz <- newImVec2 totalW totalH
+  dummy dummy_sz
+  delete dummy_sz
+
+  end
+  where
+    drvModMap = ss._serverDriverModuleMap
+    tui = ui._uiModel._modelTiming
+    ttable = ss._serverTiming._tsTimingTable
+    timingInfos = ttable._ttableTimingInfos
+
+    nMods = length timingInfos
+    totalHeight = 5 * nMods
+    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+    tui' =
+      tui
+        { _timingUIPartition = True,
+          _timingUIViewPort = ViewPortInfo vp Nothing
+        }
+
+    scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
+    elems = scene.sceneElements
+
+    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+    totalW = realToFrac (vx1 - vx0)
+    totalH = realToFrac (vy1 - vy0)
+
+--   in mkSvg 0 vp rendered
+
 showConsole :: TQueue Event -> IO ()
 showConsole chanQEv = do
   _ <- begin ("ghc-specter console" :: CString) nullPtr 0
@@ -131,10 +193,11 @@ singleFrame ::
   ImGuiIO ->
   (ImFont, ImFont) ->
   GLFWwindow ->
+  UIState ->
   ServerState ->
   TQueue Event ->
   IO ()
-singleFrame io (fontSans, fontMono) window ss chanQEv = do
+singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
   -- poll events for this frame
   glfwPollEvents
   -- Start the Dear ImGui frame
@@ -146,6 +209,8 @@ singleFrame io (fontSans, fontMono) window ss chanQEv = do
   showFramerate io
   -- module graph window
   showModuleGraph (fontSans, fontMono) ss
+  -- timing view window
+  showTimingView (fontSans, fontMono) ui ss
   -- console window
   showConsole chanQEv
 
@@ -182,13 +247,15 @@ uiMain servSess cliSess = do
   assets <- prepareAssets io
 
   -- state and event channel
-  let ssref = servSess._ssServerStateRef
+  let uiref = cliSess._csUIStateRef
+      ssref = servSess._ssServerStateRef
       chanQEv = cliSess._csPublisherEvent
 
   -- main loop
   whileM $ do
+    ui <- readTVarIO uiref
     ss <- readTVarIO ssref
-    singleFrame io assets window ss chanQEv
+    singleFrame io assets window ui ss chanQEv
     -- loop is going on while the value from the following statement is True.
     not . toBool <$> glfwWindowShouldClose window
 

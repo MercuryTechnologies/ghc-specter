@@ -5,26 +5,9 @@ module Util.Color
   )
 where
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT (..), ask)
-import Data.ByteString (useAsCString)
-import Data.Foldable (for_)
-import Data.Text.Encoding (encodeUtf8)
-import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.Types (CFloat, CUInt)
-import Foreign.Marshal.Array (allocaArray)
+import Foreign.C.Types (CUInt)
 import Foreign.Ptr (Ptr, castPtr)
-import Foreign.Storable (pokeElemOff)
-import GHCSpecter.Graphics.DSL
-  ( Color (..),
-    DrawText (..),
-    Polyline (..),
-    Primitive (..),
-    Rectangle (..),
-    Shape (..),
-    TextFontFace (..),
-    TextPosition (LowerLeft, UpperLeft),
-  )
+import GHCSpecter.Graphics.DSL (Color (..))
 import ImGui
 import STD.Deletable (delete)
 import Util.Orphans ()

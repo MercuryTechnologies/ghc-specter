@@ -27,16 +27,8 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_ConfigFlags_set,
     imGuiIO_Framerate_get,
   )
-import ImGui.ImVec4.Implementation
-  ( imVec4_w_get,
-    imVec4_x_get,
-    imVec4_y_get,
-    imVec4_z_get,
-  )
 import ImPlot qualified
-import STD.Deletable (delete)
 import Text.Printf (printf)
-import Util.Color (hexRGB2Color)
 import Util.Orphans ()
 
 initialize :: IO (ImGuiContext, ImGuiIO, GLFWwindow)
