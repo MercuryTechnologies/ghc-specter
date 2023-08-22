@@ -124,8 +124,9 @@ executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
     ImGuiMain
-    Util.Orphans
+    Util.Color
     Util.GUI
+    Util.Orphans
     Util.Plot
     Util.Render
     Paths_ghc_specter_daemon

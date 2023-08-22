@@ -6,16 +6,20 @@ module Util.GUI
   ( -- * init/close
     initialize,
     finalize,
+
+    -- * general util
     showFramerate,
+    paintWindow,
   )
 where
 
 import Data.Bits ((.|.))
-import Data.String (IsString (..))
 import FFICXX.Runtime.Cast (FPtr (..))
-import Foreign.C.String (CString, newCString, withCString)
+import Foreign.C.String (CString, withCString)
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fromBool)
 import Foreign.Ptr (nullPtr)
+import Foreign.Storable (peek)
 import ImGui
 import ImGui.Enum
 import ImGui.ImGuiIO.Implementation
@@ -23,9 +27,16 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_ConfigFlags_set,
     imGuiIO_Framerate_get,
   )
+import ImGui.ImVec4.Implementation
+  ( imVec4_w_get,
+    imVec4_x_get,
+    imVec4_y_get,
+    imVec4_z_get,
+  )
 import ImPlot qualified
-import System.IO.Unsafe (unsafePerformIO)
+import STD.Deletable (delete)
 import Text.Printf (printf)
+import Util.Color (hexRGB2Color)
 import Util.Orphans ()
 
 initialize :: IO (ImGuiContext, ImGuiIO, GLFWwindow)
@@ -88,3 +99,14 @@ showFramerate io = do
   withCString (printf "Application average %.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate) $ \c_str ->
     textUnformatted c_str
   end
+
+paintWindow :: GLFWwindow -> (Double, Double, Double) -> IO ()
+paintWindow window (r, g, b) =
+  alloca $ \p_dispW ->
+    alloca $ \p_dispH -> do
+      glfwGetFramebufferSize window p_dispW p_dispH
+      dispW <- peek p_dispW
+      dispH <- peek p_dispH
+      glViewport 0 0 dispW dispH
+      glClearColor (realToFrac r) (realToFrac g) (realToFrac b) 1.0
+      glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}

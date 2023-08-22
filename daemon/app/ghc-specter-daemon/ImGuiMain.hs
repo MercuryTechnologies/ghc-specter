@@ -16,10 +16,8 @@ import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Foreign.C.String (CString, withCString)
-import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
-import Foreign.Storable (Storable (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
@@ -46,13 +44,13 @@ import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
-import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
   ( finalize,
     initialize,
+    paintWindow,
     showFramerate,
   )
 import Util.Render
@@ -129,23 +127,6 @@ showConsole chanQEv = do
         (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
   end
 
-drawBackground :: GLFWwindow -> IO ()
-drawBackground window = do
-  clear_color <- newImVec4 0.45 0.55 0.60 1.00
-  alloca $ \p_dispW ->
-    alloca $ \p_dispH -> do
-      glfwGetFramebufferSize window p_dispW p_dispH
-      dispW <- peek p_dispW
-      dispH <- peek p_dispH
-      glViewport 0 0 dispW dispH
-      x <- imVec4_x_get clear_color
-      y <- imVec4_y_get clear_color
-      z <- imVec4_z_get clear_color
-      w <- imVec4_w_get clear_color
-      glClearColor (x * w) (y * w) (z * w) w
-      glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}
-  delete clear_color
-
 singleFrame ::
   ImGuiIO ->
   (ImFont, ImFont) ->
@@ -172,7 +153,7 @@ singleFrame io (fontSans, fontMono) window ss chanQEv = do
   render
 
   -- empty background with fill color
-  drawBackground window
+  paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
   -- stage the frame
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   -- commit the frame
