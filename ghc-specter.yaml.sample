@@ -1,5 +1,0 @@
-socket: /tmp/socket.ipc
-session_file: session.json
-web_port: 7070
-start_with_breakpoint: True
-module_cluster_size: 75

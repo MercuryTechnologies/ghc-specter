@@ -15,6 +15,8 @@ extra-source-files:
 data-files:
     assets/ghc-specter.png
     assets/ghc-specter.css
+    assets/FreeMono.ttf
+    assets/FreeSans.ttf
 
 source-repository head
   type: git
@@ -116,6 +118,34 @@ executable ghc-specter-daemon-terminal
     , ghc-specter-plugin
     , stm
     , time
+  default-language: GHC2021
+
+executable ghc-specter-daemon
+  main-is: Main.hs
+  other-modules:
+    GeneralUtil
+    ImGuiMain
+    RenderUtil
+    StorableInstances
+  hs-source-dirs:
+      app/ghc-specter-daemon
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.15 && <5
+    , bytestring
+    , extra
+    , fficxx-runtime
+    , filepath
+    , ghc-specter-daemon
+    , ghc-specter-plugin
+    , ghc-specter-render
+    , imgui
+    , implot
+    , stdcxx
+    , stm
+    , text
+    , time
+    , transformers
   default-language: GHC2021
 
 test-suite ghc-specter-daemon-test

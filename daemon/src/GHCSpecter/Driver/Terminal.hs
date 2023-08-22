@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad.Trans.Class (lift)
 import Data.List qualified as L
 import Data.Text qualified as T
-import GHCSpecter.Channel.Common.Types
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Driver.Session.Types (ClientSession (..))
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
@@ -33,7 +33,6 @@ import Text.Read (readMaybe)
 main :: ClientSession -> IO ()
 main cliSess = do
   let _uiRef = cliSess._csUIStateRef
-      _chanState = cliSess._csPublisherState
       chanQEv = cliSess._csPublisherEvent
       loop :: InputT IO ()
       loop = do

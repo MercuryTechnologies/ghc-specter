@@ -3,22 +3,38 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
-    hackage-index = {
-      type = "file";
-      flake = false;
-      url = "https://api.github.com/repos/commercialhaskell/all-cabal-hashes/tarball/13a91ab76cfac2098eff2780f3d3b6224352a7a2";
-    };
+    fficxx.url = "github:wavewave/fficxx/master";
+    hs-imgui.url = "github:wavewave/hs-imgui/main";
   };
   outputs = inputs @ {
     self,
     nixpkgs,
     flake-utils,
+    fficxx,
+    hs-imgui,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        config.allowBroken = true;
+        # this is temporary. need to use nix expression directly from hs-imgui.
+        config = {
+          allowBroken = true;
+          packageOverrides = self: {
+            imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
+              frameworks =
+	        if self.stdenv.isDarwin
+		then self.darwin.apple_sdk.frameworks
+		else null;
+            };
+            implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
+              frameworks =
+	        if self.stdenv.isDarwin
+		then self.darwin.apple_sdk.frameworks
+		else null;
+            };
+          };
+        };
       };
 
       haskellOverlay = final: hself: hsuper: {
@@ -26,16 +42,10 @@
         "discrimination" = hself.callHackage "discrimination" "0.5" {};
         "vector-binary-instances" = final.haskell.lib.doJailbreak hsuper.vector-binary-instances;
 
-        # fficxx-related
-        "fficxx" = hself.callHackage "fficxx" "0.7.0.0" {};
-        "fficxx-runtime" = hself.callHackage "fficxx-runtime" "0.7.0.0" {};
-        "stdcxx" = hself.callHackage "stdcxx" "0.7.0.0" {};
-
         "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
           COIN = null;
           OGDF = pkgs.ogdf;
         };
-        "template" = final.haskell.lib.doJailbreak hsuper.template;
 
         # ghc-specter-*
         "ghc-specter-plugin" =
@@ -50,11 +60,16 @@
 
       hpkgsFor = compiler:
         pkgs.haskell.packages.${compiler}.extend
-        (hself: hsuper: haskellOverlay pkgs hself hsuper);
+        (hself: hsuper:
+          fficxx.haskellOverlay.${system} pkgs hself hsuper
+          // hs-imgui.haskellOverlay.${system} pkgs hself hsuper
+          // haskellOverlay pkgs hself hsuper);
 
       mkShellFor = compiler: let
         hsenv = (hpkgsFor compiler).ghcWithPackages (p: [
           p.OGDF
+          p.imgui
+          p.implot
           p.hspec-discover
         ]);
         pyenv =
@@ -63,10 +78,16 @@
       in
         pkgs.mkShell {
           packages = [
+            # for build
             hsenv
-            pyenv
-            pkgs.alejandra
+            pkgs.ogdf
             pkgs.cabal-install
+
+            # for doc
+            pyenv
+
+            # for formatting
+            pkgs.alejandra
             pkgs.ormolu
 
             # for agda
@@ -74,6 +95,12 @@
 
             # for socket testing
             pkgs.socat
+
+            # for GUI
+            pkgs.pkgconfig
+            pkgs.imgui
+            pkgs.implot
+            pkgs.glfw
           ];
           shellHook = ''
             export PS1="\n[ghc-specter:\w]$ \0"

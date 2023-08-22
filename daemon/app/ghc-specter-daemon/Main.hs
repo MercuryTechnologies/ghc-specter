@@ -1,12 +1,19 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -w #-}
 
 module Main where
 
-import Control.Concurrent (forkOS)
+import Control.Concurrent
+  ( forkIO,
+    forkOS,
+    threadDelay,
+  )
 import Control.Concurrent.STM
-  ( newTQueueIO,
+  ( newTChanIO,
+    newTQueueIO,
     newTVarIO,
   )
+import Control.Monad (forever)
 import Data.IORef (newIORef)
 import Data.Time.Clock (getCurrentTime)
 import GHCSpecter.Config (withConfig)
@@ -23,6 +30,8 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Driver.Terminal qualified as Terminal
 import GHCSpecter.UI.Types (emptyUIState)
+--
+import ImGuiMain (uiMain)
 import System.IO
   ( BufferMode (..),
     hPutStrLn,
@@ -35,7 +44,8 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
-  hPutStrLn stderr "ghc-specter-daemon-terminal"
+  putStrLn "ghc-specter-daemon"
+
   withConfig Nothing $ \cfg -> do
     -- starting communication channel for plugin
     servSess <- startComm cfg
@@ -43,6 +53,7 @@ main = do
     initTime <- getCurrentTime
     let ui0 = emptyUIState initTime
     uiRef <- newTVarIO ui0
+    chanState <- newTChanIO
     chanQEv <- newTQueueIO
 
     let cliSess = ClientSession uiRef chanQEv
@@ -73,4 +84,4 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    Terminal.main cliSess
+    uiMain servSess cliSess
