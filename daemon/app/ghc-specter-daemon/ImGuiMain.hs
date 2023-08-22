@@ -42,8 +42,7 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import GeneralUtil
-  ( c_toImU32,
-    finalize,
+  ( finalize,
     initialize,
     showFramerate,
   )
@@ -54,6 +53,7 @@ import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, im
 import RenderUtil
   ( ImRenderState (..),
     renderPrimitive,
+    rgb2Color,
     runImRender,
   )
 import STD.Deletable (delete)
@@ -77,10 +77,6 @@ showModuleGraph ss = do
           totalW = realToFrac (vx1 - vx0)
           totalH = realToFrac (vy1 - vy0)
       draw_list <- getWindowDrawList
-      colf <- newImVec4 0.1 0.1 0.4 1.0
-      col_ <- newImColor colf
-      col <- c_toImU32 col_
-      delete colf
       let rnd = 0.0
           flag = 0
           th = 0.5
@@ -91,7 +87,6 @@ showModuleGraph ss = do
             ImRenderState
               { currDrawList = draw_list,
                 currOrigin = (px, py),
-                currColor = col,
                 currRounding = rnd,
                 currFlag = flag,
                 currThickness = th

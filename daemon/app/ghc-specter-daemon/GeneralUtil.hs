@@ -4,10 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module GeneralUtil
-  ( -- * shim
-    c_toImU32,
-
-    -- * init/close
+  ( -- * init/close
     initialize,
     finalize,
 
@@ -40,9 +37,6 @@ import ImPlot.Template
 import STD.Deletable (delete)
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf (printf)
-
-foreign import ccall unsafe "toImU32"
-  c_toImU32 :: ImColor -> IO CUInt
 
 instance IsString CString where
   fromString s = unsafePerformIO $ newCString s
