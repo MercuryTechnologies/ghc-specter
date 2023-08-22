@@ -31,37 +31,39 @@
         };
       };
 
-      haskellOverlay = final: hself: hsuper:
-        fficxx.haskellOverlay.${system} final hself hsuper
-        // hs-imgui.haskellOverlay.${system} final hself hsuper
-        // {
-          "criterion" = final.haskell.lib.doJailbreak hsuper.criterion;
-          "discrimination" = hself.callHackage "discrimination" "0.5" {};
-          "vector-binary-instances" = final.haskell.lib.doJailbreak hsuper.vector-binary-instances;
+      haskellOverlay = final: hself: hsuper: {
+        "criterion" = final.haskell.lib.doJailbreak hsuper.criterion;
+        "discrimination" = hself.callHackage "discrimination" "0.5" {};
+        "vector-binary-instances" = final.haskell.lib.doJailbreak hsuper.vector-binary-instances;
 
-          "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
-            COIN = null;
-            OGDF = pkgs.ogdf;
-          };
-
-          # ghc-specter-*
-          "ghc-specter-plugin" =
-            hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
-          "ghc-specter-render" =
-            hself.callCabal2nix "ghc-specter-render" ./render {};
-          "ghc-specter-daemon" =
-            hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
-          "ghc-build-analyzer" =
-            hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer {};
+        "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
+          COIN = null;
+          OGDF = pkgs.ogdf;
         };
+
+        # ghc-specter-*
+        "ghc-specter-plugin" =
+          hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
+        "ghc-specter-render" =
+          hself.callCabal2nix "ghc-specter-render" ./render {};
+        "ghc-specter-daemon" =
+          hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
+        "ghc-build-analyzer" =
+          hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer {};
+      };
 
       hpkgsFor = compiler:
         pkgs.haskell.packages.${compiler}.extend
-        (hself: hsuper: haskellOverlay pkgs hself hsuper);
+        (hself: hsuper:
+          fficxx.haskellOverlay.${system} pkgs hself hsuper
+          // hs-imgui.haskellOverlay.${system} pkgs hself hsuper
+          // haskellOverlay pkgs hself hsuper);
 
       mkShellFor = compiler: let
         hsenv = (hpkgsFor compiler).ghcWithPackages (p: [
           p.OGDF
+          p.imgui
+          p.implot
           p.hspec-discover
         ]);
         pyenv =

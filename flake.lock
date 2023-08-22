@@ -32,11 +32,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1690582437,
-        "narHash": "sha256-GFcfVYDeJ3F2Rgjm2PfUVMvBAycWCEWPZFkE/5yECV8=",
+        "lastModified": 1692170079,
+        "narHash": "sha256-4GXbsAA4LFqbP7xk8A0tRl5bEQxkS0gx+ckINIQ3sD4=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "f32cb4e1149d43b778a3772f6c033b3da70635b4",
+        "rev": "7c06b4bca1d574cb10ddc3bfadb73462febfb19a",
         "type": "github"
       },
       "original": {
@@ -98,11 +98,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1692671558,
-        "narHash": "sha256-7oUmKphKEwzUQVpe8gZndOsH0TJsVINKhNa/TA1ebmY=",
+        "lastModified": 1692676460,
+        "narHash": "sha256-/UvPnkTkTmvOZOtCF/RV2O2TofX3qWD5BH3Z1N6mYhs=",
         "owner": "wavewave",
         "repo": "hs-imgui",
-        "rev": "b1a7915d34c443e95cb7e80b989177945250a65a",
+        "rev": "d4de21acbdcf2b47d52e7a564be459c8e74cd349",
         "type": "github"
       },
       "original": {
