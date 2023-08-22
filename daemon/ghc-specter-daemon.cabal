@@ -130,7 +130,6 @@ executable ghc-specter-daemon
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
-  frameworks: OpenGL
   build-depends:
       base >=4.15 && <5
     , bytestring
