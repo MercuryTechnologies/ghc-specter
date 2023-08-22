@@ -41,9 +41,7 @@ import StorableInstances ()
 data ImRenderState = ImRenderState
   { currDrawList :: ImDrawList,
     currOrigin :: (CFloat, CFloat),
-    currRounding :: CFloat,
-    currFlag :: CInt,
-    currThickness :: CFloat
+    currFlag :: CInt
   }
 
 newtype ImRender a = ImRender
@@ -80,7 +78,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         col
         0.0
         s.currFlag
-    for_ mline $ \line -> do
+    for_ ((,) <$> mline <*> mlwidth) $ \(line, lwidth) -> do
       col <- getNamedColor line
       imDrawList_AddRect
         s.currDrawList
@@ -89,7 +87,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         col
         0.0
         s.currFlag
-        s.currThickness
+        (realToFrac lwidth)
     delete v1
     delete v2
 renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) = ImRender $ do
@@ -119,7 +117,7 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         (fromIntegral nPoints)
         col
         0
-        s.currThickness
+        (realToFrac swidth)
 renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos _font color fontSize msg)) _ _) = ImRender $ do
   s <- ask
   liftIO $ do

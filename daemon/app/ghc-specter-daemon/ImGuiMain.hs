@@ -87,9 +87,7 @@ showModuleGraph ss = do
             ImRenderState
               { currDrawList = draw_list,
                 currOrigin = (px, py),
-                currRounding = rnd,
-                currFlag = flag,
-                currThickness = th
+                currFlag = flag
               }
       runImRender renderState $ do
         traverse_ renderPrimitive elems
