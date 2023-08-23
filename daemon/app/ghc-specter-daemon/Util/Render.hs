@@ -57,6 +57,7 @@ import Util.Orphans ()
 data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
+    sharedIsClicked :: Bool,
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,

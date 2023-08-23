@@ -58,9 +58,12 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     UserEvent (..),
   )
-import Handler (handleMouseMove)
+import Handler
+  ( handleMove,
+    handleClick,
+  )
 import ImGui
-import ImGui.Enum (ImGuiWindowFlags_ (..))
+import ImGui.Enum (ImGuiMouseButton_ (..), ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
@@ -127,7 +130,8 @@ showModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene scene
           addEventMap emap
-          handleMouseMove (totalW, totalH)
+          handleMove (totalW, totalH)
+          handleClick (totalW, totalH)
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
@@ -267,9 +271,14 @@ singleFrame io window ui ss oldShared = do
   -- initialize event map for this frame
   let emref = oldShared.sharedEventMap
   atomically $ writeTVar emref []
-  let newShared
-        | oldShared.sharedMousePos == mxy || isNothing mxy = oldShared {sharedIsMouseMoved = False}
-        | otherwise = oldShared {sharedMousePos = mxy, sharedIsMouseMoved = True}
+  isClicked <- toBool <$> isMouseClicked_ (fromIntegral (fromEnum ImGuiMouseButton_Left))
+  let upd1
+        | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
+        | otherwise = \s -> s {sharedMousePos = mxy, sharedIsMouseMoved = True}
+      upd2
+        | isClicked = \s -> s {sharedIsClicked = True}
+        | otherwise = \s -> s {sharedIsClicked = False}
+      newShared = upd2 . upd1 $ oldShared
 
   flip runReaderT newShared $ do
     -- module graph window
@@ -326,6 +335,7 @@ uiMain servSess cliSess emref = do
         SharedState
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
+            sharedIsClicked = False,
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,

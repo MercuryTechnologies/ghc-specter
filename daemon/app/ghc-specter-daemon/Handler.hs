@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Handler
-  ( handleMouseMove,
+  ( handleMove,
+    handleClick,
   )
 where
 
@@ -23,8 +24,8 @@ import Util.Render
     SharedState (..),
   )
 
-handleMouseMove :: (Double, Double) -> ImRender UserEvent ()
-handleMouseMove (totalW, totalH) = do
+handleMove :: (Double, Double) -> ImRender UserEvent ()
+handleMove (totalW, totalH) = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
     case renderState.currSharedState.sharedMousePos of
@@ -40,3 +41,21 @@ handleMouseMove (totalW, totalH) = do
               writeTQueue
                 (renderState.currSharedState.sharedChanQEv)
                 (UsrEv $ MouseEv $ MouseMove xy)
+
+handleClick :: (Double, Double) -> ImRender UserEvent ()
+handleClick (totalW, totalH) = do
+  renderState <- ImRender ask
+  when (renderState.currSharedState.sharedIsClicked) $ do
+    case renderState.currSharedState.sharedMousePos of
+      Nothing -> pure ()
+      Just (x, y) -> do
+        let x' = fromIntegral x
+            y' = fromIntegral y
+            (ox, oy) = renderState.currOrigin
+        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
+          liftIO $ do
+            let xy = (x' - ox, y' - oy)
+            atomically $
+              writeTQueue
+                (renderState.currSharedState.sharedChanQEv)
+                (UsrEv $ MouseEv $ MouseClick xy)
