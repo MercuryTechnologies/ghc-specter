@@ -37,6 +37,7 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Graphics.DSL
   ( EventMap,
+    HitEvent (..),
     Primitive,
     Scene (..),
     ViewPort (..),
@@ -105,7 +106,7 @@ mkRenderState = do
         currOrigin = oxy
       }
 
-detectMouseMove :: (Show e) => (Double, Double) -> String -> EventMap e -> ImRender e ()
+detectMouseMove :: (Double, Double) -> String -> EventMap Event -> ImRender Event ()
 detectMouseMove (totalW, totalH) msg emap = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
@@ -120,12 +121,19 @@ detectMouseMove (totalW, totalH) msg emap = do
             i <- readIORef hackVar
             modifyIORef' hackVar (+ 1)
             let xy = (x' - ox, y' - oy)
-                mitem = Transformation.hitItem xy emap
-            putStrLn $
-              printf "[%d: %s], mouse (%.2f, %.2f) moved" i msg (x' - ox) (y' - oy)
-            case mitem of
-              Nothing -> putStrLn "Hit nothing."
-              Just item -> do putStrLn "Hit something!" >> print item
+                mev = Transformation.hitItem xy emap
+            -- putStrLn $
+            --   printf "[%d: %s], mouse (%.2f, %.2f) moved" i msg (x' - ox) (y' - oy)
+            case mev of
+              Nothing -> pure () -- putStrLn "Hit nothing."
+              Just ev -> do
+                putStrLn "Hit something!"
+                print ev
+                case ev.hitEventHoverOn of
+                  Nothing -> pure ()
+                  Just ev' -> do
+                    atomically $
+                      writeTQueue (renderState.currSharedState.sharedChanQEv) ev'
 
 showModuleGraph :: ServerState -> ReaderT SharedState IO ()
 showModuleGraph ss = do
