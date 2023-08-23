@@ -107,6 +107,16 @@ showModuleGraph (fontSans, fontMono) ss = do
       dummy_sz <- newImVec2 totalW totalH
       dummy dummy_sz
       delete dummy_sz
+
+      -- mouse event handling
+      mouse_pos <- getMousePos
+      -- mouse position is regarded as integer to reduce noise.
+      mouse_x <- floor @_ @Int <$> imVec2_x_get mouse_pos
+      mouse_y <- floor @_ @Int <$> imVec2_y_get mouse_pos
+      putStrLn $
+        "mouse (x, y) = " <> show (mouse_x, mouse_y)
+      delete mouse_pos
+
   end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
@@ -272,9 +282,12 @@ prepareAssets io = do
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
   fonts <- imGuiIO_Fonts_get io
-  _fontDefault <- imFontAtlas_AddFontDefault fonts
+  -- _fontDefault <- imFontAtlas_AddFontDefault fonts
+  _fontDefault <-
+    withCString free_sans_path $ \cstr -> do
+      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * 2.0)
   fontSans <-
-    withCString free_sans_path $ \cstr ->
+    withCString free_sans_path $ \cstr -> do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   fontMono <-
     withCString free_mono_path $ \cstr ->
