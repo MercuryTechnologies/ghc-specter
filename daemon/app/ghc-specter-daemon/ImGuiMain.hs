@@ -36,7 +36,9 @@ import GHCSpecter.Driver.Session.Types
     ServerSession (..),
   )
 import GHCSpecter.Graphics.DSL
-  ( Scene (..),
+  ( EventMap,
+    Primitive,
+    Scene (..),
     ViewPort (..),
   )
 import GHCSpecter.Server.Types
@@ -58,6 +60,7 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     UserEvent (..),
   )
+import GHCSpecter.Util.Transformation qualified as Transformation
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
@@ -79,7 +82,8 @@ import Util.Render
   ( ImRender (..),
     ImRenderState (..),
     SharedState (..),
-    renderSceneWithEventMap,
+    buildEventMap,
+    renderScene,
     runImRender,
   )
 
@@ -94,17 +98,15 @@ mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
   oxy <- liftIO currentOrigin
-  emap_ref <- liftIO $ newTVarIO []
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currOrigin = oxy,
-        currEventMap = emap_ref
+        currOrigin = oxy
       }
 
-detectMouseMove :: (Double, Double) -> String -> ImRender e ()
-detectMouseMove (totalW, totalH) msg = do
+detectMouseMove :: (Show e) => (Double, Double) -> String -> EventMap e -> ImRender e ()
+detectMouseMove (totalW, totalH) msg emap = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
     case renderState.currSharedState.sharedMousePos of
@@ -117,8 +119,13 @@ detectMouseMove (totalW, totalH) msg = do
           liftIO $ do
             i <- readIORef hackVar
             modifyIORef' hackVar (+ 1)
+            let xy = (x' - ox, y' - oy)
+                mitem = Transformation.hitItem xy emap
             putStrLn $
               printf "[%d: %s], mouse (%.2f, %.2f) moved" i msg (x' - ox) (y' - oy)
+            case mitem of
+              Nothing -> putStrLn "Hit nothing."
+              Just item -> do putStrLn "Hit something!" >> print item
 
 showModuleGraph :: ServerState -> ReaderT SharedState IO ()
 showModuleGraph ss = do
@@ -127,10 +134,13 @@ showModuleGraph ss = do
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
-      let scene =
-            runIdentity $
-              GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
-          elems = sceneElements scene
+      let scene :: Scene (Primitive Event)
+          scene =
+            fmap (UsrEv . MainModuleEv)
+              <$> ( runIdentity $
+                      GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+                  )
+          emap = buildEventMap scene
           (vx0, vy0) = scene.sceneLocalViewPort.topLeft
           (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
           totalW = vx1 - vx0
@@ -138,9 +148,8 @@ showModuleGraph ss = do
       renderState <- mkRenderState
       liftIO $ do
         runImRender renderState $ do
-          detectMouseMove (totalW, totalH) "modgraph"
-          renderSceneWithEventMap scene
-        -- traverse_ renderPrimitive elems
+          detectMouseMove (totalW, totalH) "modgraph" emap
+          renderScene scene
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
@@ -169,9 +178,8 @@ showTimingView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
-      detectMouseMove (totalW, totalH) "timingview"
-      renderSceneWithEventMap scene
-    -- traverse_ renderPrimitive elems
+      detectMouseMove (totalW, totalH) "timingview" emap
+      renderScene scene
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -192,8 +200,12 @@ showTimingView ui ss = do
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
 
-    scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
-    elems = scene.sceneElements
+    scene :: Scene (Primitive Event)
+    scene =
+      ( fmap (UsrEv . TimingEv)
+          <$> runIdentity (TimingView.buildTimingChart drvModMap tui' ttable)
+      )
+    emap = buildEventMap scene
 
     (vx0, vy0) = scene.sceneLocalViewPort.topLeft
     (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
@@ -207,9 +219,8 @@ showMemoryView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
-      detectMouseMove (totalW, totalH) "memoryview"
-      renderSceneWithEventMap scene
-    -- traverse_ renderPrimitive elems
+      detectMouseMove (totalW, totalH) "memoryview" emap
+      renderScene scene
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -230,8 +241,9 @@ showMemoryView ui ss = do
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
 
+    scene :: Scene (Primitive Event)
     scene = runIdentity $ TimingView.buildMemChart False 200 drvModMap tui' ttable
-    elems = scene.sceneElements
+    emap = buildEventMap scene
 
     (vx0, vy0) = scene.sceneLocalViewPort.topLeft
     (vx1, vy1) = scene.sceneLocalViewPort.bottomRight

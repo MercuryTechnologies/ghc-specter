@@ -14,8 +14,7 @@ module Util.Render
     renderShape,
     renderPrimitive,
     renderScene,
-    addEventMap,
-    renderSceneWithEventMap,
+    buildEventMap,
   )
 where
 
@@ -65,8 +64,7 @@ data SharedState = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState,
     currDrawList :: ImDrawList,
-    currOrigin :: (Double, Double),
-    currEventMap :: TVar [EventMap e]
+    currOrigin :: (Double, Double)
   }
 
 newtype ImRender e a = ImRender
@@ -190,20 +188,11 @@ renderScene scene = do
 
 -- lift R.restore
 
-addEventMap :: Scene (Primitive e) -> ImRender e ()
-addEventMap scene = ImRender $ do
-  emapRef <- (.currEventMap) <$> ask
+buildEventMap :: Scene (Primitive e) -> EventMap e
+buildEventMap scene =
   let -- TODO: handle events for other shapes
       extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
         Just (hitEvent, ViewPort (x, y) (x + w, y + h))
       extractEvent _ = Nothing
       emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
-  liftIO $
-    atomically $
-      modifyTVar' emapRef (\emaps -> emap : emaps)
-
--- addEventMap :: Scene (Primitive e) -> ImRender e ()
--- addEventMap _ = pure ()
-
-renderSceneWithEventMap :: Scene (Primitive e) -> ImRender e ()
-renderSceneWithEventMap scene = renderScene scene >> addEventMap scene
+   in emap
