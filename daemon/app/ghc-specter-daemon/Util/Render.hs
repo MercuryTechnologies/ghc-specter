@@ -10,7 +10,7 @@ module Util.Render
   )
 where
 
-import Control.Concurrent.STM (TQueue)
+import Control.Concurrent.STM (TQueue, TVar)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
@@ -22,6 +22,7 @@ import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
+    EventMap,
     Polyline (..),
     Primitive (..),
     Rectangle (..),
@@ -43,18 +44,19 @@ data SharedState = SharedState
     sharedFontMono :: ImFont
   }
 
-data ImRenderState = ImRenderState
+data ImRenderState e = ImRenderState
   { currSharedState :: SharedState,
     currDrawList :: ImDrawList,
-    currOrigin :: (Double, Double)
+    currOrigin :: (Double, Double),
+    currEventMap :: TVar [EventMap e]
   }
 
-newtype ImRender a = ImRender
-  { unImRender :: ReaderT ImRenderState IO a
+newtype ImRender e a = ImRender
+  { unImRender :: ReaderT (ImRenderState e) IO a
   }
   deriving (Functor, Applicative, Monad, MonadIO)
 
-runImRender :: ImRenderState -> ImRender a -> IO a
+runImRender :: ImRenderState e -> ImRender e a -> IO a
 runImRender s action = runReaderT (unImRender action) s
 
 --
@@ -63,7 +65,7 @@ runImRender s action = runReaderT (unImRender action) s
 
 renderPrimitive ::
   Primitive e ->
-  ImRender ()
+  ImRender e ()
 renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) = ImRender $ do
   s <- ask
   liftIO $ do

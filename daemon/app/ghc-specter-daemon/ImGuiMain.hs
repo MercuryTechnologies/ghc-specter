@@ -5,7 +5,9 @@ module ImGuiMain (uiMain) where
 
 import Control.Concurrent.STM
   ( TQueue,
+    TVar,
     atomically,
+    newTVarIO,
     readTVarIO,
     writeTQueue,
   )
@@ -87,19 +89,21 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
-mkRenderState :: ReaderT SharedState IO ImRenderState
+mkRenderState :: ReaderT SharedState IO (ImRenderState e)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
   oxy <- liftIO currentOrigin
+  emap_ref <- liftIO $ newTVarIO []
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currOrigin = oxy
+        currOrigin = oxy,
+        currEventMap = emap_ref
       }
 
-detectMouseMove :: (Double, Double) -> String -> ImRender ()
+detectMouseMove :: (Double, Double) -> String -> ImRender e ()
 detectMouseMove (totalW, totalH) msg = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
