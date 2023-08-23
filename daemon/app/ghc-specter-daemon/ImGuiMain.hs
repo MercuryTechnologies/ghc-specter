@@ -10,6 +10,7 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
+import Control.Error.Util (note)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
@@ -17,6 +18,7 @@ import Data.Bits ((.|.))
 import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
+import Data.Text qualified as T
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (toBool)
@@ -55,12 +57,13 @@ import GHCSpecter.UI.Types
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
     Event (..),
+    SubModuleEvent (..),
     Tab (..),
     UserEvent (..),
   )
 import Handler
-  ( handleMove,
-    handleClick,
+  ( handleClick,
+    handleMove,
   )
 import ImGui
 import ImGui.Enum (ImGuiMouseButton_ (..), ImGuiWindowFlags_ (..))
@@ -68,6 +71,7 @@ import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
+import Text.Printf (printf)
 import Util.GUI
   ( currentOrigin,
     finalize,
@@ -103,8 +107,8 @@ mkRenderState = do
         currOrigin = oxy
       }
 
-showModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-showModuleGraph ui ss = do
+showMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+showMainModuleGraph ui ss = do
   _ <- liftIO $ begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
@@ -152,6 +156,64 @@ showModuleGraph ui ss = do
             let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
+
+showSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+showSubModuleGraph ui ss = do
+  _ <- liftIO $ begin ("submodule graph" :: CString) nullPtr windowFlagsScroll
+
+  let esubgraph = do
+        selected <-
+          note "no module cluster is selected" mainModuleClicked
+        subgraphsAtTheLevel <-
+          note (printf "%s subgraph is not computed" (show detailLevel)) (L.lookup detailLevel subgraphs)
+        subgraph <-
+          note
+            (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
+            (L.lookup selected subgraphsAtTheLevel)
+        pure subgraph
+  case esubgraph of
+    Left err -> liftIO $ putStrLn err
+    Right subgraph -> do
+      let valueForSub name
+            | isModuleCompilationDone drvModMap timing name = 1
+            | otherwise = 0
+          sceneSub :: Scene (Primitive UserEvent)
+          sceneSub =
+            fmap (SubModuleEv . SubModuleGraphEv)
+              <$> ( runIdentity $
+                      GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
+                  )
+          -- TODO: this should be set up from buildModuleGraph
+          sceneSub' = sceneSub {sceneId = "sub-module-graph"}
+          emap = buildEventMap sceneSub'
+          (vx0, vy0) = sceneSub'.sceneLocalViewPort.topLeft
+          (vx1, vy1) = sceneSub'.sceneLocalViewPort.bottomRight
+          totalW = vx1 - vx0
+          totalH = vy1 - vy0
+      renderState <- mkRenderState
+      liftIO $ do
+        runImRender renderState $ do
+          renderScene sceneSub'
+          addEventMap emap
+        -- handleMove (totalW, totalH)
+        -- handleClick (totalW, totalH)
+        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
+        dummy dummy_sz
+        delete dummy_sz
+  liftIO end
+  where
+    mgrui = ui._uiModel._modelMainModuleGraph
+    (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph
+
+    mainModuleClicked = mgrui._modGraphUIClick
+    subModuleHovered = sgrui._modGraphUIHover
+
+    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
+    drvModMap = ss._serverDriverModuleMap
+    mgs = ss._serverModuleGraphState
+    subgraphs = mgs._mgsSubgraph
+
+    timing = ss._serverTiming._tsTimingMap
 
 showTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showTimingView ui ss = do
@@ -282,7 +344,8 @@ singleFrame io window ui ss oldShared = do
 
   flip runReaderT newShared $ do
     -- module graph window
-    showModuleGraph ui ss
+    showMainModuleGraph ui ss
+    showSubModuleGraph ui ss
     -- timing view window
     showTimingView ui ss
     -- memory view window
