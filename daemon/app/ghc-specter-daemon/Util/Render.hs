@@ -2,65 +2,92 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( ImRenderState (..),
+  ( -- * state
+    SharedState (..),
+    ImRenderState (..),
+
+    -- * ImRender monad
     ImRender (..),
     runImRender,
+
+    -- * rendering and event map
+    renderShape,
     renderPrimitive,
+    renderScene,
+    buildEventMap,
+    addEventMap,
   )
 where
 
-import Control.Monad.IO.Class (liftIO)
+import Control.Concurrent.STM
+  ( TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+  )
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
+import Data.Maybe (mapMaybe)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.Types (CFloat)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
+    EventMap,
     Polyline (..),
     Primitive (..),
     Rectangle (..),
+    Scene (..),
     Shape (..),
     TextFontFace (..),
     TextPosition (LowerLeft, UpperLeft),
+    ViewPort (..),
+    overlapsWith,
   )
+import GHCSpecter.UI.Types.Event (Event)
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.Orphans ()
 
-data ImRenderState = ImRenderState
-  { currDrawList :: ImDrawList,
-    currOrigin :: (CFloat, CFloat),
-    currFontSans :: ImFont,
-    currFontMono :: ImFont
+data SharedState e = SharedState
+  { sharedMousePos :: Maybe (Int, Int),
+    sharedIsMouseMoved :: Bool,
+    sharedChanQEv :: TQueue Event,
+    sharedFontSans :: ImFont,
+    sharedFontMono :: ImFont,
+    sharedEventMap :: TVar [EventMap e]
   }
 
-newtype ImRender a = ImRender
-  { unImRender :: ReaderT ImRenderState IO a
+data ImRenderState e = ImRenderState
+  { currSharedState :: SharedState e,
+    currDrawList :: ImDrawList,
+    currOrigin :: (Double, Double)
   }
-  deriving (Functor, Applicative, Monad)
 
-runImRender :: ImRenderState -> ImRender a -> IO a
+newtype ImRender e a = ImRender
+  { unImRender :: ReaderT (ImRenderState e) IO a
+  }
+  deriving (Functor, Applicative, Monad, MonadIO)
+
+runImRender :: ImRenderState e -> ImRender e a -> IO a
 runImRender s action = runReaderT (unImRender action) s
 
 --
 --
 --
 
-renderPrimitive ::
-  Primitive e ->
-  ImRender ()
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) = ImRender $ do
+renderShape :: Shape -> ImRender e ()
+renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
-        x' = ox + realToFrac x
-        y' = oy + realToFrac y
+        x' = realToFrac (ox + x)
+        y' = realToFrac (oy + y)
         w' = realToFrac w
         h' = realToFrac h
     v1 <- newImVec2 x' y'
@@ -86,7 +113,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         (realToFrac lwidth)
     delete v1
     delete v2
-renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) = ImRender $ do
+renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
@@ -95,14 +122,14 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         nPoints = length xys + 2
     -- TODO: make a utility function for this tedious and error-prone process
     allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
-      p0 <- newImVec2 (realToFrac x0 + ox) (realToFrac y0 + oy)
+      p0 <- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
       pokeElemOff pp 0 p0
       delete p0
-      p1 <- newImVec2 (realToFrac x1 + ox) (realToFrac y1 + oy)
+      p1 <- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
       pokeElemOff pp (nPoints - 1) p1
       delete p1
       for_ (zip [1 ..] xys) $ \(i, (x, y)) -> do
-        p <- newImVec2 (realToFrac x + ox) (realToFrac y + oy)
+        p <- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
         pokeElemOff pp i p
         delete p
       let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
@@ -114,18 +141,18 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         col
         0
         (realToFrac swidth)
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize msg)) _ _) = ImRender $ do
+renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
     case font of
-      Sans -> pushFont (s.currFontSans)
-      Mono -> pushFont (s.currFontMono)
+      Sans -> pushFont (s.currSharedState.sharedFontSans)
+      Mono -> pushFont (s.currSharedState.sharedFontMono)
     let (ox, oy) = s.currOrigin
         offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
-        x' = realToFrac x + ox
-        y' = realToFrac y + oy + fromIntegral offsetY
+        x' = realToFrac (x + ox)
+        y' = realToFrac (y + oy + fromIntegral offsetY)
     v' <- newImVec2 x' y'
     col <- getNamedColor color
     useAsCString (encodeUtf8 msg) $ \cstr ->
@@ -136,3 +163,45 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize m
         cstr
     delete v'
     popFont
+
+renderPrimitive :: Primitive e -> ImRender e ()
+renderPrimitive (Primitive shape _ _) = renderShape shape
+
+renderScene :: Scene (Primitive e) -> ImRender e ()
+renderScene scene = do
+  -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
+  let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+  -- scaleX = (cx1 - cx0) / (vx1 - vx0)
+  -- scaleY = (cy1 - cy0) / (vy1 - vy0)
+  -- cairo code for reference
+  {-  lift $ do
+    R.save
+    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+    R.clip
+    R.translate cx0 cy0
+    R.scale scaleX scaleY
+    R.translate (-vx0) (-vy0)
+  -}
+  let overlapCheck p =
+        vp `overlapsWith` primBoundingBox p
+      filtered = filter overlapCheck (sceneElements scene)
+  traverse_ renderPrimitive filtered
+
+-- lift R.restore
+
+buildEventMap :: Scene (Primitive e) -> EventMap e
+buildEventMap scene =
+  let -- TODO: handle events for other shapes
+      extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
+        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
+      extractEvent _ = Nothing
+      emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
+   in emap
+
+addEventMap :: EventMap e -> ImRender e ()
+addEventMap emap = ImRender $ do
+  emref <- (.currSharedState.sharedEventMap) <$> ask
+  liftIO $
+    atomically $
+      modifyTVar' emref (emap :)

@@ -10,6 +10,8 @@ module Util.GUI
     -- * general util
     showFramerate,
     paintWindow,
+    globalCursorPosition,
+    currentOrigin,
   )
 where
 
@@ -27,7 +29,9 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_ConfigFlags_set,
     imGuiIO_Framerate_get,
   )
+import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import ImPlot qualified
+import STD.Deletable (delete)
 import Text.Printf (printf)
 import Util.Orphans ()
 
@@ -102,3 +106,23 @@ paintWindow window (r, g, b) =
       glViewport 0 0 dispW dispH
       glClearColor (realToFrac r) (realToFrac g) (realToFrac b) 1.0
       glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}
+
+globalCursorPosition :: IO (Maybe (Int, Int))
+globalCursorPosition = do
+  -- mouse event handling
+  mouse_pos <- getMousePos
+  -- mouse position is regarded as integer to reduce noise.
+  mouse_x <- floor @_ @Int <$> imVec2_x_get mouse_pos
+  mouse_y <- floor @_ @Int <$> imVec2_y_get mouse_pos
+  delete mouse_pos
+  -- TODO: do this correctly
+  if mouse_x > -10_000 && mouse_x < 10_000 && mouse_y > -10_000 && mouse_y < 10_000
+    then pure (Just (mouse_x, mouse_y))
+    else pure Nothing
+
+currentOrigin :: IO (Double, Double)
+currentOrigin = do
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  pure (realToFrac px, realToFrac py)

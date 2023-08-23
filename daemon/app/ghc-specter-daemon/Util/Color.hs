@@ -6,7 +6,6 @@ module Util.Color
 where
 
 import Foreign.C.Types (CUInt)
-import Foreign.Ptr (Ptr, castPtr)
 import GHCSpecter.Graphics.DSL (Color (..))
 import ImGui
 import STD.Deletable (delete)
