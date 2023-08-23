@@ -3,11 +3,10 @@
 
 module ImGuiMain (uiMain) where
 
+
 import Control.Concurrent.STM
-  ( TQueue,
-    TVar,
+  ( TVar,
     atomically,
-    newTVarIO,
     readTVarIO,
     writeTQueue,
     writeTVar,
@@ -17,9 +16,7 @@ import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 import Data.Bits ((.|.))
-import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
-import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString, withCString)
@@ -38,7 +35,6 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Graphics.DSL
   ( EventMap,
-    HitEvent (..),
     Primitive,
     Scene (..),
     ViewPort (..),
@@ -65,16 +61,12 @@ import GHCSpecter.UI.Types.Event
     Tab (..),
     UserEvent (..),
   )
-import GHCSpecter.Util.Transformation qualified as Transformation
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
-import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
-import Text.Printf (printf)
 import Util.GUI
   ( currentOrigin,
     finalize,
@@ -111,8 +103,8 @@ mkRenderState = do
         currOrigin = oxy
       }
 
-handleMouseMove :: (Double, Double) -> String -> EventMap UserEvent -> ImRender UserEvent ()
-handleMouseMove (totalW, totalH) msg emap = do
+handleMouseMove :: (Double, Double) -> ImRender UserEvent ()
+handleMouseMove (totalW, totalH)  = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
     case renderState.currSharedState.sharedMousePos of
@@ -123,8 +115,6 @@ handleMouseMove (totalW, totalH) msg emap = do
             (ox, oy) = renderState.currOrigin
         when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
           liftIO $ do
-            i <- readIORef hackVar
-            modifyIORef' hackVar (+ 1)
             let xy = (x' - ox, y' - oy)
             atomically $
               writeTQueue
@@ -133,7 +123,6 @@ handleMouseMove (totalW, totalH) msg emap = do
 
 showModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showModuleGraph ui ss = do
-  shared <- ask
   _ <- liftIO $ begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
@@ -159,7 +148,7 @@ showModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene scene
           addEventMap emap
-          handleMouseMove (totalW, totalH) "modgraph" emap
+          handleMouseMove (totalW, totalH)
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
@@ -183,14 +172,13 @@ showModuleGraph ui ss = do
 
 showTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showTimingView ui ss = do
-  shared <- ask
   _ <- liftIO $ begin ("timing view" :: CString) nullPtr windowFlagsScroll
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
       renderScene scene
       addEventMap emap
-    -- handleMouseMove (totalW, totalH) "timingview" emap
+    -- handleMouseMove (totalW, totalH)
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -225,14 +213,13 @@ showTimingView ui ss = do
 
 showMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showMemoryView ui ss = do
-  shared <- ask
   _ <- liftIO $ begin ("memory view" :: CString) nullPtr windowFlagsScroll
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
       renderScene scene
       addEventMap emap
-    -- handleMouseMove (totalW, totalH) "memoryview" emap
+    -- handleMouseMove (totalW, totalH)
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -279,10 +266,6 @@ showConsole = do
           chanQEv
           (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
     end
-
-{-# NOINLINE hackVar #-}
-hackVar :: IORef Int
-hackVar = unsafePerformIO (newIORef 0)
 
 singleFrame ::
   ImGuiIO ->

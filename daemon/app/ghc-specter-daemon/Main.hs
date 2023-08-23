@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module Main where
 
@@ -77,22 +76,15 @@ main = do
     let runHandler =
           RunnerHandler
             { runHandlerRefreshAction = pure (),
-              runHandlerHitScene = \xy -> do
-                putStrLn "in runHandlerHitScene"
-                memap <-
-                  atomically $ do
-                    emaps <- readTVar emref
-                    -- TODO: for now, just for testing
-                    let memap = L.find (\emap -> emap.sceneId == "main-module-graph") emaps
-                    pure memap
-                case memap of
-                  Nothing -> putStrLn "nothing?"
-                  Just _ -> putStrLn "Just!"
-                pure memap,
-              runHandlerGetScene = \name ->
+              runHandlerHitScene = \_xy ->
                 atomically $ do
                   emaps <- readTVar emref
                   -- TODO: for now, just for testing
+                  let memap = L.find (\emap -> emap.sceneId == "main-module-graph") emaps
+                  pure memap,
+              runHandlerGetScene = \name ->
+                atomically $ do
+                  emaps <- readTVar emref
                   let memap = L.find (\emap -> emap.sceneId == name) emaps
                   pure memap,
               runHandlerAddToStage = \_ -> pure ()
