@@ -11,7 +11,7 @@ module Util.Render
 where
 
 import Control.Concurrent.STM (TQueue)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_)
@@ -52,7 +52,7 @@ data ImRenderState = ImRenderState
 newtype ImRender a = ImRender
   { unImRender :: ReaderT ImRenderState IO a
   }
-  deriving (Functor, Applicative, Monad)
+  deriving (Functor, Applicative, Monad, MonadIO)
 
 runImRender :: ImRenderState -> ImRender a -> IO a
 runImRender s action = runReaderT (unImRender action) s

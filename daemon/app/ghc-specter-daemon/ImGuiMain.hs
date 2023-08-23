@@ -9,6 +9,7 @@ import Control.Concurrent.STM
     readTVarIO,
     writeTQueue,
   )
+import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
@@ -73,7 +74,8 @@ import Util.GUI
     showFramerate,
   )
 import Util.Render
-  ( ImRenderState (..),
+  ( ImRender (..),
+    ImRenderState (..),
     SharedState (..),
     renderPrimitive,
     runImRender,
@@ -97,6 +99,23 @@ mkRenderState = do
         currOrigin = oxy
       }
 
+detectMouseMove :: (Double, Double) -> String -> ImRender ()
+detectMouseMove (totalW, totalH) msg = do
+  renderState <- ImRender ask
+  when (renderState.currSharedState.sharedIsMouseMoved) $ do
+    case renderState.currSharedState.sharedMousePos of
+      Nothing -> pure ()
+      Just (x, y) -> do
+        let x' = fromIntegral x
+            y' = fromIntegral y
+            (ox, oy) = renderState.currOrigin
+        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
+          liftIO $ do
+            i <- readIORef hackVar
+            modifyIORef' hackVar (+ 1)
+            putStrLn $
+              printf "[%d: %s], mouse (%.2f, %.2f) moved" i msg (x' - ox) (y' - oy)
+
 showModuleGraph :: ServerState -> ReaderT SharedState IO ()
 showModuleGraph ss = do
   shared <- ask
@@ -110,15 +129,14 @@ showModuleGraph ss = do
           elems = sceneElements scene
           (vx0, vy0) = scene.sceneLocalViewPort.topLeft
           (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-          totalW = realToFrac (vx1 - vx0)
-          totalH = realToFrac (vy1 - vy0)
+          totalW = vx1 - vx0
+          totalH = vy1 - vy0
       renderState <- mkRenderState
-      -- when (renderState.currSharedState.sharedIsMouseMoved) $
-      --   px, py totalW
       liftIO $ do
-        runImRender renderState $
+        runImRender renderState $ do
+          detectMouseMove (totalW, totalH) "modgraph"
           traverse_ renderPrimitive elems
-        dummy_sz <- newImVec2 totalW totalH
+        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
   liftIO end
@@ -146,8 +164,9 @@ showTimingView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
+      detectMouseMove (totalW, totalH) "timingview"
       traverse_ renderPrimitive elems
-    dummy_sz <- newImVec2 totalW totalH
+    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
     end
@@ -172,8 +191,8 @@ showTimingView ui ss = do
 
     (vx0, vy0) = scene.sceneLocalViewPort.topLeft
     (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-    totalW = realToFrac (vx1 - vx0)
-    totalH = realToFrac (vy1 - vy0)
+    totalW = vx1 - vx0
+    totalH = vy1 - vy0
 
 showMemoryView :: UIState -> ServerState -> ReaderT SharedState IO ()
 showMemoryView ui ss = do
@@ -182,8 +201,9 @@ showMemoryView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
+      detectMouseMove (totalW, totalH) "memoryview"
       traverse_ renderPrimitive elems
-    dummy_sz <- newImVec2 totalW totalH
+    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
     end
@@ -208,8 +228,8 @@ showMemoryView ui ss = do
 
     (vx0, vy0) = scene.sceneLocalViewPort.topLeft
     (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-    totalW = realToFrac (vx1 - vx0)
-    totalH = realToFrac (vy1 - vy0)
+    totalW = vx1 - vx0
+    totalH = vy1 - vy0
 
 showConsole :: ReaderT SharedState IO ()
 showConsole = do
@@ -257,7 +277,7 @@ singleFrame io window ui ss oldShared = do
         -- v <- readIORef hackVar
         -- putStrLn (printf "%d: fire mouse move event!" v)
         -- modifyIORef' hackVar (+ 1)
-        pure $ oldShared {sharedMousePos = mxy, sharedIsMouseMoved = False}
+        pure $ oldShared {sharedMousePos = mxy, sharedIsMouseMoved = True}
 
   flip runReaderT newShared $ do
     -- module graph window
