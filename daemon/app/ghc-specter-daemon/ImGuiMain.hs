@@ -10,7 +10,6 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
-import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
@@ -56,10 +55,10 @@ import GHCSpecter.UI.Types
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
     Event (..),
-    MouseEvent (..),
     Tab (..),
     UserEvent (..),
   )
+import Handler (handleMouseMove)
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
@@ -75,8 +74,7 @@ import Util.GUI
     showFramerate,
   )
 import Util.Render
-  ( ImRender (..),
-    ImRenderState (..),
+  ( ImRenderState (..),
     SharedState (..),
     addEventMap,
     buildEventMap,
@@ -101,24 +99,6 @@ mkRenderState = do
         currDrawList = draw_list,
         currOrigin = oxy
       }
-
-handleMouseMove :: (Double, Double) -> ImRender UserEvent ()
-handleMouseMove (totalW, totalH) = do
-  renderState <- ImRender ask
-  when (renderState.currSharedState.sharedIsMouseMoved) $ do
-    case renderState.currSharedState.sharedMousePos of
-      Nothing -> pure ()
-      Just (x, y) -> do
-        let x' = fromIntegral x
-            y' = fromIntegral y
-            (ox, oy) = renderState.currOrigin
-        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
-          liftIO $ do
-            let xy = (x' - ox, y' - oy)
-            atomically $
-              writeTQueue
-                (renderState.currSharedState.sharedChanQEv)
-                (UsrEv $ MouseEv $ MouseMove xy)
 
 showModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showModuleGraph ui ss = do
