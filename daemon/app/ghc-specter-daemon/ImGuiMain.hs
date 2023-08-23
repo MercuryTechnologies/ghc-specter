@@ -11,7 +11,7 @@ import Control.Concurrent.STM
   )
 import Control.Monad.Extra (whenM, whileM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
@@ -63,6 +63,7 @@ import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
   ( finalize,
+    globalCursorPosition,
     initialize,
     paintWindow,
     showFramerate,
@@ -81,47 +82,39 @@ windowFlagsScroll =
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
 showModuleGraph :: (ImFont, ImFont) -> ServerState -> ReaderT SharedState IO ()
-showModuleGraph (fontSans, fontMono) ss = liftIO $ do
-  _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
-  case mgs._mgsClusterGraph of
-    Nothing -> pure ()
-    Just grVisInfo -> do
-      let scene =
-            runIdentity $
-              GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
-          elems = sceneElements scene
-          (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-          (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-          totalW = realToFrac (vx1 - vx0)
-          totalH = realToFrac (vy1 - vy0)
-      draw_list <- getWindowDrawList
-      p <- getCursorScreenPos
-      px <- imVec2_x_get p
-      py <- imVec2_y_get p
-      let renderState =
-            ImRenderState
-              { currSharedState = SharedState Nothing,
-                currDrawList = draw_list,
-                currOrigin = (px, py),
-                currFontSans = fontSans,
-                currFontMono = fontMono
-              }
-      runImRender renderState $ do
-        traverse_ renderPrimitive elems
-      dummy_sz <- newImVec2 totalW totalH
-      dummy dummy_sz
-      delete dummy_sz
-
-      -- mouse event handling
-      mouse_pos <- getMousePos
-      -- mouse position is regarded as integer to reduce noise.
-      mouse_x <- floor @_ @Int <$> imVec2_x_get mouse_pos
-      mouse_y <- floor @_ @Int <$> imVec2_y_get mouse_pos
-      putStrLn $
-        "mouse (x, y) = " <> show (mouse_x, mouse_y)
-      delete mouse_pos
-
-  end
+showModuleGraph (fontSans, fontMono) ss = do
+  shared <- ask
+  liftIO $ do
+    _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
+    case mgs._mgsClusterGraph of
+      Nothing -> pure ()
+      Just grVisInfo -> do
+        let scene =
+              runIdentity $
+                GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+            elems = sceneElements scene
+            (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+            (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+            totalW = realToFrac (vx1 - vx0)
+            totalH = realToFrac (vy1 - vy0)
+        draw_list <- getWindowDrawList
+        p <- getCursorScreenPos
+        px <- imVec2_x_get p
+        py <- imVec2_y_get p
+        let renderState =
+              ImRenderState
+                { currSharedState = shared,
+                  currDrawList = draw_list,
+                  currOrigin = (px, py),
+                  currFontSans = fontSans,
+                  currFontMono = fontMono
+                }
+        runImRender renderState $ do
+          traverse_ renderPrimitive elems
+        dummy_sz <- newImVec2 totalW totalH
+        dummy dummy_sz
+        delete dummy_sz
+    end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -140,26 +133,28 @@ showModuleGraph (fontSans, fontMono) ss = liftIO $ do
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
 showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
-showTimingView (fontSans, fontMono) ui ss = liftIO $ do
-  _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
-  draw_list <- getWindowDrawList
-  p <- getCursorScreenPos
-  px <- imVec2_x_get p
-  py <- imVec2_y_get p
-  let renderState =
-        ImRenderState
-          { currSharedState = SharedState Nothing,
-            currDrawList = draw_list,
-            currOrigin = (px, py),
-            currFontSans = fontSans,
-            currFontMono = fontMono
-          }
-  runImRender renderState $ do
-    traverse_ renderPrimitive elems
-  dummy_sz <- newImVec2 totalW totalH
-  dummy dummy_sz
-  delete dummy_sz
-  end
+showTimingView (fontSans, fontMono) ui ss = do
+  shared <- ask
+  liftIO $ do
+    _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
+    draw_list <- getWindowDrawList
+    p <- getCursorScreenPos
+    px <- imVec2_x_get p
+    py <- imVec2_y_get p
+    let renderState =
+          ImRenderState
+            { currSharedState = shared,
+              currDrawList = draw_list,
+              currOrigin = (px, py),
+              currFontSans = fontSans,
+              currFontMono = fontMono
+            }
+    runImRender renderState $ do
+      traverse_ renderPrimitive elems
+    dummy_sz <- newImVec2 totalW totalH
+    dummy dummy_sz
+    delete dummy_sz
+    end
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -185,26 +180,28 @@ showTimingView (fontSans, fontMono) ui ss = liftIO $ do
     totalH = realToFrac (vy1 - vy0)
 
 showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
-showMemoryView (fontSans, fontMono) ui ss = liftIO $ do
-  _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
-  draw_list <- getWindowDrawList
-  p <- getCursorScreenPos
-  px <- imVec2_x_get p
-  py <- imVec2_y_get p
-  let renderState =
-        ImRenderState
-          { currSharedState = SharedState Nothing,
-            currDrawList = draw_list,
-            currOrigin = (px, py),
-            currFontSans = fontSans,
-            currFontMono = fontMono
-          }
-  runImRender renderState $ do
-    traverse_ renderPrimitive elems
-  dummy_sz <- newImVec2 totalW totalH
-  dummy dummy_sz
-  delete dummy_sz
-  end
+showMemoryView (fontSans, fontMono) ui ss = do
+  shared <- ask
+  liftIO $ do
+    _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
+    draw_list <- getWindowDrawList
+    p <- getCursorScreenPos
+    px <- imVec2_x_get p
+    py <- imVec2_y_get p
+    let renderState =
+          ImRenderState
+            { currSharedState = shared,
+              currDrawList = draw_list,
+              currOrigin = (px, py),
+              currFontSans = fontSans,
+              currFontMono = fontMono
+            }
+    runImRender renderState $ do
+      traverse_ renderPrimitive elems
+    dummy_sz <- newImVec2 totalW totalH
+    dummy dummy_sz
+    delete dummy_sz
+    end
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -262,7 +259,9 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
   newFrame
 
   showFramerate io
-  flip runReaderT (SharedState Nothing) $ do
+  mxy <- globalCursorPosition
+
+  flip runReaderT (SharedState mxy) $ do
     -- module graph window
     showModuleGraph (fontSans, fontMono) ss
     -- timing view window
