@@ -10,13 +10,13 @@ module Util.Render
   )
 where
 
+import Control.Concurrent.STM (TQueue)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.Types (CFloat)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
@@ -29,21 +29,24 @@ import GHCSpecter.Graphics.DSL
     TextFontFace (..),
     TextPosition (LowerLeft, UpperLeft),
   )
+import GHCSpecter.UI.Types.Event (Event)
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.Orphans ()
 
 data SharedState = SharedState
-  { sharedMousePos :: Maybe (Int, Int)
+  { sharedMousePos :: Maybe (Int, Int),
+    sharedIsMouseMoved :: Bool,
+    sharedChanQEv :: TQueue Event,
+    sharedFontSans :: ImFont,
+    sharedFontMono :: ImFont
   }
 
 data ImRenderState = ImRenderState
   { currSharedState :: SharedState,
     currDrawList :: ImDrawList,
-    currOrigin :: (CFloat, CFloat),
-    currFontSans :: ImFont,
-    currFontMono :: ImFont
+    currOrigin :: (Double, Double)
   }
 
 newtype ImRender a = ImRender
@@ -65,8 +68,8 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
-        x' = ox + realToFrac x
-        y' = oy + realToFrac y
+        x' = realToFrac (ox + x)
+        y' = realToFrac (oy + y)
         w' = realToFrac w
         h' = realToFrac h
     v1 <- newImVec2 x' y'
@@ -101,14 +104,14 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         nPoints = length xys + 2
     -- TODO: make a utility function for this tedious and error-prone process
     allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
-      p0 <- newImVec2 (realToFrac x0 + ox) (realToFrac y0 + oy)
+      p0 <- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
       pokeElemOff pp 0 p0
       delete p0
-      p1 <- newImVec2 (realToFrac x1 + ox) (realToFrac y1 + oy)
+      p1 <- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
       pokeElemOff pp (nPoints - 1) p1
       delete p1
       for_ (zip [1 ..] xys) $ \(i, (x, y)) -> do
-        p <- newImVec2 (realToFrac x + ox) (realToFrac y + oy)
+        p <- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
         pokeElemOff pp i p
         delete p
       let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
@@ -124,14 +127,14 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize m
   s <- ask
   liftIO $ do
     case font of
-      Sans -> pushFont (s.currFontSans)
-      Mono -> pushFont (s.currFontMono)
+      Sans -> pushFont (s.currSharedState.sharedFontSans)
+      Mono -> pushFont (s.currSharedState.sharedFontMono)
     let (ox, oy) = s.currOrigin
         offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
-        x' = realToFrac x + ox
-        y' = realToFrac y + oy + fromIntegral offsetY
+        x' = realToFrac (x + ox)
+        y' = realToFrac (y + oy + fromIntegral offsetY)
     v' <- newImVec2 x' y'
     col <- getNamedColor color
     useAsCString (encodeUtf8 msg) $ \cstr ->

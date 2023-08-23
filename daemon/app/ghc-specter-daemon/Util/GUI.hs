@@ -11,6 +11,7 @@ module Util.GUI
     showFramerate,
     paintWindow,
     globalCursorPosition,
+    currentOrigin,
   )
 where
 
@@ -118,3 +119,10 @@ globalCursorPosition = do
   if mouse_x > -10_000 && mouse_x < 10_000 && mouse_y > -10_000 && mouse_y < 10_000
     then pure (Just (mouse_x, mouse_y))
     else pure Nothing
+
+currentOrigin :: IO (Double, Double)
+currentOrigin = do
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  pure (realToFrac px, realToFrac py)

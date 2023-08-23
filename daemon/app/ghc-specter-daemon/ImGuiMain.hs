@@ -65,7 +65,8 @@ import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf (printf)
 import Util.GUI
-  ( finalize,
+  ( currentOrigin,
+    finalize,
     globalCursorPosition,
     initialize,
     paintWindow,
@@ -84,40 +85,43 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
-showModuleGraph :: (ImFont, ImFont) -> ServerState -> ReaderT SharedState IO ()
-showModuleGraph (fontSans, fontMono) ss = do
+mkRenderState :: ReaderT SharedState IO ImRenderState
+mkRenderState = do
   shared <- ask
-  liftIO $ do
-    _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
-    case mgs._mgsClusterGraph of
-      Nothing -> pure ()
-      Just grVisInfo -> do
-        let scene =
-              runIdentity $
-                GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
-            elems = sceneElements scene
-            (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-            (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-            totalW = realToFrac (vx1 - vx0)
-            totalH = realToFrac (vy1 - vy0)
-        draw_list <- getWindowDrawList
-        p <- getCursorScreenPos
-        px <- imVec2_x_get p
-        py <- imVec2_y_get p
-        let renderState =
-              ImRenderState
-                { currSharedState = shared,
-                  currDrawList = draw_list,
-                  currOrigin = (px, py),
-                  currFontSans = fontSans,
-                  currFontMono = fontMono
-                }
-        runImRender renderState $ do
+  draw_list <- liftIO getWindowDrawList
+  oxy <- liftIO currentOrigin
+  pure
+    ImRenderState
+      { currSharedState = shared,
+        currDrawList = draw_list,
+        currOrigin = oxy
+      }
+
+showModuleGraph :: ServerState -> ReaderT SharedState IO ()
+showModuleGraph ss = do
+  shared <- ask
+  _ <- liftIO $ begin ("module graph" :: CString) nullPtr windowFlagsScroll
+  case mgs._mgsClusterGraph of
+    Nothing -> pure ()
+    Just grVisInfo -> do
+      let scene =
+            runIdentity $
+              GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+          elems = sceneElements scene
+          (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+          (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+          totalW = realToFrac (vx1 - vx0)
+          totalH = realToFrac (vy1 - vy0)
+      renderState <- mkRenderState
+      -- when (renderState.currSharedState.sharedIsMouseMoved) $
+      --   px, py totalW
+      liftIO $ do
+        runImRender renderState $
           traverse_ renderPrimitive elems
         dummy_sz <- newImVec2 totalW totalH
         dummy dummy_sz
         delete dummy_sz
-    end
+  liftIO end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -135,23 +139,12 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
-showTimingView (fontSans, fontMono) ui ss = do
+showTimingView :: UIState -> ServerState -> ReaderT SharedState IO ()
+showTimingView ui ss = do
   shared <- ask
+  _ <- liftIO $ begin ("timing view" :: CString) nullPtr windowFlagsScroll
+  renderState <- mkRenderState
   liftIO $ do
-    _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
-    draw_list <- getWindowDrawList
-    p <- getCursorScreenPos
-    px <- imVec2_x_get p
-    py <- imVec2_y_get p
-    let renderState =
-          ImRenderState
-            { currSharedState = shared,
-              currDrawList = draw_list,
-              currOrigin = (px, py),
-              currFontSans = fontSans,
-              currFontMono = fontMono
-            }
     runImRender renderState $ do
       traverse_ renderPrimitive elems
     dummy_sz <- newImVec2 totalW totalH
@@ -182,23 +175,12 @@ showTimingView (fontSans, fontMono) ui ss = do
     totalW = realToFrac (vx1 - vx0)
     totalH = realToFrac (vy1 - vy0)
 
-showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
-showMemoryView (fontSans, fontMono) ui ss = do
+showMemoryView :: UIState -> ServerState -> ReaderT SharedState IO ()
+showMemoryView ui ss = do
   shared <- ask
+  _ <- liftIO $ begin ("memory view" :: CString) nullPtr windowFlagsScroll
+  renderState <- mkRenderState
   liftIO $ do
-    _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
-    draw_list <- getWindowDrawList
-    p <- getCursorScreenPos
-    px <- imVec2_x_get p
-    py <- imVec2_y_get p
-    let renderState =
-          ImRenderState
-            { currSharedState = shared,
-              currDrawList = draw_list,
-              currOrigin = (px, py),
-              currFontSans = fontSans,
-              currFontMono = fontMono
-            }
     runImRender renderState $ do
       traverse_ renderPrimitive elems
     dummy_sz <- newImVec2 totalW totalH
@@ -229,21 +211,23 @@ showMemoryView (fontSans, fontMono) ui ss = do
     totalW = realToFrac (vx1 - vx0)
     totalH = realToFrac (vy1 - vy0)
 
-showConsole :: TQueue Event -> ReaderT SharedState IO ()
-showConsole chanQEv = liftIO $ do
-  _ <- begin ("ghc-specter console" :: CString) nullPtr 0
-  -- Buttons return true when clicked (most widgets return true when edited/activated)
-  whenM (toBool <$> button (":focus 1" :: CString)) $ do
-    atomically $
-      writeTQueue
-        chanQEv
-        (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
-  whenM (toBool <$> button (":next" :: CString)) $ do
-    atomically $
-      writeTQueue
-        chanQEv
-        (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
-  end
+showConsole :: ReaderT SharedState IO ()
+showConsole = do
+  chanQEv <- (.sharedChanQEv) <$> ask
+  liftIO $ do
+    _ <- begin ("ghc-specter console" :: CString) nullPtr 0
+    -- Buttons return true when clicked (most widgets return true when edited/activated)
+    whenM (toBool <$> button (":focus 1" :: CString)) $ do
+      atomically $
+        writeTQueue
+          chanQEv
+          (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
+    whenM (toBool <$> button (":next" :: CString)) $ do
+      atomically $
+        writeTQueue
+          chanQEv
+          (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
+    end
 
 {-# NOINLINE hackVar #-}
 hackVar :: IORef Int
@@ -251,14 +235,12 @@ hackVar = unsafePerformIO (newIORef 0)
 
 singleFrame ::
   ImGuiIO ->
-  (ImFont, ImFont) ->
   GLFWwindow ->
   UIState ->
   ServerState ->
-  TQueue Event ->
   SharedState ->
   IO SharedState
-singleFrame io (fontSans, fontMono) window ui ss chanQEv oldShared = do
+singleFrame io window ui ss oldShared = do
   -- poll events for this frame
   glfwPollEvents
   -- Start the Dear ImGui frame
@@ -270,22 +252,22 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv oldShared = do
   mxy <- globalCursorPosition
   newShared <-
     if oldShared.sharedMousePos == mxy || isNothing mxy
-      then pure oldShared
+      then pure oldShared {sharedIsMouseMoved = False}
       else do
-        v <- readIORef hackVar
-        putStrLn (printf "%d: fire mouse move event!" v)
-        modifyIORef' hackVar (+ 1)
-        pure $ SharedState mxy
+        -- v <- readIORef hackVar
+        -- putStrLn (printf "%d: fire mouse move event!" v)
+        -- modifyIORef' hackVar (+ 1)
+        pure $ oldShared {sharedMousePos = mxy, sharedIsMouseMoved = False}
 
   flip runReaderT newShared $ do
     -- module graph window
-    showModuleGraph (fontSans, fontMono) ss
+    showModuleGraph ss
     -- timing view window
-    showTimingView (fontSans, fontMono) ui ss
+    showTimingView ui ss
     -- memory view window
-    showMemoryView (fontSans, fontMono) ui ss
+    showMemoryView ui ss
     -- console window
-    showConsole chanQEv
+    showConsole
   --
   -- render call
   render
@@ -322,19 +304,26 @@ uiMain servSess cliSess = do
   -- initialize window
   (ctxt, io, window) <- initialize
   -- prepare assets (fonts)
-  assets <- prepareAssets io
+  (fontSans, fontMono) <- prepareAssets io
 
   -- state and event channel
   let uiref = cliSess._csUIStateRef
       ssref = servSess._ssServerStateRef
       chanQEv = cliSess._csPublisherEvent
-      emptyShared = SharedState Nothing
+      shared0 =
+        SharedState
+          { sharedMousePos = Nothing,
+            sharedIsMouseMoved = False,
+            sharedChanQEv = chanQEv,
+            sharedFontSans = fontSans,
+            sharedFontMono = fontMono
+          }
 
   -- main loop
-  flip loopM emptyShared $ \oldShared -> do
+  flip loopM shared0 $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
-    newShared <- singleFrame io assets window ui ss chanQEv oldShared
+    newShared <- singleFrame io window ui ss oldShared
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
     if willClose then pure (Right ()) else pure (Left newShared)
