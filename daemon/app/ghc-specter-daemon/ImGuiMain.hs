@@ -3,7 +3,6 @@
 
 module ImGuiMain (uiMain) where
 
-
 import Control.Concurrent.STM
   ( TVar,
     atomically,
@@ -104,7 +103,7 @@ mkRenderState = do
       }
 
 handleMouseMove :: (Double, Double) -> ImRender UserEvent ()
-handleMouseMove (totalW, totalH)  = do
+handleMouseMove (totalW, totalH) = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
     case renderState.currSharedState.sharedMousePos of
