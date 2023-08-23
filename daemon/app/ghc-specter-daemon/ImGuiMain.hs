@@ -9,14 +9,15 @@ import Control.Concurrent.STM
     readTVarIO,
     writeTQueue,
   )
-import Control.Monad.Extra (whenM, whileM)
+import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.List qualified as L
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (toBool)
@@ -61,6 +62,8 @@ import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
+import System.IO.Unsafe (unsafePerformIO)
+import Text.Printf (printf)
 import Util.GUI
   ( finalize,
     globalCursorPosition,
@@ -242,6 +245,10 @@ showConsole chanQEv = liftIO $ do
         (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
   end
 
+{-# NOINLINE hackVar #-}
+hackVar :: IORef Int
+hackVar = unsafePerformIO (newIORef 0)
+
 singleFrame ::
   ImGuiIO ->
   (ImFont, ImFont) ->
@@ -249,8 +256,9 @@ singleFrame ::
   UIState ->
   ServerState ->
   TQueue Event ->
-  IO ()
-singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
+  SharedState ->
+  IO SharedState
+singleFrame io (fontSans, fontMono) window ui ss chanQEv oldShared = do
   -- poll events for this frame
   glfwPollEvents
   -- Start the Dear ImGui frame
@@ -260,8 +268,16 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
 
   showFramerate io
   mxy <- globalCursorPosition
+  newShared <-
+    if oldShared.sharedMousePos == mxy || isNothing mxy
+      then pure oldShared
+      else do
+        v <- readIORef hackVar
+        putStrLn (printf "%d: fire mouse move event!" v)
+        modifyIORef' hackVar (+ 1)
+        pure $ SharedState mxy
 
-  flip runReaderT (SharedState mxy) $ do
+  flip runReaderT newShared $ do
     -- module graph window
     showModuleGraph (fontSans, fontMono) ss
     -- timing view window
@@ -270,16 +286,18 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
     showMemoryView (fontSans, fontMono) ui ss
     -- console window
     showConsole chanQEv
-
+  --
   -- render call
   render
-
+  --
   -- empty background with fill color
   paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
   -- stage the frame
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   -- commit the frame
   glfwSwapBuffers window
+
+  pure newShared
 
 prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
 prepareAssets io = do
@@ -310,14 +328,16 @@ uiMain servSess cliSess = do
   let uiref = cliSess._csUIStateRef
       ssref = servSess._ssServerStateRef
       chanQEv = cliSess._csPublisherEvent
+      emptyShared = SharedState Nothing
 
   -- main loop
-  whileM $ do
+  flip loopM emptyShared $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
-    singleFrame io assets window ui ss chanQEv
+    newShared <- singleFrame io assets window ui ss chanQEv oldShared
     -- loop is going on while the value from the following statement is True.
-    not . toBool <$> glfwWindowShouldClose window
+    willClose <- toBool <$> glfwWindowShouldClose window
+    if willClose then pure (Right ()) else pure (Left newShared)
 
   -- close window
   finalize ctxt window
