@@ -40,7 +40,6 @@ import GHCSpecter.UI.Types
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event (Tab (..))
---
 import ImGuiMain (uiMain)
 import System.IO
   ( BufferMode (..),

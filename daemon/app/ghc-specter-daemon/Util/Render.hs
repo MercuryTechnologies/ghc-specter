@@ -169,12 +169,12 @@ renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
-  let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
-      scaleX = (cx1 - cx0) / (vx1 - vx0)
-      scaleY = (cy1 - cy0) / (vy1 - vy0)
   -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
-
+  let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+  -- scaleX = (cx1 - cx0) / (vx1 - vx0)
+  -- scaleY = (cy1 - cy0) / (vy1 - vy0)
+  -- cairo code for reference
   {-  lift $ do
     R.save
     R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)

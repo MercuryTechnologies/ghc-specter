@@ -131,19 +131,6 @@ handleMouseMove (totalW, totalH) msg emap = do
                 (renderState.currSharedState.sharedChanQEv)
                 (UsrEv $ MouseEv $ MouseMove xy)
 
-{-  mev = Transformation.hitItem xy emap
-case mev of
-  Nothing -> pure () -- putStrLn "Hit nothing."
-  Just ev -> do
-    putStrLn "Hit something!"
-    print ev
-    case ev.hitEventHoverOn of
-      Nothing -> pure ()
-      Just ev' -> do
-        atomically $
-          writeTQueue (renderState.currSharedState.sharedChanQEv) ev'
--}
-
 showModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showModuleGraph ui ss = do
   shared <- ask
@@ -315,16 +302,12 @@ singleFrame io window ui ss oldShared = do
   showFramerate io
   mxy <- globalCursorPosition
 
+  -- initialize event map for this frame
   let emref = oldShared.sharedEventMap
   atomically $ writeTVar emref []
-  newShared <-
-    if oldShared.sharedMousePos == mxy || isNothing mxy
-      then pure oldShared {sharedIsMouseMoved = False}
-      else do
-        -- v <- readIORef hackVar
-        -- putStrLn (printf "%d: fire mouse move event!" v)
-        -- modifyIORef' hackVar (+ 1)
-        pure $ oldShared {sharedMousePos = mxy, sharedIsMouseMoved = True}
+  let newShared
+        | oldShared.sharedMousePos == mxy || isNothing mxy = oldShared {sharedIsMouseMoved = False}
+        | otherwise = oldShared {sharedMousePos = mxy, sharedIsMouseMoved = True}
 
   flip runReaderT newShared $ do
     -- module graph window
