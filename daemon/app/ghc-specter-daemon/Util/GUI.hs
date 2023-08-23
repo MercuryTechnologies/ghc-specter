@@ -1,28 +1,25 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module GeneralUtil
+module Util.GUI
   ( -- * init/close
     initialize,
     finalize,
 
-    -- * draw utilities
-    makeSparkline,
+    -- * general util
     showFramerate,
+    paintWindow,
   )
 where
 
-import Control.Monad.Extra (whenM)
 import Data.Bits ((.|.))
-import Data.String (IsString (..))
 import FFICXX.Runtime.Cast (FPtr (..))
-import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
-import Foreign.C.String (CString, newCString, withCString)
-import Foreign.C.Types (CDouble (..), CFloat, CInt (..), CUInt (..))
-import Foreign.Marshal.Utils (fromBool, toBool)
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.C.String (CString, withCString)
+import Foreign.Marshal.Alloc (alloca)
+import Foreign.Marshal.Utils (fromBool)
+import Foreign.Ptr (nullPtr)
+import Foreign.Storable (peek)
 import ImGui
 import ImGui.Enum
 import ImGui.ImGuiIO.Implementation
@@ -31,51 +28,8 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_Framerate_get,
   )
 import ImPlot qualified
-import ImPlot.Enum
-import ImPlot.TH qualified as TH
-import ImPlot.Template
-import STD.Deletable (delete)
-import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf (printf)
-
-instance IsString CString where
-  fromString s = unsafePerformIO $ newCString s
-
--- this is a hack. but it's the best up to now.
-TH.genPlotLineInstanceFor
-  CPrim
-  ( [t|Ptr CDouble|],
-    TPInfo
-      { tpinfoCxxType = "double",
-        tpinfoCxxHeaders = [],
-        tpinfoCxxNamespaces = [],
-        tpinfoSuffix = "double"
-      }
-  )
-
--- this is a hack. but it's the best up to now.
-TH.genPlotLineInstanceFor
-  CPrim
-  ( [t|Ptr CFloat|],
-    TPInfo
-      { tpinfoCxxType = "float",
-        tpinfoCxxHeaders = [],
-        tpinfoCxxNamespaces = [],
-        tpinfoSuffix = "float"
-      }
-  )
-
--- this is a hack. but it's the best up to now.
-TH.genPlotLine1InstanceFor
-  CPrim
-  ( [t|Ptr CFloat|],
-    TPInfo
-      { tpinfoCxxType = "float",
-        tpinfoCxxHeaders = [],
-        tpinfoCxxNamespaces = [],
-        tpinfoSuffix = "float"
-      }
-  )
+import Util.Orphans ()
 
 initialize :: IO (ImGuiContext, ImGuiIO, GLFWwindow)
 initialize = do
@@ -138,19 +92,13 @@ showFramerate io = do
     textUnformatted c_str
   end
 
-makeSparkline :: Ptr CFloat -> Int -> IO ()
-makeSparkline pdat offset = do
-  spark_size <- newImVec2 (-1) 35
-  zero <- newImVec2 0 0
-  ImPlot.pushStyleVar (fromIntegral (fromEnum ImPlotStyleVar_PlotPadding)) zero
-  let spark_flags =
-        fromIntegral $
-          fromEnum ImPlotFlags_CanvasOnly
-            .|. fromEnum ImPlotFlags_NoChild
-      no_deco = fromIntegral (fromEnum ImPlotAxisFlags_NoDecorations)
-  whenM (toBool <$> ImPlot.beginPlot ("1" :: CString) spark_size spark_flags) $ do
-    ImPlot.setupAxes (nullPtr :: CString) (nullPtr :: CString) no_deco no_deco
-    plotLine1 "##spark" pdat 100 1 0 0 (fromIntegral offset)
-    ImPlot.endPlot
-  delete spark_size
-  delete zero
+paintWindow :: GLFWwindow -> (Double, Double, Double) -> IO ()
+paintWindow window (r, g, b) =
+  alloca $ \p_dispW ->
+    alloca $ \p_dispH -> do
+      glfwGetFramebufferSize window p_dispW p_dispH
+      dispW <- peek p_dispW
+      dispH <- peek p_dispH
+      glViewport 0 0 dispW dispH
+      glClearColor (realToFrac r) (realToFrac g) (realToFrac b) 1.0
+      glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}

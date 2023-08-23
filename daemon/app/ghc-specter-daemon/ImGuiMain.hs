@@ -4,7 +4,8 @@
 module ImGuiMain (uiMain) where
 
 import Control.Concurrent.STM
-  ( atomically,
+  ( TQueue,
+    atomically,
     readTVarIO,
     writeTQueue,
   )
@@ -15,12 +16,14 @@ import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Foreign.C.String (CString, withCString)
-import Foreign.Marshal.Alloc (alloca)
+import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
-import Foreign.Storable (Storable (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
+import GHCSpecter.Data.Timing.Types
+  ( TimingTable (..),
+  )
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
@@ -36,37 +39,47 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.GraphView qualified as GraphView
+import GHCSpecter.UI.Components.TimingView qualified as TimingView
+import GHCSpecter.UI.Constants (timingMaxWidth)
+import GHCSpecter.UI.Types
+  ( TimingUI (..),
+    UIModel (..),
+    UIState (..),
+    ViewPortInfo (..),
+  )
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
     Event (..),
     UserEvent (..),
   )
-import GeneralUtil
-  ( finalize,
-    initialize,
-    showFramerate,
-  )
 import ImGui
 import ImGui.Enum (ImGuiWindowFlags_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
-import ImGui.ImVec4.Implementation (imVec4_w_get, imVec4_x_get, imVec4_y_get, imVec4_z_get)
 import Paths_ghc_specter_daemon (getDataDir)
-import RenderUtil
+import STD.Deletable (delete)
+import System.FilePath ((</>))
+import Util.GUI
+  ( finalize,
+    initialize,
+    paintWindow,
+    showFramerate,
+  )
+import Util.Render
   ( ImRenderState (..),
     renderPrimitive,
     runImRender,
   )
-import STD.Deletable (delete)
-import System.FilePath ((</>))
+
+windowFlagsScroll :: CInt
+windowFlagsScroll =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
+      .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
 showModuleGraph :: (ImFont, ImFont) -> ServerState -> IO ()
 showModuleGraph (fontSans, fontMono) ss = do
-  let wflag =
-        fromIntegral $
-          fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
-            .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
-  _ <- begin ("module graph" :: CString) nullPtr wflag
+  _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
@@ -112,15 +125,120 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
+showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
+showTimingView (fontSans, fontMono) ui ss = do
+  _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
+  draw_list <- getWindowDrawList
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  let renderState =
+        ImRenderState
+          { currDrawList = draw_list,
+            currOrigin = (px, py),
+            currFontSans = fontSans,
+            currFontMono = fontMono
+          }
+  runImRender renderState $ do
+    traverse_ renderPrimitive elems
+  dummy_sz <- newImVec2 totalW totalH
+  dummy dummy_sz
+  delete dummy_sz
+  end
+  where
+    drvModMap = ss._serverDriverModuleMap
+    tui = ui._uiModel._modelTiming
+    ttable = ss._serverTiming._tsTimingTable
+    timingInfos = ttable._ttableTimingInfos
+
+    nMods = length timingInfos
+    totalHeight = 5 * nMods
+    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+    tui' =
+      tui
+        { _timingUIPartition = True,
+          _timingUIViewPort = ViewPortInfo vp Nothing
+        }
+
+    scene = runIdentity $ TimingView.buildTimingChart drvModMap tui' ttable
+    elems = scene.sceneElements
+
+    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+    totalW = realToFrac (vx1 - vx0)
+    totalH = realToFrac (vy1 - vy0)
+
+showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
+showMemoryView (fontSans, fontMono) ui ss = do
+  _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
+  draw_list <- getWindowDrawList
+  p <- getCursorScreenPos
+  px <- imVec2_x_get p
+  py <- imVec2_y_get p
+  let renderState =
+        ImRenderState
+          { currDrawList = draw_list,
+            currOrigin = (px, py),
+            currFontSans = fontSans,
+            currFontMono = fontMono
+          }
+  runImRender renderState $ do
+    traverse_ renderPrimitive elems
+  dummy_sz <- newImVec2 totalW totalH
+  dummy dummy_sz
+  delete dummy_sz
+  end
+  where
+    drvModMap = ss._serverDriverModuleMap
+    tui = ui._uiModel._modelTiming
+    ttable = ss._serverTiming._tsTimingTable
+    timingInfos = ttable._ttableTimingInfos
+
+    nMods = length timingInfos
+    totalHeight = 5 * nMods
+    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
+
+    tui' =
+      tui
+        { _timingUIPartition = True,
+          _timingUIViewPort = ViewPortInfo vp Nothing
+        }
+
+    scene = runIdentity $ TimingView.buildMemChart False 200 drvModMap tui' ttable
+    elems = scene.sceneElements
+
+    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
+    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+    totalW = realToFrac (vx1 - vx0)
+    totalH = realToFrac (vy1 - vy0)
+
+showConsole :: TQueue Event -> IO ()
+showConsole chanQEv = do
+  _ <- begin ("ghc-specter console" :: CString) nullPtr 0
+  -- Buttons return true when clicked (most widgets return true when edited/activated)
+  whenM (toBool <$> button (":focus 1" :: CString)) $ do
+    atomically $
+      writeTQueue
+        chanQEv
+        (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
+  whenM (toBool <$> button (":next" :: CString)) $ do
+    atomically $
+      writeTQueue
+        chanQEv
+        (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
+  end
+
 singleFrame ::
   ImGuiIO ->
   (ImFont, ImFont) ->
   GLFWwindow ->
-  -- TODO: for now. server state should be taken from csPublisherState
-  ServerSession ->
-  ClientSession ->
-  IO Bool
-singleFrame io (fontSans, fontMono) window servSess cliSess = do
+  UIState ->
+  ServerState ->
+  TQueue Event ->
+  IO ()
+singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
+  -- poll events for this frame
   glfwPollEvents
   -- Start the Dear ImGui frame
   imGui_ImplOpenGL3_NewFrame
@@ -129,68 +247,59 @@ singleFrame io (fontSans, fontMono) window servSess cliSess = do
 
   -- main drawing part
   showFramerate io
-  -- TODO: temporarily
-  let ssref = servSess._ssServerStateRef
-  ss <- readTVarIO ssref
+  -- module graph window
   showModuleGraph (fontSans, fontMono) ss
-  _ <- begin ("ghc-specter console" :: CString) nullPtr 0
-  -- Buttons return true when clicked (most widgets return true when edited/activated)
-  whenM (toBool <$> button (":focus 1" :: CString)) $ do
-    let chanQEv = cliSess._csPublisherEvent
-    atomically $
-      writeTQueue
-        chanQEv
-        (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
-  whenM (toBool <$> button (":next" :: CString)) $ do
-    let chanQEv = cliSess._csPublisherEvent
-    atomically $
-      writeTQueue
-        chanQEv
-        (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
-  end
+  -- timing view window
+  showTimingView (fontSans, fontMono) ui ss
+  -- memory view window
+  showMemoryView (fontSans, fontMono) ui ss
+  -- console window
+  showConsole chanQEv
 
+  -- render call
   render
 
-  -- c_draw_shim window clear_color
-  clear_color <- newImVec4 0.45 0.55 0.60 1.00
-  alloca $ \p_dispW ->
-    alloca $ \p_dispH -> do
-      glfwGetFramebufferSize window p_dispW p_dispH
-      dispW <- peek p_dispW
-      dispH <- peek p_dispH
-      glViewport 0 0 dispW dispH
-      x <- imVec4_x_get clear_color
-      y <- imVec4_y_get clear_color
-      z <- imVec4_z_get clear_color
-      w <- imVec4_w_get clear_color
-      glClearColor (x * w) (y * w) (z * w) w
-      glClear 0x4000 {- GL_COLOR_BUFFER_BIT -}
-  delete clear_color
+  -- empty background with fill color
+  paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
+  -- stage the frame
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
+  -- commit the frame
   glfwSwapBuffers window
 
-  not . toBool <$> glfwWindowShouldClose window
-
-uiMain :: ServerSession -> ClientSession -> IO ()
-uiMain servSess cliSess = do
-  (ctxt, io, window) <- initialize
-
+prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
+prepareAssets io = do
   dir <- getDataDir
-  -- print dir
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
-  -- print free_sans_path
   fonts <- imGuiIO_Fonts_get io
-  fontDefault <- imFontAtlas_AddFontDefault fonts
+  _fontDefault <- imFontAtlas_AddFontDefault fonts
   fontSans <-
     withCString free_sans_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
-  -- pushFont fontDefault
-  -- main loop
-  whileM $
-    singleFrame io (fontSans, fontMono) window servSess cliSess
+  pure (fontSans, fontMono)
 
+uiMain :: ServerSession -> ClientSession -> IO ()
+uiMain servSess cliSess = do
+  -- initialize window
+  (ctxt, io, window) <- initialize
+  -- prepare assets (fonts)
+  assets <- prepareAssets io
+
+  -- state and event channel
+  let uiref = cliSess._csUIStateRef
+      ssref = servSess._ssServerStateRef
+      chanQEv = cliSess._csPublisherEvent
+
+  -- main loop
+  whileM $ do
+    ui <- readTVarIO uiref
+    ss <- readTVarIO ssref
+    singleFrame io assets window ui ss chanQEv
+    -- loop is going on while the value from the following statement is True.
+    not . toBool <$> glfwWindowShouldClose window
+
+  -- close window
   finalize ctxt window

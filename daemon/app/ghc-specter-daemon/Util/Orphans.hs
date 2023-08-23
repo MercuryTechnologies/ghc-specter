@@ -1,16 +1,20 @@
 {- ORMOLU_DISABLE -}
 {-# LINE 1 "StorableInstances.hsc" #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module StorableInstances where
+module Util.Orphans () where
 
+import Data.String (IsString (..))
+import Foreign.C.String (CString, newCString)
 import Foreign.C.Types (CFloat)
-import Foreign.Ptr (Ptr, castPtr, nullPtr)
 import Foreign.Storable (Storable (..))
 import ImGui
 import ImGui.ImVec2.Implementation
+import System.IO.Unsafe (unsafePerformIO)
 
-
+instance IsString CString where
+  fromString s = unsafePerformIO $ newCString s
 
 instance Storable ImVec2 where
   sizeOf _ = (8)
