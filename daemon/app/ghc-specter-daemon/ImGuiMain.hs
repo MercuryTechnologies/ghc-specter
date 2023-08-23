@@ -79,7 +79,7 @@ import Util.Render
   ( ImRender (..),
     ImRenderState (..),
     SharedState (..),
-    renderPrimitive,
+    renderSceneWithEventMap,
     runImRender,
   )
 
@@ -139,7 +139,8 @@ showModuleGraph ss = do
       liftIO $ do
         runImRender renderState $ do
           detectMouseMove (totalW, totalH) "modgraph"
-          traverse_ renderPrimitive elems
+          renderSceneWithEventMap scene
+        -- traverse_ renderPrimitive elems
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
@@ -169,7 +170,8 @@ showTimingView ui ss = do
   liftIO $ do
     runImRender renderState $ do
       detectMouseMove (totalW, totalH) "timingview"
-      traverse_ renderPrimitive elems
+      renderSceneWithEventMap scene
+    -- traverse_ renderPrimitive elems
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -206,7 +208,8 @@ showMemoryView ui ss = do
   liftIO $ do
     runImRender renderState $ do
       detectMouseMove (totalW, totalH) "memoryview"
-      traverse_ renderPrimitive elems
+      renderSceneWithEventMap scene
+    -- traverse_ renderPrimitive elems
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz

@@ -2,19 +2,34 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( SharedState (..),
+  ( -- * state
+    SharedState (..),
     ImRenderState (..),
+
+    -- * ImRender monad
     ImRender (..),
     runImRender,
+
+    -- * rendering and event map
+    renderShape,
     renderPrimitive,
+    renderScene,
+    addEventMap,
+    renderSceneWithEventMap,
   )
 where
 
-import Control.Concurrent.STM (TQueue, TVar)
+import Control.Concurrent.STM
+  ( TQueue,
+    TVar,
+    atomically,
+    modifyTVar',
+  )
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ReaderT (..), ask)
 import Data.ByteString (useAsCString)
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
+import Data.Maybe (mapMaybe)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.Marshal.Array (allocaArray)
@@ -26,9 +41,12 @@ import GHCSpecter.Graphics.DSL
     Polyline (..),
     Primitive (..),
     Rectangle (..),
+    Scene (..),
     Shape (..),
     TextFontFace (..),
     TextPosition (LowerLeft, UpperLeft),
+    ViewPort (..),
+    overlapsWith,
   )
 import GHCSpecter.UI.Types.Event (Event)
 import ImGui
@@ -63,10 +81,8 @@ runImRender s action = runReaderT (unImRender action) s
 --
 --
 
-renderPrimitive ::
-  Primitive e ->
-  ImRender e ()
-renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) _ _mhitEvent) = ImRender $ do
+renderShape :: Shape -> ImRender e ()
+renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
@@ -97,7 +113,7 @@ renderPrimitive (Primitive (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)
         (realToFrac lwidth)
     delete v1
     delete v2
-renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) = ImRender $ do
+renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
@@ -125,7 +141,7 @@ renderPrimitive (Primitive (SPolyline (Polyline xy0 xys xy1 color swidth)) _ _) 
         col
         0
         (realToFrac swidth)
-renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize msg)) _ _) = ImRender $ do
+renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
     case font of
@@ -147,3 +163,47 @@ renderPrimitive (Primitive (SDrawText (DrawText (x, y) pos font color fontSize m
         cstr
     delete v'
     popFont
+
+renderPrimitive :: Primitive e -> ImRender e ()
+renderPrimitive (Primitive shape _ _) = renderShape shape
+
+renderScene :: Scene (Primitive e) -> ImRender e ()
+renderScene scene = do
+  let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+      scaleX = (cx1 - cx0) / (vx1 - vx0)
+      scaleY = (cy1 - cy0) / (vy1 - vy0)
+  -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
+
+  {-  lift $ do
+    R.save
+    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
+    R.clip
+    R.translate cx0 cy0
+    R.scale scaleX scaleY
+    R.translate (-vx0) (-vy0)
+  -}
+  let overlapCheck p =
+        vp `overlapsWith` primBoundingBox p
+      filtered = filter overlapCheck (sceneElements scene)
+  traverse_ renderPrimitive filtered
+
+-- lift R.restore
+
+addEventMap :: Scene (Primitive e) -> ImRender e ()
+addEventMap scene = ImRender $ do
+  emapRef <- (.currEventMap) <$> ask
+  let -- TODO: handle events for other shapes
+      extractEvent (Primitive (SRectangle (Rectangle (x, y) w h _ _ _)) _ (Just hitEvent)) =
+        Just (hitEvent, ViewPort (x, y) (x + w, y + h))
+      extractEvent _ = Nothing
+      emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
+  liftIO $
+    atomically $
+      modifyTVar' emapRef (\emaps -> emap : emaps)
+
+-- addEventMap :: Scene (Primitive e) -> ImRender e ()
+-- addEventMap _ = pure ()
+
+renderSceneWithEventMap :: Scene (Primitive e) -> ImRender e ()
+renderSceneWithEventMap scene = renderScene scene >> addEventMap scene
