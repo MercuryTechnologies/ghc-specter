@@ -2,7 +2,8 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( ImRenderState (..),
+  ( SharedState (..),
+    ImRenderState (..),
     ImRender (..),
     runImRender,
     renderPrimitive,
@@ -33,8 +34,13 @@ import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.Orphans ()
 
+data SharedState = SharedState
+  { sharedMousePos :: Maybe (Int, Int)
+  }
+
 data ImRenderState = ImRenderState
-  { currDrawList :: ImDrawList,
+  { currSharedState :: SharedState,
+    currDrawList :: ImDrawList,
     currOrigin :: (CFloat, CFloat),
     currFontSans :: ImFont,
     currFontMono :: ImFont

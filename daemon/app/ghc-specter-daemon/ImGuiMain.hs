@@ -10,6 +10,8 @@ import Control.Concurrent.STM
     writeTQueue,
   )
 import Control.Monad.Extra (whenM, whileM)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
@@ -67,6 +69,7 @@ import Util.GUI
   )
 import Util.Render
   ( ImRenderState (..),
+    SharedState (..),
     renderPrimitive,
     runImRender,
   )
@@ -77,8 +80,8 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
-showModuleGraph :: (ImFont, ImFont) -> ServerState -> IO ()
-showModuleGraph (fontSans, fontMono) ss = do
+showModuleGraph :: (ImFont, ImFont) -> ServerState -> ReaderT SharedState IO ()
+showModuleGraph (fontSans, fontMono) ss = liftIO $ do
   _ <- begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
@@ -97,7 +100,8 @@ showModuleGraph (fontSans, fontMono) ss = do
       py <- imVec2_y_get p
       let renderState =
             ImRenderState
-              { currDrawList = draw_list,
+              { currSharedState = SharedState Nothing,
+                currDrawList = draw_list,
                 currOrigin = (px, py),
                 currFontSans = fontSans,
                 currFontMono = fontMono
@@ -135,8 +139,8 @@ showModuleGraph (fontSans, fontMono) ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
-showTimingView (fontSans, fontMono) ui ss = do
+showTimingView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
+showTimingView (fontSans, fontMono) ui ss = liftIO $ do
   _ <- begin ("timing view" :: CString) nullPtr windowFlagsScroll
   draw_list <- getWindowDrawList
   p <- getCursorScreenPos
@@ -144,7 +148,8 @@ showTimingView (fontSans, fontMono) ui ss = do
   py <- imVec2_y_get p
   let renderState =
         ImRenderState
-          { currDrawList = draw_list,
+          { currSharedState = SharedState Nothing,
+            currDrawList = draw_list,
             currOrigin = (px, py),
             currFontSans = fontSans,
             currFontMono = fontMono
@@ -179,8 +184,8 @@ showTimingView (fontSans, fontMono) ui ss = do
     totalW = realToFrac (vx1 - vx0)
     totalH = realToFrac (vy1 - vy0)
 
-showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> IO ()
-showMemoryView (fontSans, fontMono) ui ss = do
+showMemoryView :: (ImFont, ImFont) -> UIState -> ServerState -> ReaderT SharedState IO ()
+showMemoryView (fontSans, fontMono) ui ss = liftIO $ do
   _ <- begin ("memory view" :: CString) nullPtr windowFlagsScroll
   draw_list <- getWindowDrawList
   p <- getCursorScreenPos
@@ -188,7 +193,8 @@ showMemoryView (fontSans, fontMono) ui ss = do
   py <- imVec2_y_get p
   let renderState =
         ImRenderState
-          { currDrawList = draw_list,
+          { currSharedState = SharedState Nothing,
+            currDrawList = draw_list,
             currOrigin = (px, py),
             currFontSans = fontSans,
             currFontMono = fontMono
@@ -223,8 +229,8 @@ showMemoryView (fontSans, fontMono) ui ss = do
     totalW = realToFrac (vx1 - vx0)
     totalH = realToFrac (vy1 - vy0)
 
-showConsole :: TQueue Event -> IO ()
-showConsole chanQEv = do
+showConsole :: TQueue Event -> ReaderT SharedState IO ()
+showConsole chanQEv = liftIO $ do
   _ <- begin ("ghc-specter console" :: CString) nullPtr 0
   -- Buttons return true when clicked (most widgets return true when edited/activated)
   whenM (toBool <$> button (":focus 1" :: CString)) $ do
@@ -255,16 +261,16 @@ singleFrame io (fontSans, fontMono) window ui ss chanQEv = do
   imGui_ImplGlfw_NewFrame
   newFrame
 
-  -- main drawing part
   showFramerate io
-  -- module graph window
-  showModuleGraph (fontSans, fontMono) ss
-  -- timing view window
-  showTimingView (fontSans, fontMono) ui ss
-  -- memory view window
-  showMemoryView (fontSans, fontMono) ui ss
-  -- console window
-  showConsole chanQEv
+  flip runReaderT (SharedState Nothing) $ do
+    -- module graph window
+    showModuleGraph (fontSans, fontMono) ss
+    -- timing view window
+    showTimingView (fontSans, fontMono) ui ss
+    -- memory view window
+    showMemoryView (fontSans, fontMono) ui ss
+    -- console window
+    showConsole chanQEv
 
   -- render call
   render
