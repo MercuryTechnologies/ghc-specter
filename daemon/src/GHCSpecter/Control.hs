@@ -256,7 +256,7 @@ zoom emap lensViewPort ((x, y), scale) model =
       vp'' = if isValid vp' then vp' else vp
    in (lensViewPort . vpTempViewPort .~ Just vp'') model
 
--- TODO: this function should handle MouseEvent.
+-- TODO: this function should handle all of MouseEvent.
 handleHoverScrollZoom ::
   (e ~ Event) =>
   (UserEvent -> Maybe Text) ->

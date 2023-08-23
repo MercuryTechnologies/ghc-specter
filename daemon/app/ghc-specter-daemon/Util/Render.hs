@@ -15,6 +15,7 @@ module Util.Render
     renderPrimitive,
     renderScene,
     buildEventMap,
+    addEventMap,
   )
 where
 
@@ -53,16 +54,17 @@ import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.Orphans ()
 
-data SharedState = SharedState
+data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
-    sharedFontMono :: ImFont
+    sharedFontMono :: ImFont,
+    sharedEventMap :: TVar [EventMap e]
   }
 
 data ImRenderState e = ImRenderState
-  { currSharedState :: SharedState,
+  { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
     currOrigin :: (Double, Double)
   }
@@ -196,3 +198,10 @@ buildEventMap scene =
       extractEvent _ = Nothing
       emap = scene {sceneElements = mapMaybe extractEvent (sceneElements scene)}
    in emap
+
+addEventMap :: EventMap e -> ImRender e ()
+addEventMap emap = ImRender $ do
+  emref <- (.currSharedState.sharedEventMap) <$> ask
+  liftIO $
+    atomically $
+      modifyTVar' emref (emap :)

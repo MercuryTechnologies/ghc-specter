@@ -10,6 +10,7 @@ import Control.Concurrent.STM
     newTVarIO,
     readTVarIO,
     writeTQueue,
+    writeTVar,
   )
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
@@ -51,7 +52,8 @@ import GHCSpecter.UI.Components.GraphView qualified as GraphView
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
 import GHCSpecter.UI.Constants (timingMaxWidth)
 import GHCSpecter.UI.Types
-  ( TimingUI (..),
+  ( ModuleGraphUI (..),
+    TimingUI (..),
     UIModel (..),
     UIState (..),
     ViewPortInfo (..),
@@ -59,6 +61,8 @@ import GHCSpecter.UI.Types
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
     Event (..),
+    MouseEvent (..),
+    Tab (..),
     UserEvent (..),
   )
 import GHCSpecter.Util.Transformation qualified as Transformation
@@ -83,6 +87,7 @@ import Util.Render
   ( ImRender (..),
     ImRenderState (..),
     SharedState (..),
+    addEventMap,
     buildEventMap,
     renderScene,
     runImRender,
@@ -94,7 +99,7 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
-mkRenderState :: ReaderT SharedState IO (ImRenderState e)
+mkRenderState :: ReaderT (SharedState UserEvent) IO (ImRenderState UserEvent)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
@@ -106,8 +111,8 @@ mkRenderState = do
         currOrigin = oxy
       }
 
-detectMouseMove :: (Double, Double) -> String -> EventMap Event -> ImRender Event ()
-detectMouseMove (totalW, totalH) msg emap = do
+handleMouseMove :: (Double, Double) -> String -> EventMap UserEvent -> ImRender UserEvent ()
+handleMouseMove (totalW, totalH) msg emap = do
   renderState <- ImRender ask
   when (renderState.currSharedState.sharedIsMouseMoved) $ do
     case renderState.currSharedState.sharedMousePos of
@@ -121,32 +126,41 @@ detectMouseMove (totalW, totalH) msg emap = do
             i <- readIORef hackVar
             modifyIORef' hackVar (+ 1)
             let xy = (x' - ox, y' - oy)
-                mev = Transformation.hitItem xy emap
-            -- putStrLn $
-            --   printf "[%d: %s], mouse (%.2f, %.2f) moved" i msg (x' - ox) (y' - oy)
-            case mev of
-              Nothing -> pure () -- putStrLn "Hit nothing."
-              Just ev -> do
-                putStrLn "Hit something!"
-                print ev
-                case ev.hitEventHoverOn of
-                  Nothing -> pure ()
-                  Just ev' -> do
-                    atomically $
-                      writeTQueue (renderState.currSharedState.sharedChanQEv) ev'
+            atomically $
+              writeTQueue
+                (renderState.currSharedState.sharedChanQEv)
+                (UsrEv $ MouseEv $ MouseMove xy)
 
-showModuleGraph :: ServerState -> ReaderT SharedState IO ()
-showModuleGraph ss = do
+{-  mev = Transformation.hitItem xy emap
+case mev of
+  Nothing -> pure () -- putStrLn "Hit nothing."
+  Just ev -> do
+    putStrLn "Hit something!"
+    print ev
+    case ev.hitEventHoverOn of
+      Nothing -> pure ()
+      Just ev' -> do
+        atomically $
+          writeTQueue (renderState.currSharedState.sharedChanQEv) ev'
+-}
+
+showModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+showModuleGraph ui ss = do
   shared <- ask
   _ <- liftIO $ begin ("module graph" :: CString) nullPtr windowFlagsScroll
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
-      let scene :: Scene (Primitive Event)
+      let mgrui = ui._uiModel._modelMainModuleGraph
+
+          mainModuleClicked = mgrui._modGraphUIClick
+          mainModuleHovered = mgrui._modGraphUIHover
+
+          scene :: Scene (Primitive UserEvent)
           scene =
-            fmap (UsrEv . MainModuleEv)
+            fmap MainModuleEv
               <$> ( runIdentity $
-                      GraphView.buildModuleGraph nameMap valueFor grVisInfo (Nothing, Nothing)
+                      GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered)
                   )
           emap = buildEventMap scene
           (vx0, vy0) = scene.sceneLocalViewPort.topLeft
@@ -156,8 +170,9 @@ showModuleGraph ss = do
       renderState <- mkRenderState
       liftIO $ do
         runImRender renderState $ do
-          detectMouseMove (totalW, totalH) "modgraph" emap
           renderScene scene
+          addEventMap emap
+          handleMouseMove (totalW, totalH) "modgraph" emap
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
@@ -179,15 +194,16 @@ showModuleGraph ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-showTimingView :: UIState -> ServerState -> ReaderT SharedState IO ()
+showTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showTimingView ui ss = do
   shared <- ask
   _ <- liftIO $ begin ("timing view" :: CString) nullPtr windowFlagsScroll
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
-      detectMouseMove (totalW, totalH) "timingview" emap
       renderScene scene
+      addEventMap emap
+    -- handleMouseMove (totalW, totalH) "timingview" emap
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -208,9 +224,9 @@ showTimingView ui ss = do
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
 
-    scene :: Scene (Primitive Event)
+    scene :: Scene (Primitive UserEvent)
     scene =
-      ( fmap (UsrEv . TimingEv)
+      ( fmap TimingEv
           <$> runIdentity (TimingView.buildTimingChart drvModMap tui' ttable)
       )
     emap = buildEventMap scene
@@ -220,15 +236,16 @@ showTimingView ui ss = do
     totalW = vx1 - vx0
     totalH = vy1 - vy0
 
-showMemoryView :: UIState -> ServerState -> ReaderT SharedState IO ()
+showMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 showMemoryView ui ss = do
   shared <- ask
   _ <- liftIO $ begin ("memory view" :: CString) nullPtr windowFlagsScroll
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
-      detectMouseMove (totalW, totalH) "memoryview" emap
       renderScene scene
+      addEventMap emap
+    -- handleMouseMove (totalW, totalH) "memoryview" emap
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
@@ -249,7 +266,7 @@ showMemoryView ui ss = do
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
 
-    scene :: Scene (Primitive Event)
+    scene :: Scene (Primitive UserEvent)
     scene = runIdentity $ TimingView.buildMemChart False 200 drvModMap tui' ttable
     emap = buildEventMap scene
 
@@ -258,7 +275,7 @@ showMemoryView ui ss = do
     totalW = vx1 - vx0
     totalH = vy1 - vy0
 
-showConsole :: ReaderT SharedState IO ()
+showConsole :: ReaderT (SharedState UserEvent) IO ()
 showConsole = do
   chanQEv <- (.sharedChanQEv) <$> ask
   liftIO $ do
@@ -285,8 +302,8 @@ singleFrame ::
   GLFWwindow ->
   UIState ->
   ServerState ->
-  SharedState ->
-  IO SharedState
+  SharedState UserEvent ->
+  IO (SharedState UserEvent)
 singleFrame io window ui ss oldShared = do
   -- poll events for this frame
   glfwPollEvents
@@ -297,6 +314,9 @@ singleFrame io window ui ss oldShared = do
 
   showFramerate io
   mxy <- globalCursorPosition
+
+  let emref = oldShared.sharedEventMap
+  atomically $ writeTVar emref []
   newShared <-
     if oldShared.sharedMousePos == mxy || isNothing mxy
       then pure oldShared {sharedIsMouseMoved = False}
@@ -308,7 +328,7 @@ singleFrame io window ui ss oldShared = do
 
   flip runReaderT newShared $ do
     -- module graph window
-    showModuleGraph ss
+    showModuleGraph ui ss
     -- timing view window
     showTimingView ui ss
     -- memory view window
@@ -346,8 +366,8 @@ prepareAssets io = do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   pure (fontSans, fontMono)
 
-uiMain :: ServerSession -> ClientSession -> IO ()
-uiMain servSess cliSess = do
+uiMain :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
+uiMain servSess cliSess emref = do
   -- initialize window
   (ctxt, io, window) <- initialize
   -- prepare assets (fonts)
@@ -363,8 +383,13 @@ uiMain servSess cliSess = do
             sharedIsMouseMoved = False,
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
-            sharedFontMono = fontMono
+            sharedFontMono = fontMono,
+            sharedEventMap = emref
           }
+
+  -- just start with module graph tab for now
+  atomically $
+    writeTQueue chanQEv (UsrEv (TabEv TabModuleGraph))
 
   -- main loop
   flip loopM shared0 $ \oldShared -> do
