@@ -7,6 +7,7 @@ module Util.Render
     -- * state
     SharedState (..),
     ImRenderState (..),
+    mkRenderState,
 
     -- * ImRender monad
     ImRender (..),
@@ -54,7 +55,22 @@ import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
+import Util.GUI (currentOrigin)
 import Util.Orphans ()
+
+--
+-- utilities
+--
+
+toTab :: (Bool, Bool, Bool) -> Maybe Tab
+toTab (True, False, False) = Just TabModuleGraph
+toTab (False, True, False) = Just TabTiming
+toTab (False, False, True) = Just TabTiming
+toTab _ = Nothing
+
+--
+-- state
+--
 
 data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
@@ -67,17 +83,27 @@ data SharedState e = SharedState
     sharedEventMap :: TVar [EventMap e]
   }
 
-toTab :: (Bool, Bool, Bool) -> Maybe Tab
-toTab (True, False, False) = Just TabModuleGraph
-toTab (False, True, False) = Just TabTiming
-toTab (False, False, True) = Just TabTiming
-toTab _ = Nothing
-
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
     currOrigin :: (Double, Double)
   }
+
+mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
+mkRenderState = do
+  shared <- ask
+  draw_list <- liftIO getWindowDrawList
+  oxy <- liftIO currentOrigin
+  pure
+    ImRenderState
+      { currSharedState = shared,
+        currDrawList = draw_list,
+        currOrigin = oxy
+      }
+
+--
+-- ImRender monad
+--
 
 newtype ImRender e a = ImRender
   { unImRender :: ReaderT (ImRenderState e) IO a

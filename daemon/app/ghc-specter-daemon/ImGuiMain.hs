@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 
 module ImGuiMain (uiMain) where
 
@@ -11,63 +10,29 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
-import Control.Error.Util (note)
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
-import Data.Functor.Identity (runIdentity)
-import Data.List qualified as L
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Text qualified as T
+import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
-import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
-import GHCSpecter.Data.Timing.Types
-  ( TimingTable (..),
-  )
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL
-  ( EventMap,
-    Primitive,
-    Scene (..),
-    ViewPort (..),
-  )
-import GHCSpecter.Server.Types
-  ( ModuleGraphState (..),
-    ServerState (..),
-    TimingState (..),
-  )
-import GHCSpecter.UI.Components.GraphView qualified as GraphView
-import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants (timingMaxWidth)
-import GHCSpecter.UI.Types
-  ( ModuleGraphUI (..),
-    TimingUI (..),
-    UIModel (..),
-    UIState (..),
-    ViewPortInfo (..),
-  )
+import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
-  ( ConsoleEvent (..),
-    Event (..),
-    SubModuleEvent (..),
+  ( Event (..),
     Tab (..),
     UserEvent (..),
   )
-import Handler
-  ( handleClick,
-    handleMove,
-    sendToControl,
-  )
+import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
   ( ImGuiMouseButton_ (..),
@@ -76,24 +41,20 @@ import ImGui.Enum
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
+import Render.Console (renderConsole)
+import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
+import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
-import Text.Printf (printf)
 import Util.GUI
-  ( currentOrigin,
-    finalize,
+  ( finalize,
     globalCursorPosition,
     initialize,
     paintWindow,
     showFramerate,
   )
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
-    addEventMap,
-    buildEventMap,
-    renderScene,
-    runImRender,
+  ( SharedState (..),
     toTab,
   )
 
@@ -102,214 +63,6 @@ windowFlagsScroll =
   fromIntegral $
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
-
-mkRenderState :: ReaderT (SharedState UserEvent) IO (ImRenderState UserEvent)
-mkRenderState = do
-  shared <- ask
-  draw_list <- liftIO getWindowDrawList
-  oxy <- liftIO currentOrigin
-  pure
-    ImRenderState
-      { currSharedState = shared,
-        currDrawList = draw_list,
-        currOrigin = oxy
-      }
-
-renderMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderMainModuleGraph ui ss = do
-  case mgs._mgsClusterGraph of
-    Nothing -> pure ()
-    Just grVisInfo -> do
-      let mgrui = ui._uiModel._modelMainModuleGraph
-
-          mainModuleClicked = mgrui._modGraphUIClick
-          mainModuleHovered = mgrui._modGraphUIHover
-
-          scene :: Scene (Primitive UserEvent)
-          scene =
-            fmap MainModuleEv
-              <$> ( runIdentity $
-                      GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered)
-                  )
-          emap = buildEventMap scene
-          (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-          (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-          totalW = vx1 - vx0
-          totalH = vy1 - vy0
-      renderState <- mkRenderState
-      liftIO $ do
-        runImRender renderState $ do
-          renderScene scene
-          addEventMap emap
-          handleMove (totalW, totalH)
-          handleClick (totalW, totalH)
-        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-        dummy dummy_sz
-        delete dummy_sz
-  where
-    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
-    drvModMap = ss._serverDriverModuleMap
-    mgs = ss._serverModuleGraphState
-    clustering = mgs._mgsClustering
-    timing = ss._serverTiming._tsTimingMap
-    valueFor name =
-      fromMaybe 0 $ do
-        cluster <- L.lookup name clustering
-        let nTot = length cluster
-        if nTot == 0
-          then Nothing
-          else do
-            let compiled = filter (isModuleCompilationDone drvModMap timing) cluster
-                nCompiled = length compiled
-            pure (fromIntegral nCompiled / fromIntegral nTot)
-
-renderSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSubModuleGraph ui ss = do
-  case esubgraph of
-    Left _err -> pure ()
-    Right subgraph -> do
-      let valueForSub name
-            | isModuleCompilationDone drvModMap timing name = 1
-            | otherwise = 0
-          sceneSub :: Scene (Primitive UserEvent)
-          sceneSub =
-            fmap (SubModuleEv . SubModuleGraphEv)
-              <$> ( runIdentity $
-                      GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
-                  )
-          -- TODO: this should be set up from buildModuleGraph
-          sceneSub' = sceneSub {sceneId = "sub-module-graph"}
-          emap = buildEventMap sceneSub'
-          (vx0, vy0) = sceneSub'.sceneLocalViewPort.topLeft
-          (vx1, vy1) = sceneSub'.sceneLocalViewPort.bottomRight
-          totalW = vx1 - vx0
-          totalH = vy1 - vy0
-      renderState <- mkRenderState
-      liftIO $ do
-        runImRender renderState $ do
-          renderScene sceneSub'
-          addEventMap emap
-        -- handleMove (totalW, totalH)
-        -- handleClick (totalW, totalH)
-        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-        dummy dummy_sz
-        delete dummy_sz
-  where
-    mgrui = ui._uiModel._modelMainModuleGraph
-    (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph
-
-    mainModuleClicked = mgrui._modGraphUIClick
-    subModuleHovered = sgrui._modGraphUIHover
-
-    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
-    drvModMap = ss._serverDriverModuleMap
-    mgs = ss._serverModuleGraphState
-    subgraphs = mgs._mgsSubgraph
-
-    timing = ss._serverTiming._tsTimingMap
-
-    esubgraph :: Either String _
-    esubgraph = do
-      selected <-
-        note "no module cluster is selected" mainModuleClicked
-      subgraphsAtTheLevel <-
-        note (printf "%s subgraph is not computed" (show detailLevel)) (L.lookup detailLevel subgraphs)
-      subgraph <-
-        note
-          (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
-          (L.lookup selected subgraphsAtTheLevel)
-      pure subgraph
-
-renderTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderTimingView ui ss = do
-  renderState <- mkRenderState
-  liftIO $ do
-    runImRender renderState $ do
-      renderScene scene
-      addEventMap emap
-    -- handleMouseMove (totalW, totalH)
-    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-    dummy dummy_sz
-    delete dummy_sz
-  where
-    drvModMap = ss._serverDriverModuleMap
-    tui = ui._uiModel._modelTiming
-    ttable = ss._serverTiming._tsTimingTable
-    timingInfos = ttable._ttableTimingInfos
-
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
-
-    tui' =
-      tui
-        { _timingUIPartition = True,
-          _timingUIViewPort = ViewPortInfo vp Nothing
-        }
-
-    scene :: Scene (Primitive UserEvent)
-    scene =
-      ( fmap TimingEv
-          <$> runIdentity (TimingView.buildTimingChart drvModMap tui' ttable)
-      )
-    emap = buildEventMap scene
-
-    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-    totalW = vx1 - vx0
-    totalH = vy1 - vy0
-
-renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderMemoryView ui ss = do
-  renderState <- mkRenderState
-  liftIO $ do
-    runImRender renderState $ do
-      renderScene scene
-      addEventMap emap
-    -- handleMouseMove (totalW, totalH)
-    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-    dummy dummy_sz
-    delete dummy_sz
-  where
-    drvModMap = ss._serverDriverModuleMap
-    tui = ui._uiModel._modelTiming
-    ttable = ss._serverTiming._tsTimingTable
-    timingInfos = ttable._ttableTimingInfos
-
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
-
-    tui' =
-      tui
-        { _timingUIPartition = True,
-          _timingUIViewPort = ViewPortInfo vp Nothing
-        }
-
-    scene :: Scene (Primitive UserEvent)
-    scene = runIdentity $ TimingView.buildMemChart False 200 drvModMap tui' ttable
-    emap = buildEventMap scene
-
-    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
-    totalW = vx1 - vx0
-    totalH = vy1 - vy0
-
-renderConsole :: ReaderT (SharedState UserEvent) IO ()
-renderConsole = do
-  chanQEv <- (.sharedChanQEv) <$> ask
-  liftIO $ do
-    -- Buttons return true when clicked (most widgets return true when edited/activated)
-    whenM (toBool <$> button (":focus 1" :: CString)) $ do
-      atomically $
-        writeTQueue
-          chanQEv
-          (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
-    whenM (toBool <$> button (":next" :: CString)) $ do
-      atomically $
-        writeTQueue
-          chanQEv
-          (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
 
 singleFrame ::
   ImGuiIO ->
@@ -349,7 +102,7 @@ singleFrame io window ui ss oldShared = do
     minusvec <- liftIO $ newImVec2 0 (-200)
     --
     -- main module graph tab
-    bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
+    bMainModGraph <- toBool <$> liftIO (beginTabItem ("Module graph" :: CString))
     when bMainModGraph $ do
       let flags =
             fromIntegral $
@@ -359,32 +112,32 @@ singleFrame io window ui ss oldShared = do
                 .|. fromEnum ImGuiTableFlags_Resizable
                 .|. fromEnum ImGuiTableFlags_Reorderable
 
-      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 (fromIntegral flags))) $ do
+      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
         liftIO $ tableSetupColumn_ ("graph" :: CString)
         liftIO $ tableNextRow 0
         liftIO $ tableSetColumnIndex 0
-        liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+        _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
         renderMainModuleGraph ui ss
         liftIO endChild
         --
         liftIO $ tableNextRow 0
         liftIO $ tableSetColumnIndex 0
-        liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+        _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
         renderSubModuleGraph ui ss
         liftIO endChild
         liftIO endTable
       liftIO endTabItem
     -- timing view tab
-    bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
+    bTimingView <- toBool <$> liftIO (beginTabItem ("Timing view" :: CString))
     when bTimingView $ do
-      liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
+      _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderTimingView ui ss
       liftIO endChild
       liftIO endTabItem
     -- memory view tab
     bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
     when bMemoryView $ do
-      liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
+      _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderMemoryView ui ss
       liftIO endChild
       liftIO endTabItem
@@ -408,8 +161,12 @@ singleFrame io window ui ss oldShared = do
     pure $ newShared {sharedTabState = tabState}
 
   --
-  -- render call
+  -- finalize rendering by compositing render call
+  --
   render
+  --
+  -- hit testing by global mouse coordinate is now meaningful from here.
+  --
   --
   -- empty background with fill color
   paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
@@ -441,7 +198,7 @@ prepareAssets io = do
 uiMain :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
 uiMain servSess cliSess emref = do
   -- initialize window
-  (ctxt, io, window) <- initialize
+  (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
   (fontSans, fontMono) <- prepareAssets io
 

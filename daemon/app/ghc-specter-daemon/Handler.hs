@@ -17,11 +17,14 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
+import Data.Text (Text)
+import Foreign.Marshal.Utils (toBool)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     MouseEvent (..),
     UserEvent (..),
   )
+import ImGui (isItemHovered)
 import Util.Render
   ( ImRender (..),
     ImRenderState (..),
@@ -32,8 +35,8 @@ sendToControl :: SharedState UserEvent -> UserEvent -> IO ()
 sendToControl shared uev =
   atomically $ writeTQueue (shared.sharedChanQEv) (UsrEv uev)
 
-handleMove :: (Double, Double) -> ImRender UserEvent ()
-handleMove (totalW, totalH) = do
+handleMove :: Text -> ImRender UserEvent ()
+handleMove scene_id = do
   renderState <- ImRender ask
   let shared = renderState.currSharedState
   when (shared.sharedIsMouseMoved) $ do
@@ -43,12 +46,15 @@ handleMove (totalW, totalH) = do
         let x' = fromIntegral x
             y' = fromIntegral y
             (ox, oy) = renderState.currOrigin
-        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $ do
-          let xy = (x' - ox, y' - oy)
-          liftIO $ sendToControl shared (MouseEv (MouseMove xy))
+            xy = (x' - ox, y' - oy)
 
-handleClick :: (Double, Double) -> ImRender UserEvent ()
-handleClick (totalW, totalH) = do
+        isHovered <- toBool <$> liftIO (isItemHovered 0)
+        when isHovered $
+          liftIO $
+            sendToControl shared (MouseEv (MouseMove (Just scene_id) xy))
+
+handleClick :: Text -> ImRender UserEvent ()
+handleClick scene_id = do
   renderState <- ImRender ask
   let shared = renderState.currSharedState
   when (shared.sharedIsClicked) $ do
@@ -58,6 +64,9 @@ handleClick (totalW, totalH) = do
         let x' = fromIntegral x
             y' = fromIntegral y
             (ox, oy) = renderState.currOrigin
-        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $ do
-          let xy = (x' - ox, y' - oy)
-          liftIO $ sendToControl shared (MouseEv (MouseClick xy))
+            xy = (x' - ox, y' - oy)
+
+        isHovered <- toBool <$> liftIO (isItemHovered 0)
+        when isHovered $
+          liftIO $
+            sendToControl shared (MouseEv (MouseClick (Just scene_id) xy))

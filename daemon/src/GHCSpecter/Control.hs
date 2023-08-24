@@ -266,8 +266,11 @@ handleHoverScrollZoom ::
   Control e Bool
 handleHoverScrollZoom hitWho handlers mev =
   case mev of
-    MouseMove (x, y) -> do
-      memap <- hitScene (x, y)
+    MouseMove msceneid (x, y) -> do
+      memap <-
+        case msceneid of
+          Nothing -> hitScene (x, y)
+          Just sceneid -> getScene sceneid
       handleFor handlerHover $ \(component, hoverLens) -> do
         ((ui, _), (ui', _)) <-
           modifyAndReturnBoth $ \(ui, ss) ->
@@ -493,10 +496,15 @@ goModuleGraph ev = do
     MouseEv mev ->
       void $
         handleHoverScrollZoom
-          (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
+          ( \case
+              MainModuleEv (HoverOnModuleEv mmodu) -> mmodu
+              SubModuleEv (SubModuleGraphEv (HoverOnModuleEv mmodu)) -> mmodu
+              _ -> Nothing
+          )
           HandlerHoverScrollZoom
             { handlerHover =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
+                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover),
+                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphUIHover)
                 ],
               handlerScroll =
                 [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
@@ -682,7 +690,7 @@ goTiming ev = do
             -- turn off mouse move event handling
             (uiModel . modelTiming . timingUIHandleMouseMove .~ False)
               . (uiModel %~ addDelta (x, y) (x', y') vp)
-        MouseEv (MouseMove (x', y')) -> do
+        MouseEv (MouseMove _ (x', y')) -> do
           modifyUI $
             (uiModel %~ addDelta (x, y) (x', y') vp)
           updateLastUpdated
@@ -785,8 +793,11 @@ mainLoop = do
 
         handleClick ev0 =
           case ev0 of
-            MouseEv (MouseClick (x, y)) -> do
-              memap <- hitScene (x, y)
+            MouseEv (MouseClick msceneid (x, y)) -> do
+              memap <-
+                case msceneid of
+                  Nothing -> hitScene (x, y)
+                  Just sceneid -> getScene sceneid
               let ev' =
                     case memap of
                       Just emap ->

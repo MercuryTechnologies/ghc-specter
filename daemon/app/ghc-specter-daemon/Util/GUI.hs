@@ -1,6 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Util.GUI
   ( -- * init/close
@@ -16,6 +14,7 @@ module Util.GUI
 where
 
 import Data.Bits ((.|.))
+import Data.String (fromString)
 import FFICXX.Runtime.Cast (FPtr (..))
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (alloca)
@@ -35,8 +34,8 @@ import STD.Deletable (delete)
 import Text.Printf (printf)
 import Util.Orphans ()
 
-initialize :: IO (ImGuiContext, ImGuiIO, GLFWwindow)
-initialize = do
+initialize :: String -> IO (ImGuiContext, ImGuiIO, GLFWwindow)
+initialize title = do
   let glsl_version :: CString
       glsl_version = "#version 150"
   glfwInit
@@ -50,7 +49,7 @@ initialize = do
     glfwCreateWindow
       1280
       720
-      ("ImPlot Haskell Demo" :: CString)
+      (fromString title :: CString)
       (cast_fptr_to_obj nullPtr :: GLFWmonitor)
       (cast_fptr_to_obj nullPtr :: GLFWwindow)
   glfwMakeContextCurrent window
