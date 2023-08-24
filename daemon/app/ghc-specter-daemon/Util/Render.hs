@@ -60,18 +60,17 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
-    sharedTabState :: (Bool, Bool, Bool, Bool),
+    sharedTabState :: (Bool, Bool, Bool),
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
     sharedEventMap :: TVar [EventMap e]
   }
 
-toTab :: (Bool, Bool, Bool, Bool) -> Maybe Tab
-toTab (True, False, False, False) = Just TabModuleGraph
-toTab (False, True, False, False) = Just TabModuleGraph
-toTab (False, False, True, False) = Just TabTiming
-toTab (False, False, False, True) = Just TabTiming
+toTab :: (Bool, Bool, Bool) -> Maybe Tab
+toTab (True, False, False) = Just TabModuleGraph
+toTab (False, True, False) = Just TabTiming
+toTab (False, False, True) = Just TabTiming
 toTab _ = Nothing
 
 data ImRenderState e = ImRenderState

@@ -69,7 +69,11 @@ import Handler
     sendToControl,
   )
 import ImGui
-import ImGui.Enum (ImGuiMouseButton_ (..), ImGuiWindowFlags_ (..))
+import ImGui.Enum
+  ( ImGuiMouseButton_ (..),
+    ImGuiTableFlags_ (..),
+    ImGuiWindowFlags_ (..),
+  )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
@@ -342,20 +346,33 @@ singleFrame io window ui ss oldShared = do
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
     zerovec <- liftIO $ newImVec2 0 0
+    minusvec <- liftIO $ newImVec2 0 (-200)
     --
     -- main module graph tab
     bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
     when bMainModGraph $ do
-      liftIO $ beginChild ("#main-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
-      renderMainModuleGraph ui ss
-      liftIO endChild
-      liftIO endTabItem
-    -- sub module graph tab
-    bSubModGraph <- toBool <$> liftIO (beginTabItem ("sub module graph" :: CString))
-    when bSubModGraph $ do
-      liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
-      renderSubModuleGraph ui ss
-      liftIO endChild
+      let flags =
+            fromIntegral $
+              fromEnum ImGuiTableFlags_BordersOuter
+                .|. fromEnum ImGuiTableFlags_BordersV
+                .|. fromEnum ImGuiTableFlags_RowBg
+                .|. fromEnum ImGuiTableFlags_Resizable
+                .|. fromEnum ImGuiTableFlags_Reorderable
+
+      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 (fromIntegral flags))) $ do
+        liftIO $ tableSetupColumn_ ("graph" :: CString)
+        liftIO $ tableNextRow 0
+        liftIO $ tableSetColumnIndex 0
+        liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+        renderMainModuleGraph ui ss
+        liftIO endChild
+        --
+        liftIO $ tableNextRow 0
+        liftIO $ tableSetColumnIndex 0
+        liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+        renderSubModuleGraph ui ss
+        liftIO endChild
+        liftIO endTable
       liftIO endTabItem
     -- timing view tab
     bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
@@ -373,6 +390,7 @@ singleFrame io window ui ss oldShared = do
       liftIO endTabItem
     --
     liftIO $ delete zerovec
+    liftIO $ delete minusvec
     liftIO endTabBar
     liftIO end
 
@@ -382,7 +400,7 @@ singleFrame io window ui ss oldShared = do
     liftIO end
 
     -- post-rendering event handling: there are events discovered after rendering such as Tab.
-    let tabState = (bMainModGraph, bSubModGraph, bTimingView, bMemoryView)
+    let tabState = (bMainModGraph, bTimingView, bMemoryView)
     when (newShared.sharedTabState /= tabState) $
       case toTab tabState of
         Nothing -> pure ()
@@ -436,7 +454,7 @@ uiMain servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
-            sharedTabState = (True, False, False, False),
+            sharedTabState = (True, False, False),
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
