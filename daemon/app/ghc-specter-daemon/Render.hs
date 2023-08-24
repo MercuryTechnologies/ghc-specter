@@ -12,10 +12,11 @@ import Control.Concurrent.STM
   )
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
+import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (fromBool, toBool)
@@ -64,6 +65,16 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
+makeTabContents :: (MonadIO m) => [(String, m ())] -> m [Bool]
+makeTabContents = traverse go
+  where
+    go (title, mkItem) = do
+      isSelected <- toBool <$> liftIO (beginTabItem (fromString title :: CString))
+      when isSelected $ do
+        mkItem
+        liftIO endTabItem
+      pure isSelected
+
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -102,45 +113,46 @@ singleFrame io window ui ss oldShared = do
     minusvec <- liftIO $ newImVec2 0 (-200)
     --
     -- main module graph tab
-    bMainModGraph <- toBool <$> liftIO (beginTabItem ("Module graph" :: CString))
-    when bMainModGraph $ do
-      let flags =
-            fromIntegral $
-              fromEnum ImGuiTableFlags_BordersOuter
-                .|. fromEnum ImGuiTableFlags_BordersV
-                .|. fromEnum ImGuiTableFlags_RowBg
-                .|. fromEnum ImGuiTableFlags_Resizable
-                .|. fromEnum ImGuiTableFlags_Reorderable
+    tabState <-
+      makeTabContents
+        [ ( "Module graph",
+            do
+              let flags =
+                    fromIntegral $
+                      fromEnum ImGuiTableFlags_BordersOuter
+                        .|. fromEnum ImGuiTableFlags_BordersV
+                        .|. fromEnum ImGuiTableFlags_RowBg
+                        .|. fromEnum ImGuiTableFlags_Resizable
+                        .|. fromEnum ImGuiTableFlags_Reorderable
 
-      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
-        liftIO $ tableSetupColumn_ ("graph" :: CString)
-        liftIO $ tableNextRow 0
-        liftIO $ tableSetColumnIndex 0
-        _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
-        renderMainModuleGraph ui ss
-        liftIO endChild
-        --
-        liftIO $ tableNextRow 0
-        liftIO $ tableSetColumnIndex 0
-        _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
-        renderSubModuleGraph ui ss
-        liftIO endChild
-        liftIO endTable
-      liftIO endTabItem
-    -- timing view tab
-    bTimingView <- toBool <$> liftIO (beginTabItem ("Timing view" :: CString))
-    when bTimingView $ do
-      _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
-      renderTimingView ui ss
-      liftIO endChild
-      liftIO endTabItem
-    -- memory view tab
-    bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
-    when bMemoryView $ do
-      _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
-      renderMemoryView ui ss
-      liftIO endChild
-      liftIO endTabItem
+              whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
+                liftIO $ tableSetupColumn_ ("graph" :: CString)
+                liftIO $ tableNextRow 0
+                liftIO $ tableSetColumnIndex 0
+                _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+                renderMainModuleGraph ui ss
+                liftIO endChild
+                --
+                liftIO $ tableNextRow 0
+                liftIO $ tableSetColumnIndex 0
+                _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+                renderSubModuleGraph ui ss
+                liftIO endChild
+                liftIO endTable
+          ),
+          ( "Timing view",
+            do
+              _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
+              renderTimingView ui ss
+              liftIO endChild
+          ),
+          ( "Memory view",
+            do
+              _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
+              renderMemoryView ui ss
+              liftIO endChild
+          )
+        ]
     --
     liftIO $ delete zerovec
     liftIO $ delete minusvec
@@ -153,7 +165,6 @@ singleFrame io window ui ss oldShared = do
     liftIO end
 
     -- post-rendering event handling: there are events discovered after rendering such as Tab.
-    let tabState = (bMainModGraph, bTimingView, bMemoryView)
     when (newShared.sharedTabState /= tabState) $
       case toTab tabState of
         Nothing -> pure ()
@@ -211,7 +222,7 @@ main servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
-            sharedTabState = (True, False, False),
+            sharedTabState = [True, False, False],
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,

@@ -62,10 +62,10 @@ import Util.Orphans ()
 -- utilities
 --
 
-toTab :: (Bool, Bool, Bool) -> Maybe Tab
-toTab (True, False, False) = Just TabModuleGraph
-toTab (False, True, False) = Just TabTiming
-toTab (False, False, True) = Just TabTiming
+toTab :: [Bool] -> Maybe Tab
+toTab [True, False, False] = Just TabModuleGraph
+toTab [False, True, False] = Just TabTiming
+toTab [False, False, True] = Just TabTiming
 toTab _ = Nothing
 
 --
@@ -76,7 +76,7 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
-    sharedTabState :: (Bool, Bool, Bool),
+    sharedTabState :: [Bool],
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
