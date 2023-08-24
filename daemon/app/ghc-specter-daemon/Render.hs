@@ -10,7 +10,7 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
@@ -44,6 +44,7 @@ import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (renderConsole)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
+import Render.Session (renderSession)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
@@ -71,12 +72,20 @@ makeTabContents = traverse go
     go (title, mkItem) = do
       isSelected <- toBool <$> liftIO (beginTabItem (fromString title :: CString))
       when isSelected $ do
-        mkItem
+        void mkItem
         liftIO endTabItem
       pure isSelected
 
-renderModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderModuleGraph ui ss = do
+tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabSession ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsScroll
+  renderSession ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
+
+tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabModuleGraph ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   minusvec <- liftIO $ newImVec2 0 (-200)
   let flags =
@@ -104,16 +113,16 @@ renderModuleGraph ui ss = do
   liftIO $ delete zerovec
   liftIO $ delete minusvec
 
-renderTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderTiming ui ss = do
+tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
   renderTimingView ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
-renderMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderMemory ui ss = do
+tabMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabMemory ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
   renderMemoryView ui ss
@@ -157,9 +166,10 @@ singleFrame io window ui ss oldShared = do
     --
     tabState <-
       makeTabContents
-        [ ("Module graph", renderModuleGraph ui ss),
-          ("Timing view", renderTiming ui ss),
-          ("Memory view", renderMemory ui ss)
+        [ ("Session", tabSession ui ss),
+          ("Module graph", tabModuleGraph ui ss),
+          ("Timing view", tabTiming ui ss),
+          ("Memory view", tabMemory ui ss)
         ]
     liftIO endTabBar
     liftIO end
