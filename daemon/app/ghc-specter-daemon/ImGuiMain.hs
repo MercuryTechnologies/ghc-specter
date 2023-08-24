@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module ImGuiMain (uiMain) where
 
@@ -11,6 +12,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Error.Util (note)
+import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
@@ -21,7 +23,7 @@ import Data.Maybe (fromMaybe, isNothing)
 import Data.Text qualified as T
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
-import Foreign.Marshal.Utils (toBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -64,9 +66,14 @@ import GHCSpecter.UI.Types.Event
 import Handler
   ( handleClick,
     handleMove,
+    sendToControl,
   )
 import ImGui
-import ImGui.Enum (ImGuiMouseButton_ (..), ImGuiWindowFlags_ (..))
+import ImGui.Enum
+  ( ImGuiMouseButton_ (..),
+    ImGuiTableFlags_ (..),
+    ImGuiWindowFlags_ (..),
+  )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import STD.Deletable (delete)
@@ -87,6 +94,7 @@ import Util.Render
     buildEventMap,
     renderScene,
     runImRender,
+    toTab,
   )
 
 windowFlagsScroll :: CInt
@@ -107,9 +115,8 @@ mkRenderState = do
         currOrigin = oxy
       }
 
-showMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-showMainModuleGraph ui ss = do
-  _ <- liftIO $ begin ("module graph" :: CString) nullPtr windowFlagsScroll
+renderMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderMainModuleGraph ui ss = do
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
     Just grVisInfo -> do
@@ -139,7 +146,6 @@ showMainModuleGraph ui ss = do
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
-  liftIO end
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -157,22 +163,10 @@ showMainModuleGraph ui ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-showSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-showSubModuleGraph ui ss = do
-  _ <- liftIO $ begin ("submodule graph" :: CString) nullPtr windowFlagsScroll
-
-  let esubgraph = do
-        selected <-
-          note "no module cluster is selected" mainModuleClicked
-        subgraphsAtTheLevel <-
-          note (printf "%s subgraph is not computed" (show detailLevel)) (L.lookup detailLevel subgraphs)
-        subgraph <-
-          note
-            (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
-            (L.lookup selected subgraphsAtTheLevel)
-        pure subgraph
+renderSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSubModuleGraph ui ss = do
   case esubgraph of
-    Left err -> liftIO $ putStrLn err
+    Left _err -> pure ()
     Right subgraph -> do
       let valueForSub name
             | isModuleCompilationDone drvModMap timing name = 1
@@ -200,7 +194,6 @@ showSubModuleGraph ui ss = do
         dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
         dummy dummy_sz
         delete dummy_sz
-  liftIO end
   where
     mgrui = ui._uiModel._modelMainModuleGraph
     (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph
@@ -215,9 +208,20 @@ showSubModuleGraph ui ss = do
 
     timing = ss._serverTiming._tsTimingMap
 
-showTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-showTimingView ui ss = do
-  _ <- liftIO $ begin ("timing view" :: CString) nullPtr windowFlagsScroll
+    esubgraph :: Either String _
+    esubgraph = do
+      selected <-
+        note "no module cluster is selected" mainModuleClicked
+      subgraphsAtTheLevel <-
+        note (printf "%s subgraph is not computed" (show detailLevel)) (L.lookup detailLevel subgraphs)
+      subgraph <-
+        note
+          (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
+          (L.lookup selected subgraphsAtTheLevel)
+      pure subgraph
+
+renderTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderTimingView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
@@ -227,7 +231,6 @@ showTimingView ui ss = do
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
-    end
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -256,9 +259,8 @@ showTimingView ui ss = do
     totalW = vx1 - vx0
     totalH = vy1 - vy0
 
-showMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-showMemoryView ui ss = do
-  _ <- liftIO $ begin ("memory view" :: CString) nullPtr windowFlagsScroll
+renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderMemoryView ui ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $ do
@@ -268,7 +270,6 @@ showMemoryView ui ss = do
     dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
     dummy dummy_sz
     delete dummy_sz
-    end
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -294,11 +295,10 @@ showMemoryView ui ss = do
     totalW = vx1 - vx0
     totalH = vy1 - vy0
 
-showConsole :: ReaderT (SharedState UserEvent) IO ()
-showConsole = do
+renderConsole :: ReaderT (SharedState UserEvent) IO ()
+renderConsole = do
   chanQEv <- (.sharedChanQEv) <$> ask
   liftIO $ do
-    _ <- begin ("ghc-specter console" :: CString) nullPtr 0
     -- Buttons return true when clicked (most widgets return true when edited/activated)
     whenM (toBool <$> button (":focus 1" :: CString)) $ do
       atomically $
@@ -310,7 +310,6 @@ showConsole = do
         writeTQueue
           chanQEv
           (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
-    end
 
 singleFrame ::
   ImGuiIO ->
@@ -342,16 +341,72 @@ singleFrame io window ui ss oldShared = do
         | otherwise = \s -> s {sharedIsClicked = False}
       newShared = upd2 . upd1 $ oldShared
 
-  flip runReaderT newShared $ do
-    -- module graph window
-    showMainModuleGraph ui ss
-    showSubModuleGraph ui ss
-    -- timing view window
-    showTimingView ui ss
-    -- memory view window
-    showMemoryView ui ss
+  newShared' <- flip runReaderT newShared $ do
+    -- main canvas
+    _ <- liftIO $ begin ("main" :: CString) nullPtr 0
+    _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
+    zerovec <- liftIO $ newImVec2 0 0
+    minusvec <- liftIO $ newImVec2 0 (-200)
+    --
+    -- main module graph tab
+    bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
+    when bMainModGraph $ do
+      let flags =
+            fromIntegral $
+              fromEnum ImGuiTableFlags_BordersOuter
+                .|. fromEnum ImGuiTableFlags_BordersV
+                .|. fromEnum ImGuiTableFlags_RowBg
+                .|. fromEnum ImGuiTableFlags_Resizable
+                .|. fromEnum ImGuiTableFlags_Reorderable
+
+      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 (fromIntegral flags))) $ do
+        liftIO $ tableSetupColumn_ ("graph" :: CString)
+        liftIO $ tableNextRow 0
+        liftIO $ tableSetColumnIndex 0
+        liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+        renderMainModuleGraph ui ss
+        liftIO endChild
+        --
+        liftIO $ tableNextRow 0
+        liftIO $ tableSetColumnIndex 0
+        liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+        renderSubModuleGraph ui ss
+        liftIO endChild
+        liftIO endTable
+      liftIO endTabItem
+    -- timing view tab
+    bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
+    when bTimingView $ do
+      liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
+      renderTimingView ui ss
+      liftIO endChild
+      liftIO endTabItem
+    -- memory view tab
+    bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
+    when bMemoryView $ do
+      liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
+      renderMemoryView ui ss
+      liftIO endChild
+      liftIO endTabItem
+    --
+    liftIO $ delete zerovec
+    liftIO $ delete minusvec
+    liftIO endTabBar
+    liftIO end
+
     -- console window
-    showConsole
+    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
+    renderConsole
+    liftIO end
+
+    -- post-rendering event handling: there are events discovered after rendering such as Tab.
+    let tabState = (bMainModGraph, bTimingView, bMemoryView)
+    when (newShared.sharedTabState /= tabState) $
+      case toTab tabState of
+        Nothing -> pure ()
+        Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+    pure $ newShared {sharedTabState = tabState}
+
   --
   -- render call
   render
@@ -362,8 +417,8 @@ singleFrame io window ui ss oldShared = do
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   -- commit the frame
   glfwSwapBuffers window
-
-  pure newShared
+  --
+  pure newShared'
 
 prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
 prepareAssets io = do
@@ -399,6 +454,7 @@ uiMain servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
+            sharedTabState = (True, False, False),
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
