@@ -23,15 +23,15 @@
           packageOverrides = self: {
             imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
               frameworks =
-	        if self.stdenv.isDarwin
-		then self.darwin.apple_sdk.frameworks
-		else null;
+                if self.stdenv.isDarwin
+                then self.darwin.apple_sdk.frameworks
+                else null;
             };
             implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
               frameworks =
-	        if self.stdenv.isDarwin
-		then self.darwin.apple_sdk.frameworks
-		else null;
+                if self.stdenv.isDarwin
+                then self.darwin.apple_sdk.frameworks
+                else null;
             };
           };
         };
@@ -65,16 +65,24 @@
           // hs-imgui.haskellOverlay.${system} pkgs hself hsuper
           // haskellOverlay pkgs hself hsuper);
 
-      mkShellFor = compiler: let
-        hsenv = (hpkgsFor compiler).ghcWithPackages (p: [
-          p.OGDF
-          p.imgui
-          p.implot
-          p.hspec-discover
-        ]);
+      mkShellFor = isEnv: compiler: let
+        hsenv = (hpkgsFor compiler).ghcWithPackages (
+          p:
+            [
+              p.OGDF
+              p.imgui
+              p.implot
+              p.hspec-discover
+            ]
+            ++ (pkgs.lib.optionals isEnv [p.ghc-specter-daemon])
+        );
         pyenv =
           pkgs.python3.withPackages
           (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);
+        prompt =
+          if isEnv
+          then "ghc-specter:env"
+          else "ghc-specter:dev";
       in
         pkgs.mkShell {
           packages = [
@@ -103,7 +111,7 @@
             pkgs.glfw
           ];
           shellHook = ''
-            export PS1="\n[ghc-specter:\w]$ \0"
+            export PS1="\n[${prompt}:\w]$ \0"
           '';
         };
 
@@ -123,8 +131,11 @@
       inherit haskellOverlay;
 
       devShells =
-        pkgs.lib.genAttrs supportedCompilers mkShellFor
-        // {default = devShells.${defaultCompiler};};
+        pkgs.lib.genAttrs supportedCompilers (mkShellFor false)
+        // {
+          default = devShells.${defaultCompiler};
+          env = mkShellFor true defaultCompiler;
+        };
 
       packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
     });
