@@ -123,6 +123,7 @@ executable ghc-specter-daemon-terminal
 executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
+    Handler
     ImGuiMain
     Util.Color
     Util.GUI
@@ -136,6 +137,7 @@ executable ghc-specter-daemon
   build-depends:
       base >=4.15 && <5
     , bytestring
+    , errors
     , extra
     , fficxx-runtime
     , filepath
