@@ -75,8 +75,10 @@ data SpecialKey
 --
 
 data MouseEvent
-  = MouseClick (Double, Double)
-  | MouseMove (Double, Double)
+  = -- | optional (scene_id)
+    MouseClick (Maybe Text) (Double, Double)
+  | -- | optional (scene_id)
+    MouseMove (Maybe Text) (Double, Double)
   | -- TODO: this will be deprecated
     MouseDown (Maybe (Double, Double))
   | -- TODO: this will be deprecated

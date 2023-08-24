@@ -79,11 +79,12 @@ renderMainModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene scene
           addEventMap emap
-          handleMove (totalW, totalH)
-          handleClick (totalW, totalH)
-        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-        dummy dummy_sz
-        delete dummy_sz
+          dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
+          liftIO $ dummy dummy_sz
+          -- handling event
+          handleMove "main-module-graph"
+          handleClick "main-module-graph"
+          liftIO $ delete dummy_sz
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -127,11 +128,12 @@ renderSubModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene sceneSub'
           addEventMap emap
-        -- handleMove (totalW, totalH)
-        -- handleClick (totalW, totalH)
-        dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-        dummy dummy_sz
-        delete dummy_sz
+          dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
+          liftIO $ dummy dummy_sz
+          -- handling event
+          handleMove "sub-module-graph"
+          handleClick "sub-module-graph"
+          liftIO $ delete dummy_sz
   where
     mgrui = ui._uiModel._modelMainModuleGraph
     (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph

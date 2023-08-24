@@ -127,4 +127,3 @@ renderMemoryView ui ss = do
     (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
     totalW = vx1 - vx0
     totalH = vy1 - vy0
-

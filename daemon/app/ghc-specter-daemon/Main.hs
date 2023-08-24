@@ -3,19 +3,13 @@
 
 module Main where
 
-import Control.Concurrent
-  ( forkIO,
-    forkOS,
-    threadDelay,
-  )
+import Control.Concurrent (forkOS)
 import Control.Concurrent.STM
   ( atomically,
-    newTChanIO,
     newTQueueIO,
     newTVarIO,
     readTVar,
   )
-import Control.Monad (forever)
 import Data.IORef (newIORef)
 import Data.List qualified as L
 import Data.Time.Clock (getCurrentTime)
@@ -31,7 +25,6 @@ import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Driver.Terminal qualified as Terminal
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.UI.Types
   ( UIModel (..),
@@ -39,10 +32,10 @@ import GHCSpecter.UI.Types
     emptyUIState,
   )
 import GHCSpecter.UI.Types.Event (Tab (..))
+import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
 import ImGuiMain (uiMain)
 import System.IO
   ( BufferMode (..),
-    hPutStrLn,
     hSetBuffering,
     stderr,
     stdout,
@@ -63,7 +56,6 @@ main = do
         model = (ui0._uiModel) {_modelTab = TabModuleGraph}
         ui = ui0 {_uiModel = model}
     uiRef <- newTVarIO ui
-    chanState <- newTChanIO
     chanQEv <- newTQueueIO
 
     let cliSess = ClientSession uiRef chanQEv
@@ -76,11 +68,12 @@ main = do
     let runHandler =
           RunnerHandler
             { runHandlerRefreshAction = pure (),
-              runHandlerHitScene = \_xy ->
+              runHandlerHitScene = \xy ->
                 atomically $ do
                   emaps <- readTVar emref
-                  -- TODO: for now, just for testing
-                  let memap = L.find (\emap -> emap.sceneId == "main-module-graph") emaps
+                  -- let name = "main-module-graph"
+                  -- let memap = L.find (\emap -> emap.sceneId == name) emaps
+                  let memap = Transformation.hitScene xy emaps
                   pure memap,
               runHandlerGetScene = \name ->
                 atomically $ do

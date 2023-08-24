@@ -10,63 +10,29 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
-import Control.Error.Util (note)
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
-import Data.Functor.Identity (runIdentity)
-import Data.List qualified as L
-import Data.Maybe (fromMaybe, isNothing)
-import Data.Text qualified as T
+import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
-import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
-import GHCSpecter.Data.Timing.Types
-  ( TimingTable (..),
-  )
-import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL
-  ( EventMap,
-    Primitive,
-    Scene (..),
-    ViewPort (..),
-  )
-import GHCSpecter.Server.Types
-  ( ModuleGraphState (..),
-    ServerState (..),
-    TimingState (..),
-  )
-import GHCSpecter.UI.Components.GraphView qualified as GraphView
-import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants (timingMaxWidth)
-import GHCSpecter.UI.Types
-  ( ModuleGraphUI (..),
-    TimingUI (..),
-    UIModel (..),
-    UIState (..),
-    ViewPortInfo (..),
-  )
+import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Server.Types (ServerState (..))
+import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
-  ( ConsoleEvent (..),
-    Event (..),
-    SubModuleEvent (..),
+  ( Event (..),
     Tab (..),
     UserEvent (..),
   )
-import Handler
-  ( handleClick,
-    handleMove,
-    sendToControl,
-  )
+import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
   ( ImGuiMouseButton_ (..),
@@ -77,25 +43,18 @@ import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (renderConsole)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
-import Render.TimingView (renderTimingView, renderMemoryView)
+import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
-import Text.Printf (printf)
 import Util.GUI
-  ( currentOrigin,
-    finalize,
+  ( finalize,
     globalCursorPosition,
     initialize,
     paintWindow,
     showFramerate,
   )
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
-    addEventMap,
-    buildEventMap,
-    renderScene,
-    runImRender,
+  ( SharedState (..),
     toTab,
   )
 
@@ -153,17 +112,17 @@ singleFrame io window ui ss oldShared = do
                 .|. fromEnum ImGuiTableFlags_Resizable
                 .|. fromEnum ImGuiTableFlags_Reorderable
 
-      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 (fromIntegral flags))) $ do
+      whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
         liftIO $ tableSetupColumn_ ("graph" :: CString)
         liftIO $ tableNextRow 0
         liftIO $ tableSetColumnIndex 0
-        liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+        _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
         renderMainModuleGraph ui ss
         liftIO endChild
         --
         liftIO $ tableNextRow 0
         liftIO $ tableSetColumnIndex 0
-        liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+        _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
         renderSubModuleGraph ui ss
         liftIO endChild
         liftIO endTable
@@ -171,14 +130,14 @@ singleFrame io window ui ss oldShared = do
     -- timing view tab
     bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
     when bTimingView $ do
-      liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
+      _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderTimingView ui ss
       liftIO endChild
       liftIO endTabItem
     -- memory view tab
     bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
     when bMemoryView $ do
-      liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
+      _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderMemoryView ui ss
       liftIO endChild
       liftIO endTabItem
@@ -202,8 +161,12 @@ singleFrame io window ui ss oldShared = do
     pure $ newShared {sharedTabState = tabState}
 
   --
-  -- render call
+  -- finalize rendering by compositing render call
+  --
   render
+  --
+  -- hit testing by global mouse coordinate is now meaningful from here.
+  --
   --
   -- empty background with fill color
   paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
