@@ -75,6 +75,51 @@ makeTabContents = traverse go
         liftIO endTabItem
       pure isSelected
 
+renderModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderModuleGraph ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  minusvec <- liftIO $ newImVec2 0 (-200)
+  let flags =
+        fromIntegral $
+          fromEnum ImGuiTableFlags_BordersOuter
+            .|. fromEnum ImGuiTableFlags_BordersV
+            .|. fromEnum ImGuiTableFlags_RowBg
+            .|. fromEnum ImGuiTableFlags_Resizable
+            .|. fromEnum ImGuiTableFlags_Reorderable
+
+  whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
+    liftIO $ tableSetupColumn_ ("graph" :: CString)
+    liftIO $ tableNextRow 0
+    liftIO $ tableSetColumnIndex 0
+    _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+    renderMainModuleGraph ui ss
+    liftIO endChild
+    --
+    liftIO $ tableNextRow 0
+    liftIO $ tableSetColumnIndex 0
+    _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+    renderSubModuleGraph ui ss
+    liftIO endChild
+    liftIO endTable
+  liftIO $ delete zerovec
+  liftIO $ delete minusvec
+
+renderTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderTiming ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
+  renderTimingView ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
+
+renderMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderMemory ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
+  renderMemoryView ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
+
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -106,56 +151,16 @@ singleFrame io window ui ss oldShared = do
       newShared = upd2 . upd1 $ oldShared
 
   newShared' <- flip runReaderT newShared $ do
-    -- main canvas
+    -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
-    zerovec <- liftIO $ newImVec2 0 0
-    minusvec <- liftIO $ newImVec2 0 (-200)
     --
-    -- main module graph tab
     tabState <-
       makeTabContents
-        [ ( "Module graph",
-            do
-              let flags =
-                    fromIntegral $
-                      fromEnum ImGuiTableFlags_BordersOuter
-                        .|. fromEnum ImGuiTableFlags_BordersV
-                        .|. fromEnum ImGuiTableFlags_RowBg
-                        .|. fromEnum ImGuiTableFlags_Resizable
-                        .|. fromEnum ImGuiTableFlags_Reorderable
-
-              whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
-                liftIO $ tableSetupColumn_ ("graph" :: CString)
-                liftIO $ tableNextRow 0
-                liftIO $ tableSetColumnIndex 0
-                _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
-                renderMainModuleGraph ui ss
-                liftIO endChild
-                --
-                liftIO $ tableNextRow 0
-                liftIO $ tableSetColumnIndex 0
-                _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
-                renderSubModuleGraph ui ss
-                liftIO endChild
-                liftIO endTable
-          ),
-          ( "Timing view",
-            do
-              _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
-              renderTimingView ui ss
-              liftIO endChild
-          ),
-          ( "Memory view",
-            do
-              _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
-              renderMemoryView ui ss
-              liftIO endChild
-          )
+        [ ("Module graph", renderModuleGraph ui ss),
+          ("Timing view", renderTiming ui ss),
+          ("Memory view", renderMemory ui ss)
         ]
-    --
-    liftIO $ delete zerovec
-    liftIO $ delete minusvec
     liftIO endTabBar
     liftIO end
 
