@@ -1,7 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Handler
-  ( handleMove,
+  ( -- * low-level
+    sendToControl,
+
+    -- * high-level handler
+    handleMove,
     handleClick,
   )
 where
@@ -24,38 +28,36 @@ import Util.Render
     SharedState (..),
   )
 
+sendToControl :: SharedState UserEvent -> UserEvent -> IO ()
+sendToControl shared uev =
+  atomically $ writeTQueue (shared.sharedChanQEv) (UsrEv uev)
+
 handleMove :: (Double, Double) -> ImRender UserEvent ()
 handleMove (totalW, totalH) = do
   renderState <- ImRender ask
-  when (renderState.currSharedState.sharedIsMouseMoved) $ do
-    case renderState.currSharedState.sharedMousePos of
+  let shared = renderState.currSharedState
+  when (shared.sharedIsMouseMoved) $ do
+    case shared.sharedMousePos of
       Nothing -> pure ()
       Just (x, y) -> do
         let x' = fromIntegral x
             y' = fromIntegral y
             (ox, oy) = renderState.currOrigin
-        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
-          liftIO $ do
-            let xy = (x' - ox, y' - oy)
-            atomically $
-              writeTQueue
-                (renderState.currSharedState.sharedChanQEv)
-                (UsrEv $ MouseEv $ MouseMove xy)
+        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $ do
+          let xy = (x' - ox, y' - oy)
+          liftIO $ sendToControl shared (MouseEv (MouseMove xy))
 
 handleClick :: (Double, Double) -> ImRender UserEvent ()
 handleClick (totalW, totalH) = do
   renderState <- ImRender ask
-  when (renderState.currSharedState.sharedIsClicked) $ do
-    case renderState.currSharedState.sharedMousePos of
+  let shared = renderState.currSharedState
+  when (shared.sharedIsClicked) $ do
+    case shared.sharedMousePos of
       Nothing -> pure ()
       Just (x, y) -> do
         let x' = fromIntegral x
             y' = fromIntegral y
             (ox, oy) = renderState.currOrigin
-        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $
-          liftIO $ do
-            let xy = (x' - ox, y' - oy)
-            atomically $
-              writeTQueue
-                (renderState.currSharedState.sharedChanQEv)
-                (UsrEv $ MouseEv $ MouseClick xy)
+        when (x' >= ox && x' <= ox + totalW && y' >= oy && y' <= oy + totalH) $ do
+          let xy = (x' - ox, y' - oy)
+          liftIO $ sendToControl shared (MouseEv (MouseClick xy))

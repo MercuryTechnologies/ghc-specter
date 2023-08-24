@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module ImGuiMain (uiMain) where
 
@@ -11,6 +12,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Error.Util (note)
+import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
@@ -64,6 +66,7 @@ import GHCSpecter.UI.Types.Event
 import Handler
   ( handleClick,
     handleMove,
+    sendToControl,
   )
 import ImGui
 import ImGui.Enum (ImGuiMouseButton_ (..), ImGuiWindowFlags_ (..))
@@ -87,6 +90,7 @@ import Util.Render
     buildEventMap,
     renderScene,
     runImRender,
+    toTab,
   )
 
 windowFlagsScroll :: CInt
@@ -158,7 +162,7 @@ renderMainModuleGraph ui ss = do
 renderSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSubModuleGraph ui ss = do
   case esubgraph of
-    Left err -> liftIO $ putStrLn err
+    Left _err -> pure ()
     Right subgraph -> do
       let valueForSub name
             | isModuleCompilationDone drvModMap timing name = 1
@@ -200,6 +204,7 @@ renderSubModuleGraph ui ss = do
 
     timing = ss._serverTiming._tsTimingMap
 
+    esubgraph :: Either String _
     esubgraph = do
       selected <-
         note "no module cluster is selected" mainModuleClicked
@@ -332,35 +337,48 @@ singleFrame io window ui ss oldShared = do
         | otherwise = \s -> s {sharedIsClicked = False}
       newShared = upd2 . upd1 $ oldShared
 
-  flip runReaderT newShared $ do
+  newShared' <- flip runReaderT newShared $ do
     -- main canvas
-    liftIO $ begin ("main" :: CString) nullPtr 0
-    liftIO $ beginTabBar ("##TabBar" :: CString)
+    _ <- liftIO $ begin ("main" :: CString) nullPtr 0
+    _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
     --
     -- main module graph tab
-    whenM (toBool <$> liftIO (beginTabItem ("main module graph" :: CString))) $ do
+    bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
+    when bMainModGraph $ do
       renderMainModuleGraph ui ss
       liftIO endTabItem
     -- sub module graph tab
-    whenM (toBool <$> liftIO (beginTabItem ("sub module graph" :: CString))) $ do
+    bSubModGraph <- toBool <$> liftIO (beginTabItem ("sub module graph" :: CString))
+    when bSubModGraph $ do
       renderSubModuleGraph ui ss
       liftIO endTabItem
     -- timing view tab
-    whenM (toBool <$> liftIO (beginTabItem ("timing view" :: CString))) $ do
+    bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
+    when bTimingView $ do
       renderTimingView ui ss
       liftIO endTabItem
     -- memory view tab
-    whenM (toBool <$> liftIO (beginTabItem ("memory view" :: CString))) $ do
+    bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
+    when bMemoryView $ do
       renderMemoryView ui ss
       liftIO endTabItem
     --
-    liftIO $ endTabBar
+    liftIO endTabBar
     liftIO end
 
     -- console window
-    liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
+    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
     renderConsole
     liftIO end
+
+    -- post-rendering event handling: there are events discovered after rendering such as Tab.
+    let tabState = (bMainModGraph, bSubModGraph, bTimingView, bMemoryView)
+    when (newShared.sharedTabState /= tabState) $
+      case toTab tabState of
+        Nothing -> pure ()
+        Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+    pure $ newShared {sharedTabState = tabState}
+
   --
   -- render call
   render
@@ -371,8 +389,8 @@ singleFrame io window ui ss oldShared = do
   imGui_ImplOpenGL3_RenderDrawData =<< getDrawData
   -- commit the frame
   glfwSwapBuffers window
-
-  pure newShared
+  --
+  pure newShared'
 
 prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
 prepareAssets io = do
@@ -408,6 +426,7 @@ uiMain servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
+            sharedTabState = (True, False, False, False),
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,

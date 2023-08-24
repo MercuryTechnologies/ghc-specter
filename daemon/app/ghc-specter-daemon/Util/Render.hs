@@ -2,7 +2,9 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( -- * state
+  ( toTab,
+
+    -- * state
     SharedState (..),
     ImRenderState (..),
 
@@ -48,7 +50,7 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
-import GHCSpecter.UI.Types.Event (Event)
+import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
@@ -58,11 +60,19 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
+    sharedTabState :: (Bool, Bool, Bool, Bool),
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
     sharedEventMap :: TVar [EventMap e]
   }
+
+toTab :: (Bool, Bool, Bool, Bool) -> Maybe Tab
+toTab (True, False, False, False) = Just TabModuleGraph
+toTab (False, True, False, False) = Just TabModuleGraph
+toTab (False, False, True, False) = Just TabTiming
+toTab (False, False, False, True) = Just TabTiming
+toTab _ = Nothing
 
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
