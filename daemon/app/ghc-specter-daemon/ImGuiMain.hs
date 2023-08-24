@@ -102,7 +102,7 @@ singleFrame io window ui ss oldShared = do
     minusvec <- liftIO $ newImVec2 0 (-200)
     --
     -- main module graph tab
-    bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
+    bMainModGraph <- toBool <$> liftIO (beginTabItem ("Module graph" :: CString))
     when bMainModGraph $ do
       let flags =
             fromIntegral $
@@ -128,7 +128,7 @@ singleFrame io window ui ss oldShared = do
         liftIO endTable
       liftIO endTabItem
     -- timing view tab
-    bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
+    bTimingView <- toBool <$> liftIO (beginTabItem ("Timing view" :: CString))
     when bTimingView $ do
       _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderTimingView ui ss

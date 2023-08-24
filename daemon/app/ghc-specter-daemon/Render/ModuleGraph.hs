@@ -82,8 +82,8 @@ renderMainModuleGraph ui ss = do
           dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
           liftIO $ dummy dummy_sz
           -- handling event
-          handleMove "main-module-graph"
-          handleClick "main-module-graph"
+          handleMove scene.sceneId
+          handleClick scene.sceneId
           liftIO $ delete dummy_sz
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
@@ -131,8 +131,8 @@ renderSubModuleGraph ui ss = do
           dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
           liftIO $ dummy dummy_sz
           -- handling event
-          handleMove "sub-module-graph"
-          handleClick "sub-module-graph"
+          handleMove sceneSub'.sceneId
+          handleClick sceneSub'.sceneId
           liftIO $ delete dummy_sz
   where
     mgrui = ui._uiModel._modelMainModuleGraph

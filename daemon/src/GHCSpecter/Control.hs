@@ -496,10 +496,15 @@ goModuleGraph ev = do
     MouseEv mev ->
       void $
         handleHoverScrollZoom
-          (\case MainModuleEv (HoverOnModuleEv mmodu) -> mmodu; _ -> Nothing)
+          ( \case
+              MainModuleEv (HoverOnModuleEv mmodu) -> mmodu
+              SubModuleEv (SubModuleGraphEv (HoverOnModuleEv mmodu)) -> mmodu
+              _ -> Nothing
+          )
           HandlerHoverScrollZoom
             { handlerHover =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover)
+                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover),
+                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphUIHover)
                 ],
               handlerScroll =
                 [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),

@@ -71,8 +71,6 @@ main = do
               runHandlerHitScene = \xy ->
                 atomically $ do
                   emaps <- readTVar emref
-                  -- let name = "main-module-graph"
-                  -- let memap = L.find (\emap -> emap.sceneId == name) emaps
                   let memap = Transformation.hitScene xy emaps
                   pure memap,
               runHandlerGetScene = \name ->
