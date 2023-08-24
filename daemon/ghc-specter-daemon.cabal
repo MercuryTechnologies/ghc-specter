@@ -124,11 +124,11 @@ executable ghc-specter-daemon
   main-is: Main.hs
   other-modules:
     Handler
-    ImGuiMain
     Paths_ghc_specter_daemon
+    Render
     Render.Console
     Render.ModuleGraph
-    Render.TimingView    
+    Render.TimingView
     Util.Color
     Util.GUI
     Util.Orphans

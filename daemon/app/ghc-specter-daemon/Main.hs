@@ -33,7 +33,7 @@ import GHCSpecter.UI.Types
   )
 import GHCSpecter.UI.Types.Event (Tab (..))
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
-import ImGuiMain (uiMain)
+import Render qualified (main)
 import System.IO
   ( BufferMode (..),
     hSetBuffering,
@@ -96,4 +96,4 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    uiMain servSess cliSess emref
+    Render.main servSess cliSess emref

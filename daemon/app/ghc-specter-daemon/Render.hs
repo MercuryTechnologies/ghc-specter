@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module ImGuiMain (uiMain) where
+module Render (main) where
 
 import Control.Concurrent.STM
   ( TVar,
@@ -195,8 +195,8 @@ prepareAssets io = do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   pure (fontSans, fontMono)
 
-uiMain :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
-uiMain servSess cliSess emref = do
+main :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
+main servSess cliSess emref = do
   -- initialize window
   (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
