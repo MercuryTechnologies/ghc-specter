@@ -79,6 +79,7 @@ renderMainModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene scene
           addEventMap emap
+          -- canvas space
           dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
           liftIO $ dummy dummy_sz
           -- handling event
@@ -128,6 +129,7 @@ renderSubModuleGraph ui ss = do
         runImRender renderState $ do
           renderScene sceneSub'
           addEventMap emap
+          -- canvas space
           dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
           liftIO $ dummy dummy_sz
           -- handling event

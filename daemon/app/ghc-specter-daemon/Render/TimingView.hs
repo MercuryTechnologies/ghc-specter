@@ -41,6 +41,7 @@ import GHCSpecter.UI.Types
     ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
+import Handler (handleClick, handleMove)
 import ImGui
 import STD.Deletable (delete)
 import System.FilePath ((</>))
@@ -60,10 +61,13 @@ renderTimingView ui ss = do
     runImRender renderState $ do
       renderScene scene
       addEventMap emap
-    -- handleMouseMove (totalW, totalH)
-    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-    dummy dummy_sz
-    delete dummy_sz
+      -- canvas space
+      dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
+      liftIO $ dummy dummy_sz
+      -- handling event
+      handleMove scene.sceneId
+      handleClick scene.sceneId
+      liftIO $ delete dummy_sz
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -99,10 +103,13 @@ renderMemoryView ui ss = do
     runImRender renderState $ do
       renderScene scene
       addEventMap emap
-    -- handleMouseMove (totalW, totalH)
-    dummy_sz <- newImVec2 (realToFrac totalW) (realToFrac totalH)
-    dummy dummy_sz
-    delete dummy_sz
+      -- canvas space
+      dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
+      liftIO $ dummy dummy_sz
+      -- handling event
+      handleMove scene.sceneId
+      handleClick scene.sceneId
+      liftIO $ delete dummy_sz
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
