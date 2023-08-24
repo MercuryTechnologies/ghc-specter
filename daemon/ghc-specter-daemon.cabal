@@ -125,12 +125,15 @@ executable ghc-specter-daemon
   other-modules:
     Handler
     ImGuiMain
+    Paths_ghc_specter_daemon
+    Render.Console
+    Render.ModuleGraph
+    Render.TimingView    
     Util.Color
     Util.GUI
     Util.Orphans
     Util.Plot
     Util.Render
-    Paths_ghc_specter_daemon
   hs-source-dirs:
       app/ghc-specter-daemon
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
