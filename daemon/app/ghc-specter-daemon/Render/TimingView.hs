@@ -10,16 +10,8 @@ where
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Functor.Identity (runIdentity)
-import Data.List qualified as L
-import Foreign.C.String (CString, withCString)
-import Foreign.C.Types (CInt)
-import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
-  )
-import GHCSpecter.Driver.Session.Types
-  ( ClientSession (..),
-    ServerSession (..),
   )
 import GHCSpecter.Graphics.DSL
   ( Primitive,
@@ -30,12 +22,10 @@ import GHCSpecter.Server.Types
   ( ServerState (..),
     TimingState (..),
   )
-import GHCSpecter.UI.Components.GraphView qualified as GraphView
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
 import GHCSpecter.UI.Constants (timingMaxWidth)
 import GHCSpecter.UI.Types
-  ( ModuleGraphUI (..),
-    TimingUI (..),
+  ( TimingUI (..),
     UIModel (..),
     UIState (..),
     ViewPortInfo (..),
@@ -44,7 +34,6 @@ import GHCSpecter.UI.Types.Event (UserEvent (..))
 import Handler (handleClick, handleMove)
 import ImGui
 import STD.Deletable (delete)
-import System.FilePath ((</>))
 import Util.Render
   ( SharedState (..),
     addEventMap,

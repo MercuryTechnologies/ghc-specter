@@ -198,7 +198,7 @@ prepareAssets io = do
 uiMain :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
 uiMain servSess cliSess emref = do
   -- initialize window
-  (ctxt, io, window) <- initialize
+  (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
   (fontSans, fontMono) <- prepareAssets io
 
