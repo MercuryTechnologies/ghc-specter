@@ -23,7 +23,7 @@ import Data.Maybe (fromMaybe, isNothing)
 import Data.Text qualified as T
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
-import Foreign.Marshal.Utils (toBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
@@ -341,28 +341,38 @@ singleFrame io window ui ss oldShared = do
     -- main canvas
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
+    zerovec <- liftIO $ newImVec2 0 0
     --
     -- main module graph tab
     bMainModGraph <- toBool <$> liftIO (beginTabItem ("main module graph" :: CString))
     when bMainModGraph $ do
+      liftIO $ beginChild ("#main-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderMainModuleGraph ui ss
+      liftIO endChild
       liftIO endTabItem
     -- sub module graph tab
     bSubModGraph <- toBool <$> liftIO (beginTabItem ("sub module graph" :: CString))
     when bSubModGraph $ do
+      liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderSubModuleGraph ui ss
+      liftIO endChild
       liftIO endTabItem
     -- timing view tab
     bTimingView <- toBool <$> liftIO (beginTabItem ("timing view" :: CString))
     when bTimingView $ do
+      liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderTimingView ui ss
+      liftIO endChild
       liftIO endTabItem
     -- memory view tab
     bMemoryView <- toBool <$> liftIO (beginTabItem ("memory view" :: CString))
     when bMemoryView $ do
+      liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
       renderMemoryView ui ss
+      liftIO endChild
       liftIO endTabItem
     --
+    liftIO $ delete zerovec
     liftIO endTabBar
     liftIO end
 
