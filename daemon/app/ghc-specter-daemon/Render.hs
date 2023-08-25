@@ -44,7 +44,7 @@ import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (renderConsole)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
-import Render.Session (renderSession)
+import Render.Session (renderModuleInProgress, renderSession)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
@@ -167,6 +167,11 @@ singleFrame io window ui ss oldShared = do
           ("Memory view", tabMemory ui ss)
         ]
     liftIO endTabBar
+    liftIO end
+
+    -- module-in-progress window
+    _ <- liftIO $ begin ("modules in progress" :: CString) nullPtr windowFlagsScroll
+    renderModuleInProgress ss
     liftIO end
 
     -- console window
