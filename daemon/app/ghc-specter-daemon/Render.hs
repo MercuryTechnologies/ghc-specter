@@ -43,6 +43,7 @@ import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (renderConsole)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
 import Render.Session (renderModuleInProgress, renderSession)
+import Render.SourceView qualified as SourceView (render)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
@@ -106,6 +107,14 @@ tabModuleGraph ui ss = do
   liftIO $ delete zerovec
   liftIO $ delete minusvec
 
+tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabSourceView ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#source-view" :: CString) zerovec (fromBool False) windowFlagsScroll
+  SourceView.render ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
+
 tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
@@ -161,6 +170,7 @@ singleFrame io window ui ss oldShared = do
       makeTabContents
         [ ("Session", tabSession ui ss),
           ("Module graph", tabModuleGraph ui ss),
+          ("Source view", tabSourceView ui ss),
           ("Timing view", tabTiming ui ss),
           ("Memory view", tabMemory ui ss)
         ]

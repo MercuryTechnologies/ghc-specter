@@ -130,6 +130,7 @@ executable ghc-specter-daemon
     Render.Console
     Render.ModuleGraph
     Render.Session
+    Render.SourceView
     Render.TimingView
     Util.Color
     Util.GUI
