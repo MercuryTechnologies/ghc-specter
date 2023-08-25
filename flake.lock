@@ -98,11 +98,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1692899951,
-        "narHash": "sha256-QdCerUMUjJ66DXKHzHRM25CSbwIS+u/wv7MgxZZ2ZW0=",
+        "lastModified": 1693002002,
+        "narHash": "sha256-k/lFWX1dxEPyOUo8WgwR5PvfxJTjeTKm6C2eIJxsq1g=",
         "owner": "wavewave",
         "repo": "hs-imgui",
-        "rev": "245b83c7d22c46801d8c8074c5592140eaae5290",
+        "rev": "40d72f64a8bfd7fd1f68bdde05d3517898e66dab",
         "type": "github"
       },
       "original": {

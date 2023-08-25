@@ -15,12 +15,14 @@ import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
+import Data.Bits ((.|.))
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Text (Text)
 import Data.Text qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Ptr (nullPtr)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( KeyMap,
@@ -56,6 +58,8 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui qualified
+import ImGui.Enum
+import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI
@@ -74,11 +78,8 @@ import Util.Render
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
-  -- vec1 <- liftIO $ ImGui.newImVec2 0 0
-  renderMainPanel tabs consoleMap mconsoleFocus
+  renderMainPanel ss tabs consoleMap mconsoleFocus
   where
-    -- liftIO $ delete vec1
-
     pausedMap = ss._serverPaused
     consoleMap = ss._serverConsole
     mconsoleFocus = ui._uiModel._modelConsole._consoleFocus
@@ -91,25 +92,41 @@ render ui ss = do
     tabs = fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap
 
 renderMainContent ::
+  ServerState ->
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
   ReaderT (SharedState UserEvent) IO ()
-renderMainContent consoleMap mconsoleFocus = do
+renderMainContent ss consoleMap mconsoleFocus = do
   renderState <- mkRenderState
+  zerovec <- liftIO $ ImGui.newImVec2 0 0
+  vec1 <- liftIO $ ImGui.newImVec2 80 60
   liftIO $
     runImRender renderState $
       renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
+  liftIO $ do
+    v0 <- ImGui.getWindowPos
+    w <- ImGui.getWindowWidth
+    x0 <- imVec2_x_get v0
+    y0 <- imVec2_y_get v0
+    pos <- ImGui.newImVec2 (x0 + w - 100) (y0 + 60)
+    ImGui.setNextWindowPos pos 0 zerovec
+    liftIO $ delete pos
+  _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsScroll
+  renderHelp ss mconsoleFocus
+  liftIO ImGui.endChild
+  liftIO $ delete zerovec
 
 renderMainPanel ::
+  ServerState ->
   [(DriverId, Text)] ->
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
   ReaderT (SharedState UserEvent) IO ()
-renderMainPanel tabs consoleMap mconsoleFocus = do
+renderMainPanel ss tabs consoleMap mconsoleFocus = do
   renderState <- mkRenderState
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
-          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent consoleMap mconsoleFocus)) tabs
+          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent ss consoleMap mconsoleFocus)) tabs
     mselected <- makeTabContents tab_contents
     when (mconsoleFocus /= mselected) $
       case mselected of
@@ -118,7 +135,15 @@ renderMainPanel tabs consoleMap mconsoleFocus = do
           liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
 
-{-
+renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
+renderHelp ss mconsoleFocus = do
+  renderState <- mkRenderState
+  liftIO $
+    runImRender renderState $
+      renderComponent ConsoleEv (buildConsoleHelp getHelp mconsoleFocus)
+  where
+    pausedMap = ss._serverPaused
+    consoleMap = ss._serverConsole
     getHelp k =
       let title =
             let mpaused = lookupKey k pausedMap
@@ -133,4 +158,3 @@ renderMainPanel tabs consoleMap mconsoleFocus = do
               (fmap classify)
               (consoleCommandList <$> lookupKey k (ss._serverPaused))
        in (title, helpMsgs)
--}
