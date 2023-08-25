@@ -26,7 +26,7 @@ import GHCSpecter.UI.Types.Event (UserEvent (..))
 import ImGui
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
-import Util.GUI (defTableFlags, windowFlagsScroll)
+import Util.GUI (defTableFlags, windowFlagsNone, windowFlagsScroll)
 import Util.Render
   ( SharedState (..),
     mkRenderState,
@@ -36,29 +36,29 @@ import Util.Render
 renderSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSession _ui ss = do
   vec1 <- liftIO $ newImVec2 0 100
-  vec2 <- liftIO $ newImVec2 0 (-200)
+  vec2 <- liftIO $ newImVec2 500 0
   vec3 <- liftIO $ newImVec2 0 0
-  whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 defTableFlags)) $ do
-    liftIO $ tableSetupColumn_ ("graph" :: CString)
+  _ <- liftIO $ beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
+  renderSessionInfo ss
+  liftIO endChild
+  whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 2 defTableFlags)) $ do
+    liftIO $ tableSetupColumn_ ("#session" :: CString)
     liftIO $ tableNextRow 0
     liftIO $ tableSetColumnIndex 0
-    _ <- liftIO $ beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsScroll
-    renderSessionInfo ss
-    liftIO endChild
     --
-    liftIO $ tableNextRow 0
-    liftIO $ tableSetColumnIndex 0
-    _ <- liftIO $ beginChild ("#process-info" :: CString) vec2 (fromBool False) windowFlagsScroll
+    liftIO $ textUnformatted ("Process info" :: CString)
+    _ <- liftIO $ beginChild ("#process-info" :: CString) vec2 (fromBool False) windowFlagsNone
     renderProcessPanel ss
     liftIO endChild
     --
-    liftIO $ tableNextRow 0
-    liftIO $ tableSetColumnIndex 0
-    _ <- liftIO $ beginChild ("#rts-info" :: CString) vec3 (fromBool False) windowFlagsScroll
+    liftIO $ tableSetColumnIndex 1
+    liftIO $ textUnformatted ("RTS info" :: CString)
+    _ <- liftIO $ beginChild ("#rts-info" :: CString) vec3 (fromBool False) windowFlagsNone
     renderRtsPanel ss
     liftIO endChild
     --
     liftIO endTable
+
   liftIO $ delete vec1
   liftIO $ delete vec2
   liftIO $ delete vec3

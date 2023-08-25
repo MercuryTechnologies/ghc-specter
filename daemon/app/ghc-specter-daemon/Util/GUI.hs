@@ -6,6 +6,7 @@ module Util.GUI
     finalize,
 
     -- * common flags
+    windowFlagsNone,
     windowFlagsScroll,
     defTableFlags,
 
@@ -95,6 +96,11 @@ finalize ctxt window = do
 --
 --
 --
+
+windowFlagsNone :: CInt
+windowFlagsNone =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_None
 
 windowFlagsScroll :: CInt
 windowFlagsScroll =
