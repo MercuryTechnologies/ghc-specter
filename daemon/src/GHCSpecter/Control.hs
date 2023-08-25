@@ -1,7 +1,6 @@
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -288,7 +287,8 @@ handleHoverScrollZoom hitWho handlers mev =
              in fromMaybe (ui, ss) mupdated
         let mprevHit = ui ^. uiModel . hoverLens
             mnowHit = ui' ^. uiModel . hoverLens
-        pure (mnowHit /= mprevHit)
+            isChanged = mnowHit /= mprevHit
+        pure isChanged
     Scroll dir' (x, y) (dx, dy) -> do
       memap <- hitScene (x, y)
       case memap of

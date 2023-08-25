@@ -51,6 +51,7 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
+import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
@@ -62,10 +63,12 @@ import Util.Orphans ()
 -- utilities
 --
 
-toTab :: (Bool, Bool, Bool) -> Maybe Tab
-toTab (True, False, False) = Just TabModuleGraph
-toTab (False, True, False) = Just TabTiming
-toTab (False, False, True) = Just TabTiming
+-- TODO: This is very error-prone. we need a better method.
+toTab :: [Bool] -> Maybe Tab
+toTab [True, False, False, False] = Just TabSession
+toTab [False, True, False, False] = Just TabModuleGraph
+toTab [False, False, True, False] = Just TabTiming
+toTab [False, False, False, True] = Just TabTiming
 toTab _ = Nothing
 
 --
@@ -76,7 +79,7 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
-    sharedTabState :: (Bool, Bool, Bool),
+    sharedTabState :: [Bool],
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,

@@ -5,6 +5,10 @@ module Util.GUI
     initialize,
     finalize,
 
+    -- * common flags
+    windowFlagsScroll,
+    defTableFlags,
+
     -- * general util
     showFramerate,
     paintWindow,
@@ -17,6 +21,7 @@ import Data.Bits ((.|.))
 import Data.String (fromString)
 import FFICXX.Runtime.Cast (FPtr (..))
 import Foreign.C.String (CString, withCString)
+import Foreign.C.Types (CInt)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fromBool)
 import Foreign.Ptr (nullPtr)
@@ -86,6 +91,25 @@ finalize ctxt window = do
 
   glfwDestroyWindow window
   glfwTerminate
+
+--
+--
+--
+
+windowFlagsScroll :: CInt
+windowFlagsScroll =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
+      .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
+
+defTableFlags :: CInt
+defTableFlags =
+  fromIntegral $
+    fromEnum ImGuiTableFlags_BordersOuter
+      .|. fromEnum ImGuiTableFlags_BordersV
+      .|. fromEnum ImGuiTableFlags_RowBg
+      .|. fromEnum ImGuiTableFlags_Resizable
+      .|. fromEnum ImGuiTableFlags_Reorderable
 
 showFramerate :: ImGuiIO -> IO ()
 showFramerate io = do
