@@ -16,8 +16,9 @@ import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
+import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Foreign.C.String (CString)
@@ -99,7 +100,7 @@ renderMainContent ::
 renderMainContent ss consoleMap mconsoleFocus = do
   renderState <- mkRenderState
   zerovec <- liftIO $ ImGui.newImVec2 0 0
-  vec1 <- liftIO $ ImGui.newImVec2 80 60
+  vec1 <- liftIO $ ImGui.newImVec2 130 260
   liftIO $
     runImRender renderState $
       renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
@@ -108,7 +109,7 @@ renderMainContent ss consoleMap mconsoleFocus = do
     w <- ImGui.getWindowWidth
     x0 <- imVec2_x_get v0
     y0 <- imVec2_y_get v0
-    pos <- ImGui.newImVec2 (x0 + w - 100) (y0 + 60)
+    pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 60)
     ImGui.setNextWindowPos pos 0 zerovec
     liftIO $ delete pos
   _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsScroll
@@ -137,11 +138,19 @@ renderMainPanel ss tabs consoleMap mconsoleFocus = do
 
 renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do
-  renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent ConsoleEv (buildConsoleHelp getHelp mconsoleFocus)
+  case getHelp <$> mconsoleFocus of
+    Nothing -> pure ()
+    Just (title, items) -> do
+      liftIO $ ImGui.textUnformatted (fromString (T.unpack title) :: CString)
+      traverse_ renderItem items
   where
+    renderItem (Left (txt, ev)) =
+      whenM (toBool <$> liftIO (ImGui.button (fromString (T.unpack txt) :: CString))) $ do
+        renderState <- mkRenderState
+        liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv ev)
+    renderItem (Right txt) =
+      liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)
+
     pausedMap = ss._serverPaused
     consoleMap = ss._serverConsole
     getHelp k =
