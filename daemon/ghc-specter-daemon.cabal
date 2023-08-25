@@ -130,6 +130,7 @@ executable ghc-specter-daemon
     Render.Console
     Render.ModuleGraph
     Render.Session
+    Render.SourceView
     Render.TimingView
     Util.Color
     Util.GUI
@@ -142,6 +143,7 @@ executable ghc-specter-daemon
   build-depends:
       base >=4.15 && <5
     , bytestring
+    , containers
     , errors
     , extra
     , fficxx-runtime
