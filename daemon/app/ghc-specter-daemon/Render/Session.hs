@@ -17,9 +17,6 @@ import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (getEnd)
 import GHCSpecter.Data.Map (keyMapToList)
-import GHCSpecter.Data.Timing.Types
-  ( TimingTable (..),
-  )
 import GHCSpecter.Graphics.DSL
   ( Primitive,
     Scene (..),
@@ -30,12 +27,7 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Session qualified as Session
-import GHCSpecter.UI.Types
-  ( TimingUI (..),
-    UIModel (..),
-    UIState (..),
-    ViewPortInfo (..),
-  )
+import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 import Handler (handleClick, handleMove)
 import ImGui

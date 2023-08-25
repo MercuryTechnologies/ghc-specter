@@ -18,7 +18,6 @@ import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
-import Foreign.C.Types (CInt)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
@@ -38,7 +37,6 @@ import ImGui
 import ImGui.Enum
   ( ImGuiMouseButton_ (..),
     ImGuiTableFlags_ (..),
-    ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
