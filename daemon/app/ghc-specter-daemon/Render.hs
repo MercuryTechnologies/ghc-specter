@@ -56,10 +56,7 @@ import Util.GUI
     showFramerate,
     windowFlagsScroll,
   )
-import Util.Render
-  ( SharedState (..),
-    toTab,
-  )
+import Util.Render (SharedState (..))
 
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
@@ -161,16 +158,16 @@ singleFrame io window ui ss oldShared = do
         ( do
             tabState <-
               makeTabContents
-                [ ("Session", tabSession ui ss),
-                  ("Module graph", tabModuleGraph ui ss),
-                  ("Source view", tabSourceView ui ss),
-                  ("Timing view", tabTiming ui ss),
-                  ("Memory view", tabMemory ui ss)
+                [ (TabSession, "Session", tabSession ui ss),
+                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
+                  (TabSourceView, "Source view", tabSourceView ui ss),
+                  (TabTiming, "Timing view", tabTiming ui ss),
+                  (TabTiming, "Memory view", tabMemory ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling
             when (newShared.sharedTabState /= tabState) $
-              case toTab tabState of
+              case tabState of
                 Nothing -> pure ()
                 Just tab -> liftIO $ sendToControl newShared (TabEv tab)
             pure tabState
@@ -241,7 +238,7 @@ main servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
-            sharedTabState = [True, False, False],
+            sharedTabState = Nothing,
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,

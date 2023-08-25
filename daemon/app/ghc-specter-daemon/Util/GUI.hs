@@ -22,6 +22,8 @@ where
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bits ((.|.))
+import Data.Foldable (fold)
+import Data.Monoid (First (..))
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -161,12 +163,14 @@ currentOrigin = do
   py <- imVec2_y_get p
   pure (realToFrac px, realToFrac py)
 
-makeTabContents :: (MonadIO m) => [(Text, m ())] -> m [Bool]
-makeTabContents = traverse go
+makeTabContents :: (MonadIO m) => [(tag, Text, m ())] -> m (Maybe tag)
+makeTabContents = fmap (getFirst . fold) . traverse go
   where
-    go (title, mkItem) = do
+    go (tag, title, mkItem) = do
       isSelected <- toBool <$> liftIO (beginTabItem (fromString (T.unpack title) :: CString))
       when isSelected $ do
         void mkItem
         liftIO endTabItem
-      pure isSelected
+      if isSelected
+        then pure (First (Just tag))
+        else pure (First Nothing)

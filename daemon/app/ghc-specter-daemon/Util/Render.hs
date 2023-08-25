@@ -2,9 +2,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( toTab,
-
-    -- * state
+  ( -- * state
     SharedState (..),
     ImRenderState (..),
     mkRenderState,
@@ -60,19 +58,6 @@ import Util.GUI (currentOrigin)
 import Util.Orphans ()
 
 --
--- utilities
---
-
--- TODO: This is very error-prone. we need a better method.
-toTab :: [Bool] -> Maybe Tab
-toTab [True, False, False, False, False] = Just TabSession
-toTab [False, True, False, False, False] = Just TabModuleGraph
-toTab [False, False, True, False, False] = Just TabSourceView
-toTab [False, False, False, True, False] = Just TabTiming
-toTab [False, False, False, False, True] = Just TabTiming
-toTab _ = Nothing
-
---
 -- state
 --
 
@@ -80,7 +65,7 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
-    sharedTabState :: [Bool],
+    sharedTabState :: Maybe Tab,
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,

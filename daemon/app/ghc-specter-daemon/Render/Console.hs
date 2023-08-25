@@ -95,7 +95,7 @@ renderMainPanel tabs mconsoleFocus = do
   renderState <- mkRenderState
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
-          fmap (\(DriverId i, tab_title) -> (tab_title, renderMainContent)) tabs
+          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent)) tabs
     _ <- makeTabContents tab_contents
     liftIO ImGui.endTabBar
 
