@@ -184,7 +184,7 @@ singleFrame io window ui ss oldShared = do
 
     -- console window
     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
-    renderConsole
+    renderConsole ui ss
     liftIO end
 
     -- post-rendering event handling: there are events discovered after rendering such as Tab.
