@@ -15,16 +15,21 @@ module Util.GUI
     paintWindow,
     globalCursorPosition,
     currentOrigin,
+    makeTabContents,
   )
 where
 
+import Control.Monad (void, when)
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.Bits ((.|.))
 import Data.String (fromString)
+import Data.Text (Text)
+import Data.Text qualified as T
 import FFICXX.Runtime.Cast (FPtr (..))
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Alloc (alloca)
-import Foreign.Marshal.Utils (fromBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import Foreign.Storable (peek)
 import ImGui
@@ -155,3 +160,13 @@ currentOrigin = do
   px <- imVec2_x_get p
   py <- imVec2_y_get p
   pure (realToFrac px, realToFrac py)
+
+makeTabContents :: (MonadIO m) => [(Text, m ())] -> m [Bool]
+makeTabContents = traverse go
+  where
+    go (title, mkItem) = do
+      isSelected <- toBool <$> liftIO (beginTabItem (fromString (T.unpack title) :: CString))
+      when isSelected $ do
+        void mkItem
+        liftIO endTabItem
+      pure isSelected

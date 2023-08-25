@@ -11,7 +11,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (void, when)
-import Control.Monad.Extra (loopM, whenM)
+import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
@@ -40,7 +40,7 @@ import ImGui.Enum
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
-import Render.Console (renderConsole)
+import Render.Console qualified as Console (render)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
 import Render.Session (renderModuleInProgress, renderSession)
 import Render.SourceView qualified as SourceView (render)
@@ -51,6 +51,7 @@ import Util.GUI
   ( finalize,
     globalCursorPosition,
     initialize,
+    makeTabContents,
     paintWindow,
     showFramerate,
     windowFlagsScroll,
@@ -59,16 +60,6 @@ import Util.Render
   ( SharedState (..),
     toTab,
   )
-
-makeTabContents :: (MonadIO m) => [(String, m ())] -> m [Bool]
-makeTabContents = traverse go
-  where
-    go (title, mkItem) = do
-      isSelected <- toBool <$> liftIO (beginTabItem (fromString title :: CString))
-      when isSelected $ do
-        void mkItem
-        liftIO endTabItem
-      pure isSelected
 
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
@@ -164,17 +155,27 @@ singleFrame io window ui ss oldShared = do
   newShared' <- flip runReaderT newShared $ do
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
-    _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
-    --
     tabState <-
-      makeTabContents
-        [ ("Session", tabSession ui ss),
-          ("Module graph", tabModuleGraph ui ss),
-          ("Source view", tabSourceView ui ss),
-          ("Timing view", tabTiming ui ss),
-          ("Memory view", tabMemory ui ss)
-        ]
-    liftIO endTabBar
+      ifM
+        (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
+        ( do
+            tabState <-
+              makeTabContents
+                [ ("Session", tabSession ui ss),
+                  ("Module graph", tabModuleGraph ui ss),
+                  ("Source view", tabSourceView ui ss),
+                  ("Timing view", tabTiming ui ss),
+                  ("Memory view", tabMemory ui ss)
+                ]
+            liftIO endTabBar
+            -- tab event handling
+            when (newShared.sharedTabState /= tabState) $
+              case toTab tabState of
+                Nothing -> pure ()
+                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+            pure tabState
+        )
+        (pure (newShared.sharedTabState))
     liftIO end
 
     -- module-in-progress window
@@ -184,14 +185,9 @@ singleFrame io window ui ss oldShared = do
 
     -- console window
     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
-    renderConsole ui ss
+    Console.render ui ss
     liftIO end
 
-    -- post-rendering event handling: there are events discovered after rendering such as Tab.
-    when (newShared.sharedTabState /= tabState) $
-      case toTab tabState of
-        Nothing -> pure ()
-        Just tab -> liftIO $ sendToControl newShared (TabEv tab)
     pure $ newShared {sharedTabState = tabState}
 
   --

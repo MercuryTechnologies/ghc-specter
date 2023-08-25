@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.Console
-  ( renderConsole,
+  ( render,
   )
 where
 
@@ -16,6 +16,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Foldable (for_)
 import Data.List qualified as L
+import Data.Text (Text)
 import Data.Text qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
@@ -50,11 +51,12 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     UserEvent (..),
   )
-import qualified ImGui
+import ImGui qualified
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI
   ( defTableFlags,
+    makeTabContents,
     windowFlagsNone,
     windowFlagsScroll,
   )
@@ -64,33 +66,13 @@ import Util.Render
     runImRender,
   )
 
-renderConsole :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderConsole ui ss = do
+render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render ui ss = do
   renderState <- mkRenderState
-  vec1 <- liftIO $ ImGui.newImVec2 800 0
-  vec2 <- liftIO $ ImGui.newImVec2 100 0
-  whenM (toBool <$> liftIO (ImGui.beginTable ("##console" :: CString) 2 defTableFlags)) $ do
-    liftIO $ ImGui.tableSetupColumn_ ("#console-column" :: CString)
-    liftIO $ ImGui.tableNextRow 0
-    liftIO $ ImGui.tableSetColumnIndex 0
-    --
-    _ <- liftIO $ ImGui.beginChild ("#console-main" :: CString) vec1 (fromBool False) windowFlagsScroll
-    liftIO $
-      runImRender renderState $ do
-        renderComponent ConsoleEv (buildConsoleTab tabs mconsoleFocus)
-    liftIO ImGui.endChild
-    --
-    liftIO $ ImGui.tableSetColumnIndex 1
-    {-_ <- liftIO $ ImGui.beginChild ("#console-help" :: CString) vec2 (fromBool False) windowFlagsNone
-    liftIO $
-      runImRender renderState $ do
-        renderComponent ConsoleEv (buildConsoleHelp getHelp mconsoleFocus)
-    liftIO ImGui.endChild -}
-    --
-    liftIO ImGui.endTable
-  liftIO $ delete vec1
-  liftIO $ delete vec2
+  -- vec1 <- liftIO $ ImGui.newImVec2 0 0
+  renderMainPanel tabs mconsoleFocus
   where
+    -- liftIO $ delete vec1
 
     pausedMap = ss._serverPaused
     consoleMap = ss._serverConsole
@@ -102,6 +84,22 @@ renderConsole ui ss = do
           mlookedup = forwardLookup k (ss._serverDriverModuleMap)
        in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
     tabs = fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap
+
+renderMainContent = pure ()
+
+renderMainPanel ::
+  [(DriverId, Text)] ->
+  Maybe DriverId ->
+  ReaderT (SharedState UserEvent) IO ()
+renderMainPanel tabs mconsoleFocus = do
+  renderState <- mkRenderState
+  whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
+    let tab_contents =
+          fmap (\(DriverId i, tab_title) -> (tab_title, renderMainContent)) tabs
+    _ <- makeTabContents tab_contents
+    liftIO ImGui.endTabBar
+
+{-
     getHelp k =
       let title =
             let mpaused = lookupKey k pausedMap
@@ -116,18 +114,4 @@ renderConsole ui ss = do
               (fmap classify)
               (consoleCommandList <$> lookupKey k (ss._serverPaused))
        in (title, helpMsgs)
-
-{-  chanQEv <- (.sharedChanQEv) <$> ask
-  liftIO $ do
-    -- Buttons return true when clicked (most widgets return true when edited/activated)
-    whenM (toBool <$> button (":focus 1" :: CString)) $ do
-      atomically $
-        writeTQueue
-          chanQEv
-          (UsrEv (ConsoleEv (ConsoleTab (DriverId 1))))
-    whenM (toBool <$> button (":next" :: CString)) $ do
-      atomically $
-        writeTQueue
-          chanQEv
-          (UsrEv (ConsoleEv (ConsoleButtonPressed True ":next")))
 -}
