@@ -54,17 +54,12 @@ import Util.GUI
     initialize,
     paintWindow,
     showFramerate,
+    windowFlagsScroll,
   )
 import Util.Render
   ( SharedState (..),
     toTab,
   )
-
-windowFlagsScroll :: CInt
-windowFlagsScroll =
-  fromIntegral $
-    fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
-      .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
 makeTabContents :: (MonadIO m) => [(String, m ())] -> m [Bool]
 makeTabContents = traverse go
