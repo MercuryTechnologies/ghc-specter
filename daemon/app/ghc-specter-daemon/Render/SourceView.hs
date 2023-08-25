@@ -10,6 +10,7 @@ import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Foldable (for_)
+import Data.Functor.Identity (runIdentity)
 import Data.Map qualified as M
 import Data.Text (Text)
 import Foreign.C.String (CString)
@@ -102,10 +103,11 @@ renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedSta
 renderSuppViewPanel modu srcUI ss = do
   renderState <- mkRenderState
   liftIO $
-    runImRender renderState $
+    runImRender renderState $ do
+      let (sceneSuppTab, sceneSuppContents) = runIdentity (buildSuppViewPanel modu srcUI ss)
+      renderComponent
+        SourceViewEv
+        (pure sceneSuppTab)
       renderComponent
         (\_ -> DummyEv)
-        ( do
-            (_sceneSuppTab, sceneSuppContents) <- buildSuppViewPanel modu srcUI ss
-            pure sceneSuppContents
-        )
+        (pure sceneSuppContents)
