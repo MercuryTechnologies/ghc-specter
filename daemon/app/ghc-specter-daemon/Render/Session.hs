@@ -39,6 +39,7 @@ renderSession _ui ss = do
   vec2 <- liftIO $ newImVec2 500 0
   vec3 <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
+  renderSessionButton ss
   renderSessionInfo ss
   liftIO endChild
   whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 2 defTableFlags)) $ do
@@ -69,6 +70,15 @@ renderSessionInfo ss = do
   liftIO $
     runImRender renderState $
       renderComponent SessionEv (Session.buildSession ss)
+
+renderSessionButton :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSessionButton ss = do
+  renderState <- mkRenderState
+  liftIO $
+    runImRender renderState $
+      renderComponent SessionEv (Session.buildPauseResume sessionInfo)
+  where
+    sessionInfo = ss._serverSessionInfo
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss = do
