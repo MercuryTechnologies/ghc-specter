@@ -51,6 +51,7 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
+import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)

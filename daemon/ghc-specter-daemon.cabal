@@ -126,6 +126,7 @@ executable ghc-specter-daemon
     Handler
     Paths_ghc_specter_daemon
     Render
+    Render.Common
     Render.Console
     Render.ModuleGraph
     Render.Session
