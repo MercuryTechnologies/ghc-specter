@@ -11,6 +11,7 @@ import Control.Concurrent.STM
     readTVar,
     writeTQueue,
   )
+import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
@@ -22,7 +23,8 @@ import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
-  ( forwardLookup,
+  ( KeyMap,
+    forwardLookup,
     keyMapToList,
     lookupKey,
   )
@@ -32,7 +34,8 @@ import GHCSpecter.Graphics.DSL
     Stage (..),
   )
 import GHCSpecter.Server.Types
-  ( ServerState (..),
+  ( ConsoleItem (..),
+    ServerState (..),
   )
 import GHCSpecter.UI.Console
   ( buildConsoleHelp,
@@ -51,6 +54,7 @@ import GHCSpecter.UI.Types.Event
     Event (..),
     UserEvent (..),
   )
+import Handler (sendToControl)
 import ImGui qualified
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
@@ -61,7 +65,8 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render
-  ( SharedState (..),
+  ( ImRenderState (..),
+    SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -70,7 +75,7 @@ render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
   -- vec1 <- liftIO $ ImGui.newImVec2 0 0
-  renderMainPanel tabs mconsoleFocus
+  renderMainPanel tabs consoleMap mconsoleFocus
   where
     -- liftIO $ delete vec1
 
@@ -85,18 +90,32 @@ render ui ss = do
        in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
     tabs = fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap
 
-renderMainContent = pure ()
+renderMainContent ::
+  KeyMap DriverId [ConsoleItem] ->
+  Maybe DriverId ->
+  ReaderT (SharedState UserEvent) IO ()
+renderMainContent consoleMap mconsoleFocus = do
+  renderState <- mkRenderState
+  liftIO $
+    runImRender renderState $
+      renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
 
 renderMainPanel ::
   [(DriverId, Text)] ->
+  KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
   ReaderT (SharedState UserEvent) IO ()
-renderMainPanel tabs mconsoleFocus = do
+renderMainPanel tabs consoleMap mconsoleFocus = do
   renderState <- mkRenderState
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
-          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent)) tabs
-    _ <- makeTabContents tab_contents
+          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent consoleMap mconsoleFocus)) tabs
+    mselected <- makeTabContents tab_contents
+    when (mconsoleFocus /= mselected) $
+      case mselected of
+        Nothing -> pure ()
+        Just selected ->
+          liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
 
 {-

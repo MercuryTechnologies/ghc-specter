@@ -245,14 +245,11 @@ main servSess cliSess emref = do
             sharedEventMap = emref
           }
 
-  -- just start with module graph tab for now
-  atomically $
-    writeTQueue chanQEv (UsrEv (TabEv TabModuleGraph))
-
   -- main loop
   flip loopM shared0 $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
+    -- TODO: this is ugly. should be handled in a more disciplined way.
     newShared <- singleFrame io window ui ss oldShared
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
