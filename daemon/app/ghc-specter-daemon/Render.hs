@@ -18,6 +18,7 @@ import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
+import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
@@ -229,6 +230,8 @@ main servSess cliSess emref = do
   -- prepare assets (fonts)
   (fontSans, fontMono) <- prepareAssets io
 
+  let bufSize = 4096
+  p_consoleInput <- callocBytes bufSize
   -- state and event channel
   let uiref = cliSess._csUIStateRef
       ssref = servSess._ssServerStateRef
@@ -242,7 +245,8 @@ main servSess cliSess emref = do
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
-            sharedEventMap = emref
+            sharedEventMap = emref,
+            sharedConsoleInput = p_consoleInput
           }
 
   -- main loop
@@ -255,5 +259,6 @@ main servSess cliSess emref = do
     willClose <- toBool <$> glfwWindowShouldClose window
     if willClose then pure (Right ()) else pure (Left newShared)
 
+  free p_consoleInput
   -- close window
   finalize ctxt window

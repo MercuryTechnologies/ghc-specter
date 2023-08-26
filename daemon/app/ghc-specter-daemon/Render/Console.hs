@@ -21,8 +21,10 @@ import Data.List qualified as L
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Foreign qualified as TF
 import Foreign.C.String (CString)
-import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Marshal.Array (callocArray)
+import Foreign.Marshal.Utils (copyBytes, fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
@@ -80,6 +82,7 @@ render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
   renderMainPanel ss tabs consoleMap mconsoleFocus
+  renderInput inputEntry
   where
     pausedMap = ss._serverPaused
     consoleMap = ss._serverConsole
@@ -135,6 +138,14 @@ renderMainPanel ss tabs consoleMap mconsoleFocus = do
         Just selected ->
           liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
+
+renderInput :: Text -> ReaderT (SharedState UserEvent) IO ()
+renderInput inputEntry = do
+  shared <- ask
+  -- TODO: as an external parameter
+  let bufSize = 4096
+  whenM (toBool <$> liftIO (ImGui.inputText ("cmd" :: CString) (shared.sharedConsoleInput) bufSize 0)) $ do
+    pure ()
 
 renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do

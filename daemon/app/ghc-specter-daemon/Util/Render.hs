@@ -33,6 +33,7 @@ import Data.Foldable (for_, traverse_)
 import Data.Maybe (mapMaybe)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
+import Foreign.C.String (CString)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
@@ -69,7 +70,8 @@ data SharedState e = SharedState
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
-    sharedEventMap :: TVar [EventMap e]
+    sharedEventMap :: TVar [EventMap e],
+    sharedConsoleInput :: CString
   }
 
 data ImRenderState e = ImRenderState
