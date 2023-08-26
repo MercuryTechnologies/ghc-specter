@@ -22,10 +22,11 @@ import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Foreign qualified as TF
-import Foreign.C.String (CString)
+import Foreign.C.String (CString, peekCString)
 import Foreign.Marshal.Array (callocArray)
 import Foreign.Marshal.Utils (copyBytes, fromBool, toBool)
-import Foreign.Ptr (nullPtr)
+import Foreign.Ptr (castPtr, nullPtr)
+import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( KeyMap,
@@ -144,8 +145,21 @@ renderInput inputEntry = do
   shared <- ask
   -- TODO: as an external parameter
   let bufSize = 4096
-  whenM (toBool <$> liftIO (ImGui.inputText ("cmd" :: CString) (shared.sharedConsoleInput) bufSize 0)) $ do
-    pure ()
+  liftIO $
+    TF.withCStringLen inputEntry $ \(p, len) -> do
+      copyBytes (shared.sharedConsoleInput) p len
+      pokeElemOff (shared.sharedConsoleInput) len 0
+      let flags =
+            fromIntegral $
+              fromEnum ImGuiInputTextFlags_None -- CallbackEdit
+      whenM (toBool <$> ImGui.inputText ("##" :: CString) (shared.sharedConsoleInput) bufSize flags) $ do
+        -- TODO: This is too hacky.
+        print inputEntry
+        inputEntry' <- TF.fromPtr0 (castPtr (shared.sharedConsoleInput))
+        print inputEntry'
+        when (inputEntry /= inputEntry') $
+          sendToControl shared (ConsoleEv (ConsoleInput inputEntry'))
+        pure ()
 
 renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do

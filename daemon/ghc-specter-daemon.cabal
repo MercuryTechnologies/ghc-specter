@@ -12,6 +12,7 @@ copyright:      © 2022-2023 Mercury Inc. All rights reserved.
 build-type:     Simple
 extra-source-files:
     README.md
+    csrc/shim.cpp
 data-files:
     assets/ghc-specter.png
     assets/ghc-specter.css
@@ -139,6 +140,7 @@ executable ghc-specter-daemon
     Util.Render
   hs-source-dirs:
       app/ghc-specter-daemon
+  cxx-sources: csrc/shim.cpp
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures
   build-depends:
       base >=4.15 && <5

@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -18,6 +19,7 @@ import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
+import Foreign.C.Types (CBool (..), CInt (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
@@ -29,14 +31,16 @@ import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
+  ( ConsoleEvent (..),
+    Event (..),
     Tab (..),
     UserEvent (..),
   )
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiMouseButton_ (..),
+  ( ImGuiKey (..),
+    ImGuiMouseButton_ (..),
     ImGuiTableFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
@@ -58,6 +62,15 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render (SharedState (..))
+
+foreign import ccall unsafe "addKeyEvent"
+  c_addKeyEvent :: ImGuiIO -> CInt -> CBool -> IO CBool
+
+foreign import ccall unsafe "isKeyDown"
+  c_isKeyDown :: CInt -> IO CBool
+
+foreign import ccall unsafe "isKeyPressed"
+  c_isKeyPressed :: CInt -> CBool -> IO CBool
 
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
@@ -184,6 +197,7 @@ singleFrame io window ui ss oldShared = do
     -- console window
     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
     Console.render ui ss
+    --
     liftIO end
 
     pure $ newShared {sharedTabState = tabState}
@@ -193,7 +207,12 @@ singleFrame io window ui ss oldShared = do
   --
   render
   --
-  -- hit testing by global mouse coordinate is now meaningful from here.
+  -- Process enter key pressed.
+  -- TODO: This is not a good place to handle the event. just for now.
+  b <- liftIO $ c_isKeyPressed (fromIntegral $ fromEnum ImGuiKey_Enter) (fromBool True)
+  when (toBool b) $
+    liftIO $
+      sendToControl newShared (ConsoleEv (ConsoleKey "Enter"))
   --
   --
   -- empty background with fill color
