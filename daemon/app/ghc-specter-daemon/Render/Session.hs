@@ -33,7 +33,7 @@ import Handler (sendToControl)
 import ImGui
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
-import Util.GUI (defTableFlags, windowFlagsNone, windowFlagsScroll)
+import Util.GUI (defTableFlags, windowFlagsNone)
 import Util.Render
   ( SharedState (..),
     mkRenderState,

@@ -8,22 +8,18 @@ import Control.Concurrent.STM
   ( TVar,
     atomically,
     readTVarIO,
-    writeTQueue,
     writeTVar,
   )
-import Control.Monad (void, when)
+import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
-import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
-import Foreign.C.Types (CBool (..), CInt (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
-import Foreign.Marshal.Utils (fillBytes, fromBool, toBool)
-import Foreign.Ptr (castPtr, nullPtr)
-import Foreign.Storable (poke)
+import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
@@ -32,16 +28,13 @@ import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
-  ( ConsoleEvent (..),
-    Event (..),
-    Tab (..),
+  ( Tab (..),
     UserEvent (..),
   )
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiKey (..),
-    ImGuiMouseButton_ (..),
+  ( ImGuiMouseButton_ (..),
     ImGuiTableFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
@@ -65,15 +58,6 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render (SharedState (..))
-
-foreign import ccall unsafe "addKeyEvent"
-  c_addKeyEvent :: ImGuiIO -> CInt -> CBool -> IO CBool
-
-foreign import ccall unsafe "isKeyDown"
-  c_isKeyDown :: CInt -> IO CBool
-
-foreign import ccall unsafe "isKeyPressed"
-  c_isKeyPressed :: CInt -> CBool -> IO CBool
 
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do

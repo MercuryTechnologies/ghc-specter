@@ -50,7 +50,6 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
-import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
@@ -198,7 +197,7 @@ renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
   -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
   let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+      vp@(ViewPort (_vx0, _vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
   -- scaleX = (cx1 - cx0) / (vx1 - vx0)
   -- scaleY = (cy1 - cy0) / (vy1 - vy0)
   -- cairo code for reference

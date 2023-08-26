@@ -141,7 +141,7 @@ executable ghc-specter-daemon
   hs-source-dirs:
       app/ghc-specter-daemon
   cxx-sources: csrc/shim.cpp
-  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures
+  ghc-options: -Wall -Werror -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures
   build-depends:
       base >=4.15 && <5
     , bytestring

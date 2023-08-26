@@ -7,26 +7,19 @@ module Render.Console
   )
 where
 
-import Control.Concurrent.STM
-  ( atomically,
-    readTVar,
-    writeTQueue,
-  )
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
-import Data.Foldable (for_, traverse_)
-import Data.List qualified as L
+import Data.Foldable (traverse_)
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Foreign qualified as TF
-import Foreign.C.String (CString, peekCString)
-import Foreign.Marshal.Array (callocArray)
+import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (copyBytes, fillBytes, fromBool, toBool)
-import Foreign.Ptr (castPtr, nullPtr)
+import Foreign.Ptr (castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
@@ -35,20 +28,12 @@ import GHCSpecter.Data.Map
     keyMapToList,
     lookupKey,
   )
-import GHCSpecter.Graphics.DSL
-  ( Color (..),
-    Scene (..),
-    Stage (..),
-  )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     ServerState (..),
   )
 import GHCSpecter.UI.Console
-  ( buildConsoleHelp,
-    buildConsoleInput,
-    buildConsoleMain,
-    buildConsoleTab,
+  ( buildConsoleMain,
   )
 import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types
@@ -58,7 +43,6 @@ import GHCSpecter.UI.Types
   )
 import GHCSpecter.UI.Types.Event
   ( ConsoleEvent (..),
-    Event (..),
     UserEvent (..),
   )
 import Handler (sendToControl)
@@ -68,9 +52,7 @@ import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI
-  ( defTableFlags,
-    makeTabContents,
-    windowFlagsNone,
+  ( makeTabContents,
     windowFlagsScroll,
   )
 import Util.Render
@@ -82,7 +64,6 @@ import Util.Render
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
-  renderState <- mkRenderState
   renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry
   where
     pausedMap = ss._serverPaused
@@ -198,7 +179,6 @@ renderHelp ss mconsoleFocus = do
       liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)
 
     pausedMap = ss._serverPaused
-    consoleMap = ss._serverConsole
     getHelp k =
       let title =
             let mpaused = lookupKey k pausedMap
