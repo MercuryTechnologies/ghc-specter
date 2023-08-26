@@ -49,7 +49,7 @@ import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console (render)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
-import Render.Session (renderModuleInProgress, renderSession)
+import Render.Session (renderCompilationStatus, renderSession)
 import Render.SourceView qualified as SourceView (render)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
@@ -193,8 +193,8 @@ singleFrame io window ui ss oldShared = do
     liftIO end
 
     -- module-in-progress window
-    _ <- liftIO $ begin ("modules in progress" :: CString) nullPtr windowFlagsScroll
-    renderModuleInProgress ss
+    _ <- liftIO $ begin ("Compilation Status" :: CString) nullPtr windowFlagsScroll
+    renderCompilationStatus ss
     liftIO end
 
     -- console window

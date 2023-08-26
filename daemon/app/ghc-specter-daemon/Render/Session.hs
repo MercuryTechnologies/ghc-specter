@@ -3,18 +3,21 @@
 
 module Render.Session
   ( renderSession,
-    renderModuleInProgress,
+    renderCompilationStatus,
   )
 where
 
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.List (partition)
 import Data.Maybe (isJust)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
-import GHCSpecter.Channel.Outbound.Types (getEnd)
+import GHCSpecter.Channel.Outbound.Types
+  ( SessionInfo (..),
+    getEnd,
+  )
 import GHCSpecter.Data.Map (keyMapToList)
 import GHCSpecter.Server.Types
   ( ServerState (..),
@@ -22,7 +25,11 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Session qualified as Session
 import GHCSpecter.UI.Types (UIState (..))
-import GHCSpecter.UI.Types.Event (UserEvent (..))
+import GHCSpecter.UI.Types.Event
+  ( SessionEvent (..),
+    UserEvent (..),
+  )
+import Handler (sendToControl)
 import ImGui
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
@@ -39,7 +46,6 @@ renderSession _ui ss = do
   vec2 <- liftIO $ newImVec2 500 0
   vec3 <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
-  renderSessionButton ss
   renderSessionInfo ss
   liftIO endChild
   whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 2 defTableFlags)) $ do
@@ -71,15 +77,6 @@ renderSessionInfo ss = do
     runImRender renderState $
       renderComponent SessionEv (Session.buildSession ss)
 
-renderSessionButton :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSessionButton ss = do
-  renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent SessionEv (Session.buildPauseResume sessionInfo)
-  where
-    sessionInfo = ss._serverSessionInfo
-
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss = do
   renderState <- mkRenderState
@@ -94,13 +91,29 @@ renderRtsPanel ss = do
     runImRender renderState $
       renderComponent SessionEv (Session.buildRtsPanel ss)
 
-renderModuleInProgress :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderModuleInProgress ss = do
+renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderCompilationStatus ss = do
+  shared <- ask
+  liftIO $ do
+    textUnformatted (statusTxt :: CString)
+    whenM (toBool <$> button (buttonTxt :: CString)) $
+      sendToControl shared (SessionEv event)
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $
       renderComponent SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
   where
+    sessionInfo = ss._serverSessionInfo
+    statusTxt
+      | sessionInfo.sessionIsPaused = "GHC is paused."
+      | otherwise = "GHC is working."
+    buttonTxt
+      | sessionInfo.sessionIsPaused = "Resume Session"
+      | otherwise = "Pause Session"
+    event
+      | sessionInfo.sessionIsPaused = ResumeSessionEv
+      | otherwise = PauseSessionEv
+
     drvModMap = ss._serverDriverModuleMap
     timing = ss._serverTiming._tsTimingMap
     pausedMap = ss._serverPaused
