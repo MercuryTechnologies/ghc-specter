@@ -27,7 +27,7 @@ module GHCSpecter.UI.Types
     emptyTimingUI,
 
     -- * ConsoleUI
-    ConsoleUI,
+    ConsoleUI (..),
     HasConsoleUI (..),
     emptyConsoleUI,
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,17 +8,16 @@ import Control.Concurrent.STM
   ( TVar,
     atomically,
     readTVarIO,
-    writeTQueue,
     writeTVar,
   )
-import Control.Monad (void, when)
-import Control.Monad.Extra (loopM, whenM)
+import Control.Monad (when)
+import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
-import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
+import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
@@ -28,8 +28,7 @@ import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
-  ( Event (..),
-    Tab (..),
+  ( Tab (..),
     UserEvent (..),
   )
 import Handler (sendToControl)
@@ -40,9 +39,10 @@ import ImGui.Enum
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
-import Render.Console (renderConsole)
+import Render.Console (consoleInputBufferSize)
+import Render.Console qualified as Console (render)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
-import Render.Session (renderModuleInProgress, renderSession)
+import Render.Session (renderCompilationStatus, renderSession)
 import Render.SourceView qualified as SourceView (render)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
@@ -51,24 +51,13 @@ import Util.GUI
   ( finalize,
     globalCursorPosition,
     initialize,
+    makeTabContents,
     paintWindow,
     showFramerate,
+    windowFlagsNone,
     windowFlagsScroll,
   )
-import Util.Render
-  ( SharedState (..),
-    toTab,
-  )
-
-makeTabContents :: (MonadIO m) => [(String, m ())] -> m [Bool]
-makeTabContents = traverse go
-  where
-    go (title, mkItem) = do
-      isSelected <- toBool <$> liftIO (beginTabItem (fromString title :: CString))
-      when isSelected $ do
-        void mkItem
-        liftIO endTabItem
-      pure isSelected
+import Util.Render (SharedState (..))
 
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
@@ -164,44 +153,44 @@ singleFrame io window ui ss oldShared = do
   newShared' <- flip runReaderT newShared $ do
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
-    _ <- liftIO $ beginTabBar ("##TabBar" :: CString)
-    --
     tabState <-
-      makeTabContents
-        [ ("Session", tabSession ui ss),
-          ("Module graph", tabModuleGraph ui ss),
-          ("Source view", tabSourceView ui ss),
-          ("Timing view", tabTiming ui ss),
-          ("Memory view", tabMemory ui ss)
-        ]
-    liftIO endTabBar
+      ifM
+        (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
+        ( do
+            tabState <-
+              makeTabContents
+                [ (TabSession, "Session", tabSession ui ss),
+                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
+                  (TabSourceView, "Source view", tabSourceView ui ss),
+                  (TabTiming, "Timing view", tabTiming ui ss),
+                  (TabTiming, "Memory view", tabMemory ui ss)
+                ]
+            liftIO endTabBar
+            -- tab event handling
+            when (newShared.sharedTabState /= tabState) $
+              case tabState of
+                Nothing -> pure ()
+                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+            pure tabState
+        )
+        (pure (newShared.sharedTabState))
     liftIO end
 
     -- module-in-progress window
-    _ <- liftIO $ begin ("modules in progress" :: CString) nullPtr windowFlagsScroll
-    renderModuleInProgress ss
+    _ <- liftIO $ begin ("Compilation Status" :: CString) nullPtr windowFlagsScroll
+    renderCompilationStatus ss
     liftIO end
 
     -- console window
-    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
-    renderConsole
+    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
+    Console.render ui ss
+    --
     liftIO end
 
-    -- post-rendering event handling: there are events discovered after rendering such as Tab.
-    when (newShared.sharedTabState /= tabState) $
-      case toTab tabState of
-        Nothing -> pure ()
-        Just tab -> liftIO $ sendToControl newShared (TabEv tab)
     pure $ newShared {sharedTabState = tabState}
-
   --
   -- finalize rendering by compositing render call
-  --
   render
-  --
-  -- hit testing by global mouse coordinate is now meaningful from here.
-  --
-  --
   -- empty background with fill color
   paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
   -- stage the frame
@@ -236,6 +225,7 @@ main servSess cliSess emref = do
   -- prepare assets (fonts)
   (fontSans, fontMono) <- prepareAssets io
 
+  p_consoleInput <- callocBytes consoleInputBufferSize
   -- state and event channel
   let uiref = cliSess._csUIStateRef
       ssref = servSess._ssServerStateRef
@@ -245,25 +235,24 @@ main servSess cliSess emref = do
           { sharedMousePos = Nothing,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
-            sharedTabState = [True, False, False],
+            sharedTabState = Nothing,
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
-            sharedEventMap = emref
+            sharedEventMap = emref,
+            sharedConsoleInput = p_consoleInput
           }
-
-  -- just start with module graph tab for now
-  atomically $
-    writeTQueue chanQEv (UsrEv (TabEv TabModuleGraph))
 
   -- main loop
   flip loopM shared0 $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
+    -- TODO: this is ugly. should be handled in a more disciplined way.
     newShared <- singleFrame io window ui ss oldShared
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
     if willClose then pure (Right ()) else pure (Left newShared)
 
+  free p_consoleInput
   -- close window
   finalize ctxt window

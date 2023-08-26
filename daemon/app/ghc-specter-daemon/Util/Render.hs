@@ -2,9 +2,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Util.Render
-  ( toTab,
-
-    -- * state
+  ( -- * state
     SharedState (..),
     ImRenderState (..),
     mkRenderState,
@@ -35,6 +33,7 @@ import Data.Foldable (for_, traverse_)
 import Data.Maybe (mapMaybe)
 import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
+import Foreign.C.String (CString)
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
@@ -51,26 +50,12 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
-import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.GUI (currentOrigin)
 import Util.Orphans ()
-
---
--- utilities
---
-
--- TODO: This is very error-prone. we need a better method.
-toTab :: [Bool] -> Maybe Tab
-toTab [True, False, False, False, False] = Just TabSession
-toTab [False, True, False, False, False] = Just TabModuleGraph
-toTab [False, False, True, False, False] = Just TabSourceView
-toTab [False, False, False, True, False] = Just TabTiming
-toTab [False, False, False, False, True] = Just TabTiming
-toTab _ = Nothing
 
 --
 -- state
@@ -80,11 +65,12 @@ data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
-    sharedTabState :: [Bool],
+    sharedTabState :: Maybe Tab,
     sharedChanQEv :: TQueue Event,
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
-    sharedEventMap :: TVar [EventMap e]
+    sharedEventMap :: TVar [EventMap e],
+    sharedConsoleInput :: CString
   }
 
 data ImRenderState e = ImRenderState
@@ -211,7 +197,7 @@ renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
   -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
   let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+      vp@(ViewPort (_vx0, _vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
   -- scaleX = (cx1 - cx0) / (vx1 - vx0)
   -- scaleY = (cy1 - cy0) / (vy1 - vy0)
   -- cairo code for reference

@@ -57,7 +57,7 @@ render ui ss = do
     liftIO $ ImGui.tableSetColumnIndex 1
     _ <- liftIO $ ImGui.beginChild ("#process-info" :: CString) vec2 (fromBool False) windowFlagsScroll
     for_ mexpandedModu $ \modu ->
-      renderSourceTextView modu srcUI ss
+      renderSourceTextView modu ss
     liftIO ImGui.endChild
     --
     liftIO $ ImGui.tableSetColumnIndex 2
@@ -81,8 +81,8 @@ renderModuleTree srcUI ss = do
     runImRender renderState $
       renderComponent SourceViewEv (buildModuleTree srcUI ss)
 
-renderSourceTextView :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSourceTextView modu ui ss = do
+renderSourceTextView :: Text -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSourceTextView modu ss = do
   let mmodHieInfo = M.lookup modu (hie._hieModuleMap)
   for_ mmodHieInfo $ \modHieInfo -> do
     let topLevelDecls = getReducedTopLevelDecls modHieInfo
