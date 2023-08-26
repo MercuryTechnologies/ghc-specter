@@ -21,8 +21,9 @@ import Data.String (fromString)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CBool (..), CInt (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
-import Foreign.Marshal.Utils (fromBool, toBool)
-import Foreign.Ptr (nullPtr)
+import Foreign.Marshal.Utils (fillBytes, fromBool, toBool)
+import Foreign.Ptr (castPtr, nullPtr)
+import Foreign.Storable (poke)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
@@ -45,6 +46,7 @@ import ImGui.Enum
   )
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
+import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console (render)
 import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
 import Render.Session (renderModuleInProgress, renderSession)
@@ -202,20 +204,9 @@ singleFrame io window ui ss oldShared = do
     liftIO end
 
     pure $ newShared {sharedTabState = tabState}
-
   --
   -- finalize rendering by compositing render call
-  --
   render
-  --
-  -- Process enter key pressed.
-  -- TODO: This is not a good place to handle the event. just for now.
-  b <- liftIO $ c_isKeyPressed (fromIntegral $ fromEnum ImGuiKey_Enter) (fromBool True)
-  when (toBool b) $
-    liftIO $
-      sendToControl newShared (ConsoleEv (ConsoleKey "Enter"))
-  --
-  --
   -- empty background with fill color
   paintWindow window (0.45, 0.55, 0.60 {- bluish gray -})
   -- stage the frame
@@ -250,8 +241,7 @@ main servSess cliSess emref = do
   -- prepare assets (fonts)
   (fontSans, fontMono) <- prepareAssets io
 
-  let bufSize = 4096
-  p_consoleInput <- callocBytes bufSize
+  p_consoleInput <- callocBytes consoleInputBufferSize
   -- state and event channel
   let uiref = cliSess._csUIStateRef
       ssref = servSess._ssServerStateRef

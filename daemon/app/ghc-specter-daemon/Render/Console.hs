@@ -3,6 +3,7 @@
 
 module Render.Console
   ( render,
+    consoleInputBufferSize,
   )
 where
 
@@ -24,7 +25,7 @@ import Data.Text qualified as T
 import Data.Text.Foreign qualified as TF
 import Foreign.C.String (CString, peekCString)
 import Foreign.Marshal.Array (callocArray)
-import Foreign.Marshal.Utils (copyBytes, fromBool, toBool)
+import Foreign.Marshal.Utils (copyBytes, fillBytes, fromBool, toBool)
 import Foreign.Ptr (castPtr, nullPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
@@ -149,26 +150,37 @@ renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
           liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
 
+consoleInputBufferSize :: Int
+consoleInputBufferSize = 4096
+
 renderInput :: Text -> ReaderT (SharedState UserEvent) IO ()
 renderInput inputEntry = do
   shared <- ask
-  -- TODO: as an external parameter
-  let bufSize = 4096
   liftIO $
     TF.withCStringLen inputEntry $ \(p, len) -> do
       copyBytes (shared.sharedConsoleInput) p len
       pokeElemOff (shared.sharedConsoleInput) len 0
       let flags =
             fromIntegral $
-              fromEnum ImGuiInputTextFlags_None -- CallbackEdit
-      whenM (toBool <$> ImGui.inputText ("##" :: CString) (shared.sharedConsoleInput) bufSize flags) $ do
-        -- TODO: This is too hacky.
-        print inputEntry
-        inputEntry' <- TF.fromPtr0 (castPtr (shared.sharedConsoleInput))
-        print inputEntry'
-        when (inputEntry /= inputEntry') $
+              fromEnum ImGuiInputTextFlags_EnterReturnsTrue
+                .|. fromEnum ImGuiInputTextFlags_CtrlEnterForNewLine
+      vec <- ImGui.newImVec2 (-1) 24
+      whenM
+        ( toBool
+            <$> ImGui.inputTextMultiline
+              ("##command" :: CString)
+              (shared.sharedConsoleInput)
+              (fromIntegral consoleInputBufferSize)
+              vec
+              flags
+        )
+        $ do
+          -- Process enter key pressed.
+          inputEntry' <- TF.fromPtr0 (castPtr (shared.sharedConsoleInput))
           sendToControl shared (ConsoleEv (ConsoleInput inputEntry'))
-        pure ()
+          sendToControl shared (ConsoleEv (ConsoleKey "Enter"))
+          fillBytes (castPtr (shared.sharedConsoleInput)) 0 consoleInputBufferSize
+      delete vec
 
 renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do
