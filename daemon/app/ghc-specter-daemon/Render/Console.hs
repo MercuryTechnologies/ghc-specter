@@ -82,8 +82,7 @@ import Util.Render
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
-  renderMainPanel ss tabs consoleMap mconsoleFocus
-  renderInput inputEntry
+  renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry
   where
     pausedMap = ss._serverPaused
     consoleMap = ss._serverConsole
@@ -100,14 +99,19 @@ renderMainContent ::
   ServerState ->
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
+  Text ->
   ReaderT (SharedState UserEvent) IO ()
-renderMainContent ss consoleMap mconsoleFocus = do
-  renderState <- mkRenderState
+renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   zerovec <- liftIO $ ImGui.newImVec2 0 0
   vec1 <- liftIO $ ImGui.newImVec2 130 260
+  vec2 <- liftIO $ ImGui.newImVec2 0 (-25)
+  _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
+  renderState <- mkRenderState
   liftIO $
     runImRender renderState $
       renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
+  liftIO ImGui.endChild
+  renderInput inputEntry
   liftIO $ do
     v0 <- ImGui.getWindowPos
     w <- ImGui.getWindowWidth
@@ -120,18 +124,23 @@ renderMainContent ss consoleMap mconsoleFocus = do
   renderHelp ss mconsoleFocus
   liftIO ImGui.endChild
   liftIO $ delete zerovec
+  liftIO $ delete vec1
+  liftIO $ delete vec2
 
 renderMainPanel ::
   ServerState ->
   [(DriverId, Text)] ->
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
+  Text ->
   ReaderT (SharedState UserEvent) IO ()
-renderMainPanel ss tabs consoleMap mconsoleFocus = do
+renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
   renderState <- mkRenderState
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
-          fmap (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent ss consoleMap mconsoleFocus)) tabs
+          fmap
+            (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent ss consoleMap mconsoleFocus inputEntry))
+            tabs
     mselected <- makeTabContents tab_contents
     when (mconsoleFocus /= mselected) $
       case mselected of

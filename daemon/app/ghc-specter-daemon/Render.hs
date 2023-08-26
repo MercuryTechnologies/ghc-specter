@@ -59,6 +59,7 @@ import Util.GUI
     makeTabContents,
     paintWindow,
     showFramerate,
+    windowFlagsNone,
     windowFlagsScroll,
   )
 import Util.Render (SharedState (..))
@@ -195,7 +196,7 @@ singleFrame io window ui ss oldShared = do
     liftIO end
 
     -- console window
-    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsScroll
+    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
     Console.render ui ss
     --
     liftIO end
