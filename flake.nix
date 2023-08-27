@@ -3,7 +3,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
-    fficxx.url = "github:wavewave/fficxx/master";
+    #fficxx.url = "github:wavewave/fficxx/master";
+    fficxx.url = "github:wavewave/fficxx/interruptible-safe-unsafe";
     hs-imgui.url = "github:wavewave/hs-imgui/main";
   };
   outputs = inputs @ {

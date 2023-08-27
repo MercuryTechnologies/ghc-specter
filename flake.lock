@@ -6,16 +6,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1693093936,
-        "narHash": "sha256-Ryo6qxtmkyz2E0RzBOmensJusk2DK0xR/mL27Mf5cTg=",
+        "lastModified": 1693103919,
+        "narHash": "sha256-EIfbPzIcWNdwAM2GiyAwp8JypytMSRbe6YpOwD0UrOM=",
         "owner": "wavewave",
         "repo": "fficxx",
-        "rev": "801986625e644c46ee0c57883fe7931f02defcea",
+        "rev": "d17898a51f7566f0eced369ba3bb0d518ea9bf33",
         "type": "github"
       },
       "original": {
         "owner": "wavewave",
-        "ref": "master",
+        "ref": "interruptible-safe-unsafe",
         "repo": "fficxx",
         "type": "github"
       }
