@@ -12,6 +12,7 @@ import Control.Monad.Trans.Reader (ReaderT)
 import Data.Foldable (for_)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool)
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
   )
@@ -51,24 +52,7 @@ renderTimingView ui ss = do
 
   for_ mhoveredMod $ \hoveredMod -> do
     -- bloker
-    liftIO $ do
-      v0 <- ImGui.getWindowPos
-      h <- ImGui.getWindowHeight
-      x0 <- imVec2_x_get v0
-      y0 <- imVec2_y_get v0
-      zerovec <- ImGui.newImVec2 0 0
-      pos <- ImGui.newImVec2 (x0 + 20) (y0 + h - 200)
-      ImGui.setNextWindowPos pos 0 zerovec
-      delete zerovec
-      delete pos
-    vec1 <- liftIO $ ImGui.newImVec2 250 180
-    _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool True) windowFlagsScroll
-    liftIO $ delete vec1
-    renderState' <- mkRenderState
-    liftIO $
-      runImRender renderState' $
-        renderComponent TimingEv (TimingView.buildBlockers hoveredMod ttable)
-    liftIO ImGui.endChild
+    renderBlocker hoveredMod ttable
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
@@ -86,6 +70,27 @@ renderTimingView ui ss = do
         { _timingUIPartition = True,
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
+
+renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
+renderBlocker hoveredMod ttable = do
+  liftIO $ do
+    v0 <- ImGui.getWindowPos
+    h <- ImGui.getWindowHeight
+    x0 <- imVec2_x_get v0
+    y0 <- imVec2_y_get v0
+    zerovec <- ImGui.newImVec2 0 0
+    pos <- ImGui.newImVec2 (x0 + 20) (y0 + h - 200)
+    ImGui.setNextWindowPos pos 0 zerovec
+    delete zerovec
+    delete pos
+  vec1 <- liftIO $ ImGui.newImVec2 250 180
+  _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool True) windowFlagsScroll
+  liftIO $ delete vec1
+  renderState' <- mkRenderState
+  liftIO $
+    runImRender renderState' $
+      renderComponent TimingEv (TimingView.buildBlockers hoveredMod ttable)
+  liftIO ImGui.endChild
 
 renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderMemoryView ui ss = do

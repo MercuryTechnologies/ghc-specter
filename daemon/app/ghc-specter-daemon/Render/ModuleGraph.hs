@@ -3,17 +3,23 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 
 module Render.ModuleGraph
-  ( renderMainModuleGraph,
-    renderSubModuleGraph,
+  ( render,
+    -- renderMainModuleGraph,
+    -- renderSubModuleGraph,
+    renderBlockerGraph,
   )
 where
 
 import Control.Error.Util (note)
+import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT)
+import Data.Bits ((.|.))
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
+import Foreign.C.String (CString)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL (Scene (..))
@@ -32,13 +38,45 @@ import GHCSpecter.UI.Types.Event
   ( SubModuleEvent (..),
     UserEvent (..),
   )
+import ImGui qualified
+import ImGui.Enum (ImGuiTableFlags_ (..))
 import Render.Common (renderComponent)
+import STD.Deletable (delete)
 import Text.Printf (printf)
+import Util.GUI (windowFlagsScroll)
 import Util.Render
   ( SharedState (..),
     mkRenderState,
     runImRender,
   )
+
+render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render ui ss = do
+  zerovec <- liftIO $ ImGui.newImVec2 0 0
+  minusvec <- liftIO $ ImGui.newImVec2 0 (-200)
+  let flags =
+        fromIntegral $
+          fromEnum ImGuiTableFlags_BordersOuter
+            .|. fromEnum ImGuiTableFlags_BordersV
+            .|. fromEnum ImGuiTableFlags_RowBg
+            .|. fromEnum ImGuiTableFlags_Resizable
+            .|. fromEnum ImGuiTableFlags_Reorderable
+  whenM (toBool <$> liftIO (ImGui.beginTable ("##table" :: CString) 1 flags)) $ do
+    liftIO $ ImGui.tableSetupColumn_ ("graph" :: CString)
+    liftIO $ ImGui.tableNextRow 0
+    liftIO $ ImGui.tableSetColumnIndex 0
+    _ <- liftIO $ ImGui.beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+    renderMainModuleGraph ui ss
+    liftIO ImGui.endChild
+    --
+    liftIO $ ImGui.tableNextRow 0
+    liftIO $ ImGui.tableSetColumnIndex 0
+    _ <- liftIO $ ImGui.beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+    renderSubModuleGraph ui ss
+    liftIO ImGui.endChild
+    liftIO ImGui.endTable
+  liftIO $ delete zerovec
+  liftIO $ delete minusvec
 
 renderMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderMainModuleGraph ui ss = do
@@ -115,3 +153,7 @@ renderSubModuleGraph ui ss = do
           (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
           (L.lookup selected subgraphsAtTheLevel)
       pure subgraph
+
+renderBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderBlockerGraph _ui _ss = do
+  pure ()
