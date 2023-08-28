@@ -14,6 +14,7 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
@@ -35,8 +36,16 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui
-import ImGui.Enum (ImGuiMouseButton_ (..))
-import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
+import ImGui.Enum
+  ( ImGuiInputFlags_ (..),
+    ImGuiKey (..),
+    ImGuiMouseButton_ (..),
+  )
+import ImGui.ImGuiIO.Implementation
+  ( imGuiIO_Fonts_get,
+    imGuiIO_MouseWheelH_get,
+    imGuiIO_MouseWheel_get,
+  )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console (render)
@@ -107,6 +116,23 @@ tabMemory ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
+tabTest :: ImGuiIO -> ReaderT (SharedState UserEvent) IO ()
+tabTest io = liftIO $ do
+  dummy_sz <- newImVec2 500 500
+  dummy dummy_sz
+  let key =
+        fromIntegral $
+          fromEnum ImGuiKey_MouseWheelX
+            .|. fromEnum ImGuiKey_MouseWheelY
+      flags =
+        fromIntegral $
+          fromEnum ImGuiInputFlags_CondDefault_
+  setItemKeyOwner key flags
+  wheelX <- imGuiIO_MouseWheelH_get io
+  wheelY <- imGuiIO_MouseWheel_get io
+  print (wheelX, wheelY)
+  pure ()
+
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -153,7 +179,8 @@ singleFrame io window ui ss oldShared = do
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
-                  (TabTiming, "Memory view", tabMemory ui ss)
+                  (TabTiming, "Memory view", tabMemory ui ss),
+                  (TabTiming, "test", tabTest io)
                 ]
             liftIO endTabBar
             -- tab event handling

@@ -51,7 +51,7 @@ renderTimingView ui ss = do
       renderComponent TimingEv (TimingView.buildTimingChart drvModMap tui' ttable)
 
   for_ mhoveredMod $ \hoveredMod -> do
-    -- bloker
+    -- blocker
     renderBlocker hoveredMod ttable
   where
     drvModMap = ss._serverDriverModuleMap
