@@ -11,10 +11,9 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (ifM, loopM, whenM)
+import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
@@ -33,16 +32,19 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui
-import ImGui.Enum
-  ( ImGuiMouseButton_ (..),
-    ImGuiTableFlags_ (..),
-  )
+import ImGui.Enum (ImGuiMouseButton_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console (render)
-import Render.ModuleGraph (renderMainModuleGraph, renderSubModuleGraph)
-import Render.Session (renderCompilationStatus, renderSession)
+import Render.ModuleGraph qualified as ModuleGraph
+  ( render,
+    renderBlockerGraph,
+  )
+import Render.Session qualified as Session
+  ( renderCompilationStatus,
+    renderSession,
+  )
 import Render.SourceView qualified as SourceView (render)
 import Render.TimingView (renderMemoryView, renderTimingView)
 import STD.Deletable (delete)
@@ -63,38 +65,12 @@ tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsScroll
-  renderSession ui ss
+  Session.renderSession ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
 tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabModuleGraph ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  minusvec <- liftIO $ newImVec2 0 (-200)
-  let flags =
-        fromIntegral $
-          fromEnum ImGuiTableFlags_BordersOuter
-            .|. fromEnum ImGuiTableFlags_BordersV
-            .|. fromEnum ImGuiTableFlags_RowBg
-            .|. fromEnum ImGuiTableFlags_Resizable
-            .|. fromEnum ImGuiTableFlags_Reorderable
-
-  whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 1 flags)) $ do
-    liftIO $ tableSetupColumn_ ("graph" :: CString)
-    liftIO $ tableNextRow 0
-    liftIO $ tableSetColumnIndex 0
-    _ <- liftIO $ beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
-    renderMainModuleGraph ui ss
-    liftIO endChild
-    --
-    liftIO $ tableNextRow 0
-    liftIO $ tableSetColumnIndex 0
-    _ <- liftIO $ beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
-    renderSubModuleGraph ui ss
-    liftIO endChild
-    liftIO endTable
-  liftIO $ delete zerovec
-  liftIO $ delete minusvec
+tabModuleGraph = ModuleGraph.render
 
 tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSourceView ui ss = do
@@ -109,6 +85,14 @@ tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
   renderTimingView ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
+
+tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabBlockerGraph ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#blocker-graph" :: CString) zerovec (fromBool False) windowFlagsScroll
+  ModuleGraph.renderBlockerGraph ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
@@ -163,6 +147,7 @@ singleFrame io window ui ss oldShared = do
                   (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
+                  (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
                   (TabTiming, "Memory view", tabMemory ui ss)
                 ]
             liftIO endTabBar
@@ -178,7 +163,7 @@ singleFrame io window ui ss oldShared = do
 
     -- module-in-progress window
     _ <- liftIO $ begin ("Compilation Status" :: CString) nullPtr windowFlagsScroll
-    renderCompilationStatus ss
+    Session.renderCompilationStatus ss
     liftIO end
 
     -- console window
