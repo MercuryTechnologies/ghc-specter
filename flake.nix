@@ -3,15 +3,36 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
-    #fficxx.url = "github:wavewave/fficxx/master";
-    fficxx.url = "github:wavewave/fficxx/interruptible-safe-unsafe";
-    hs-imgui.url = "github:wavewave/hs-imgui/main";
+    fficxx = {
+      url = "github:wavewave/fficxx/master";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
+    hs-ogdf = {
+      url = "github:wavewave/hs-ogdf/master";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+        fficxx.follows = "fficxx";
+      };
+    };
+    hs-imgui = {
+      url = "github:wavewave/hs-imgui/main";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+        fficxx.follows = "fficxx";
+      };
+    };
   };
   outputs = inputs @ {
     self,
     nixpkgs,
     flake-utils,
     fficxx,
+    hs-ogdf,
     hs-imgui,
     ...
   }:
@@ -43,11 +64,6 @@
         "discrimination" = hself.callHackage "discrimination" "0.5" {};
         "vector-binary-instances" = final.haskell.lib.doJailbreak hsuper.vector-binary-instances;
 
-        "OGDF" = hself.callHackage "OGDF" "1.0.0.0" {
-          COIN = null;
-          OGDF = pkgs.ogdf;
-        };
-
         # ghc-specter-*
         "ghc-specter-plugin" =
           hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
@@ -63,6 +79,7 @@
         pkgs.haskell.packages.${compiler}.extend
         (hself: hsuper:
           fficxx.haskellOverlay.${system} pkgs hself hsuper
+          // hs-ogdf.haskellOverlay.${system} pkgs hself hsuper
           // hs-imgui.haskellOverlay.${system} pkgs hself hsuper
           // haskellOverlay pkgs hself hsuper);
 
