@@ -11,10 +11,9 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (ifM, loopM, whenM)
+import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
@@ -33,10 +32,7 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui
-import ImGui.Enum
-  ( ImGuiMouseButton_ (..),
-    ImGuiTableFlags_ (..),
-  )
+import ImGui.Enum (ImGuiMouseButton_ (..))
 import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
