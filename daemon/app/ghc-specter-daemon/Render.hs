@@ -120,17 +120,22 @@ tabTest :: ImGuiIO -> ReaderT (SharedState UserEvent) IO ()
 tabTest io = liftIO $ do
   dummy_sz <- newImVec2 500 500
   dummy dummy_sz
-  let key =
+  let key_wheel =
         fromIntegral $
           fromEnum ImGuiKey_MouseWheelX
             .|. fromEnum ImGuiKey_MouseWheelY
+      key_ctrl =
+        fromIntegral $
+          fromEnum ImGuiMod_Ctrl
       flags =
         fromIntegral $
           fromEnum ImGuiInputFlags_CondDefault_
-  setItemKeyOwner key flags
+  setItemKeyOwner key_wheel flags
   wheelX <- imGuiIO_MouseWheelH_get io
   wheelY <- imGuiIO_MouseWheel_get io
   print (wheelX, wheelY)
+  b <- isKeyDown key_ctrl
+  putStrLn $ "Ctrl is down: " <> show b
   pure ()
 
 singleFrame ::
