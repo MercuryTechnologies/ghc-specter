@@ -63,7 +63,7 @@ makeSparkline :: Ptr CFloat -> Int -> IO ()
 makeSparkline pdat offset = do
   spark_size <- newImVec2 (-1) 35
   zero <- newImVec2 0 0
-  ImPlot.pushStyleVar (fromIntegral (fromEnum ImPlotStyleVar_PlotPadding)) zero
+  ImPlot.pushStyleVar1 (fromIntegral (fromEnum ImPlotStyleVar_PlotPadding)) zero
   let spark_flags =
         fromIntegral $
           fromEnum ImPlotFlags_CanvasOnly
