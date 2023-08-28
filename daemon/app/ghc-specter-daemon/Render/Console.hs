@@ -85,7 +85,7 @@ renderMainContent ::
   ReaderT (SharedState UserEvent) IO ()
 renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   zerovec <- liftIO $ ImGui.newImVec2 0 0
-  vec1 <- liftIO $ ImGui.newImVec2 130 260
+  -- main contents
   vec2 <- liftIO $ ImGui.newImVec2 0 (-25)
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   renderState <- mkRenderState
@@ -93,7 +93,9 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
     runImRender renderState $
       renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
   liftIO ImGui.endChild
+  -- input text line
   renderInput inputEntry
+  -- help window
   liftIO $ do
     v0 <- ImGui.getWindowPos
     w <- ImGui.getWindowWidth
@@ -102,6 +104,7 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
     pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 60)
     ImGui.setNextWindowPos pos 0 zerovec
     liftIO $ delete pos
+  vec1 <- liftIO $ ImGui.newImVec2 130 260
   _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsScroll
   renderHelp ss mconsoleFocus
   liftIO ImGui.endChild
