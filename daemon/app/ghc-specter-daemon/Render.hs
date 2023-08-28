@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
@@ -58,11 +58,12 @@ import Render.Session qualified as Session
     renderSession,
   )
 import Render.SourceView qualified as SourceView (render)
-import Render.TimingView (renderMemoryView, renderTimingView)
+import Render.TimingView qualified as Timing (render, renderMemoryView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
-  ( finalize,
+  ( currentOrigin,
+    finalize,
     globalCursorPosition,
     initialize,
     makeTabContents,
@@ -81,8 +82,8 @@ tabSession ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
-tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabModuleGraph = ModuleGraph.render
+-- tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+-- tabModuleGraph = ModuleGraph.render
 
 tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSourceView ui ss = do
@@ -92,13 +93,8 @@ tabSourceView ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
-tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabTiming ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
-  renderTimingView ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
+-- tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+-- tabTiming ui ss = renderTimingView ui ss
 
 tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabBlockerGraph ui ss = do
@@ -112,31 +108,40 @@ tabMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabMemory ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
-  renderMemoryView ui ss
+  Timing.renderMemoryView ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
 tabTest :: ImGuiIO -> ReaderT (SharedState UserEvent) IO ()
-tabTest io = liftIO $ do
-  dummy_sz <- newImVec2 500 500
-  dummy dummy_sz
-  let key_wheel =
-        fromIntegral $
-          fromEnum ImGuiKey_MouseWheelX
-            .|. fromEnum ImGuiKey_MouseWheelY
-      key_ctrl =
-        fromIntegral $
-          fromEnum ImGuiMod_Ctrl
-      flags =
-        fromIntegral $
-          fromEnum ImGuiInputFlags_CondDefault_
-  setItemKeyOwner key_wheel flags
-  wheelX <- imGuiIO_MouseWheelH_get io
-  wheelY <- imGuiIO_MouseWheel_get io
-  print (wheelX, wheelY)
-  b <- isKeyDown key_ctrl
-  putStrLn $ "Ctrl is down: " <> show b
-  pure ()
+tabTest io = do
+  shared <- ask
+  let mxy = shared.sharedMousePos
+  liftIO $ do
+    (ox, oy) <- currentOrigin
+    dummy_sz <- newImVec2 500 500
+    dummy dummy_sz
+    let key_wheel =
+          fromIntegral $
+            fromEnum ImGuiKey_MouseWheelX
+              .|. fromEnum ImGuiKey_MouseWheelY
+        key_ctrl =
+          fromIntegral $
+            fromEnum ImGuiMod_Ctrl
+        flags =
+          fromIntegral $
+            fromEnum ImGuiInputFlags_CondDefault_
+    setItemKeyOwner key_wheel flags
+    wheelX <- imGuiIO_MouseWheelH_get io
+    wheelY <- imGuiIO_MouseWheel_get io
+    print (wheelX, wheelY)
+    case mxy of
+      Just (x, y) ->
+        putStrLn $
+          "mouse position on canvas: " <> show (fromIntegral x - ox, fromIntegral y - oy)
+      Nothing -> putStrLn "cannot find the mouse position"
+    b <- isKeyDown key_ctrl
+    putStrLn $ "Ctrl is down: " <> show b
+    pure ()
 
 singleFrame ::
   ImGuiIO ->
@@ -160,13 +165,20 @@ singleFrame io window ui ss oldShared = do
   let emref = oldShared.sharedEventMap
   atomically $ writeTVar emref []
   isClicked <- toBool <$> isMouseClicked_ (fromIntegral (fromEnum ImGuiMouseButton_Left))
+  wheelX <- realToFrac <$> imGuiIO_MouseWheelH_get io
+  wheelY <- realToFrac <$> imGuiIO_MouseWheel_get io
+  let key_ctrl =
+        fromIntegral $
+          fromEnum ImGuiMod_Ctrl
+  isCtrlDown <- toBool <$> isKeyDown key_ctrl
   let upd1
         | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
         | otherwise = \s -> s {sharedMousePos = mxy, sharedIsMouseMoved = True}
       upd2
         | isClicked = \s -> s {sharedIsClicked = True}
         | otherwise = \s -> s {sharedIsClicked = False}
-      newShared = upd2 . upd1 $ oldShared
+      upd3 = \s -> s {sharedMouseWheel = (wheelX, wheelY), sharedCtrlDown = isCtrlDown}
+      newShared = upd3 . upd2 . upd1 $ oldShared
 
   newShared' <- flip runReaderT newShared $ do
     -- main window
@@ -180,9 +192,9 @@ singleFrame io window ui ss oldShared = do
               makeTabContents
                 mnextTab
                 [ (TabSession, "Session", tabSession ui ss),
-                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
+                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),
-                  (TabTiming, "Timing view", tabTiming ui ss),
+                  (TabTiming, "Timing view", Timing.render ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
                   (TabTiming, "Memory view", tabMemory ui ss),
                   (TabTiming, "test", tabTest io)
@@ -255,6 +267,8 @@ main servSess cliSess emref = do
       shared0 =
         SharedState
           { sharedMousePos = Nothing,
+            sharedMouseWheel = (0, 0),
+            sharedCtrlDown = False,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
             sharedTabState = Nothing,

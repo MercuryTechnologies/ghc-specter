@@ -63,6 +63,8 @@ import Util.Orphans ()
 
 data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
+    sharedMouseWheel :: (Double, Double),
+    sharedCtrlDown :: Bool,
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
     sharedTabState :: Maybe Tab,

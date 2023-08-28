@@ -6,6 +6,7 @@ module Render.Common
   )
 where
 
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Functor.Identity (runIdentity)
 import GHCSpecter.Graphics.DSL
@@ -15,7 +16,11 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.Layouter.Text (MonadTextLayout (..))
 import GHCSpecter.UI.Types.Event (UserEvent (..))
-import Handler (handleClick, handleMove)
+import Handler
+  ( handleClick,
+    handleMove,
+    handleScroll,
+  )
 import ImGui
 import STD.Deletable (delete)
 import Util.Render
@@ -30,10 +35,11 @@ import Util.Render
 --
 
 renderComponent ::
+  Bool ->
   (e -> UserEvent) ->
   (forall m. (MonadTextLayout m) => m (Scene (Primitive e))) ->
   ImRender UserEvent ()
-renderComponent toEv buildScene = do
+renderComponent doesHandleScroll toEv buildScene = do
   renderScene scene
   addEventMap emap
   -- canvas space
@@ -42,6 +48,9 @@ renderComponent toEv buildScene = do
   -- handling event
   handleMove scene.sceneId
   handleClick scene.sceneId
+  when doesHandleScroll $
+    handleScroll scene.sceneId
+
   liftIO $ delete dummy_sz
   where
     scene :: Scene (Primitive UserEvent)

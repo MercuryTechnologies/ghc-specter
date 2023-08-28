@@ -2,13 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.TimingView
-  ( renderTimingView,
+  ( render,
     renderMemoryView,
   )
 where
 
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Foldable (for_)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool)
@@ -17,7 +17,8 @@ import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
   )
 import GHCSpecter.Graphics.DSL
-  ( ViewPort (..),
+  ( Scene (..),
+    ViewPort (..),
   )
 import GHCSpecter.Server.Types
   ( ServerState (..),
@@ -38,17 +39,37 @@ import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (windowFlagsScroll)
 import Util.Render
-  ( SharedState (..),
+  ( ImRender (..),
+    ImRenderState (..),
+    SharedState (..),
     mkRenderState,
     runImRender,
   )
 
-renderTimingView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderTimingView ui ss = do
+render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render ui ss = do
   renderState <- mkRenderState
   liftIO $
-    runImRender renderState $
-      renderComponent TimingEv (TimingView.buildTimingChart drvModMap tui' ttable)
+    runImRender renderState $ do
+      renderComponent
+        True
+        TimingEv
+        ( do
+            scene <- TimingView.buildTimingChart drvModMap tui' ttable
+            pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
+        )
+      s <- ImRender ask
+      let shared = s.currSharedState
+          (ox, oy) = s.currOrigin
+          (wheelX, wheelY) = shared.sharedMouseWheel
+          isCtrlDown = shared.sharedCtrlDown
+      case shared.sharedMousePos of
+        Nothing -> pure ()
+        Just (x, y) ->
+          liftIO $ do
+            print (wheelX, wheelY)
+            putStrLn $ "mouse position on canvas: " <> show (fromIntegral x - ox, fromIntegral y - oy)
+            putStrLn $ "Ctrl is down: " <> show isCtrlDown
 
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
