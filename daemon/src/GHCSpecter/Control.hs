@@ -204,7 +204,7 @@ handleConsoleCommand drvId msg
             ui' =
               ui
                 & (uiModel . modelSourceView . srcViewExpandedModule .~ mmod)
-                  . (uiModel . modelTab .~ TabSourceView)
+                  . (uiModel . modelTabDestination .~ Just TabSourceView)
          in (ui', ss)
       -- TODO: this goes back to top-level. this should be taken out of this function's scope.
       refresh
@@ -819,12 +819,12 @@ mainLoop = do
               tab <- (^. uiModel . modelTab) <$> getUI
               if (tab /= tab')
                 then do
-                  modifyUI (uiModel . modelTab .~ tab')
+                  modifyUI
+                    ((uiModel . modelTab .~ tab') . (uiModel . modelTabDestination .~ Nothing))
                   refresh
                   pure True
                 else pure False
-            ConsoleEv cev -> do
-              printMsg "I'm here"
+            ConsoleEv cev ->
               handleConsole cev >> pure False
             _ -> go ev >> pure False
 

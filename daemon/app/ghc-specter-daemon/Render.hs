@@ -140,19 +140,14 @@ singleFrame io window ui ss oldShared = do
   newShared' <- flip runReaderT newShared $ do
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
-    let currentTab = ui._uiModel._modelTab
-        -- TODO: this is current workaround. Timing tab will be separated out.
-        mpreselected =
-          case currentTab of
-            TabTiming -> Nothing
-            _ -> Just currentTab
+    let mnextTab = ui._uiModel._modelTabDestination
     tabState <-
       ifM
         (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
         ( do
             tabState <-
               makeTabContents
-                mpreselected
+                mnextTab
                 [ (TabSession, "Session", tabSession ui ss),
                   (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),

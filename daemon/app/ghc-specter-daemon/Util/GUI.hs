@@ -172,9 +172,7 @@ makeTabContents mpreselected = fmap (getFirst . fold) . traverse go
         if Just tag == mpreselected
           then
             let flagSelected = fromIntegral (fromEnum ImGuiTabItemFlags_SetSelected)
-             in -- failed experiment yet.
-                -- toBool <$> liftIO (beginTabItem title' nullPtr flagSelected)
-                toBool <$> liftIO (beginTabItem_ title')
+             in toBool <$> liftIO (beginTabItem title' nullPtr flagSelected)
           else toBool <$> liftIO (beginTabItem_ title')
       when isSelected $ do
         void mkItem
