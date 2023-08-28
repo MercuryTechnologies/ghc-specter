@@ -416,13 +416,14 @@ handleBackground MessageChanUpdated = do
   refresh
 handleBackground RefreshUI = refresh
 
-goSession :: (e ~ Event) => UserEvent -> Control e ()
-goSession ev = do
-  case ev of
-    SessionEv SaveSessionEv -> do
+-- | SessionEvent is common regardless of the selected tab
+handleSessionEvent :: (e ~ Event) => SessionEvent -> Control e ()
+handleSessionEvent sev = do
+  case sev of
+    SaveSessionEv -> do
       saveSession
       modifySS (serverShouldUpdate .~ False)
-    SessionEv ResumeSessionEv -> do
+    ResumeSessionEv -> do
       modifyUISS $ \(ui, ss) ->
         let ui' =
               ui
@@ -435,17 +436,21 @@ goSession ev = do
                 . (serverShouldUpdate .~ True)
                 $ ss
          in (ui', ss')
+      printMsg "sending SessionReq Resume to GHC"
       sendRequest (SessionReq Resume)
       refresh
-    SessionEv PauseSessionEv -> do
+    PauseSessionEv -> do
       modifySS $ \ss ->
         let sinfo = ss ^. serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = True}
          in ss
               & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
+      printMsg "sending SessionReq Pause to GHC"
       sendRequest (SessionReq Pause)
       refresh
-    _ -> pure ()
+
+goSession :: (e ~ Event) => UserEvent -> Control e ()
+goSession ev = do
   case ev of
     MouseEv mev ->
       void $
@@ -815,6 +820,7 @@ mainLoop = do
         -- return: True -> go back to main loop, False -> local loop
         afterClick ev = do
           case ev of
+            SessionEv sev -> handleSessionEvent sev >> pure True
             TabEv tab' -> do
               tab <- (^. uiModel . modelTab) <$> getUI
               if (tab /= tab')
