@@ -4,8 +4,6 @@
 
 module Render.ModuleGraph
   ( render,
-    -- renderMainModuleGraph,
-    -- renderSubModuleGraph,
     renderBlockerGraph,
   )
 where
@@ -13,14 +11,17 @@ where
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
+import Data.Time.Clock (secondsToNominalDiffTime)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
+import GHCSpecter.Data.Map (backwardLookup)
+import GHCSpecter.Data.Timing.Types (PipelineInfo (..), TimingTable (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Server.Types
@@ -35,9 +36,12 @@ import GHCSpecter.UI.Types
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
-  ( SubModuleEvent (..),
+  ( BlockerModuleGraphEvent (..),
+    SubModuleEvent (..),
+    TimingEvent (..),
     UserEvent (..),
   )
+import Handler (sendToControl)
 import ImGui qualified
 import ImGui.Enum (ImGuiTableFlags_ (..))
 import Render.Common (renderComponent)
@@ -155,5 +159,34 @@ renderSubModuleGraph ui ss = do
       pure subgraph
 
 renderBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderBlockerGraph _ui _ss = do
-  pure ()
+renderBlockerGraph _ui ss = do
+  whenM (toBool <$> liftIO (ImGui.button ("Re-compute Blocker Graph" :: CString))) $ do
+    shared <- ask
+    liftIO $ sendToControl shared (TimingEv ShowBlockerGraph)
+  case mblockerGraphViz of
+    Nothing -> pure ()
+    Just blockerGraphViz -> do
+      renderState <- mkRenderState
+      liftIO $
+        runImRender renderState $
+          renderComponent
+            (TimingEv . BlockerModuleGraphEv . BMGGraph)
+            ( do
+                scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
+                -- TODO: this should be set up from buildModuleGraph
+                pure scene {sceneId = "blocker-module-graph"}
+            )
+  where
+    drvModMap = ss._serverDriverModuleMap
+    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
+    ttable = ss._serverTiming._tsTimingTable
+    maxTime =
+      case ttable._ttableTimingInfos of
+        [] -> secondsToNominalDiffTime 1.0
+        ts -> maximum (fmap (\(_, t) -> fst t._plEnd - fst t._plStart) ts)
+    mblockerGraphViz = ss._serverTiming._tsBlockerGraphViz
+    valueFor name =
+      fromMaybe 0 $ do
+        i <- backwardLookup name drvModMap
+        t <- L.lookup i (ttable._ttableTimingInfos)
+        pure $ realToFrac ((fst t._plEnd - fst t._plStart) / maxTime)
