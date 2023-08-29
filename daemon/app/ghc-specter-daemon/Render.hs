@@ -62,7 +62,7 @@ import Render.Session qualified as Session
     renderSession,
   )
 import Render.SourceView qualified as SourceView (render)
-import Render.TimingView qualified as Timing (render) --  renderMemoryView
+import Render.TimingView qualified as Timing (render)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
@@ -173,7 +173,6 @@ singleFrame io window ui ss oldShared = do
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss)
-                  -- (TabTiming, "Memory view", tabMemory ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling
