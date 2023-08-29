@@ -93,8 +93,13 @@ tabSourceView ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
--- tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
--- tabTiming ui ss = renderTimingView ui ss
+tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabTiming ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) windowFlagsNone
+  Timing.render ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
 
 tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabBlockerGraph ui ss = do
@@ -194,7 +199,7 @@ singleFrame io window ui ss oldShared = do
                 [ (TabSession, "Session", tabSession ui ss),
                   (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),
-                  (TabTiming, "Timing view", Timing.render ui ss),
+                  (TabTiming, "Timing view", tabTiming ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
                   (TabTiming, "Memory view", tabMemory ui ss),
                   (TabTiming, "test", tabTest io)

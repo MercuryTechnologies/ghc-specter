@@ -79,7 +79,7 @@ renderModuleTree srcUI ss = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent SourceViewEv (buildModuleTree srcUI ss)
+      renderComponent False SourceViewEv (buildModuleTree srcUI ss)
 
 renderSourceTextView :: Text -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSourceTextView modu ss = do
@@ -91,6 +91,7 @@ renderSourceTextView modu ss = do
     liftIO $
       runImRender renderState $
         renderComponent
+          False
           SourceViewEv
           ( do
               scene <- buildTextView src (fmap fst topLevelDecls)
@@ -106,8 +107,10 @@ renderSuppViewPanel modu srcUI ss = do
     runImRender renderState $ do
       let (sceneSuppTab, sceneSuppContents) = runIdentity (buildSuppViewPanel modu srcUI ss)
       renderComponent
+        False
         SourceViewEv
         (pure sceneSuppTab)
       renderComponent
+        False
         (\_ -> DummyEv)
         (pure sceneSuppContents)

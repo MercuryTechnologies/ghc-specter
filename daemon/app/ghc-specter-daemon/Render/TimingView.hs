@@ -56,21 +56,8 @@ render ui ss = do
         TimingEv
         ( do
             scene <- TimingView.buildTimingChart drvModMap tui' ttable
-            pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
+            pure scene -- pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
         )
-      s <- ImRender ask
-      let shared = s.currSharedState
-          (ox, oy) = s.currOrigin
-          (wheelX, wheelY) = shared.sharedMouseWheel
-          isCtrlDown = shared.sharedCtrlDown
-      case shared.sharedMousePos of
-        Nothing -> pure ()
-        Just (x, y) ->
-          liftIO $ do
-            print (wheelX, wheelY)
-            putStrLn $ "mouse position on canvas: " <> show (fromIntegral x - ox, fromIntegral y - oy)
-            putStrLn $ "Ctrl is down: " <> show isCtrlDown
-
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
     renderBlocker hoveredMod ttable
@@ -88,8 +75,8 @@ render ui ss = do
 
     tui' =
       tui
-        { _timingUIPartition = True,
-          _timingUIViewPort = ViewPortInfo vp Nothing
+        { _timingUIPartition = True
+        -- _timingUIViewPort = ViewPortInfo vp Nothing
         }
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
@@ -110,7 +97,7 @@ renderBlocker hoveredMod ttable = do
   renderState' <- mkRenderState
   liftIO $
     runImRender renderState' $
-      renderComponent TimingEv (TimingView.buildBlockers hoveredMod ttable)
+      renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
   liftIO ImGui.endChild
 
 renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
@@ -118,7 +105,7 @@ renderMemoryView ui ss = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
+      renderComponent False TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming

@@ -75,21 +75,21 @@ renderSessionInfo ss = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent SessionEv (Session.buildSession ss)
+      renderComponent False SessionEv (Session.buildSession ss)
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent SessionEv (Session.buildProcessPanel ss)
+      renderComponent False SessionEv (Session.buildProcessPanel ss)
 
 renderRtsPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderRtsPanel ss = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent SessionEv (Session.buildRtsPanel ss)
+      renderComponent False SessionEv (Session.buildRtsPanel ss)
 
 renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
@@ -101,7 +101,7 @@ renderCompilationStatus ss = do
   renderState <- mkRenderState
   liftIO $ do
     runImRender renderState $
-      renderComponent SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
+      renderComponent False SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
   where
     sessionInfo = ss._serverSessionInfo
     statusTxt

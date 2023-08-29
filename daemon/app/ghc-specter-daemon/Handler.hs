@@ -23,6 +23,7 @@ import Foreign.Marshal.Utils (toBool)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     MouseEvent (..),
+    ScrollDirection (..),
     UserEvent (..),
   )
 import ImGui (isItemHovered)
@@ -73,22 +74,23 @@ handleClick scene_id = do
             sendToControl shared (MouseEv (MouseClick (Just scene_id) xy))
 
 handleScroll :: Text -> ImRender UserEvent ()
-handleScroll scene_id = pure ()
-
-{-
+handleScroll scene_id = do
   renderState <- ImRender ask
   let shared = renderState.currSharedState
-  when (shared.sharedIsClicked) $ do
-    case shared.sharedMousePos of
-      Nothing -> pure ()
-      Just (x, y) -> do
+      (ox, oy) = renderState.currOrigin
+      (wheelX, wheelY) = shared.sharedMouseWheel
+      eps = 1e-3
+  -- isCtrlDown = shared.sharedCtrlDown
+  liftIO $ putStrLn "handleScroll1"
+  case shared.sharedMousePos of
+    Nothing -> pure ()
+    Just (x, y) ->
+      when (wheelX > eps || wheelX < -eps || wheelY > eps || wheelY < -eps) $ do
         let x' = fromIntegral x
             y' = fromIntegral y
-            (ox, oy) = renderState.currOrigin
             xy = (x' - ox, y' - oy)
-
-        isHovered <- toBool <$> liftIO (isItemHovered 0)
-        when isHovered $
-          liftIO $
-            sendToControl shared (MouseEv (MouseClick (Just scene_id) xy))
--}
+        liftIO $ do
+          putStrLn "handleScroll2"
+          sendToControl
+            shared
+            (MouseEv (Scroll ScrollDirectionRight xy (wheelX, wheelY)))
