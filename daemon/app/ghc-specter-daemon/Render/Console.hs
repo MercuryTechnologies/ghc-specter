@@ -126,7 +126,7 @@ renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
           fmap
             (\(drv_id, tab_title) -> (drv_id, tab_title, renderMainContent ss consoleMap mconsoleFocus inputEntry))
             tabs
-    mselected <- makeTabContents tab_contents
+    mselected <- makeTabContents Nothing tab_contents
     when (mconsoleFocus /= mselected) $
       case mselected of
         Nothing -> pure ()

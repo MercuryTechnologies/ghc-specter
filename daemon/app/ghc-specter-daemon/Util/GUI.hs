@@ -163,11 +163,17 @@ currentOrigin = do
   py <- imVec2_y_get p
   pure (realToFrac px, realToFrac py)
 
-makeTabContents :: (MonadIO m) => [(tag, Text, m ())] -> m (Maybe tag)
-makeTabContents = fmap (getFirst . fold) . traverse go
+makeTabContents :: (MonadIO m, Eq tag) => (Maybe tag) -> [(tag, Text, m ())] -> m (Maybe tag)
+makeTabContents mpreselected = fmap (getFirst . fold) . traverse go
   where
     go (tag, title, mkItem) = do
-      isSelected <- toBool <$> liftIO (beginTabItem (fromString (T.unpack title) :: CString))
+      let title' = fromString (T.unpack title) :: CString
+      isSelected <-
+        if Just tag == mpreselected
+          then
+            let flagSelected = fromIntegral (fromEnum ImGuiTabItemFlags_SetSelected)
+             in toBool <$> liftIO (beginTabItem title' nullPtr flagSelected)
+          else toBool <$> liftIO (beginTabItem_ title')
       when isSelected $ do
         void mkItem
         liftIO endTabItem

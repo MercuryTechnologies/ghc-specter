@@ -25,7 +25,10 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Graphics.DSL (EventMap)
 import GHCSpecter.Server.Types (ServerState (..))
-import GHCSpecter.UI.Types (UIState (..))
+import GHCSpecter.UI.Types
+  ( UIModel (..),
+    UIState (..),
+  )
 import GHCSpecter.UI.Types.Event
   ( Tab (..),
     UserEvent (..),
@@ -137,12 +140,14 @@ singleFrame io window ui ss oldShared = do
   newShared' <- flip runReaderT newShared $ do
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
+    let mnextTab = ui._uiModel._modelTabDestination
     tabState <-
       ifM
         (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
         ( do
             tabState <-
               makeTabContents
+                mnextTab
                 [ (TabSession, "Session", tabSession ui ss),
                   (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),

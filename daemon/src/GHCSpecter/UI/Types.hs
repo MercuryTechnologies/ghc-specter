@@ -177,6 +177,8 @@ emptyConsoleUI =
 data UIModel = UIModel
   { -- | current tab.
     _modelTab :: Tab,
+    -- | programmatic destination of Tab (for :goto-source) in the next frame.
+    _modelTabDestination :: Maybe Tab,
     -- | UI model of session
     _modelSession :: SessionUI,
     -- | UI model of main module graph
@@ -202,6 +204,7 @@ emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
     { _modelTab = TabSession,
+      _modelTabDestination = Nothing,
       _modelSession = emptySessionUI,
       _modelMainModuleGraph = emptyModuleGraphUI,
       _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI),
