@@ -30,6 +30,7 @@ import Control.Concurrent.STM
     atomically,
     modifyTVar',
   )
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
@@ -41,6 +42,7 @@ import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.C.String (CString)
 import Foreign.Marshal.Array (allocaArray)
+import Foreign.Marshal.Utils (fromBool)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
@@ -254,7 +256,18 @@ renderScene scene = do
             currScale = (scaleX, scaleY)
           }
     )
-    $ traverse_ renderPrimitive filtered
+    $ do
+      s' <- ask
+      let isValid = (vx0 < vx1) && (vy0 < vy1)
+      when isValid $ do
+        v1 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx0, vy0))
+        v2 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx1, vy1))
+        liftIO $ pushClipRect v1 v2 (fromBool False)
+        liftIO $ delete v1
+        liftIO $ delete v2
+      traverse_ renderPrimitive filtered
+      when isValid $
+        liftIO popClipRect
 
 buildEventMap :: Scene (Primitive e) -> EventMap e
 buildEventMap scene =
