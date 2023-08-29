@@ -128,13 +128,15 @@ toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 toGlobalCoords s (x, y) =
   let (ox, oy) = s.currCanvasOriginInGlobalCoords
       (vx, vy) = s.currCanvasOriginInViewportCoords
-   in (ox + x - vx, oy + y - vy)
+      (sx, sy) = s.currScale
+   in (ox + sx * (x - vx), oy + sy * (y - vy))
 
 fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 fromGlobalCoords s (x', y') =
   let (ox, oy) = s.currCanvasOriginInGlobalCoords
       (vx, vy) = s.currCanvasOriginInViewportCoords
-   in (x' - ox + vx, y' - oy + vy)
+      (sx, sy) = s.currScale
+   in ((x' - ox) / sx + vx, (y' - oy) / sy + vy)
 
 --
 --
@@ -143,9 +145,10 @@ renderShape :: Shape -> ImRender e ()
 renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
   let (x', y') = toGlobalCoords s (x, y)
+      (sx, sy) = s.currScale
   liftIO $ do
     v1 <- mkImVec2 (x', y')
-    v2 <- mkImVec2 (x' + w, y' + h)
+    v2 <- mkImVec2 (x' + w * sx, y' + h * sy)
     for_ mbkg $ \bkg -> do
       col <- getNamedColor bkg
       imDrawList_AddRectFilled
@@ -227,15 +230,6 @@ renderScene scene = do
       vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
       scaleX = (cx1 - cx0) / (vx1 - vx0)
       scaleY = (cy1 - cy0) / (vy1 - vy0)
-  -- cairo code for reference
-  {-  lift $ do
-    R.save
-    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-    R.clip
-    R.translate cx0 cy0
-    R.scale scaleX scaleY
-    R.translate (-vx0) (-vy0)
-  -}
   let overlapCheck p =
         vp `overlapsWith` primBoundingBox p
       filtered = filter overlapCheck (sceneElements scene)
