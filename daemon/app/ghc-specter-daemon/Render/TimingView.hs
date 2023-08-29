@@ -74,6 +74,18 @@ render ui ss = do
             False
             TimingEv
             ( do
+                scene <- TimingView.buildMemChart False 100 drvModMap tui ttable
+                let scene' =
+                      scene
+                        { sceneGlobalViewPort = stageMemory.sceneGlobalViewPort,
+                          sceneLocalViewPort = stageMemory.sceneLocalViewPort
+                        }
+                pure scene'
+            )
+          renderComponent
+            False
+            TimingEv
+            ( do
                 let scene = TimingView.buildTimingRange tui ttable
                     scene' =
                       scene
