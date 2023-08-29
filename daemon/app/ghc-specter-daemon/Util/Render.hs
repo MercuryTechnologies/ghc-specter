@@ -81,7 +81,9 @@ data SharedState e = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
-    currOrigin :: (Double, Double)
+    currOrigin :: (Double, Double),
+    -- | (scaleX, scaleY)
+    currScale :: (Double, Double)
   }
 
 mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
@@ -93,7 +95,8 @@ mkRenderState = do
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currOrigin = oxy
+        currOrigin = oxy,
+        currScale = (1.0, 1.0)
       }
 
 --
@@ -112,17 +115,21 @@ runImRender s action = runReaderT (unImRender action) s
 --
 --
 
+mkImVec2 :: (Double, Double) -> IO ImVec2
+mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
+
+--
+--
+
 renderShape :: Shape -> ImRender e ()
 renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
   liftIO $ do
     let (ox, oy) = s.currOrigin
-        x' = realToFrac (ox + x)
-        y' = realToFrac (oy + y)
-        w' = realToFrac w
-        h' = realToFrac h
-    v1 <- newImVec2 x' y'
-    v2 <- newImVec2 (x' + w') (y' + h')
+        x' = ox + x
+        y' = oy + y
+    v1 <- mkImVec2 (x', y') -- newImVec2 x' y'
+    v2 <- mkImVec2 (x' + w, y' + h) -- newImVec2 (x' + w') (y' + h')
     for_ mbkg $ \bkg -> do
       col <- getNamedColor bkg
       imDrawList_AddRectFilled
@@ -153,14 +160,14 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
         nPoints = length xys + 2
     -- TODO: make a utility function for this tedious and error-prone process
     allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
-      p0 <- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
+      p0 <- mkImVec2 (x0 + ox, y0 + oy) -- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
       pokeElemOff pp 0 p0
       delete p0
-      p1 <- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
+      p1 <- mkImVec2 (x1 + ox, y1 + oy) -- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
       pokeElemOff pp (nPoints - 1) p1
       delete p1
       for_ (zip [1 ..] xys) $ \(i, (x, y)) -> do
-        p <- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
+        p <- mkImVec2 (x + ox, y + oy) -- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
         pokeElemOff pp i p
         delete p
       let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
@@ -182,9 +189,9 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
         offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
-        x' = realToFrac (x + ox)
-        y' = realToFrac (y + oy + fromIntegral offsetY)
-    v' <- newImVec2 x' y'
+        x' = x + ox
+        y' = y + oy + fromIntegral offsetY
+    v' <- mkImVec2 (x', y')
     col <- getNamedColor color
     useAsCString (encodeUtf8 msg) $ \cstr ->
       imDrawList_AddText
@@ -200,11 +207,10 @@ renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
-  -- TODO: for now, I handle translation, but not scale transformation. will be back when implementing zooming
-  let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (vx0, vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
-  -- scaleX = (cx1 - cx0) / (vx1 - vx0)
-  -- scaleY = (cy1 - cy0) / (vy1 - vy0)
+  let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+      scaleX = (cx1 - cx0) / (vx1 - vx0)
+      scaleY = (cy1 - cy0) / (vy1 - vy0)
   -- cairo code for reference
   {-  lift $ do
     R.save
@@ -221,7 +227,10 @@ renderScene scene = do
     ( \s ->
         let (ox, oy) = s.currOrigin
             (ox', oy') = (ox - vx0, oy - vy0)
-         in s {currOrigin = (ox', oy')}
+         in s
+              { currOrigin = (ox', oy'),
+                currScale = (scaleX, scaleY)
+              }
     )
     $ traverse_ renderPrimitive filtered
 

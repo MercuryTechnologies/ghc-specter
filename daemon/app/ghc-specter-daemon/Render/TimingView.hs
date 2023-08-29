@@ -55,7 +55,6 @@ render ui ss = do
     let stage_ref :: TVar Stage
         stage_ref = renderState.currSharedState.sharedStage
     Stage stage <- atomically $ readTVar stage_ref
-    -- liftIO $ print stage
     for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
       runImRender renderState $ do
         renderComponent
