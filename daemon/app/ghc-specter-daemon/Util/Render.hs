@@ -45,6 +45,7 @@ import GHCSpecter.Graphics.DSL
     Rectangle (..),
     Scene (..),
     Shape (..),
+    Stage (..),
     TextFontFace (..),
     TextPosition (LowerLeft, UpperLeft),
     ViewPort (..),
@@ -72,6 +73,7 @@ data SharedState e = SharedState
     sharedFontSans :: ImFont,
     sharedFontMono :: ImFont,
     sharedEventMap :: TVar [EventMap e],
+    sharedStage :: TVar Stage,
     sharedConsoleInput :: CString
   }
 

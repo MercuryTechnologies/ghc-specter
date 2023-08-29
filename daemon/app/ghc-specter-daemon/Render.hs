@@ -24,7 +24,10 @@ import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    Stage,
+  )
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types
   ( UIModel (..),
@@ -257,8 +260,12 @@ prepareAssets io = do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   pure (fontSans, fontMono)
 
-main :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
-main servSess cliSess emref = do
+main ::
+  ServerSession ->
+  ClientSession ->
+  (TVar [EventMap UserEvent], TVar Stage) ->
+  IO ()
+main servSess cliSess (em_ref, stage_ref) = do
   -- initialize window
   (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
@@ -280,7 +287,8 @@ main servSess cliSess emref = do
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
-            sharedEventMap = emref,
+            sharedEventMap = em_ref,
+            sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput
           }
 
