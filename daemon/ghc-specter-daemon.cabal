@@ -153,6 +153,7 @@ executable ghc-specter-daemon
     , ghc-specter-render
     , imgui
     , implot
+    , mtl
     , stdcxx
     , stm
     , text

@@ -95,6 +95,7 @@ renderMainModuleGraph ui ss = do
       liftIO $
         runImRender renderState $
           renderComponent
+            False
             MainModuleEv
             (GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered))
   where
@@ -126,6 +127,7 @@ renderSubModuleGraph ui ss = do
       liftIO $
         runImRender renderState $
           renderComponent
+            False
             (SubModuleEv . SubModuleGraphEv)
             ( do
                 scene <- GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
@@ -170,6 +172,7 @@ renderBlockerGraph _ui ss = do
       liftIO $
         runImRender renderState $
           renderComponent
+            False
             (TimingEv . BlockerModuleGraphEv . BMGGraph)
             ( do
                 scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)

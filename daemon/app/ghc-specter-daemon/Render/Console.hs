@@ -91,7 +91,7 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   renderState <- mkRenderState
   liftIO $
     runImRender renderState $
-      renderComponent ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
+      renderComponent False ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry

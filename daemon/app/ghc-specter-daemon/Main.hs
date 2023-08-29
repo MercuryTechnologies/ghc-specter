@@ -9,6 +9,7 @@ import Control.Concurrent.STM
     newTQueueIO,
     newTVarIO,
     readTVar,
+    writeTVar,
   )
 import Data.IORef (newIORef)
 import Data.List qualified as L
@@ -25,7 +26,11 @@ import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    Stage (..),
+  )
+import GHCSpecter.UI.Constants (appWidgetConfig)
 import GHCSpecter.UI.Types
   ( UIModel (..),
     UIState (..),
@@ -53,7 +58,7 @@ main = do
 
     initTime <- getCurrentTime
     let ui0 = emptyUIState initTime
-        model = (ui0._uiModel) {_modelTab = TabModuleGraph}
+        model = (ui0._uiModel) {_modelWidgetConfig = appWidgetConfig}
         ui = ui0 {_uiModel = model}
     uiRef <- newTVarIO ui
     chanQEv <- newTQueueIO
@@ -62,27 +67,32 @@ main = do
 
     -- prepare runner
     -- TODO: make common initialization function (but backend-dep)
-    counterRef <- newIORef 0
-    emref <- newTVarIO []
+    counter_ref <- newIORef 0
+    em_ref <- newTVarIO []
+    stage_ref <- newTVarIO (Stage [])
 
     let runHandler =
           RunnerHandler
             { runHandlerRefreshAction = pure (),
               runHandlerHitScene = \xy ->
                 atomically $ do
-                  emaps <- readTVar emref
+                  emaps <- readTVar em_ref
                   let memap = Transformation.hitScene xy emaps
                   pure memap,
               runHandlerGetScene = \name ->
                 atomically $ do
-                  emaps <- readTVar emref
+                  emaps <- readTVar em_ref
                   let memap = L.find (\emap -> emap.sceneId == name) emaps
                   pure memap,
-              runHandlerAddToStage = \_ -> pure ()
+              runHandlerAddToStage = \scene -> atomically $ do
+                Stage cfgs <- readTVar stage_ref
+                let cfgs' = filter (\scene' -> scene.sceneId /= scene'.sceneId) cfgs
+                    cfgs'' = scene : cfgs'
+                writeTVar stage_ref (Stage cfgs'')
             }
         runner =
           RunnerEnv
-            { runnerCounter = counterRef,
+            { runnerCounter = counter_ref,
               runnerUIState = cliSess._csUIStateRef,
               runnerServerState = servSess._ssServerStateRef,
               runnerQEvent = cliSess._csPublisherEvent,
@@ -96,4 +106,4 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    Render.main servSess cliSess emref
+    Render.main servSess cliSess (em_ref, stage_ref)

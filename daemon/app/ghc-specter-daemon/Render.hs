@@ -13,7 +13,8 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
@@ -23,7 +24,10 @@ import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Graphics.DSL (EventMap)
+import GHCSpecter.Graphics.DSL
+  ( EventMap,
+    Stage,
+  )
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types
   ( UIModel (..),
@@ -35,8 +39,17 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui
-import ImGui.Enum (ImGuiMouseButton_ (..))
-import ImGui.ImGuiIO.Implementation (imGuiIO_Fonts_get)
+import ImGui.Enum
+  ( ImGuiInputFlags_ (..),
+    ImGuiKey (..),
+    ImGuiMouseButton_ (..),
+    ImGuiWindowFlags_ (..),
+  )
+import ImGui.ImGuiIO.Implementation
+  ( imGuiIO_Fonts_get,
+    imGuiIO_MouseWheelH_get,
+    imGuiIO_MouseWheel_get,
+  )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console (render)
@@ -49,11 +62,12 @@ import Render.Session qualified as Session
     renderSession,
   )
 import Render.SourceView qualified as SourceView (render)
-import Render.TimingView (renderMemoryView, renderTimingView)
+import Render.TimingView qualified as Timing (render, renderMemoryView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
-  ( finalize,
+  ( currentOrigin,
+    finalize,
     globalCursorPosition,
     initialize,
     makeTabContents,
@@ -86,8 +100,12 @@ tabSourceView ui ss = do
 tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#timing" :: CString) zerovec (fromBool False) windowFlagsScroll
-  renderTimingView ui ss
+  let flags =
+        fromIntegral $
+          fromEnum ImGuiWindowFlags_NoScrollbar
+            .|. fromEnum ImGuiWindowFlags_NoScrollWithMouse
+  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) flags
+  Timing.render ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
@@ -103,7 +121,7 @@ tabMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabMemory ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
   _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
-  renderMemoryView ui ss
+  Timing.renderMemoryView ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
@@ -129,13 +147,20 @@ singleFrame io window ui ss oldShared = do
   let emref = oldShared.sharedEventMap
   atomically $ writeTVar emref []
   isClicked <- toBool <$> isMouseClicked_ (fromIntegral (fromEnum ImGuiMouseButton_Left))
+  wheelX <- realToFrac <$> imGuiIO_MouseWheelH_get io
+  wheelY <- realToFrac <$> imGuiIO_MouseWheel_get io
+  let key_ctrl =
+        fromIntegral $
+          fromEnum ImGuiMod_Ctrl
+  isCtrlDown <- toBool <$> isKeyDown key_ctrl
   let upd1
         | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
         | otherwise = \s -> s {sharedMousePos = mxy, sharedIsMouseMoved = True}
       upd2
         | isClicked = \s -> s {sharedIsClicked = True}
         | otherwise = \s -> s {sharedIsClicked = False}
-      newShared = upd2 . upd1 $ oldShared
+      upd3 = \s -> s {sharedMouseWheel = (wheelX, wheelY), sharedCtrlDown = isCtrlDown}
+      newShared = upd3 . upd2 . upd1 $ oldShared
 
   newShared' <- flip runReaderT newShared $ do
     -- main window
@@ -208,8 +233,12 @@ prepareAssets io = do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
   pure (fontSans, fontMono)
 
-main :: ServerSession -> ClientSession -> TVar [EventMap UserEvent] -> IO ()
-main servSess cliSess emref = do
+main ::
+  ServerSession ->
+  ClientSession ->
+  (TVar [EventMap UserEvent], TVar Stage) ->
+  IO ()
+main servSess cliSess (em_ref, stage_ref) = do
   -- initialize window
   (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
@@ -223,13 +252,16 @@ main servSess cliSess emref = do
       shared0 =
         SharedState
           { sharedMousePos = Nothing,
+            sharedMouseWheel = (0, 0),
+            sharedCtrlDown = False,
             sharedIsMouseMoved = False,
             sharedIsClicked = False,
             sharedTabState = Nothing,
             sharedChanQEv = chanQEv,
             sharedFontSans = fontSans,
             sharedFontMono = fontMono,
-            sharedEventMap = emref,
+            sharedEventMap = em_ref,
+            sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput
           }
 
