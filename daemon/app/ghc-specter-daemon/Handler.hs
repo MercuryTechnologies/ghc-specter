@@ -103,8 +103,10 @@ handleScroll scene_id = do
         let x' = fromIntegral x
             y' = fromIntegral y
             xy = (x' - ox, y' - oy)
+            dx = wheelX * 5.0
+            dy = wheelY * 5.0
         liftIO $ do
           -- putStrLn "handleScroll2"
           sendToControl
             shared
-            (MouseEv (Scroll ScrollDirectionRight xy (wheelX, wheelY)))
+            (MouseEv (Scroll ScrollDirectionLeft xy (dx, dy)))

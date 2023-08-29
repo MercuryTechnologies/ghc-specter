@@ -27,7 +27,8 @@ import Control.Concurrent.STM
     modifyTVar',
   )
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ReaderT (..), ask)
+import Control.Monad.Reader (MonadReader (..))
+import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
 import Data.Maybe (mapMaybe)
@@ -102,7 +103,7 @@ mkRenderState = do
 newtype ImRender e a = ImRender
   { unImRender :: ReaderT (ImRenderState e) IO a
   }
-  deriving (Functor, Applicative, Monad, MonadIO)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader (ImRenderState e))
 
 runImRender :: ImRenderState e -> ImRender e a -> IO a
 runImRender s action = runReaderT (unImRender action) s
@@ -199,9 +200,9 @@ renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
-  -- TODO: for now, I ignore viewport transformation. will be back when implementing scrolling/zooming
+  -- TODO: for now, I handle translation, but not scale transformation. will be back when implementing zooming
   let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (_vx0, _vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
+      vp@(ViewPort (vx0, vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
   -- scaleX = (cx1 - cx0) / (vx1 - vx0)
   -- scaleY = (cy1 - cy0) / (vy1 - vy0)
   -- cairo code for reference
@@ -216,7 +217,13 @@ renderScene scene = do
   let overlapCheck p =
         vp `overlapsWith` primBoundingBox p
       filtered = filter overlapCheck (sceneElements scene)
-  traverse_ renderPrimitive filtered
+  local
+    ( \s ->
+        let (ox, oy) = s.currOrigin
+            (ox', oy') = (ox - vx0, oy - vy0)
+         in s {currOrigin = (ox', oy')}
+    )
+    $ traverse_ renderPrimitive filtered
 
 -- lift R.restore
 

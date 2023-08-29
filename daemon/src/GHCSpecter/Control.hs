@@ -294,6 +294,7 @@ handleHoverScrollZoom hitWho handlers mev =
       case memap of
         Nothing -> pure False
         Just emap -> do
+          printMsg "I am here"
           handleFor handlerScroll $ \(component, scrollLens) -> do
             let isHandled = eventMapId emap == component
             modifyUI $ \ui ->

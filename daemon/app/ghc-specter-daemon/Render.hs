@@ -43,6 +43,7 @@ import ImGui.Enum
   ( ImGuiInputFlags_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
+    ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation
   ( imGuiIO_Fonts_get,
@@ -99,7 +100,11 @@ tabSourceView ui ss = do
 tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) windowFlagsNone
+  let flags =
+        fromIntegral $
+          fromEnum ImGuiWindowFlags_NoScrollbar
+            .|. fromEnum ImGuiWindowFlags_NoScrollWithMouse
+  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) flags
   Timing.render ui ss
   liftIO endChild
   liftIO $ delete zerovec
@@ -120,6 +125,7 @@ tabMemory ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
+{-
 tabTest :: ImGuiIO -> ReaderT (SharedState UserEvent) IO ()
 tabTest io = do
   shared <- ask
@@ -150,6 +156,7 @@ tabTest io = do
     b <- isKeyDown key_ctrl
     putStrLn $ "Ctrl is down: " <> show b
     pure ()
+-}
 
 singleFrame ::
   ImGuiIO ->
@@ -204,8 +211,8 @@ singleFrame io window ui ss oldShared = do
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
-                  (TabTiming, "Memory view", tabMemory ui ss),
-                  (TabTiming, "test", tabTest io)
+                  (TabTiming, "Memory view", tabMemory ui ss)
+                  -- (TabTiming, "test", tabTest io)
                 ]
             liftIO endTabBar
             -- tab event handling

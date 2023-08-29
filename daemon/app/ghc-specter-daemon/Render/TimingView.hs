@@ -58,6 +58,7 @@ render ui ss = do
     Stage stage <- atomically $ readTVar stage_ref
     -- liftIO $ print stage
     for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
+      print (sceneLocalViewPort scene0)
       runImRender renderState $ do
         renderComponent
           True
