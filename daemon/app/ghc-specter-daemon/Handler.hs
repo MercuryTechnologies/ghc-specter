@@ -100,7 +100,11 @@ handleScrollOrZoom scene_id = do
             xy = (x' - ox, y' - oy)
         if isCtrlDown
           then do
-            let s = sqrt (wheelX * wheelX + wheelY * wheelY)
+            let s_ = 1.0 + wheelY * 0.1
+                s
+                  | s_ > 1.1 = 1.1
+                  | s_ < 0.9 = 0.9
+                  | otherwise = s_
             liftIO $ do
               sendToControl
                 shared
