@@ -34,7 +34,8 @@ import GHCSpecter.UI.Types
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
-  ( Tab (..),
+  ( MouseEvent (..),
+    Tab (..),
     UserEvent (..),
   )
 import Handler (sendToControl)
@@ -150,7 +151,11 @@ singleFrame io window ui ss oldShared = do
   let key_ctrl =
         fromIntegral $
           fromEnum ImGuiMod_Ctrl
+  let isCtrlDown_old = oldShared.sharedCtrlDown
   isCtrlDown <- toBool <$> isKeyDown key_ctrl
+  -- TODO: find a better method for this.
+  when (isCtrlDown_old && not isCtrlDown) $
+    sendToControl oldShared (MouseEv ZoomEnd)
   let upd1
         | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
         | otherwise = \s -> s {sharedMousePos = mxy, sharedIsMouseMoved = True}
