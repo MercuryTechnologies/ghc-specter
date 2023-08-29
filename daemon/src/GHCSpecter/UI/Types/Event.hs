@@ -58,15 +58,6 @@ data ComponentTag
   | TagModuleGraph
   deriving (Show, Eq)
 
-{-
-data ScrollDirection
-  = ScrollDirectionRight
-  | ScrollDirectionLeft
-  | ScrollDirectionDown
-  | ScrollDirectionUp
-  deriving (Show, Eq)
--}
-
 data SpecialKey
   = KeyEnter
   | KeyBackspace
@@ -77,17 +68,14 @@ data SpecialKey
 --
 
 data MouseEvent
-  = -- | optional (scene_id)
-    MouseClick (Maybe Text) (Double, Double)
-  | -- | optional (scene_id)
-    MouseMove (Maybe Text) (Double, Double)
-  | -- TODO: this will be deprecated
-    MouseDown (Maybe (Double, Double))
-  | -- TODO: this will be deprecated
-    MouseUp (Maybe (Double, Double))
-  | -- | (x, y), (dx, dy)
-    Scroll (Double, Double) (Double, Double)
-  | ZoomUpdate (Double, Double) Double
+  = -- | scene_id, (x, y)
+    MouseClick Text (Double, Double)
+  | -- | scene_id, (x, y)
+    MouseMove Text (Double, Double)
+  | -- | scene_id, (x, y), (dx, dy)
+    Scroll Text (Double, Double) (Double, Double)
+  | -- | scene_id, (x, y), scale
+    ZoomUpdate Text (Double, Double) Double
   | ZoomEnd
   deriving (Show, Eq)
 

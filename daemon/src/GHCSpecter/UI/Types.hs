@@ -65,6 +65,7 @@ data ViewPortInfo = ViewPortInfo
   { _vpViewPort :: ViewPort,
     _vpTempViewPort :: Maybe ViewPort
   }
+  deriving (Show)
 
 makeClassy ''ViewPortInfo
 

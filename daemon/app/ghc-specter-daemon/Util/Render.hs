@@ -11,6 +11,10 @@ module Util.Render
     ImRender (..),
     runImRender,
 
+    -- * coord
+    toGlobalCoords,
+    fromGlobalCoords,
+
     -- * rendering and event map
     renderShape,
     renderPrimitive,
@@ -54,9 +58,10 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
+import ImGui.ImFont.Implementation (imFont_Scale_get, imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
-import Util.GUI (currentOrigin)
+import Util.GUI (getCanvasOriginInGlobalCoords)
 import Util.Orphans ()
 
 --
@@ -81,19 +86,24 @@ data SharedState e = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
-    currOrigin :: (Double, Double)
+    currCanvasOriginInGlobalCoords :: (Double, Double),
+    currCanvasOriginInViewportCoords :: (Double, Double),
+    -- | (scaleX, scaleY)
+    currScale :: (Double, Double)
   }
 
 mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
-  oxy <- liftIO currentOrigin
+  oxy <- liftIO getCanvasOriginInGlobalCoords
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currOrigin = oxy
+        currCanvasOriginInGlobalCoords = oxy,
+        currCanvasOriginInViewportCoords = (0, 0),
+        currScale = (1.0, 1.0)
       }
 
 --
@@ -112,17 +122,34 @@ runImRender s action = runReaderT (unImRender action) s
 --
 --
 
+mkImVec2 :: (Double, Double) -> IO ImVec2
+mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
+
+toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+toGlobalCoords s (x, y) =
+  let (ox, oy) = s.currCanvasOriginInGlobalCoords
+      (vx, vy) = s.currCanvasOriginInViewportCoords
+      (sx, sy) = s.currScale
+   in (ox + sx * (x - vx), oy + sy * (y - vy))
+
+fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+fromGlobalCoords s (x', y') =
+  let (ox, oy) = s.currCanvasOriginInGlobalCoords
+      (vx, vy) = s.currCanvasOriginInViewportCoords
+      (sx, sy) = s.currScale
+   in ((x' - ox) / sx + vx, (y' - oy) / sy + vy)
+
+--
+--
+
 renderShape :: Shape -> ImRender e ()
 renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
+  let (x', y') = toGlobalCoords s (x, y)
+      (sx, sy) = s.currScale
   liftIO $ do
-    let (ox, oy) = s.currOrigin
-        x' = realToFrac (ox + x)
-        y' = realToFrac (oy + y)
-        w' = realToFrac w
-        h' = realToFrac h
-    v1 <- newImVec2 x' y'
-    v2 <- newImVec2 (x' + w') (y' + h')
+    v1 <- mkImVec2 (x', y')
+    v2 <- mkImVec2 (x' + w * sx, y' + h * sy)
     for_ mbkg $ \bkg -> do
       col <- getNamedColor bkg
       imDrawList_AddRectFilled
@@ -147,20 +174,20 @@ renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ 
 renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
   s <- ask
   liftIO $ do
-    let (ox, oy) = s.currOrigin
-        (x0, y0) = xy0
-        (x1, y1) = xy1
+    let (x0', y0') = toGlobalCoords s xy0
+        (x1', y1') = toGlobalCoords s xy1
         nPoints = length xys + 2
     -- TODO: make a utility function for this tedious and error-prone process
     allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
-      p0 <- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
+      p0 <- mkImVec2 (x0', y0')
       pokeElemOff pp 0 p0
       delete p0
-      p1 <- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
+      p1 <- mkImVec2 (x1', y1')
       pokeElemOff pp (nPoints - 1) p1
       delete p1
       for_ (zip [1 ..] xys) $ \(i, (x, y)) -> do
-        p <- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
+        let (x', y') = toGlobalCoords s (x, y)
+        p <- mkImVec2 (x', y')
         pokeElemOff pp i p
         delete p
       let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
@@ -175,16 +202,23 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
-    case font of
-      Sans -> pushFont (s.currSharedState.sharedFontSans)
-      Mono -> pushFont (s.currSharedState.sharedFontMono)
-    let (ox, oy) = s.currOrigin
-        offsetY = case pos of
+    let fontSelected =
+          case font of
+            Sans -> s.currSharedState.sharedFontSans
+            Mono -> s.currSharedState.sharedFontMono
+    -- NOTE: This is rather hacky workaround.
+    let (sx, _) = s.currScale
+        -- TODO: This hard-coded 6.0 should be factored out
+        factor = (fromIntegral fontSize) * sx / 6.0
+    imFont_Scale_set fontSelected (realToFrac factor)
+    pushFont fontSelected
+    let offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
-        x' = realToFrac (x + ox)
-        y' = realToFrac (y + oy + fromIntegral offsetY)
-    v' <- newImVec2 x' y'
+        x' = x
+        y' = y + fromIntegral offsetY
+        (x'', y'') = toGlobalCoords s (x', y')
+    v' <- mkImVec2 (x'', y'')
     col <- getNamedColor color
     useAsCString (encodeUtf8 msg) $ \cstr ->
       imDrawList_AddText
@@ -200,28 +234,19 @@ renderPrimitive (Primitive shape _ _) = renderShape shape
 
 renderScene :: Scene (Primitive e) -> ImRender e ()
 renderScene scene = do
-  -- TODO: for now, I handle translation, but not scale transformation. will be back when implementing zooming
-  let -- ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
-      vp@(ViewPort (vx0, vy0) (_vx1, _vy1)) = sceneLocalViewPort scene
-  -- scaleX = (cx1 - cx0) / (vx1 - vx0)
-  -- scaleY = (cy1 - cy0) / (vy1 - vy0)
-  -- cairo code for reference
-  {-  lift $ do
-    R.save
-    R.rectangle cx0 cy0 (cx1 - cx0) (cy1 - cy0)
-    R.clip
-    R.translate cx0 cy0
-    R.scale scaleX scaleY
-    R.translate (-vx0) (-vy0)
-  -}
-  let overlapCheck p =
+  let ViewPort (cx0, cy0) (cx1, cy1) = sceneGlobalViewPort scene
+      vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
+      scaleX = (cx1 - cx0) / (vx1 - vx0)
+      scaleY = (cy1 - cy0) / (vy1 - vy0)
+      overlapCheck p =
         vp `overlapsWith` primBoundingBox p
       filtered = filter overlapCheck (sceneElements scene)
   local
     ( \s ->
-        let (ox, oy) = s.currOrigin
-            (ox', oy') = (ox - vx0, oy - vy0)
-         in s {currOrigin = (ox', oy')}
+        s
+          { currCanvasOriginInViewportCoords = (vx0, vy0),
+            currScale = (scaleX, scaleY)
+          }
     )
     $ traverse_ renderPrimitive filtered
 

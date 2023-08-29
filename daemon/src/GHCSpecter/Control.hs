@@ -36,7 +36,6 @@ import GHCSpecter.Control.DSL
     getLastUpdatedUI,
     getScene,
     getUI,
-    hitScene,
     modifyAndReturn,
     modifyAndReturnBoth,
     modifySS,
@@ -138,14 +137,6 @@ nextUserEvent = do
     SysEv (BkgEv bev) -> handleBackground bev >> nextUserEvent
     UsrEv uev -> pure uev
 
-updateLastUpdated :: Control e ()
-updateLastUpdated = do
-  now <- getCurrentTime
-  modifyUI $ \ui ->
-    if (ui ^. uiShouldUpdate)
-      then ui & uiLastUpdated .~ now
-      else ui
-
 checkIfUpdatable :: Control e ()
 checkIfUpdatable = do
   lastUpdatedUI <- getLastUpdatedUI
@@ -245,9 +236,9 @@ zoom ::
 zoom emap lensViewPort ((x, y), scale) model =
   let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
       -- NOTE: While zooming is in progress, the scaling is always relative to
-      -- the last UI viewport, not relative to the currently drawn (temporary)
-      -- view.
-      vp = model ^. lensViewPort . vpViewPort
+      -- the currently drawn (temporary) view.
+      vp =
+        fromMaybe (model ^. lensViewPort . vpViewPort) (model ^. lensViewPort . vpTempViewPort)
       rx = (x - cx0) / (cx1 - cx0)
       ry = (y - cy0) / (cy1 - cy0)
       vp' = (transformZoom (rx, ry) scale vp)
@@ -264,11 +255,8 @@ handleHoverScrollZoom ::
   Control e Bool
 handleHoverScrollZoom hitWho handlers mev =
   case mev of
-    MouseMove msceneid (x, y) -> do
-      memap <-
-        case msceneid of
-          Nothing -> hitScene (x, y)
-          Just sceneid -> getScene sceneid
+    MouseMove scene_id (x, y) -> do
+      memap <- getScene scene_id
       handleFor handlerHover $ \(component, hoverLens) -> do
         ((ui, _), (ui', _)) <-
           modifyAndReturnBoth $ \(ui, ss) ->
@@ -288,8 +276,8 @@ handleHoverScrollZoom hitWho handlers mev =
             mnowHit = ui' ^. uiModel . hoverLens
             isChanged = mnowHit /= mprevHit
         pure isChanged
-    Scroll (x, y) (dx, dy) -> do
-      memap <- hitScene (x, y)
+    Scroll scene_id (_x, _y) (dx, dy) -> do
+      memap <- getScene scene_id
       case memap of
         Nothing -> pure False
         Just emap -> do
@@ -301,8 +289,8 @@ handleHoverScrollZoom hitWho handlers mev =
                     pure $ (uiModel %~ scroll emap scrollLens (dx, dy)) ui
                in fromMaybe ui mupdated
             pure isHandled
-    ZoomUpdate (xcenter, ycenter) scale -> do
-      memap <- hitScene (xcenter, ycenter)
+    ZoomUpdate scene_id (xcenter, ycenter) scale -> do
+      memap <- getScene scene_id
       case memap of
         Nothing -> pure False
         Just emap -> do
@@ -328,8 +316,6 @@ handleHoverScrollZoom hitWho handlers mev =
       refresh
       pure False
     MouseClick {} -> pure False
-    MouseDown {} -> pure False
-    MouseUp {} -> pure False
   where
     handleFor ::
       (HandlerHoverScrollZoom -> [(Text, Lens' UIModel a)]) ->
@@ -658,14 +644,6 @@ goTiming ev = do
       refresh
     _ -> pure ()
   case ev of
-    MouseEv (MouseDown (Just (x, y))) -> do
-      modifyUI (uiModel . modelTiming . timingUIHandleMouseMove .~ True)
-      ui' <- getUI
-      let vpi = ui' ^. uiModel . modelTiming . timingUIViewPort
-          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-      onDraggingInTimingView (x, y) vp
-    _ -> pure ()
-  case ev of
     MouseEv mev ->
       void $
         handleHoverScrollZoom
@@ -677,29 +655,6 @@ goTiming ev = do
             }
           mev
     _ -> pure ()
-  where
-    addDelta :: (Double, Double) -> (Double, Double) -> ViewPort -> UIModel -> UIModel
-    addDelta (x, y) (x', y') (ViewPort (tx, ty) (tx1, ty1)) =
-      let (dx, dy) = (x' - x, y' - y)
-       in modelTiming . timingUIViewPort
-            .~ ViewPortInfo (ViewPort (tx - dx, ty - dy) (tx1 - dx, ty1 - dy)) Nothing
-
-    -- (x, y): mouse down point, vp: viewport
-    onDraggingInTimingView (x, y) vp = do
-      checkIfUpdatable
-      ev' <- nextUserEvent
-      case ev' of
-        MouseEv (MouseUp (Just (x', y'))) ->
-          modifyUI $
-            -- turn off mouse move event handling
-            (uiModel . modelTiming . timingUIHandleMouseMove .~ False)
-              . (uiModel %~ addDelta (x, y) (x', y') vp)
-        MouseEv (MouseMove _ (x', y')) -> do
-          modifyUI $
-            (uiModel %~ addDelta (x, y) (x', y') vp)
-          updateLastUpdated
-          onDraggingInTimingView (x, y) vp
-        _ -> onDraggingInTimingView (x, y) vp
 
 initializeMainView :: Control e ()
 initializeMainView =
@@ -797,11 +752,8 @@ mainLoop = do
 
         handleClick ev0 =
           case ev0 of
-            MouseEv (MouseClick msceneid (x, y)) -> do
-              memap <-
-                case msceneid of
-                  Nothing -> hitScene (x, y)
-                  Just sceneid -> getScene sceneid
+            MouseEv (MouseClick scene_id (x, y)) -> do
+              memap <- getScene scene_id
               let ev' =
                     case memap of
                       Just emap ->
