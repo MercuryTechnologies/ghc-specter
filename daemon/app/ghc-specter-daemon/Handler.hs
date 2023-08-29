@@ -24,7 +24,6 @@ import Foreign.Marshal.Utils (toBool)
 import GHCSpecter.UI.Types.Event
   ( Event (..),
     MouseEvent (..),
-    ScrollDirection (..),
     UserEvent (..),
   )
 import ImGui qualified
@@ -95,7 +94,6 @@ handleScroll scene_id = do
       (wheelX, wheelY) = shared.sharedMouseWheel
       eps = 1e-3
   -- isCtrlDown = shared.sharedCtrlDown
-  -- liftIO $ putStrLn "handleScroll1"
   case shared.sharedMousePos of
     Nothing -> pure ()
     Just (x, y) ->
@@ -106,7 +104,6 @@ handleScroll scene_id = do
             dx = wheelX * 5.0
             dy = wheelY * 5.0
         liftIO $ do
-          -- putStrLn "handleScroll2"
           sendToControl
             shared
-            (MouseEv (Scroll ScrollDirectionLeft xy (dx, dy)))
+            (MouseEv (Scroll xy (dx, dy)))

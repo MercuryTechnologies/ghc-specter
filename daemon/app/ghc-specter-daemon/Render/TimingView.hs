@@ -58,7 +58,6 @@ render ui ss = do
     Stage stage <- atomically $ readTVar stage_ref
     -- liftIO $ print stage
     for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
-      print (sceneLocalViewPort scene0)
       runImRender renderState $ do
         renderComponent
           True
@@ -70,7 +69,7 @@ render ui ss = do
                       { sceneGlobalViewPort = sceneGlobalViewPort scene0,
                         sceneLocalViewPort = sceneLocalViewPort scene0
                       }
-              pure scene' -- pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
+              pure scene'
           )
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
@@ -87,11 +86,8 @@ render ui ss = do
     totalHeight = 5 * nMods
     vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
 
-    tui' =
-      tui
-        { _timingUIPartition = True
-        -- _timingUIViewPort = ViewPortInfo vp Nothing
-        }
+    -- TODO: for now. we should not do any modification of TimingUI here.
+    tui' = tui {_timingUIPartition = True}
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do

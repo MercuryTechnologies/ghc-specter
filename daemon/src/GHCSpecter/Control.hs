@@ -98,7 +98,6 @@ import GHCSpecter.UI.Types.Event
     KeyEvent (..),
     ModuleGraphEvent (..),
     MouseEvent (..),
-    ScrollDirection (..),
     SessionEvent (..),
     SourceViewEvent (..),
     SpecialKey (KeyBackspace, KeyEnter),
@@ -225,15 +224,15 @@ appendNewCommand drvId newMsg = do
 scroll ::
   EventMap e ->
   Lens' UIModel ViewPortInfo ->
-  (ScrollDirection, (Double, Double)) ->
+  (Double, Double) ->
   UIModel ->
   UIModel
-scroll emap lensViewPort (dir, (dx, dy)) model =
+scroll emap lensViewPort (dx, dy) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
       vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
       mvpExtent = sceneExtents emap
       scale = (cx1 - cx0) / (vx1 - vx0)
-      vp' = transformScroll mvpExtent dir scale (dx, dy) vp
+      vp' = transformScroll mvpExtent scale (dx, dy) vp
       vp'' = if isValid vp' then vp' else vp
    in (lensViewPort .~ ViewPortInfo vp'' Nothing) model
 
@@ -289,18 +288,17 @@ handleHoverScrollZoom hitWho handlers mev =
             mnowHit = ui' ^. uiModel . hoverLens
             isChanged = mnowHit /= mprevHit
         pure isChanged
-    Scroll dir' (x, y) (dx, dy) -> do
+    Scroll (x, y) (dx, dy) -> do
       memap <- hitScene (x, y)
       case memap of
         Nothing -> pure False
         Just emap -> do
-          printMsg "I am here"
           handleFor handlerScroll $ \(component, scrollLens) -> do
             let isHandled = eventMapId emap == component
             modifyUI $ \ui ->
               let mupdated = do
                     guard isHandled
-                    pure $ (uiModel %~ scroll emap scrollLens (dir', (dx, dy))) ui
+                    pure $ (uiModel %~ scroll emap scrollLens (dx, dy)) ui
                in fromMaybe ui mupdated
             pure isHandled
     ZoomUpdate (xcenter, ycenter) scale -> do

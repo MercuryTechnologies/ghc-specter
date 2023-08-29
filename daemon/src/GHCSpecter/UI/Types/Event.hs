@@ -5,7 +5,7 @@ module GHCSpecter.UI.Types.Event
     BlockerDetailLevel (..),
     blockerThreshold,
     ComponentTag (..),
-    ScrollDirection (..),
+    -- ScrollDirection (..),
     SpecialKey (..),
 
     -- * Low-level events
@@ -58,12 +58,14 @@ data ComponentTag
   | TagModuleGraph
   deriving (Show, Eq)
 
+{-
 data ScrollDirection
   = ScrollDirectionRight
   | ScrollDirectionLeft
   | ScrollDirectionDown
   | ScrollDirectionUp
   deriving (Show, Eq)
+-}
 
 data SpecialKey
   = KeyEnter
@@ -83,8 +85,8 @@ data MouseEvent
     MouseDown (Maybe (Double, Double))
   | -- TODO: this will be deprecated
     MouseUp (Maybe (Double, Double))
-  | -- | dir, (x, y), (dx, dy)
-    Scroll ScrollDirection (Double, Double) (Double, Double)
+  | -- | (x, y), (dx, dy)
+    Scroll (Double, Double) (Double, Double)
   | ZoomUpdate (Double, Double) Double
   | ZoomEnd
   deriving (Show, Eq)
