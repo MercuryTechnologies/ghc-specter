@@ -58,6 +58,7 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
+import ImGui.ImFont.Implementation (imFont_Scale_get, imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.GUI (getCanvasOriginInGlobalCoords)
@@ -201,9 +202,16 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
-    case font of
-      Sans -> pushFont (s.currSharedState.sharedFontSans)
-      Mono -> pushFont (s.currSharedState.sharedFontMono)
+    let fontSelected =
+          case font of
+            Sans -> s.currSharedState.sharedFontSans
+            Mono -> s.currSharedState.sharedFontMono
+    -- NOTE: This is rather hacky workaround.
+    let (sx, _) = s.currScale
+        -- TODO: This hard-coded 6.0 should be factored out
+        factor = (fromIntegral fontSize) * sx / 6.0
+    imFont_Scale_set fontSelected (realToFrac factor)
+    pushFont fontSelected
     let offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
@@ -230,7 +238,7 @@ renderScene scene = do
       vp@(ViewPort (vx0, vy0) (vx1, vy1)) = sceneLocalViewPort scene
       scaleX = (cx1 - cx0) / (vx1 - vx0)
       scaleY = (cy1 - cy0) / (vy1 - vy0)
-  let overlapCheck p =
+      overlapCheck p =
         vp `overlapsWith` primBoundingBox p
       filtered = filter overlapCheck (sceneElements scene)
   local
