@@ -262,7 +262,7 @@ renderScene scene = do
       when isValid $ do
         v1 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx0, vy0))
         v2 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx1, vy1))
-        liftIO $ pushClipRect v1 v2 (fromBool False)
+        liftIO $ pushClipRect v1 v2 (fromBool True)
         liftIO $ delete v1
         liftIO $ delete v2
       traverse_ renderPrimitive filtered
