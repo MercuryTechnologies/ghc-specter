@@ -7,7 +7,7 @@ module Handler
     -- * high-level handler
     handleMove,
     handleClick,
-    handleScroll,
+    handleScrollOrZoom,
   )
 where
 
@@ -74,15 +74,12 @@ handleClick scene_id = do
           liftIO $
             sendToControl shared (MouseEv (MouseClick (Just scene_id) xy))
 
-handleScroll :: Text -> ImRender UserEvent ()
-handleScroll scene_id = do
+handleScrollOrZoom :: Text -> ImRender UserEvent ()
+handleScrollOrZoom scene_id = do
   let key_wheel =
         fromIntegral $
           fromEnum ImGuiKey_MouseWheelX
             .|. fromEnum ImGuiKey_MouseWheelY
-      -- key_ctrl =
-      --  fromIntegral $
-      --    fromEnum ImGuiMod_Ctrl
       flags =
         fromIntegral $
           fromEnum ImGuiInputFlags_CondDefault_
@@ -93,7 +90,7 @@ handleScroll scene_id = do
       (ox, oy) = renderState.currOrigin
       (wheelX, wheelY) = shared.sharedMouseWheel
       eps = 1e-3
-  -- isCtrlDown = shared.sharedCtrlDown
+      isCtrlDown = shared.sharedCtrlDown
   case shared.sharedMousePos of
     Nothing -> pure ()
     Just (x, y) ->
@@ -101,9 +98,17 @@ handleScroll scene_id = do
         let x' = fromIntegral x
             y' = fromIntegral y
             xy = (x' - ox, y' - oy)
-            dx = wheelX * 5.0
-            dy = wheelY * 5.0
-        liftIO $ do
-          sendToControl
-            shared
-            (MouseEv (Scroll xy (dx, dy)))
+        if isCtrlDown
+          then do
+            let s = sqrt (wheelX * wheelX + wheelY * wheelY)
+            liftIO $ do
+              sendToControl
+                shared
+                (MouseEv (ZoomUpdate xy s))
+          else do
+            let dx = wheelX * 5.0
+                dy = wheelY * 5.0
+            liftIO $ do
+              sendToControl
+                shared
+                (MouseEv (Scroll xy (dx, dy)))

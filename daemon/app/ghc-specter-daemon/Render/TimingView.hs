@@ -9,7 +9,7 @@ where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Foreign.C.String (CString)
@@ -42,8 +42,7 @@ import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (windowFlagsScroll)
 import Util.Render
-  ( ImRender (..),
-    ImRenderState (..),
+  ( ImRenderState (..),
     SharedState (..),
     mkRenderState,
     runImRender,
@@ -80,11 +79,6 @@ render ui ss = do
     mhoveredMod = tui._timingUIHoveredModule
 
     ttable = ss._serverTiming._tsTimingTable
-    timingInfos = ttable._ttableTimingInfos
-
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
 
     -- TODO: for now. we should not do any modification of TimingUI here.
     tui' = tui {_timingUIPartition = True}

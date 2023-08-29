@@ -19,7 +19,7 @@ import GHCSpecter.UI.Types.Event (UserEvent (..))
 import Handler
   ( handleClick,
     handleMove,
-    handleScroll,
+    handleScrollOrZoom,
   )
 import ImGui
 import STD.Deletable (delete)
@@ -49,7 +49,7 @@ renderComponent doesHandleScroll toEv buildScene = do
   handleMove scene.sceneId
   handleClick scene.sceneId
   when doesHandleScroll $
-    handleScroll scene.sceneId
+    handleScrollOrZoom scene.sceneId
 
   liftIO $ delete dummy_sz
   where
