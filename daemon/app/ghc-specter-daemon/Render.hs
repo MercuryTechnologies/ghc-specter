@@ -62,7 +62,7 @@ import Render.Session qualified as Session
     renderSession,
   )
 import Render.SourceView qualified as SourceView (render)
-import Render.TimingView qualified as Timing (render, renderMemoryView)
+import Render.TimingView qualified as Timing (render) --  renderMemoryView
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
@@ -116,6 +116,7 @@ tabBlockerGraph ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
+{-
 tabMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabMemory ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
@@ -123,6 +124,7 @@ tabMemory ui ss = do
   Timing.renderMemoryView ui ss
   liftIO endChild
   liftIO $ delete zerovec
+-}
 
 singleFrame ::
   ImGuiIO ->
@@ -180,8 +182,8 @@ singleFrame io window ui ss oldShared = do
                   (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
-                  (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
-                  (TabTiming, "Memory view", tabMemory ui ss)
+                  (TabTiming, "Blocker graph", tabBlockerGraph ui ss)
+                  -- (TabTiming, "Memory view", tabMemory ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling

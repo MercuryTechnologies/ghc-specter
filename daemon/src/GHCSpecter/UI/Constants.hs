@@ -172,11 +172,10 @@ appWidgetConfig =
           ],
       _wcfgTiming =
         Map.fromList
-          [ ("timing-chart", ViewPort (0, 0) (timingWidth, timingHeight))
-          -- ViewPort (0, tabHeight) (0.8 * timingWidth, timingHeight + tabHeight)),
-          -- ("mem-chart", ViewPort (0.8 * timingWidth, tabHeight) (timingWidth, timingHeight + tabHeight)),
-          -- ("timing-range", ViewPort (0, timingHeight + tabHeight) (timingWidth, timingHeight + timingRangeHeight + tabHeight)),
-          -- ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+          [ ("timing-chart", ViewPort (0, 0) (0.8 * timingWidth, timingHeight)),
+            ("mem-chart", ViewPort (0.8 * timingWidth, 0) (timingWidth, timingHeight)),
+            ("timing-range", ViewPort (0, timingHeight) (timingWidth, timingHeight + timingRangeHeight))
+            -- ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
           ]
           {-
           [ ("timing-chart", ViewPort (0, tabHeight) (0.8 * timingWidth, timingHeight + tabHeight)),

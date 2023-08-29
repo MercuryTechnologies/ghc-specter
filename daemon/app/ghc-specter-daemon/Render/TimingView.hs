@@ -3,7 +3,7 @@
 
 module Render.TimingView
   ( render,
-    renderMemoryView,
+  -- renderMemoryView,
   )
 where
 
@@ -54,20 +54,34 @@ render ui ss = do
   let stage_ref :: TVar Stage
       stage_ref = renderState.currSharedState.sharedStage
   Stage stage <- liftIO $ atomically $ readTVar stage_ref
-  for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
-    runImRender renderState $ do
-      renderComponent
-        True
-        TimingEv
-        ( do
-            scene <- TimingView.buildTimingChart drvModMap tui' ttable
-            let scene' =
-                  scene
-                    { sceneGlobalViewPort = sceneGlobalViewPort scene0,
-                      sceneLocalViewPort = sceneLocalViewPort scene0
-                    }
-            pure scene'
-        )
+  for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
+    for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
+      for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do
+        runImRender renderState $ do
+          renderComponent
+            True
+            TimingEv
+            ( do
+                scene <- TimingView.buildTimingChart drvModMap tui ttable
+                let scene' =
+                      scene
+                        { sceneGlobalViewPort = stageTiming.sceneGlobalViewPort,
+                          sceneLocalViewPort = stageTiming.sceneLocalViewPort
+                        }
+                pure scene'
+            )
+          renderComponent
+            False
+            TimingEv
+            ( do
+                let scene = TimingView.buildTimingRange tui ttable
+                    scene' =
+                      scene
+                        { sceneGlobalViewPort = stageRange.sceneGlobalViewPort,
+                          sceneLocalViewPort = stageRange.sceneLocalViewPort
+                        }
+                pure scene'
+            )
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
     renderBlocker hoveredMod ttable
@@ -78,8 +92,8 @@ render ui ss = do
 
     ttable = ss._serverTiming._tsTimingTable
 
-    -- TODO: for now. we should not do any modification of TimingUI here.
-    tui' = tui {_timingUIPartition = True}
+-- TODO: for now. we should not do any modification of TimingUI here.
+-- tui' = tui {_timingUIPartition = True}
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
@@ -101,6 +115,7 @@ renderBlocker hoveredMod ttable = do
     renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
   liftIO ImGui.endChild
 
+{-
 renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderMemoryView ui ss = do
   renderState <- mkRenderState
@@ -121,3 +136,4 @@ renderMemoryView ui ss = do
         { _timingUIPartition = True,
           _timingUIViewPort = ViewPortInfo vp Nothing
         }
+-}

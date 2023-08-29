@@ -62,7 +62,7 @@ import ImGui
 import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
-import Util.GUI (getCanvasOriginInGlobalCoords)
+import Util.GUI (getOriginInImGui)
 import Util.Orphans ()
 
 --
@@ -87,8 +87,9 @@ data SharedState e = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
-    currCanvasOriginInGlobalCoords :: (Double, Double),
-    currCanvasOriginInViewportCoords :: (Double, Double),
+    currOriginInImGui :: (Double, Double),
+    currUpperLeftInGlobalViewport :: (Double, Double),
+    currUpperLeftInLocalViewport :: (Double, Double),
     -- | (scaleX, scaleY)
     currScale :: (Double, Double)
   }
@@ -97,13 +98,14 @@ mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
-  oxy <- liftIO getCanvasOriginInGlobalCoords
+  oxy <- liftIO getOriginInImGui
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currCanvasOriginInGlobalCoords = oxy,
-        currCanvasOriginInViewportCoords = (0, 0),
+        currOriginInImGui = oxy,
+        currUpperLeftInGlobalViewport = (0, 0),
+        currUpperLeftInLocalViewport = (0, 0),
         currScale = (1.0, 1.0)
       }
 
@@ -128,17 +130,19 @@ mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
 
 toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 toGlobalCoords s (x, y) =
-  let (ox, oy) = s.currCanvasOriginInGlobalCoords
-      (vx, vy) = s.currCanvasOriginInViewportCoords
+  let (ox, oy) = s.currOriginInImGui
+      (cx, cy) = s.currUpperLeftInGlobalViewport
+      (vx, vy) = s.currUpperLeftInLocalViewport
       (sx, sy) = s.currScale
-   in (ox + sx * (x - vx), oy + sy * (y - vy))
+   in (ox + cx + sx * (x - vx), oy + cy + sy * (y - vy))
 
 fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 fromGlobalCoords s (x', y') =
-  let (ox, oy) = s.currCanvasOriginInGlobalCoords
-      (vx, vy) = s.currCanvasOriginInViewportCoords
+  let (ox, oy) = s.currOriginInImGui
+      (cx, cy) = s.currUpperLeftInGlobalViewport
+      (vx, vy) = s.currUpperLeftInLocalViewport
       (sx, sy) = s.currScale
-   in ((x' - ox) / sx + vx, (y' - oy) / sy + vy)
+   in ((x' - ox - cx) / sx + vx, (y' - oy - cy) / sy + vy)
 
 --
 --
@@ -245,13 +249,12 @@ renderScene scene = do
   local
     ( \s ->
         s
-          { currCanvasOriginInViewportCoords = (vx0, vy0),
+          { currUpperLeftInGlobalViewport = (cx0, cy0),
+            currUpperLeftInLocalViewport = (vx0, vy0),
             currScale = (scaleX, scaleY)
           }
     )
     $ traverse_ renderPrimitive filtered
-
--- lift R.restore
 
 buildEventMap :: Scene (Primitive e) -> EventMap e
 buildEventMap scene =
