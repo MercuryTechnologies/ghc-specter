@@ -58,15 +58,6 @@ data ComponentTag
   | TagModuleGraph
   deriving (Show, Eq)
 
-{-
-data ScrollDirection
-  = ScrollDirectionRight
-  | ScrollDirectionLeft
-  | ScrollDirectionDown
-  | ScrollDirectionUp
-  deriving (Show, Eq)
--}
-
 data SpecialKey
   = KeyEnter
   | KeyBackspace

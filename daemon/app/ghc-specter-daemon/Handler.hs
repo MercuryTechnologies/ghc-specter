@@ -50,7 +50,6 @@ handleMove scene_id = do
             y' = fromIntegral y
             (ox, oy) = renderState.currOrigin
             xy = (x' - ox, y' - oy)
-
         isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
         when isHovered $
           liftIO $
@@ -100,7 +99,7 @@ handleScrollOrZoom scene_id = do
             xy = (x' - ox, y' - oy)
         if isCtrlDown
           then do
-            let s_ = 1.0 + wheelY * 0.1
+            let s_ = 1.0 - wheelY * 0.1
                 s
                   | s_ > 1.1 = 1.1
                   | s_ < 0.9 = 0.9

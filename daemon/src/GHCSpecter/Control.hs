@@ -236,9 +236,9 @@ zoom ::
 zoom emap lensViewPort ((x, y), scale) model =
   let ViewPort (cx0, cy0) (cx1, cy1) = eventMapGlobalViewPort emap
       -- NOTE: While zooming is in progress, the scaling is always relative to
-      -- the last UI viewport, not relative to the currently drawn (temporary)
-      -- view.
-      vp = model ^. lensViewPort . vpViewPort
+      -- the currently drawn (temporary) view.
+      vp =
+        fromMaybe (model ^. lensViewPort . vpViewPort) (model ^. lensViewPort . vpTempViewPort)
       rx = (x - cx0) / (cx1 - cx0)
       ry = (y - cy0) / (cy1 - cy0)
       vp' = (transformZoom (rx, ry) scale vp)

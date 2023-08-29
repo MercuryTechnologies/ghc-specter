@@ -36,7 +36,6 @@ import GHCSpecter.UI.Types
     UIState (..),
     emptyUIState,
   )
-import GHCSpecter.UI.Types.Event (Tab (..))
 import GHCSpecter.Util.Transformation qualified as Transformation (hitScene)
 import Render qualified (main)
 import System.IO
