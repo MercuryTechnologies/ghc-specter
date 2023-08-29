@@ -32,6 +32,7 @@ import Control.Concurrent.STM
   )
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
@@ -58,7 +59,7 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
-import ImGui.ImFont.Implementation (imFont_Scale_get, imFont_Scale_set)
+import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
 import Util.GUI (getCanvasOriginInGlobalCoords)
@@ -115,8 +116,8 @@ newtype ImRender e a = ImRender
   }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader (ImRenderState e))
 
-runImRender :: ImRenderState e -> ImRender e a -> IO a
-runImRender s action = runReaderT (unImRender action) s
+runImRender :: ImRenderState e -> ImRender e a -> ReaderT (SharedState e) IO a
+runImRender s action = lift $ runReaderT (unImRender action) s
 
 --
 --

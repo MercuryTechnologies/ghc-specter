@@ -89,9 +89,8 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   vec2 <- liftIO $ ImGui.newImVec2 0 (-25)
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
+  runImRender renderState $
+    renderComponent False ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry

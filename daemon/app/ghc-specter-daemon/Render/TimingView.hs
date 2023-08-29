@@ -51,24 +51,23 @@ import Util.Render
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
-  liftIO $ do
-    let stage_ref :: TVar Stage
-        stage_ref = renderState.currSharedState.sharedStage
-    Stage stage <- atomically $ readTVar stage_ref
-    for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
-      runImRender renderState $ do
-        renderComponent
-          True
-          TimingEv
-          ( do
-              scene <- TimingView.buildTimingChart drvModMap tui' ttable
-              let scene' =
-                    scene
-                      { sceneGlobalViewPort = sceneGlobalViewPort scene0,
-                        sceneLocalViewPort = sceneLocalViewPort scene0
-                      }
-              pure scene'
-          )
+  let stage_ref :: TVar Stage
+      stage_ref = renderState.currSharedState.sharedStage
+  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
+    runImRender renderState $ do
+      renderComponent
+        True
+        TimingEv
+        ( do
+            scene <- TimingView.buildTimingChart drvModMap tui' ttable
+            let scene' =
+                  scene
+                    { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+                      sceneLocalViewPort = sceneLocalViewPort scene0
+                    }
+            pure scene'
+        )
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
     renderBlocker hoveredMod ttable
@@ -98,17 +97,15 @@ renderBlocker hoveredMod ttable = do
   _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool True) windowFlagsScroll
   liftIO $ delete vec1
   renderState' <- mkRenderState
-  liftIO $
-    runImRender renderState' $
-      renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
+  runImRender renderState' $
+    renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
   liftIO ImGui.endChild
 
 renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderMemoryView ui ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
+  runImRender renderState $
+    renderComponent False TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming

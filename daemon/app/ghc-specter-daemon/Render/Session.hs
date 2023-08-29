@@ -73,23 +73,20 @@ renderSession _ui ss = do
 renderSessionInfo :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSessionInfo ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False SessionEv (Session.buildSession ss)
+  runImRender renderState $
+    renderComponent False SessionEv (Session.buildSession ss)
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False SessionEv (Session.buildProcessPanel ss)
+  runImRender renderState $
+    renderComponent False SessionEv (Session.buildProcessPanel ss)
 
 renderRtsPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderRtsPanel ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False SessionEv (Session.buildRtsPanel ss)
+  runImRender renderState $
+    renderComponent False SessionEv (Session.buildRtsPanel ss)
 
 renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
@@ -99,9 +96,8 @@ renderCompilationStatus ss = do
     whenM (toBool <$> button (buttonTxt :: CString)) $
       sendToControl shared (SessionEv event)
   renderState <- mkRenderState
-  liftIO $ do
-    runImRender renderState $
-      renderComponent False SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
+  runImRender renderState $
+    renderComponent False SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
   where
     sessionInfo = ss._serverSessionInfo
     statusTxt
