@@ -116,16 +116,6 @@ tabBlockerGraph ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
-{-
-tabMemory :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabMemory ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#memory" :: CString) zerovec (fromBool False) windowFlagsScroll
-  Timing.renderMemoryView ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
--}
-
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->

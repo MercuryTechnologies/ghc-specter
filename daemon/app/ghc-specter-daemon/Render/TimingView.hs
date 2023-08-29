@@ -107,9 +107,6 @@ render ui ss = do
 
     ttable = ss._serverTiming._tsTimingTable
 
--- TODO: for now. we should not do any modification of TimingUI here.
--- tui' = tui {_timingUIPartition = True}
-
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
   liftIO $ do
@@ -129,26 +126,3 @@ renderBlocker hoveredMod ttable = do
   runImRender renderState' $
     renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
   liftIO ImGui.endChild
-
-{-
-renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderMemoryView ui ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
-  where
-    drvModMap = ss._serverDriverModuleMap
-    tui = ui._uiModel._modelTiming
-    ttable = ss._serverTiming._tsTimingTable
-    timingInfos = ttable._ttableTimingInfos
-
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
-
-    tui' =
-      tui
-        { _timingUIPartition = True,
-          _timingUIViewPort = ViewPortInfo vp Nothing
-        }
--}
