@@ -57,7 +57,7 @@ renderComponent doesHandleScroll toEv buildScene = do
     scene = fmap toEv <$> runIdentity buildScene
     emap = buildEventMap scene
 
-    (vx0, vy0) = scene.sceneLocalViewPort.topLeft
-    (vx1, vy1) = scene.sceneLocalViewPort.bottomRight
+    (vx0, vy0) = scene.sceneGlobalViewPort.topLeft
+    (vx1, vy1) = scene.sceneGlobalViewPort.bottomRight
     totalW = vx1 - vx0
     totalH = vy1 - vy0
