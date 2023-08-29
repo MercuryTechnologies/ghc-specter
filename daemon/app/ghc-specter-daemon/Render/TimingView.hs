@@ -7,9 +7,11 @@ module Render.TimingView
   )
 where
 
+import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Foldable (for_)
+import Data.List qualified as L
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool)
 import GHCSpecter.Channel.Common.Types (ModuleName)
@@ -18,6 +20,7 @@ import GHCSpecter.Data.Timing.Types
   )
 import GHCSpecter.Graphics.DSL
   ( Scene (..),
+    Stage (..),
     ViewPort (..),
   )
 import GHCSpecter.Server.Types
@@ -49,15 +52,25 @@ import Util.Render
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $ do
-      renderComponent
-        True
-        TimingEv
-        ( do
-            scene <- TimingView.buildTimingChart drvModMap tui' ttable
-            pure scene -- pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
-        )
+  liftIO $ do
+    let stage_ref :: TVar Stage
+        stage_ref = renderState.currSharedState.sharedStage
+    Stage stage <- atomically $ readTVar stage_ref
+    -- liftIO $ print stage
+    for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
+      runImRender renderState $ do
+        renderComponent
+          True
+          TimingEv
+          ( do
+              scene <- TimingView.buildTimingChart drvModMap tui' ttable
+              let scene' =
+                    scene
+                      { sceneGlobalViewPort = sceneGlobalViewPort scene0,
+                        sceneLocalViewPort = sceneLocalViewPort scene0
+                      }
+              pure scene' -- pure scene {sceneLocalViewPort = ViewPort (0, 0) (640, 480)}
+          )
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
     renderBlocker hoveredMod ttable

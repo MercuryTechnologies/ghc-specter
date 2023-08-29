@@ -43,7 +43,6 @@ renderComponent doesHandleScroll toEv buildScene = do
   renderScene scene
   addEventMap emap
   -- canvas space
-  liftIO $ print (totalW, totalH)
   dummy_sz <- liftIO $ newImVec2 (realToFrac totalW) (realToFrac totalH)
   liftIO $ dummy dummy_sz
   -- handling event

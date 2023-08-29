@@ -30,6 +30,7 @@ import GHCSpecter.Graphics.DSL
   ( Scene (..),
     Stage (..),
   )
+import GHCSpecter.UI.Constants (appWidgetConfig)
 import GHCSpecter.UI.Types
   ( UIModel (..),
     UIState (..),
@@ -45,6 +46,81 @@ import System.IO
     stdout,
   )
 
+{-
+initializeUIState :: UTCTime -> UIState
+initializeUIState initTime = ui0'
+  where
+    defVP = ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight)
+    toOrigin = maybe defVP translateToOrigin
+    vpSessionMain =
+      toOrigin $ M.lookup "session-main" appWidgetConfig._wcfgSession
+    vpSessionProcess =
+      toOrigin $ M.lookup "session-process" appWidgetConfig._wcfgSession
+    vpSessionRts =
+      toOrigin $ M.lookup "session-rts" appWidgetConfig._wcfgSession
+    vpMainModGraph =
+      toOrigin $ M.lookup "main-module-graph" appWidgetConfig._wcfgModuleGraph
+    vpSubModGraph =
+      toOrigin $ M.lookup "sub-module-graph" appWidgetConfig._wcfgModuleGraph
+    vpSrcModTree =
+      toOrigin $ M.lookup "module-tree" appWidgetConfig._wcfgSourceView
+    vpSrcSource =
+      toOrigin $ M.lookup "source-view" appWidgetConfig._wcfgSourceView
+    vpSrcSupp =
+      toOrigin $ M.lookup "supple-view-contents" appWidgetConfig._wcfgSourceView
+    vpConsole =
+      toOrigin $ M.lookup  "console-main" appWidgetConfig._wcfgTopLevel
+
+    ui0 = emptyUIState initTime
+    model0 = ui0._uiModel
+    sessionUI0 = ui0._uiModel._modelSession
+    sessionUI0' =
+      sessionUI0 { _sessionUIMainViewPort = ViewPortInfo vpSessionMain Nothing }
+    timingUI0 = ui0._uiModel._modelTiming
+    timingUI0' =
+      timingUI0 { _
+
+    model0' =
+      model0
+        { _modelTab = TabSession,
+          _modelSession = sessionUI0',
+          -- ...
+          _modelTiming = timingUI0'
+        }
+    ui0' = ui0 { _uiModel = model0' }
+-}
+
+{-        & (uiModel . modelTab .~ TabModuleGraph)
+          . ( uiModel . modelSession . sessionUIMainViewPort
+                .~ ViewPortInfo vpSessionMain Nothing
+            )
+          . ( uiModel . modelSession . sessionUIProcessViewPort
+                .~ ViewPortInfo vpSessionProcess Nothing
+            )
+          . ( uiModel . modelSession . sessionUIRtsViewPort
+                .~ ViewPortInfo vpSessionRts Nothing
+            )
+          . ( uiModel . modelMainModuleGraph . modGraphViewPort
+                .~ ViewPortInfo vpMainModGraph Nothing
+            )
+          . ( uiModel . modelSubModuleGraph . _2 . modGraphViewPort
+                .~ ViewPortInfo vpSubModGraph Nothing
+            )
+          . (uiModel . modelWidgetConfig .~ appWidgetConfig)
+          . ( uiModel . modelSourceView . srcViewModuleTreeViewPort
+                .~ ViewPortInfo vpSrcModTree Nothing
+            )
+          . ( uiModel . modelSourceView . srcViewSourceViewPort
+                .~ ViewPortInfo vpSrcSource Nothing
+            )
+          . ( uiModel . modelSourceView . srcViewSuppViewPort
+                .~ ViewPortInfo vpSrcSupp Nothing
+            )
+          . (uiModel . modelTiming . timingUIPartition .~ True)
+          . (uiModel . modelTiming . timingUIHowParallel .~ False)
+          . (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vpConsole Nothing)
+-}
+
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
@@ -57,7 +133,7 @@ main = do
 
     initTime <- getCurrentTime
     let ui0 = emptyUIState initTime
-        model = (ui0._uiModel) {_modelTab = TabModuleGraph}
+        model = (ui0._uiModel) {_modelWidgetConfig = appWidgetConfig}
         ui = ui0 {_uiModel = model}
     uiRef <- newTVarIO ui
     chanQEv <- newTQueueIO
