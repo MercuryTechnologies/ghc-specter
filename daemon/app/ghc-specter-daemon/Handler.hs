@@ -32,6 +32,7 @@ import Util.Render
   ( ImRender (..),
     ImRenderState (..),
     SharedState (..),
+    fromGlobalCoords,
   )
 
 sendToControl :: SharedState UserEvent -> UserEvent -> IO ()
@@ -48,8 +49,7 @@ handleMove scene_id = do
       Just (x, y) -> do
         let x' = fromIntegral x
             y' = fromIntegral y
-            (ox, oy) = renderState.currOrigin
-            xy = (x' - ox, y' - oy)
+            xy = fromGlobalCoords renderState (x', y')
         isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
         when isHovered $
           liftIO $
@@ -65,8 +65,7 @@ handleClick scene_id = do
       Just (x, y) -> do
         let x' = fromIntegral x
             y' = fromIntegral y
-            (ox, oy) = renderState.currOrigin
-            xy = (x' - ox, y' - oy)
+            xy = fromGlobalCoords renderState (x', y')
 
         isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
         when isHovered $
@@ -86,7 +85,6 @@ handleScrollOrZoom scene_id = do
 
   renderState <- ImRender ask
   let shared = renderState.currSharedState
-      (ox, oy) = renderState.currOrigin
       (wheelX, wheelY) = shared.sharedMouseWheel
       eps = 1e-3
       isCtrlDown = shared.sharedCtrlDown
@@ -96,7 +94,7 @@ handleScrollOrZoom scene_id = do
       when (wheelX > eps || wheelX < -eps || wheelY > eps || wheelY < -eps) $ do
         let x' = fromIntegral x
             y' = fromIntegral y
-            xy = (x' - ox, y' - oy)
+            xy = fromGlobalCoords renderState (x', y')
         if isCtrlDown
           then do
             let s_ = 1.0 - wheelY * 0.1

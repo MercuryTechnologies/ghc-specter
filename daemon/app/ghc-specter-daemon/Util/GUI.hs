@@ -14,7 +14,7 @@ module Util.GUI
     showFramerate,
     paintWindow,
     globalCursorPosition,
-    currentOrigin,
+    getCanvasOriginInGlobalCoords,
     makeTabContents,
   )
 where
@@ -156,8 +156,8 @@ globalCursorPosition = do
     then pure (Just (mouse_x, mouse_y))
     else pure Nothing
 
-currentOrigin :: IO (Double, Double)
-currentOrigin = do
+getCanvasOriginInGlobalCoords :: IO (Double, Double)
+getCanvasOriginInGlobalCoords = do
   p <- getCursorScreenPos
   px <- imVec2_x_get p
   py <- imVec2_y_get p

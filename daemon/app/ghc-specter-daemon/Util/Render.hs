@@ -11,6 +11,10 @@ module Util.Render
     ImRender (..),
     runImRender,
 
+    -- * coord
+    toGlobalCoords,
+    fromGlobalCoords,
+
     -- * rendering and event map
     renderShape,
     renderPrimitive,
@@ -56,7 +60,7 @@ import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
-import Util.GUI (currentOrigin)
+import Util.GUI (getCanvasOriginInGlobalCoords)
 import Util.Orphans ()
 
 --
@@ -81,7 +85,8 @@ data SharedState e = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
-    currOrigin :: (Double, Double),
+    currCanvasOriginInGlobalCoords :: (Double, Double),
+    currCanvasOriginInViewportCoords :: (Double, Double),
     -- | (scaleX, scaleY)
     currScale :: (Double, Double)
   }
@@ -90,12 +95,13 @@ mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
-  oxy <- liftIO currentOrigin
+  oxy <- liftIO getCanvasOriginInGlobalCoords
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currOrigin = oxy,
+        currCanvasOriginInGlobalCoords = oxy,
+        currCanvasOriginInViewportCoords = (0, 0),
         currScale = (1.0, 1.0)
       }
 
@@ -118,18 +124,28 @@ runImRender s action = runReaderT (unImRender action) s
 mkImVec2 :: (Double, Double) -> IO ImVec2
 mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
 
+toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+toGlobalCoords s (x, y) =
+  let (ox, oy) = s.currCanvasOriginInGlobalCoords
+      (vx, vy) = s.currCanvasOriginInViewportCoords
+   in (ox + x - vx, oy + y - vy)
+
+fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+fromGlobalCoords s (x', y') =
+  let (ox, oy) = s.currCanvasOriginInGlobalCoords
+      (vx, vy) = s.currCanvasOriginInViewportCoords
+   in (x' - ox + vx, y' - oy + vy)
+
 --
 --
 
 renderShape :: Shape -> ImRender e ()
 renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ do
   s <- ask
+  let (x', y') = toGlobalCoords s (x, y)
   liftIO $ do
-    let (ox, oy) = s.currOrigin
-        x' = ox + x
-        y' = oy + y
-    v1 <- mkImVec2 (x', y') -- newImVec2 x' y'
-    v2 <- mkImVec2 (x' + w, y' + h) -- newImVec2 (x' + w') (y' + h')
+    v1 <- mkImVec2 (x', y')
+    v2 <- mkImVec2 (x' + w, y' + h)
     for_ mbkg $ \bkg -> do
       col <- getNamedColor bkg
       imDrawList_AddRectFilled
@@ -154,20 +170,20 @@ renderShape (SRectangle (Rectangle (x, y) w h mline mbkg mlwidth)) = ImRender $ 
 renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
   s <- ask
   liftIO $ do
-    let (ox, oy) = s.currOrigin
-        (x0, y0) = xy0
-        (x1, y1) = xy1
+    let (x0', y0') = toGlobalCoords s xy0
+        (x1', y1') = toGlobalCoords s xy1
         nPoints = length xys + 2
     -- TODO: make a utility function for this tedious and error-prone process
     allocaArray nPoints $ \(pp :: Ptr ImVec2) -> do
-      p0 <- mkImVec2 (x0 + ox, y0 + oy) -- newImVec2 (realToFrac (x0 + ox)) (realToFrac (y0 + oy))
+      p0 <- mkImVec2 (x0', y0')
       pokeElemOff pp 0 p0
       delete p0
-      p1 <- mkImVec2 (x1 + ox, y1 + oy) -- newImVec2 (realToFrac (x1 + ox)) (realToFrac (y1 + oy))
+      p1 <- mkImVec2 (x1', y1')
       pokeElemOff pp (nPoints - 1) p1
       delete p1
       for_ (zip [1 ..] xys) $ \(i, (x, y)) -> do
-        p <- mkImVec2 (x + ox, y + oy) -- newImVec2 (realToFrac (x + ox)) (realToFrac (y + oy))
+        let (x', y') = toGlobalCoords s (x, y)
+        p <- mkImVec2 (x', y')
         pokeElemOff pp i p
         delete p
       let p :: ImVec2 = cast_fptr_to_obj (castPtr pp)
@@ -185,13 +201,13 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
     case font of
       Sans -> pushFont (s.currSharedState.sharedFontSans)
       Mono -> pushFont (s.currSharedState.sharedFontMono)
-    let (ox, oy) = s.currOrigin
-        offsetY = case pos of
+    let offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
-        x' = x + ox
-        y' = y + oy + fromIntegral offsetY
-    v' <- mkImVec2 (x', y')
+        x' = x
+        y' = y + fromIntegral offsetY
+        (x'', y'') = toGlobalCoords s (x', y')
+    v' <- mkImVec2 (x'', y'')
     col <- getNamedColor color
     useAsCString (encodeUtf8 msg) $ \cstr ->
       imDrawList_AddText
@@ -225,12 +241,10 @@ renderScene scene = do
       filtered = filter overlapCheck (sceneElements scene)
   local
     ( \s ->
-        let (ox, oy) = s.currOrigin
-            (ox', oy') = (ox - vx0, oy - vy0)
-         in s
-              { currOrigin = (ox', oy'),
-                currScale = (scaleX, scaleY)
-              }
+        s
+          { currCanvasOriginInViewportCoords = (vx0, vy0),
+            currScale = (scaleX, scaleY)
+          }
     )
     $ traverse_ renderPrimitive filtered
 
