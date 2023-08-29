@@ -45,12 +45,21 @@ transformScroll vpLimit scale (dx, dy) vp = vp''
       let (x0', y0') = (x0 - dx', y0 - dy')
           (x1', y1') = (x1 - dx', y1 - dy')
           vp' = ViewPort (x0', y0') (x1', y1')
+          w = x1' - x0'
+          h = y1' - y0'
+          -- margin
+          -- m = 10
+          eps = 1.0
        in case vpLimit of
             Nothing -> vp'
             Just (ViewPort (xL0, yL0) (xL1, yL1)) ->
-              if x0' < xL0 || x1' > xL1 || y0' < yL0 || y1' > yL1
-                then vp
-                else vp'
+              let (x0'', x1'')
+                    | abs dx' < eps || x0' < xL0 || x1' > xL1 = (x0, x1)
+                    | otherwise = (x0', x1')
+                  (y0'', y1'')
+                    | abs dy' < eps || y0' < yL0 || y1' > yL1 = (y0, y1)
+                    | otherwise = (y0', y1')
+               in ViewPort (x0'', y0'') (x1'', y1'')
 
 -- | zoom
 transformZoom ::
