@@ -24,7 +24,6 @@ import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( KeyMap,
-    forwardLookup,
     keyMapToList,
     lookupKey,
   )
@@ -34,6 +33,7 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Console
   ( buildConsoleMain,
+    getTabName,
   )
 import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types
@@ -70,12 +70,7 @@ render ui ss = do
     consoleMap = ss._serverConsole
     mconsoleFocus = ui._uiModel._modelConsole._consoleFocus
     inputEntry = ui._uiModel._modelConsole._consoleInputEntry
-    -- TODO: refactor this out and this should be out of Render.*
-    getTabName k =
-      let ktxt = T.pack $ show (unDriverId k)
-          mlookedup = forwardLookup k (ss._serverDriverModuleMap)
-       in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
-    tabs = fmap (\(k, _) -> (k, getTabName k)) . keyMapToList $ pausedMap
+    tabs = fmap (\(k, _) -> (k, getTabName ss k)) . keyMapToList $ pausedMap
 
 renderMainContent ::
   ServerState ->
