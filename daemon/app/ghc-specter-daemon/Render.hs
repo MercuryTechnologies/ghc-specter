@@ -86,8 +86,8 @@ tabSession ui ss = do
   liftIO endChild
   liftIO $ delete zerovec
 
--- tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
--- tabModuleGraph = ModuleGraph.render
+tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+tabModuleGraph = ModuleGraph.render
 
 tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSourceView ui ss = do
@@ -124,39 +124,6 @@ tabMemory ui ss = do
   Timing.renderMemoryView ui ss
   liftIO endChild
   liftIO $ delete zerovec
-
-{-
-tabTest :: ImGuiIO -> ReaderT (SharedState UserEvent) IO ()
-tabTest io = do
-  shared <- ask
-  let mxy = shared.sharedMousePos
-  liftIO $ do
-    (ox, oy) <- currentOrigin
-    dummy_sz <- newImVec2 500 500
-    dummy dummy_sz
-    let key_wheel =
-          fromIntegral $
-            fromEnum ImGuiKey_MouseWheelX
-              .|. fromEnum ImGuiKey_MouseWheelY
-        key_ctrl =
-          fromIntegral $
-            fromEnum ImGuiMod_Ctrl
-        flags =
-          fromIntegral $
-            fromEnum ImGuiInputFlags_CondDefault_
-    setItemKeyOwner key_wheel flags
-    wheelX <- imGuiIO_MouseWheelH_get io
-    wheelY <- imGuiIO_MouseWheel_get io
-    print (wheelX, wheelY)
-    case mxy of
-      Just (x, y) ->
-        putStrLn $
-          "mouse position on canvas: " <> show (fromIntegral x - ox, fromIntegral y - oy)
-      Nothing -> putStrLn "cannot find the mouse position"
-    b <- isKeyDown key_ctrl
-    putStrLn $ "Ctrl is down: " <> show b
-    pure ()
--}
 
 singleFrame ::
   ImGuiIO ->
@@ -207,12 +174,11 @@ singleFrame io window ui ss oldShared = do
               makeTabContents
                 mnextTab
                 [ (TabSession, "Session", tabSession ui ss),
-                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
                   (TabSourceView, "Source view", tabSourceView ui ss),
                   (TabTiming, "Timing view", tabTiming ui ss),
                   (TabTiming, "Blocker graph", tabBlockerGraph ui ss),
                   (TabTiming, "Memory view", tabMemory ui ss)
-                  -- (TabTiming, "test", tabTest io)
                 ]
             liftIO endTabBar
             -- tab event handling
