@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
@@ -40,8 +40,7 @@ import GHCSpecter.UI.Types.Event
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiInputFlags_ (..),
-    ImGuiKey (..),
+  ( ImGuiKey (..),
     ImGuiMouseButton_ (..),
     ImGuiWindowFlags_ (..),
   )
@@ -66,8 +65,7 @@ import Render.TimingView qualified as Timing (render, renderMemoryView)
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
-  ( currentOrigin,
-    finalize,
+  ( finalize,
     globalCursorPosition,
     initialize,
     makeTabContents,

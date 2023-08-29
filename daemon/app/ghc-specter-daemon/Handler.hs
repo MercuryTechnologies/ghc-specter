@@ -54,7 +54,7 @@ handleMove scene_id = do
         isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
         when isHovered $
           liftIO $
-            sendToControl shared (MouseEv (MouseMove (Just scene_id) xy))
+            sendToControl shared (MouseEv (MouseMove scene_id xy))
 
 handleClick :: Text -> ImRender UserEvent ()
 handleClick scene_id = do
@@ -72,7 +72,7 @@ handleClick scene_id = do
         isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
         when isHovered $
           liftIO $
-            sendToControl shared (MouseEv (MouseClick (Just scene_id) xy))
+            sendToControl shared (MouseEv (MouseClick scene_id xy))
 
 handleScrollOrZoom :: Text -> ImRender UserEvent ()
 handleScrollOrZoom scene_id = do
@@ -104,11 +104,11 @@ handleScrollOrZoom scene_id = do
             liftIO $ do
               sendToControl
                 shared
-                (MouseEv (ZoomUpdate xy s))
+                (MouseEv (ZoomUpdate scene_id xy s))
           else do
             let dx = wheelX * 5.0
                 dy = wheelY * 5.0
             liftIO $ do
               sendToControl
                 shared
-                (MouseEv (Scroll xy (dx, dy)))
+                (MouseEv (Scroll scene_id xy (dx, dy)))
