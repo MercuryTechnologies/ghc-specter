@@ -214,9 +214,9 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
             Sans -> s.currSharedState.sharedFontSans
             Mono -> s.currSharedState.sharedFontMono
     -- NOTE: This is rather hacky workaround.
-    let (sx, _) = s.currScale
+    let (_, sy) = s.currScale
         -- TODO: This hard-coded 6.0 should be factored out
-        factor = (fromIntegral fontSize) * sx / 6.0
+        factor = (fromIntegral fontSize) * sy / 6.0
     imFont_Scale_set fontSelected (realToFrac factor)
     pushFont fontSelected
     let offsetY = case pos of

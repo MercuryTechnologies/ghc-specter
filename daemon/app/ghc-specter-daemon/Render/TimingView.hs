@@ -28,12 +28,14 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants (timingMaxWidth)
+import GHCSpecter.UI.Constants
+  ( timingRangeHeight,
+    timingWidth,
+  )
 import GHCSpecter.UI.Types
   ( TimingUI (..),
     UIModel (..),
     UIState (..),
-    ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 import ImGui qualified
@@ -57,6 +59,7 @@ render ui ss = do
   for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
     for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
       for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do
+        let ViewPort (_, vy0) (_, vy1) = stageTiming.sceneLocalViewPort
         runImRender renderState $ do
           renderComponent
             True
@@ -78,7 +81,7 @@ render ui ss = do
                 let scene' =
                       scene
                         { sceneGlobalViewPort = stageMemory.sceneGlobalViewPort,
-                          sceneLocalViewPort = stageMemory.sceneLocalViewPort
+                          sceneLocalViewPort = ViewPort (0, vy0) (0.15 * timingWidth, vy1)
                         }
                 pure scene'
             )
@@ -90,7 +93,7 @@ render ui ss = do
                     scene' =
                       scene
                         { sceneGlobalViewPort = stageRange.sceneGlobalViewPort,
-                          sceneLocalViewPort = stageRange.sceneLocalViewPort
+                          sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
                         }
                 pure scene'
             )
