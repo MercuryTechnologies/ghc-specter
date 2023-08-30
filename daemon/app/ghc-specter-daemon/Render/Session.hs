@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.Session
-  ( renderSession,
+  ( render,
     renderCompilationStatus,
   )
 where
@@ -30,7 +30,7 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import Handler (sendToControl)
-import ImGui
+import ImGui qualified
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (defTableFlags, windowFlagsNone)
@@ -40,31 +40,31 @@ import Util.Render
     runImRender,
   )
 
-renderSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSession _ui ss = do
-  vec1 <- liftIO $ newImVec2 0 100
-  vec2 <- liftIO $ newImVec2 500 0
-  vec3 <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
+render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render _ui ss = do
+  vec1 <- liftIO $ ImGui.newImVec2 0 100
+  vec2 <- liftIO $ ImGui.newImVec2 500 0
+  vec3 <- liftIO $ ImGui.newImVec2 0 0
+  _ <- liftIO $ ImGui.beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
   renderSessionInfo ss
-  liftIO endChild
-  whenM (toBool <$> liftIO (beginTable ("##table" :: CString) 2 defTableFlags)) $ do
-    liftIO $ tableSetupColumn_ ("#session" :: CString)
-    liftIO $ tableNextRow 0
-    liftIO $ tableSetColumnIndex 0
+  liftIO ImGui.endChild
+  whenM (toBool <$> liftIO (ImGui.beginTable ("##table" :: CString) 2 defTableFlags)) $ do
+    liftIO $ ImGui.tableSetupColumn_ ("#session" :: CString)
+    liftIO $ ImGui.tableNextRow 0
+    liftIO $ ImGui.tableSetColumnIndex 0
     --
-    liftIO $ textUnformatted ("Process info" :: CString)
-    _ <- liftIO $ beginChild ("#process-info" :: CString) vec2 (fromBool False) windowFlagsNone
+    liftIO $ ImGui.textUnformatted ("Process info" :: CString)
+    _ <- liftIO $ ImGui.beginChild ("#process-info" :: CString) vec2 (fromBool False) windowFlagsNone
     renderProcessPanel ss
-    liftIO endChild
+    liftIO ImGui.endChild
     --
-    liftIO $ tableSetColumnIndex 1
-    liftIO $ textUnformatted ("RTS info" :: CString)
-    _ <- liftIO $ beginChild ("#rts-info" :: CString) vec3 (fromBool False) windowFlagsNone
+    liftIO $ ImGui.tableSetColumnIndex 1
+    liftIO $ ImGui.textUnformatted ("RTS info" :: CString)
+    _ <- liftIO $ ImGui.beginChild ("#rts-info" :: CString) vec3 (fromBool False) windowFlagsNone
     renderRtsPanel ss
-    liftIO endChild
+    liftIO ImGui.endChild
     --
-    liftIO endTable
+    liftIO ImGui.endTable
 
   liftIO $ delete vec1
   liftIO $ delete vec2
@@ -92,8 +92,8 @@ renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
   shared <- ask
   liftIO $ do
-    textUnformatted (statusTxt :: CString)
-    whenM (toBool <$> button (buttonTxt :: CString)) $
+    ImGui.textUnformatted (statusTxt :: CString)
+    whenM (toBool <$> ImGui.button (buttonTxt :: CString)) $
       sendToControl shared (SessionEv event)
   renderState <- mkRenderState
   runImRender renderState $

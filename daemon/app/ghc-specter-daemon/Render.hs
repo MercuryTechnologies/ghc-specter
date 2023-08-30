@@ -53,17 +53,11 @@ import ImGui.ImGuiIO.Implementation
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
-import Render.Console qualified as Console (render)
+import Render.Console qualified as Console
 import Render.ModuleGraph qualified as ModuleGraph
-  ( render,
-    renderBlockerGraph,
-  )
 import Render.Session qualified as Session
-  ( renderCompilationStatus,
-    renderSession,
-  )
-import Render.SourceView qualified as SourceView (render)
-import Render.TimingView qualified as Timing (render)
+import Render.SourceView qualified as SourceView
+import Render.TimingView qualified as Timing
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
@@ -82,18 +76,23 @@ import Util.Render (SharedState (..))
 tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSession ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsScroll
-  Session.renderSession ui ss
+  _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsNoScroll
+  Session.render ui ss
   liftIO endChild
   liftIO $ delete zerovec
 
 tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabModuleGraph = ModuleGraph.render
+tabModuleGraph ui ss = do
+  zerovec <- liftIO $ newImVec2 0 0
+  _ <- liftIO $ beginChild ("#module-graph" :: CString) zerovec (fromBool False) windowFlagsNoScroll
+  ModuleGraph.render ui ss
+  liftIO endChild
+  liftIO $ delete zerovec
 
 tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabSourceView ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#source-view" :: CString) zerovec (fromBool False) windowFlagsScroll
+  _ <- liftIO $ beginChild ("#source-view" :: CString) zerovec (fromBool False) windowFlagsNoScroll
   SourceView.render ui ss
   liftIO endChild
   liftIO $ delete zerovec
@@ -101,11 +100,7 @@ tabSourceView ui ss = do
 tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabTiming ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  let flags =
-        fromIntegral $
-          fromEnum ImGuiWindowFlags_NoScrollbar
-            .|. fromEnum ImGuiWindowFlags_NoScrollWithMouse
-  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) flags
+  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) windowFlagsNoScroll
   Timing.render ui ss
   liftIO endChild
   liftIO $ delete zerovec
@@ -113,7 +108,7 @@ tabTiming ui ss = do
 tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 tabBlockerGraph ui ss = do
   zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#blocker-graph" :: CString) zerovec (fromBool False) windowFlagsScroll
+  _ <- liftIO $ beginChild ("#blocker-graph" :: CString) zerovec (fromBool False) windowFlagsNoScroll
   ModuleGraph.renderBlockerGraph ui ss
   liftIO endChild
   liftIO $ delete zerovec
