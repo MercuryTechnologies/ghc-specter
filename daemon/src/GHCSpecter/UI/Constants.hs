@@ -69,10 +69,10 @@ timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
 
 modGraphWidth :: (Num a) => a
-modGraphWidth = 1440
+modGraphWidth = 1024
 
 modGraphHeight :: (Num a) => a
-modGraphHeight = 768
+modGraphHeight = 300
 
 sessionModStatusDim :: (Num a) => (a, a)
 sessionModStatusDim = (250, 80)
@@ -159,8 +159,8 @@ appWidgetConfig =
           ],
       _wcfgModuleGraph =
         Map.fromList
-          [ ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight)),
-            ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          [ ("main-module-graph", ViewPort (0, 0) (modGraphWidth, modGraphHeight)),
+            ("sub-module-graph", ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight))
           ],
       _wcfgSourceView =
         Map.fromList

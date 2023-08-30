@@ -8,11 +8,13 @@ module Render.ModuleGraph
   )
 where
 
+import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
+import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
@@ -23,7 +25,10 @@ import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Map (backwardLookup)
 import GHCSpecter.Data.Timing.Types (PipelineInfo (..), TimingTable (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL (Scene (..))
+import GHCSpecter.Graphics.DSL
+  ( Scene (..),
+    Stage (..),
+  )
 import GHCSpecter.Server.Types
   ( ModuleGraphState (..),
     ServerState (..),
@@ -47,9 +52,13 @@ import ImGui.Enum (ImGuiTableFlags_ (..))
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Text.Printf (printf)
-import Util.GUI (windowFlagsScroll)
+import Util.GUI
+  ( windowFlagsNoScroll,
+    windowFlagsScroll,
+  )
 import Util.Render
-  ( SharedState (..),
+  ( ImRenderState (..),
+    SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -69,13 +78,13 @@ render ui ss = do
     liftIO $ ImGui.tableSetupColumn_ ("graph" :: CString)
     liftIO $ ImGui.tableNextRow 0
     liftIO $ ImGui.tableSetColumnIndex 0
-    _ <- liftIO $ ImGui.beginChild ("#main-modgraph" :: CString) minusvec (fromBool False) windowFlagsScroll
+    _ <- liftIO $ ImGui.beginChild ("#main-modgraph" :: CString) minusvec (fromBool True) windowFlagsNoScroll
     renderMainModuleGraph ui ss
     liftIO ImGui.endChild
     --
     liftIO $ ImGui.tableNextRow 0
     liftIO $ ImGui.tableSetColumnIndex 0
-    _ <- liftIO $ ImGui.beginChild ("#sub-modgraph" :: CString) zerovec (fromBool False) windowFlagsScroll
+    _ <- liftIO $ ImGui.beginChild ("#sub-modgraph" :: CString) zerovec (fromBool True) windowFlagsNoScroll
     renderSubModuleGraph ui ss
     liftIO ImGui.endChild
     liftIO ImGui.endTable
@@ -88,15 +97,29 @@ renderMainModuleGraph ui ss = do
     Nothing -> pure ()
     Just grVisInfo -> do
       let mgrui = ui._uiModel._modelMainModuleGraph
-
           mainModuleClicked = mgrui._modGraphUIClick
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
-      runImRender renderState $
-        renderComponent
-          False
-          MainModuleEv
-          (GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered))
+      let stage_ref = renderState.currSharedState.sharedStage
+      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \stageMain -> do
+        runImRender renderState $
+          renderComponent
+            True
+            MainModuleEv
+            ( do
+                scene <-
+                  GraphView.buildModuleGraph
+                    nameMap
+                    valueFor
+                    grVisInfo
+                    (mainModuleClicked, mainModuleHovered)
+                pure
+                  scene
+                    { sceneGlobalViewPort = stageMain.sceneGlobalViewPort,
+                      sceneLocalViewPort = stageMain.sceneLocalViewPort
+                    }
+            )
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -123,15 +146,28 @@ renderSubModuleGraph ui ss = do
             | isModuleCompilationDone drvModMap timing name = 1
             | otherwise = 0
       renderState <- mkRenderState
-      runImRender renderState $
-        renderComponent
-          False
-          (SubModuleEv . SubModuleGraphEv)
-          ( do
-              scene <- GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
-              -- TODO: this should be set up from buildModuleGraph
-              pure scene {sceneId = "sub-module-graph"}
-          )
+      let stage_ref = renderState.currSharedState.sharedStage
+      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \stageSub -> do
+        runImRender renderState $
+          renderComponent
+            True
+            (SubModuleEv . SubModuleGraphEv)
+            ( do
+                scene <-
+                  GraphView.buildModuleGraph
+                    nameMap
+                    valueForSub
+                    subgraph
+                    (mainModuleClicked, subModuleHovered)
+                -- TODO: this should be set up from buildModuleGraph
+                pure
+                  scene
+                    { sceneId = "sub-module-graph",
+                      sceneGlobalViewPort = stageSub.sceneGlobalViewPort,
+                      sceneLocalViewPort = stageSub.sceneLocalViewPort
+                    }
+            )
   where
     mgrui = ui._uiModel._modelMainModuleGraph
     (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph

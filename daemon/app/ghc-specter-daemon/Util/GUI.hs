@@ -169,7 +169,7 @@ getOriginInImGui = do
   pure (realToFrac px, realToFrac py)
 
 makeTabContents :: (MonadIO m, Eq tag) => (Maybe tag) -> [(tag, Text, m ())] -> m (Maybe tag)
-makeTabContents mpreselected = fmap (getFirst . fold) . traverse go . zip [1..]
+makeTabContents mpreselected = fmap (getFirst . fold) . traverse go . zip [1 ..]
   where
     go (i, (tag, title, mkItem)) = do
       let title' = fromString (T.unpack title) :: CString
