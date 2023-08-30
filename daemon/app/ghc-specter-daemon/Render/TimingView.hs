@@ -3,7 +3,6 @@
 
 module Render.TimingView
   ( render,
-  -- renderMemoryView,
   )
 where
 
