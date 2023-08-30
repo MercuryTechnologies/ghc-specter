@@ -174,7 +174,7 @@ appWidgetConfig =
         Map.fromList
           [ ("timing-chart", ViewPort (0, 0) (0.85 * timingWidth, timingHeight)),
             ("mem-chart", ViewPort (0.85 * timingWidth, 0) (timingWidth, timingHeight)),
-            ("timing-range", ViewPort (0, timingHeight) (timingWidth, timingHeight + timingRangeHeight))
-            -- ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+            ("timing-range", ViewPort (0, timingHeight) (timingWidth, timingHeight + timingRangeHeight)),
+            ("blocker-module-graph", ViewPort (0, 0) (timingWidth, timingHeight))
           ]
     }

@@ -26,6 +26,10 @@ module GHCSpecter.UI.Types
     HasTimingUI (..),
     emptyTimingUI,
 
+    -- * BlockerUI
+    BlockerUI (..),
+    HasBlockerUI (..),
+
     -- * ConsoleUI
     ConsoleUI (..),
     HasConsoleUI (..),
@@ -137,9 +141,7 @@ data TimingUI = TimingUI
     _timingUIHowParallel :: Bool,
     -- | timing UI viewport
     _timingUIViewPort :: ViewPortInfo,
-    _timingUIHandleMouseMove :: Bool,
-    _timingUIHoveredModule :: Maybe Text,
-    _timingUIBlockerGraph :: Bool
+    _timingUIHoveredModule :: Maybe Text
   }
 
 makeClassy ''TimingUI
@@ -151,9 +153,19 @@ emptyTimingUI =
       _timingUIPartition = False,
       _timingUIHowParallel = False,
       _timingUIViewPort = ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing,
-      _timingUIHandleMouseMove = False,
-      _timingUIHoveredModule = Nothing,
-      _timingUIBlockerGraph = False
+      _timingUIHoveredModule = Nothing
+    }
+
+data BlockerUI = BlockerUI
+  { _blockerUIViewPort :: ViewPortInfo
+  }
+
+makeClassy ''BlockerUI
+
+emptyBlockerUI :: BlockerUI
+emptyBlockerUI =
+  BlockerUI
+    { _blockerUIViewPort = ViewPortInfo (ViewPort (0, 0) (timingWidth, timingHeight)) Nothing
     }
 
 data ConsoleUI = ConsoleUI
@@ -190,6 +202,8 @@ data UIModel = UIModel
     _modelSourceView :: SourceViewUI,
     -- | UI model of Timing UI
     _modelTiming :: TimingUI,
+    -- | UI model of Blocker UI
+    _modelBlocker :: BlockerUI,
     -- | UI model of console uI
     _modelConsole :: ConsoleUI,
     -- | widget config. to support dynamic configuration change
@@ -211,6 +225,7 @@ emptyUIModel =
       _modelSubModuleGraph = (UpTo30, emptyModuleGraphUI),
       _modelSourceView = emptySourceViewUI,
       _modelTiming = emptyTimingUI,
+      _modelBlocker = emptyBlockerUI,
       _modelConsole = emptyConsoleUI,
       _modelWidgetConfig = emptyWidgetConfig,
       _modelTransientBanner = Nothing
@@ -232,17 +247,14 @@ data UIState = UIState
     _uiLastUpdated :: UTCTime,
     -- | main UI state
     _uiModel :: UIModel
-    -- \| additional assets (such as png files)
-    -- _uiAssets :: Assets
   }
 
 makeClassy ''UIState
 
-emptyUIState {- Assets -> -} :: UTCTime -> UIState
-emptyUIState {- assets -} now =
+emptyUIState :: UTCTime -> UIState
+emptyUIState now =
   UIState
     { _uiShouldUpdate = True,
       _uiLastUpdated = now,
       _uiModel = emptyUIModel
-      -- _uiAssets = assets
     }

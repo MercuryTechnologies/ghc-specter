@@ -137,7 +137,7 @@ singleFrame io window ui ss oldShared = do
                   (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
                   (TabSourceView, "Source view", SourceView.render ui ss),
                   (TabTiming, "Timing view", Timing.render ui ss),
-                  (TabTiming, "Blocker graph", ModuleGraph.renderBlockerGraph ui ss)
+                  (TabBlocker, "Blocker graph", ModuleGraph.renderBlockerGraph ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling

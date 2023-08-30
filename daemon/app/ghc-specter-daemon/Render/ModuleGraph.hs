@@ -41,7 +41,8 @@ import GHCSpecter.UI.Types
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
-  ( BlockerModuleGraphEvent (..),
+  ( BlockerEvent (..),
+    BlockerModuleGraphEvent (..),
     SubModuleEvent (..),
     TimingEvent (..),
     UserEvent (..),
@@ -52,10 +53,7 @@ import ImGui.Enum (ImGuiTableFlags_ (..))
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Text.Printf (printf)
-import Util.GUI
-  ( windowFlagsNoScroll,
-    windowFlagsScroll,
-  )
+import Util.GUI (windowFlagsNoScroll)
 import Util.Render
   ( ImRenderState (..),
     SharedState (..),
@@ -198,20 +196,28 @@ renderBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) 
 renderBlockerGraph _ui ss = do
   whenM (toBool <$> liftIO (ImGui.button ("Re-compute Blocker Graph" :: CString))) $ do
     shared <- ask
-    liftIO $ sendToControl shared (TimingEv ShowBlockerGraph)
+    liftIO $ sendToControl shared (BlockerEv ComputeBlockerGraph)
   case mblockerGraphViz of
     Nothing -> pure ()
     Just blockerGraphViz -> do
       renderState <- mkRenderState
-      runImRender renderState $
-        renderComponent
-          False
-          (TimingEv . BlockerModuleGraphEv . BMGGraph)
-          ( do
-              scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
-              -- TODO: this should be set up from buildModuleGraph
-              pure scene {sceneId = "blocker-module-graph"}
-          )
+      let stage_ref = renderState.currSharedState.sharedStage
+      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      for_ (L.find ((== "blocker-module-graph") . sceneId) stage) $ \stageBlocker -> do
+        runImRender renderState $
+          renderComponent
+            True
+            (TimingEv . BlockerModuleGraphEv . BMGGraph)
+            ( do
+                scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
+                -- TODO: this should be set up from buildModuleGraph
+                pure
+                  scene
+                    { sceneId = "blocker-module-graph",
+                      sceneGlobalViewPort = stageBlocker.sceneGlobalViewPort,
+                      sceneLocalViewPort = stageBlocker.sceneLocalViewPort
+                    }
+            )
   where
     drvModMap = ss._serverDriverModuleMap
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
