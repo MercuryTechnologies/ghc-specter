@@ -118,6 +118,7 @@ emptyWidgetConfig =
 
 -- TODO: use type-level literal or something to be more safe.
 -- TODO: also replace each repeated values for adjacent elements with a single variable.
+-- TODO: THIS WHOLE CONFIG IS NOW OBSOLETE.
 appWidgetConfig :: WidgetConfig
 appWidgetConfig =
   WidgetConfig
@@ -128,7 +129,7 @@ appWidgetConfig =
               ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
             ),
             ( "console-main",
-              ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consoleInputHeight)
+              ViewPort (0, 0) (canvasDim ^. _1, consolePanelHeight)
             ),
             ( "console-input",
               ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim

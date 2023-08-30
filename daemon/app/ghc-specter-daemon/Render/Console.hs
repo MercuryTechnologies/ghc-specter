@@ -7,12 +7,14 @@ module Render.Console
   )
 where
 
+import Control.Concurrent.STM (atomically, readTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
-import Data.Foldable (traverse_)
+import Data.Foldable (for_, traverse_)
+import Data.List qualified as L
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -27,6 +29,7 @@ import GHCSpecter.Data.Map
     keyMapToList,
     lookupKey,
   )
+import GHCSpecter.Graphics.DSL (Scene (..), Stage (..))
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     ServerState (..),
@@ -84,8 +87,21 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   vec2 <- liftIO $ ImGui.newImVec2 0 (-25)
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False ConsoleEv (buildConsoleMain consoleMap mconsoleFocus)
+  let stage_ref = renderState.currSharedState.sharedStage
+  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  for_ (L.find ((== "console-main") . sceneId) stage) $ \stageMain -> do
+    runImRender renderState $
+      renderComponent
+        True
+        ConsoleEv
+        ( do
+            scene <- buildConsoleMain consoleMap mconsoleFocus
+            pure
+              scene
+                { sceneGlobalViewPort = stageMain.sceneGlobalViewPort,
+                  sceneLocalViewPort = stageMain.sceneLocalViewPort
+                }
+        )
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry
