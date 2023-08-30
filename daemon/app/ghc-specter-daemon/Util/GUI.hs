@@ -169,9 +169,9 @@ getOriginInImGui = do
   pure (realToFrac px, realToFrac py)
 
 makeTabContents :: (MonadIO m, Eq tag) => (Maybe tag) -> [(tag, Text, m ())] -> m (Maybe tag)
-makeTabContents mpreselected = fmap (getFirst . fold) . traverse go
+makeTabContents mpreselected = fmap (getFirst . fold) . traverse go . zip [1..]
   where
-    go (tag, title, mkItem) = do
+    go (i, (tag, title, mkItem)) = do
       let title' = fromString (T.unpack title) :: CString
       isSelected <-
         if Just tag == mpreselected
@@ -180,7 +180,13 @@ makeTabContents mpreselected = fmap (getFirst . fold) . traverse go
              in toBool <$> liftIO (beginTabItem title' nullPtr flagSelected)
           else toBool <$> liftIO (beginTabItem_ title')
       when isSelected $ do
+        liftIO $ pushID i
+        zerovec <- liftIO $ newImVec2 0 0
+        _ <- liftIO $ beginChild ("#tab" :: CString) zerovec (fromBool False) windowFlagsNoScroll
         void mkItem
+        liftIO endChild
+        liftIO $ delete zerovec
+        liftIO $ popID
         liftIO endTabItem
       if isSelected
         then pure (First (Just tag))

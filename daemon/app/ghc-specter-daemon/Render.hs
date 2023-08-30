@@ -73,46 +73,6 @@ import Util.GUI
   )
 import Util.Render (SharedState (..))
 
-tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabSession ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsNoScroll
-  Session.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabModuleGraph ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#module-graph" :: CString) zerovec (fromBool False) windowFlagsNoScroll
-  ModuleGraph.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabSourceView ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#source-view" :: CString) zerovec (fromBool False) windowFlagsNoScroll
-  SourceView.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabTiming ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) windowFlagsNoScroll
-  Timing.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabBlockerGraph ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#blocker-graph" :: CString) zerovec (fromBool False) windowFlagsNoScroll
-  ModuleGraph.renderBlockerGraph ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -173,11 +133,11 @@ singleFrame io window ui ss oldShared = do
             tabState <-
               makeTabContents
                 mnextTab
-                [ (TabSession, "Session", tabSession ui ss),
-                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
-                  (TabSourceView, "Source view", tabSourceView ui ss),
-                  (TabTiming, "Timing view", tabTiming ui ss),
-                  (TabTiming, "Blocker graph", tabBlockerGraph ui ss)
+                [ (TabSession, "Session", Session.render ui ss),
+                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                  (TabSourceView, "Source view", SourceView.render ui ss),
+                  (TabTiming, "Timing view", Timing.render ui ss),
+                  (TabTiming, "Blocker graph", ModuleGraph.renderBlockerGraph ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling
