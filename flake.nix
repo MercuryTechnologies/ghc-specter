@@ -39,24 +39,7 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        # this is temporary. need to use nix expression directly from hs-imgui.
-        config = {
-          allowBroken = true;
-          packageOverrides = self: {
-            imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
-              frameworks =
-                if self.stdenv.isDarwin
-                then self.darwin.apple_sdk.frameworks
-                else null;
-            };
-            implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
-              frameworks =
-                if self.stdenv.isDarwin
-                then self.darwin.apple_sdk.frameworks
-                else null;
-            };
-          };
-        };
+        overlays = [hs-imgui.overlay.${system}];
       };
 
       haskellOverlay = final: hself: hsuper: {
@@ -146,21 +129,6 @@
       defaultCompiler = "ghc962";
       supportedCompilers = ["ghc962"];
     in rec {
-      overlay = self: super: {
-        imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
-          frameworks =
-            if self.stdenv.isDarwin
-            then self.darwin.apple_sdk.frameworks
-            else null;
-        };
-        implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
-          frameworks =
-            if self.stdenv.isDarwin
-            then self.darwin.apple_sdk.frameworks
-            else null;
-        };
-      };
-
       inherit haskellOverlay;
 
       devShells =
