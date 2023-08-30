@@ -1,7 +1,12 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.Console
-  ( buildConsoleTab,
+  ( -- * utilities
+    getTabName,
+
+    -- * build component
+    buildConsoleTab,
     buildConsoleHelp,
     buildConsoleMain,
     buildConsoleInput,
@@ -18,9 +23,11 @@ import Data.Semigroup (sconcat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tree (drawTree)
+import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( IsKey (..),
     KeyMap,
+    forwardLookup,
     lookupKey,
   )
 import GHCSpecter.Graphics.DSL
@@ -44,7 +51,10 @@ import GHCSpecter.Layouter.Text
   ( MonadTextLayout,
     drawText',
   )
-import GHCSpecter.Server.Types (ConsoleItem (..))
+import GHCSpecter.Server.Types
+  ( ConsoleItem (..),
+    ServerState (..),
+  )
 import GHCSpecter.UI.Components.Tab
   ( TabConfig (..),
     buildTab,
@@ -55,6 +65,12 @@ import GHCSpecter.UI.Constants
   )
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
+
+getTabName :: ServerState -> DriverId -> Text
+getTabName ss k =
+  let ktxt = T.pack $ show (unDriverId k)
+      mlookedup = forwardLookup k (ss._serverDriverModuleMap)
+   in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
 
 buildEachLine ::
   forall m e.

@@ -3,7 +3,7 @@
 
 module Render.TimingView
   ( render,
-    renderMemoryView,
+  -- renderMemoryView,
   )
 where
 
@@ -28,12 +28,14 @@ import GHCSpecter.Server.Types
     TimingState (..),
   )
 import GHCSpecter.UI.Components.TimingView qualified as TimingView
-import GHCSpecter.UI.Constants (timingMaxWidth)
+import GHCSpecter.UI.Constants
+  ( timingRangeHeight,
+    timingWidth,
+  )
 import GHCSpecter.UI.Types
   ( TimingUI (..),
     UIModel (..),
     UIState (..),
-    ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event (UserEvent (..))
 import ImGui qualified
@@ -51,24 +53,50 @@ import Util.Render
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
   renderState <- mkRenderState
-  liftIO $ do
-    let stage_ref :: TVar Stage
-        stage_ref = renderState.currSharedState.sharedStage
-    Stage stage <- atomically $ readTVar stage_ref
-    for_ (L.find ((== "timing-chart") . sceneId) stage) $ \scene0 -> do
-      runImRender renderState $ do
-        renderComponent
-          True
-          TimingEv
-          ( do
-              scene <- TimingView.buildTimingChart drvModMap tui' ttable
-              let scene' =
-                    scene
-                      { sceneGlobalViewPort = sceneGlobalViewPort scene0,
-                        sceneLocalViewPort = sceneLocalViewPort scene0
-                      }
-              pure scene'
-          )
+  let stage_ref :: TVar Stage
+      stage_ref = renderState.currSharedState.sharedStage
+  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
+    for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
+      for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do
+        let ViewPort (_, vy0) (_, vy1) = stageTiming.sceneLocalViewPort
+        runImRender renderState $ do
+          renderComponent
+            True
+            TimingEv
+            ( do
+                scene <- TimingView.buildTimingChart drvModMap tui ttable
+                let scene' =
+                      scene
+                        { sceneGlobalViewPort = stageTiming.sceneGlobalViewPort,
+                          sceneLocalViewPort = stageTiming.sceneLocalViewPort
+                        }
+                pure scene'
+            )
+          renderComponent
+            False
+            TimingEv
+            ( do
+                scene <- TimingView.buildMemChart False 100 drvModMap tui ttable
+                let scene' =
+                      scene
+                        { sceneGlobalViewPort = stageMemory.sceneGlobalViewPort,
+                          sceneLocalViewPort = ViewPort (0, vy0) (0.15 * timingWidth, vy1)
+                        }
+                pure scene'
+            )
+          renderComponent
+            False
+            TimingEv
+            ( do
+                let scene = TimingView.buildTimingRange tui ttable
+                    scene' =
+                      scene
+                        { sceneGlobalViewPort = stageRange.sceneGlobalViewPort,
+                          sceneLocalViewPort = ViewPort (0, 0) (timingWidth, timingRangeHeight)
+                        }
+                pure scene'
+            )
   for_ mhoveredMod $ \hoveredMod -> do
     -- blocker
     renderBlocker hoveredMod ttable
@@ -78,9 +106,6 @@ render ui ss = do
     mhoveredMod = tui._timingUIHoveredModule
 
     ttable = ss._serverTiming._tsTimingTable
-
-    -- TODO: for now. we should not do any modification of TimingUI here.
-    tui' = tui {_timingUIPartition = True}
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
@@ -98,29 +123,6 @@ renderBlocker hoveredMod ttable = do
   _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool True) windowFlagsScroll
   liftIO $ delete vec1
   renderState' <- mkRenderState
-  liftIO $
-    runImRender renderState' $
-      renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
+  runImRender renderState' $
+    renderComponent False TimingEv (TimingView.buildBlockers hoveredMod ttable)
   liftIO ImGui.endChild
-
-renderMemoryView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderMemoryView ui ss = do
-  renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False TimingEv (TimingView.buildMemChart False 200 drvModMap tui' ttable)
-  where
-    drvModMap = ss._serverDriverModuleMap
-    tui = ui._uiModel._modelTiming
-    ttable = ss._serverTiming._tsTimingTable
-    timingInfos = ttable._ttableTimingInfos
-
-    nMods = length timingInfos
-    totalHeight = 5 * nMods
-    vp = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
-
-    tui' =
-      tui
-        { _timingUIPartition = True,
-          _timingUIViewPort = ViewPortInfo vp Nothing
-        }

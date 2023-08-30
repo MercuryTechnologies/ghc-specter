@@ -92,12 +92,11 @@ renderMainModuleGraph ui ss = do
           mainModuleClicked = mgrui._modGraphUIClick
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
-      liftIO $
-        runImRender renderState $
-          renderComponent
-            False
-            MainModuleEv
-            (GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered))
+      runImRender renderState $
+        renderComponent
+          False
+          MainModuleEv
+          (GraphView.buildModuleGraph nameMap valueFor grVisInfo (mainModuleClicked, mainModuleHovered))
   where
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     drvModMap = ss._serverDriverModuleMap
@@ -124,16 +123,15 @@ renderSubModuleGraph ui ss = do
             | isModuleCompilationDone drvModMap timing name = 1
             | otherwise = 0
       renderState <- mkRenderState
-      liftIO $
-        runImRender renderState $
-          renderComponent
-            False
-            (SubModuleEv . SubModuleGraphEv)
-            ( do
-                scene <- GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
-                -- TODO: this should be set up from buildModuleGraph
-                pure scene {sceneId = "sub-module-graph"}
-            )
+      runImRender renderState $
+        renderComponent
+          False
+          (SubModuleEv . SubModuleGraphEv)
+          ( do
+              scene <- GraphView.buildModuleGraph nameMap valueForSub subgraph (mainModuleClicked, subModuleHovered)
+              -- TODO: this should be set up from buildModuleGraph
+              pure scene {sceneId = "sub-module-graph"}
+          )
   where
     mgrui = ui._uiModel._modelMainModuleGraph
     (detailLevel, sgrui) = ui._uiModel._modelSubModuleGraph
@@ -169,16 +167,15 @@ renderBlockerGraph _ui ss = do
     Nothing -> pure ()
     Just blockerGraphViz -> do
       renderState <- mkRenderState
-      liftIO $
-        runImRender renderState $
-          renderComponent
-            False
-            (TimingEv . BlockerModuleGraphEv . BMGGraph)
-            ( do
-                scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
-                -- TODO: this should be set up from buildModuleGraph
-                pure scene {sceneId = "blocker-module-graph"}
-            )
+      runImRender renderState $
+        renderComponent
+          False
+          (TimingEv . BlockerModuleGraphEv . BMGGraph)
+          ( do
+              scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
+              -- TODO: this should be set up from buildModuleGraph
+              pure scene {sceneId = "blocker-module-graph"}
+          )
   where
     drvModMap = ss._serverDriverModuleMap
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap

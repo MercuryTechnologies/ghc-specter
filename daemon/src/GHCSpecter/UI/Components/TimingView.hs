@@ -293,8 +293,8 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
   pure
     Scene
       { sceneId = "mem-chart",
-        sceneGlobalViewPort = ViewPort (0, 0) (300, timingHeight),
-        sceneLocalViewPort = ViewPort (0, 0) (300, timingHeight),
+        sceneGlobalViewPort = ViewPort (0, 0) (120, timingHeight),
+        sceneLocalViewPort = ViewPort (0, 0) (120, timingHeight),
         sceneElements = rules ++ renderedItems,
         sceneExtents = Nothing
       }
@@ -322,9 +322,9 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
        in allocRatio * span16G
     -- TODO: this 100 should be a customizable variable
     span16G :: Double
-    span16G = 100
+    span16G = 40
     rules =
-      let xs = fmap (\x -> x / 16.0 * span16G) [0, 4 .. 64]
+      let xs = fmap (\x -> x / 16.0 * span16G) [0, 4 .. 32]
        in fmap (\x -> polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25) xs
 
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))

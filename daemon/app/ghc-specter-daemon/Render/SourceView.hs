@@ -77,9 +77,8 @@ render ui ss = do
 renderModuleTree :: SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderModuleTree srcUI ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $
-      renderComponent False SourceViewEv (buildModuleTree srcUI ss)
+  runImRender renderState $
+    renderComponent False SourceViewEv (buildModuleTree srcUI ss)
 
 renderSourceTextView :: Text -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSourceTextView modu ss = do
@@ -88,29 +87,27 @@ renderSourceTextView modu ss = do
     let topLevelDecls = getReducedTopLevelDecls modHieInfo
         src = modHieInfo._modHieSource
     renderState <- mkRenderState
-    liftIO $
-      runImRender renderState $
-        renderComponent
-          False
-          SourceViewEv
-          ( do
-              scene <- buildTextView src (fmap fst topLevelDecls)
-              pure scene {sceneId = "source-view"}
-          )
+    runImRender renderState $
+      renderComponent
+        False
+        SourceViewEv
+        ( do
+            scene <- buildTextView src (fmap fst topLevelDecls)
+            pure scene {sceneId = "source-view"}
+        )
   where
     hie = ss._serverHieState
 
 renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSuppViewPanel modu srcUI ss = do
   renderState <- mkRenderState
-  liftIO $
-    runImRender renderState $ do
-      let (sceneSuppTab, sceneSuppContents) = runIdentity (buildSuppViewPanel modu srcUI ss)
-      renderComponent
-        False
-        SourceViewEv
-        (pure sceneSuppTab)
-      renderComponent
-        False
-        (\_ -> DummyEv)
-        (pure sceneSuppContents)
+  runImRender renderState $ do
+    let (sceneSuppTab, sceneSuppContents) = runIdentity (buildSuppViewPanel modu srcUI ss)
+    renderComponent
+      False
+      SourceViewEv
+      (pure sceneSuppTab)
+    renderComponent
+      False
+      (\_ -> DummyEv)
+      (pure sceneSuppContents)

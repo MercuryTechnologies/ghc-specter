@@ -30,8 +30,10 @@ import Control.Concurrent.STM
     atomically,
     modifyTVar',
   )
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
@@ -40,6 +42,7 @@ import Data.Text.Encoding (encodeUtf8)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.C.String (CString)
 import Foreign.Marshal.Array (allocaArray)
+import Foreign.Marshal.Utils (fromBool)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
@@ -58,10 +61,10 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.UI.Types.Event (Event, Tab (..))
 import ImGui
-import ImGui.ImFont.Implementation (imFont_Scale_get, imFont_Scale_set)
+import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
-import Util.GUI (getCanvasOriginInGlobalCoords)
+import Util.GUI (getOriginInImGui)
 import Util.Orphans ()
 
 --
@@ -86,8 +89,9 @@ data SharedState e = SharedState
 data ImRenderState e = ImRenderState
   { currSharedState :: SharedState e,
     currDrawList :: ImDrawList,
-    currCanvasOriginInGlobalCoords :: (Double, Double),
-    currCanvasOriginInViewportCoords :: (Double, Double),
+    currOriginInImGui :: (Double, Double),
+    currUpperLeftInGlobalViewport :: (Double, Double),
+    currUpperLeftInLocalViewport :: (Double, Double),
     -- | (scaleX, scaleY)
     currScale :: (Double, Double)
   }
@@ -96,13 +100,14 @@ mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
 mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
-  oxy <- liftIO getCanvasOriginInGlobalCoords
+  oxy <- liftIO getOriginInImGui
   pure
     ImRenderState
       { currSharedState = shared,
         currDrawList = draw_list,
-        currCanvasOriginInGlobalCoords = oxy,
-        currCanvasOriginInViewportCoords = (0, 0),
+        currOriginInImGui = oxy,
+        currUpperLeftInGlobalViewport = (0, 0),
+        currUpperLeftInLocalViewport = (0, 0),
         currScale = (1.0, 1.0)
       }
 
@@ -115,8 +120,8 @@ newtype ImRender e a = ImRender
   }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader (ImRenderState e))
 
-runImRender :: ImRenderState e -> ImRender e a -> IO a
-runImRender s action = runReaderT (unImRender action) s
+runImRender :: ImRenderState e -> ImRender e a -> ReaderT (SharedState e) IO a
+runImRender s action = lift $ runReaderT (unImRender action) s
 
 --
 --
@@ -127,17 +132,19 @@ mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
 
 toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 toGlobalCoords s (x, y) =
-  let (ox, oy) = s.currCanvasOriginInGlobalCoords
-      (vx, vy) = s.currCanvasOriginInViewportCoords
+  let (ox, oy) = s.currOriginInImGui
+      (cx, cy) = s.currUpperLeftInGlobalViewport
+      (vx, vy) = s.currUpperLeftInLocalViewport
       (sx, sy) = s.currScale
-   in (ox + sx * (x - vx), oy + sy * (y - vy))
+   in (ox + cx + sx * (x - vx), oy + cy + sy * (y - vy))
 
 fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
 fromGlobalCoords s (x', y') =
-  let (ox, oy) = s.currCanvasOriginInGlobalCoords
-      (vx, vy) = s.currCanvasOriginInViewportCoords
+  let (ox, oy) = s.currOriginInImGui
+      (cx, cy) = s.currUpperLeftInGlobalViewport
+      (vx, vy) = s.currUpperLeftInLocalViewport
       (sx, sy) = s.currScale
-   in ((x' - ox) / sx + vx, (y' - oy) / sy + vy)
+   in ((x' - ox - cx) / sx + vx, (y' - oy - cy) / sy + vy)
 
 --
 --
@@ -207,9 +214,9 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
             Sans -> s.currSharedState.sharedFontSans
             Mono -> s.currSharedState.sharedFontMono
     -- NOTE: This is rather hacky workaround.
-    let (sx, _) = s.currScale
+    let (_, sy) = s.currScale
         -- TODO: This hard-coded 6.0 should be factored out
-        factor = (fromIntegral fontSize) * sx / 6.0
+        factor = (fromIntegral fontSize) * sy / 6.0
     imFont_Scale_set fontSelected (realToFrac factor)
     pushFont fontSelected
     let offsetY = case pos of
@@ -244,13 +251,23 @@ renderScene scene = do
   local
     ( \s ->
         s
-          { currCanvasOriginInViewportCoords = (vx0, vy0),
+          { currUpperLeftInGlobalViewport = (cx0, cy0),
+            currUpperLeftInLocalViewport = (vx0, vy0),
             currScale = (scaleX, scaleY)
           }
     )
-    $ traverse_ renderPrimitive filtered
-
--- lift R.restore
+    $ do
+      s' <- ask
+      let isValid = (vx0 < vx1) && (vy0 < vy1)
+      when isValid $ do
+        v1 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx0, vy0))
+        v2 <- liftIO $ mkImVec2 (toGlobalCoords s' (vx1, vy1))
+        liftIO $ pushClipRect v1 v2 (fromBool True)
+        liftIO $ delete v1
+        liftIO $ delete v2
+      traverse_ renderPrimitive filtered
+      when isValid $
+        liftIO popClipRect
 
 buildEventMap :: Scene (Primitive e) -> EventMap e
 buildEventMap scene =
