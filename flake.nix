@@ -146,6 +146,23 @@
       defaultCompiler = "ghc962";
       supportedCompilers = ["ghc962"];
     in rec {
+      overlays = [
+        (self: super: {
+          imgui = self.callPackage "${hs-imgui}/nix/imgui/default.nix" {
+            frameworks =
+              if self.stdenv.isDarwin
+              then self.darwin.apple_sdk.frameworks
+              else null;
+          };
+          implot = self.callPackage "${hs-imgui}/nix/implot/default.nix" {
+            frameworks =
+              if self.stdenv.isDarwin
+              then self.darwin.apple_sdk.frameworks
+              else null;
+          };
+        })
+      ];
+
       inherit haskellOverlay;
 
       devShells =
