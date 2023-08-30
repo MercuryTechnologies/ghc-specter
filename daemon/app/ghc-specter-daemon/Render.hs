@@ -41,7 +41,8 @@ import GHCSpecter.UI.Types.Event
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiKey (..),
+  ( ImGuiDir_ (..),
+    ImGuiKey (..),
     ImGuiMouseButton_ (..),
     ImGuiWindowFlags_ (..),
   )
@@ -72,6 +73,7 @@ import Util.GUI
     makeTabContents,
     paintWindow,
     showFramerate,
+    windowFlagsNoScroll,
     windowFlagsNone,
     windowFlagsScroll,
   )
@@ -131,7 +133,15 @@ singleFrame io window ui ss oldShared = do
   imGui_ImplGlfw_NewFrame
   newFrame
 
-  showFramerate io
+  viewport <- getMainViewport
+  beginViewportSideBar ("#test" :: CString) viewport (fromIntegral (fromEnum ImGuiDir_Down)) 30 windowFlagsNoScroll
+  let help = "Scroll with mouse wheel or touchpad. Ctrl+Scroll for zooming in/out.     Framerate = "
+  frate_str <- showFramerate io
+
+  withCString (help <> frate_str) $ \c_str ->
+    textUnformatted c_str
+  end
+
   mxy <- globalCursorPosition
 
   -- initialize event map for this frame
@@ -193,7 +203,6 @@ singleFrame io window ui ss oldShared = do
     -- console window
     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
     Console.render ui ss
-    --
     liftIO end
 
     pure $ newShared {sharedTabState = tabState}

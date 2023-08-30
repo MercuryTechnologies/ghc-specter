@@ -8,6 +8,7 @@ module Util.GUI
     -- * common flags
     windowFlagsNone,
     windowFlagsScroll,
+    windowFlagsNoScroll,
     defTableFlags,
 
     -- * general util
@@ -115,6 +116,12 @@ windowFlagsScroll =
     fromEnum ImGuiWindowFlags_AlwaysVerticalScrollbar
       .|. fromEnum ImGuiWindowFlags_AlwaysHorizontalScrollbar
 
+windowFlagsNoScroll :: CInt
+windowFlagsNoScroll =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_NoScrollbar
+      .|. fromEnum ImGuiWindowFlags_NoScrollWithMouse
+
 defTableFlags :: CInt
 defTableFlags =
   fromIntegral $
@@ -124,13 +131,11 @@ defTableFlags =
       .|. fromEnum ImGuiTableFlags_Resizable
       .|. fromEnum ImGuiTableFlags_Reorderable
 
-showFramerate :: ImGuiIO -> IO ()
+showFramerate :: ImGuiIO -> IO String
 showFramerate io = do
-  _ <- begin ("Framerate monitor" :: CString) nullPtr 0
   framerate :: Float <- realToFrac <$> imGuiIO_Framerate_get io
-  withCString (printf "Application average %.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate) $ \c_str ->
-    textUnformatted c_str
-  end
+  pure $
+    printf "%.3f ms/frame (%.1f FPS)" (1000.0 / framerate) framerate
 
 paintWindow :: GLFWwindow -> (Double, Double, Double) -> IO ()
 paintWindow window (r, g, b) =
