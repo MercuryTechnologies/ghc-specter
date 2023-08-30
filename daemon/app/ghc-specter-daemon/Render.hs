@@ -14,11 +14,10 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
-import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
@@ -44,7 +43,6 @@ import ImGui.Enum
   ( ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
-    ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation
   ( imGuiIO_Fonts_get,
@@ -58,7 +56,6 @@ import Render.ModuleGraph qualified as ModuleGraph
 import Render.Session qualified as Session
 import Render.SourceView qualified as SourceView
 import Render.TimingView qualified as Timing
-import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
   ( finalize,
@@ -89,7 +86,13 @@ singleFrame io window ui ss oldShared = do
   newFrame
 
   viewport <- getMainViewport
-  beginViewportSideBar ("#test" :: CString) viewport (fromIntegral (fromEnum ImGuiDir_Down)) 30 windowFlagsNoScroll
+  _ <-
+    beginViewportSideBar
+      ("#test" :: CString)
+      viewport
+      (fromIntegral (fromEnum ImGuiDir_Down))
+      30
+      windowFlagsNoScroll
   let help = "Scroll with mouse wheel or touchpad. Ctrl+Scroll for zooming in/out.     Framerate = "
   frate_str <- showFramerate io
 

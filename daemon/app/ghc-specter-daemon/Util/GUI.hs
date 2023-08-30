@@ -29,7 +29,7 @@ import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
 import FFICXX.Runtime.Cast (FPtr (..))
-import Foreign.C.String (CString, withCString)
+import Foreign.C.String (CString)
 import Foreign.C.Types (CInt)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fromBool, toBool)
