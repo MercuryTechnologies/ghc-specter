@@ -143,7 +143,7 @@ buildGraph cond grVisInfo = do
       nodeLayoutMap =
         IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
       -- graph layout parameter
-      aFactor = 1.05
+      aFactor = 1.5
       offX = -15
       offYFactor = -1.0
       -- the center of left side of a node
@@ -170,7 +170,7 @@ buildGraph cond grVisInfo = do
               | cond name = HoneyDew
               | otherwise = Ivory
         renderedText <-
-          drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Mono Black fontSize name
+          drawText' (x + offX + 2, y + h * offYFactor + h) LowerLeft Sans Black fontSize name
         pure
           [ rectangle (x + offX, y + h * offYFactor + h - 6) (w * aFactor) 10 (Just DimGray) (Just color) (Just 0.8) Nothing,
             renderedText
