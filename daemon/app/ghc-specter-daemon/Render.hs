@@ -50,6 +50,7 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_MouseWheel_get,
   )
 import Paths_ghc_specter_daemon (getDataDir)
+import Render.BlockerView qualified as BlockerView
 import Render.Console (consoleInputBufferSize)
 import Render.Console qualified as Console
 import Render.ModuleGraph qualified as ModuleGraph
@@ -140,7 +141,7 @@ singleFrame io window ui ss oldShared = do
                   (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
                   (TabSourceView, "Source view", SourceView.render ui ss),
                   (TabTiming, "Timing view", Timing.render ui ss),
-                  (TabBlocker, "Blocker graph", ModuleGraph.renderBlockerGraph ui ss)
+                  (TabBlocker, "Blocker graph", BlockerView.render ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling

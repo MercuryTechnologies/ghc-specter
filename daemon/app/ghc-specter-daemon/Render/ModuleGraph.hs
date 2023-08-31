@@ -4,7 +4,6 @@
 
 module Render.ModuleGraph
   ( render,
-    renderBlockerGraph,
   )
 where
 
@@ -12,18 +11,15 @@ import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Bits ((.|.))
-import Data.Foldable (for_, traverse_)
+import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
-import Data.Time.Clock (secondsToNominalDiffTime)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
-import GHCSpecter.Data.Map (backwardLookup)
-import GHCSpecter.Data.Timing.Types (PipelineInfo (..), TimingTable (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL
   ( Scene (..),
@@ -37,19 +33,13 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.Components.GraphView qualified as GraphView
 import GHCSpecter.UI.Types
   ( ModuleGraphUI (..),
-    TimingUI (..),
     UIModel (..),
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
-  ( BlockerDetailLevel (..),
-    BlockerEvent (..),
-    BlockerModuleGraphEvent (..),
-    SubModuleEvent (..),
-    TimingEvent (..),
+  ( SubModuleEvent (..),
     UserEvent (..),
   )
-import Handler (sendToControl)
 import ImGui qualified
 import ImGui.Enum (ImGuiTableFlags_ (..))
 import Render.Common (renderComponent)
@@ -193,58 +183,3 @@ renderSubModuleGraph ui ss = do
           (printf "cannot find the subgraph for the module cluster %s" (T.unpack selected))
           (L.lookup selected subgraphsAtTheLevel)
       pure subgraph
-
-renderBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderBlockerGraph ui ss = do
-  shared <- ask
-  liftIO $ do
-    let opts :: [(CString, BlockerDetailLevel)]
-        opts =
-          [ (">=2", Blocking2),
-            (">=3", Blocking3),
-            (">=4", Blocking4),
-            (">=5", Blocking5)
-          ]
-        mkRadio (label, level) = do
-          whenM (toBool <$> ImGui.radioButton_ label (fromBool (curr_level == level))) $
-            sendToControl shared (BlockerEv (BlockerModuleGraphEv (BMGUpdateLevel level)))
-          ImGui.sameLine_
-    traverse_ mkRadio opts
-    whenM (toBool <$> ImGui.button ("Re-compute Blocker Graph" :: CString)) $ do
-      sendToControl shared (BlockerEv ComputeBlockerGraph)
-  case mblockerGraphViz of
-    Nothing -> pure ()
-    Just blockerGraphViz -> do
-      renderState <- mkRenderState
-      let stage_ref = renderState.currSharedState.sharedStage
-      Stage stage <- liftIO $ atomically $ readTVar stage_ref
-      for_ (L.find ((== "blocker-module-graph") . sceneId) stage) $ \stageBlocker -> do
-        runImRender renderState $
-          renderComponent
-            True
-            (BlockerEv . BlockerModuleGraphEv . BMGGraph)
-            ( do
-                scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
-                -- TODO: this should be set up from buildModuleGraph
-                pure
-                  scene
-                    { sceneId = "blocker-module-graph",
-                      sceneGlobalViewPort = stageBlocker.sceneGlobalViewPort,
-                      sceneLocalViewPort = stageBlocker.sceneLocalViewPort
-                    }
-            )
-  where
-    drvModMap = ss._serverDriverModuleMap
-    nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
-    ttable = ss._serverTiming._tsTimingTable
-    curr_level = ss._serverTiming._tsBlockerDetailLevel
-    maxTime =
-      case ttable._ttableTimingInfos of
-        [] -> secondsToNominalDiffTime 1.0
-        ts -> maximum (fmap (\(_, t) -> fst t._plEnd - fst t._plStart) ts)
-    mblockerGraphViz = ss._serverTiming._tsBlockerGraphViz
-    valueFor name =
-      fromMaybe 0 $ do
-        i <- backwardLookup name drvModMap
-        t <- L.lookup i (ttable._ttableTimingInfos)
-        pure $ realToFrac ((fst t._plEnd - fst t._plStart) / maxTime)
