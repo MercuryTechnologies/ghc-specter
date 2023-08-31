@@ -89,7 +89,6 @@ main = do
                     cfgs'' = scene : cfgs'
                 writeTVar stage_ref (Stage cfgs''),
               runHandlerScrollDownConsoleToEnd =
-                -- putStrLn "scrollDownConsoleToEnd called!"
                 atomically $ writeTVar console_scroll_ref True
             }
         runner =

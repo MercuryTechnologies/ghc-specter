@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.UI.Console
   ( -- * utilities
     getTabName,
+    buildEachLine,
+    buildTextBlock,
 
     -- * build component
     buildConsoleTab,
@@ -19,11 +20,10 @@ import Control.Monad (join)
 import Data.Foldable qualified as F
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Tree (drawTree)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( IsKey (..),
@@ -44,8 +44,7 @@ import GHCSpecter.Graphics.DSL
     viewPortWidth,
   )
 import GHCSpecter.Layouter.Packer
-  ( flowInline,
-    flowLineByLine,
+  ( flowLineByLine,
     toSizedLine,
   )
 import GHCSpecter.Layouter.Text
@@ -153,7 +152,8 @@ buildTextBlock txt = do
   pure (vp, sconcat contentss)
 
 {-
--- This is obsolete.
+-- NOTE: This is obsolete.
+-- TODO: place this to the attic.
 
 buildConsoleItem ::
   forall m k.
