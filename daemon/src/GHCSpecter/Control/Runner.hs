@@ -66,9 +66,8 @@ data RunnerHandler e = RunnerHandler
     runHandlerGetScene ::
       Text ->
       IO (Maybe (EventMap UserEvent)),
-    runHandlerAddToStage ::
-      Scene () ->
-      IO ()
+    runHandlerAddToStage :: Scene () -> IO (),
+    runHandlerScrollDownConsoleToEnd :: IO ()
   }
 
 -- | mutating state and a few handlers
@@ -203,6 +202,10 @@ stepControl (Free (GetScene name cont)) = do
 stepControl (Free (AddToStage scene next)) = do
   addToStage' <- runHandlerAddToStage . runnerHandler <$> ask
   liftIO $ addToStage' scene
+  pure (Left next)
+stepControl (Free (ScrollDownConsoleToEnd next)) = do
+  scrollDownConsoleToEnd' <- runHandlerScrollDownConsoleToEnd . runnerHandler <$> ask
+  liftIO scrollDownConsoleToEnd'
   pure (Left next)
 stepControl (Free (SendRequest b next)) = do
   sendRequest' b

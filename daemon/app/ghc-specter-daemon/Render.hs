@@ -197,9 +197,9 @@ prepareAssets io = do
 main ::
   ServerSession ->
   ClientSession ->
-  (TVar [EventMap UserEvent], TVar Stage) ->
+  (TVar [EventMap UserEvent], TVar Stage, TVar Bool) ->
   IO ()
-main servSess cliSess (em_ref, stage_ref) = do
+main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
   -- initialize window
   (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
@@ -223,7 +223,8 @@ main servSess cliSess (em_ref, stage_ref) = do
             sharedFontMono = fontMono,
             sharedEventMap = em_ref,
             sharedStage = stage_ref,
-            sharedConsoleInput = p_consoleInput
+            sharedConsoleInput = p_consoleInput,
+            sharedWillScrollDownConsole = console_scroll_ref
           }
 
   -- main loop

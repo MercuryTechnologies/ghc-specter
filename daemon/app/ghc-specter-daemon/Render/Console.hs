@@ -7,6 +7,7 @@ module Render.Console
   )
 where
 
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
@@ -86,23 +87,10 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   renderState <- mkRenderState
   liftIO $
     traverse_ (renderConsoleItem renderState.currSharedState) items
-  {-
-  let stage_ref = renderState.currSharedState.sharedStage
-  Stage stage <- liftIO $ atomically $ readTVar stage_ref
-  for_ (L.find ((== "console-main") . sceneId) stage) $ \stageMain -> do
-    runImRender renderState $
-      renderComponent
-        True
-        ConsoleEv
-        ( do
-            scene <- buildConsoleMain consoleMap mconsoleFocus
-            pure
-              scene
-                { sceneGlobalViewPort = stageMain.sceneGlobalViewPort,
-                  sceneLocalViewPort = stageMain.sceneLocalViewPort
-                }
-        )
-  -}
+  let console_scroll_ref = renderState.currSharedState.sharedWillScrollDownConsole
+  whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
+    liftIO $ ImGui.setScrollHereY 0.5
+    liftIO $ atomically $ writeTVar console_scroll_ref False
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry

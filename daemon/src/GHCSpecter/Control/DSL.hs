@@ -12,6 +12,7 @@ module GHCSpecter.Control.DSL
     hitScene,
     getScene,
     addToStage,
+    scrollDownConsoleToEnd,
     sendRequest,
     nextEvent,
     printMsg,
@@ -87,6 +88,9 @@ addToStage ::
   Scene () ->
   Control e ()
 addToStage scene = liftF (AddToStage scene ())
+
+scrollDownConsoleToEnd :: Control e ()
+scrollDownConsoleToEnd = liftF (ScrollDownConsoleToEnd ())
 
 sendRequest :: Request -> Control e ()
 sendRequest b = liftF (SendRequest b ())

@@ -101,7 +101,8 @@ data SharedState e = SharedState
     sharedFontMono :: ImFont,
     sharedEventMap :: TVar [EventMap e],
     sharedStage :: TVar Stage,
-    sharedConsoleInput :: CString
+    sharedConsoleInput :: CString,
+    sharedWillScrollDownConsole :: TVar Bool
   }
 
 data ImRenderState e = ImRenderState

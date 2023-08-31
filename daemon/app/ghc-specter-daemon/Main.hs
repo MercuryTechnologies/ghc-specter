@@ -69,7 +69,7 @@ main = do
     counter_ref <- newIORef 0
     em_ref <- newTVarIO []
     stage_ref <- newTVarIO (Stage [])
-
+    console_scroll_ref <- newTVarIO False
     let runHandler =
           RunnerHandler
             { runHandlerRefreshAction = pure (),
@@ -87,7 +87,10 @@ main = do
                 Stage cfgs <- readTVar stage_ref
                 let cfgs' = filter (\scene' -> scene.sceneId /= scene'.sceneId) cfgs
                     cfgs'' = scene : cfgs'
-                writeTVar stage_ref (Stage cfgs'')
+                writeTVar stage_ref (Stage cfgs''),
+              runHandlerScrollDownConsoleToEnd =
+                -- putStrLn "scrollDownConsoleToEnd called!"
+                atomically $ writeTVar console_scroll_ref True
             }
         runner =
           RunnerEnv
@@ -105,4 +108,4 @@ main = do
         Session.main runner servSess cliSess Control.mainLoop
 
     -- start UI loop
-    Render.main servSess cliSess (em_ref, stage_ref)
+    Render.main servSess cliSess (em_ref, stage_ref, console_scroll_ref)

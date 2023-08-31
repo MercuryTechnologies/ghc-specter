@@ -56,6 +56,7 @@ data ControlF e e' r where
     Scene () ->
     r ->
     ControlF e e r
+  ScrollDownConsoleToEnd :: r -> ControlF e e r
   SendRequest :: Request -> r -> ControlF e e r
   NextEvent :: (Event -> r) -> ControlF e e r
   PrintMsg :: Text -> r -> ControlF e e r
@@ -80,6 +81,7 @@ instance IxFunctor ControlF where
   imap f (HitScene x cont) = HitScene x (f . cont)
   imap f (GetScene x cont) = GetScene x (f . cont)
   imap f (AddToStage x next) = AddToStage x (f next)
+  imap f (ScrollDownConsoleToEnd next) = ScrollDownConsoleToEnd (f next)
   imap f (SendRequest x next) = SendRequest x (f next)
   imap f (NextEvent cont) = NextEvent (f . cont)
   imap f (PrintMsg x next) = PrintMsg x (f next)

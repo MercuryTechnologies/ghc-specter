@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.Control
   ( mainLoop,
@@ -47,6 +48,7 @@ import GHCSpecter.Control.DSL
     refresh,
     refreshUIAfter,
     saveSession,
+    scrollDownConsoleToEnd,
     sendRequest,
     shouldUpdate,
   )
@@ -329,6 +331,7 @@ handleHoverScrollZoom hitWho handlers mev =
       when isHandled refresh
       pure isHandled
 
+{-
 scrollDownConsoleToEnd :: Control Event ()
 scrollDownConsoleToEnd = do
   mext <- fmap (sceneExtents =<<) (getScene "console-main")
@@ -337,6 +340,7 @@ scrollDownConsoleToEnd = do
       let ViewPortInfo (vp'@(ViewPort (x0', _y0') (_x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
           vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
        in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
+-}
 
 dumpWork :: (UIState -> ServerState -> Text) -> FilePath -> Control Event ()
 dumpWork mkContent file = do
