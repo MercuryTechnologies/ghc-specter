@@ -55,7 +55,6 @@ import GHCSpecter.Server.Types
     HasTimingState (..),
     ServerState (..),
   )
-import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.UI.Types.Event
   ( SessionEvent (..),
   )
@@ -80,12 +79,9 @@ buildModuleInProgress drvModMap pausedMap timingInProg = T.unlines msgs
        in fmap formatMessage imodinfos
 
 buildProcessPanel ::
-  (MonadTextLayout m) =>
   ServerState ->
-  m (Scene (Primitive e))
-buildProcessPanel ss = do
-  scene <- buildTextView (T.unlines msgsProcessInfo) []
-  pure scene {sceneId = "session-process"}
+  Text
+buildProcessPanel ss = T.unlines msgsProcessInfo
   where
     sessionInfo = ss ^. serverSessionInfo
     msgsProcessInfo =
@@ -106,13 +102,8 @@ buildProcessPanel ss = do
               let mkItem x = T.pack x
                in fmap mkItem (procArguments procinfo)
 
-buildRtsPanel ::
-  (MonadTextLayout m) =>
-  ServerState ->
-  m (Scene (Primitive e))
-buildRtsPanel ss = do
-  scene <- buildTextView (T.unlines msgsRtsInfo) []
-  pure scene {sceneId = "session-rts"}
+buildRtsPanel :: ServerState -> Text
+buildRtsPanel ss = T.unlines msgsRtsInfo
   where
     sessionInfo = ss ^. serverSessionInfo
     msgsRtsInfo =
@@ -124,13 +115,16 @@ buildRtsPanel ss = do
             TL.toStrict $ pShowNoColor rtsflags
           ]
 
-buildSession ::
-  (MonadTextLayout m) =>
-  ServerState ->
-  m (Scene (Primitive e))
-buildSession ss = do
-  scene <- buildTextView txt []
-  pure scene {sceneId = "session-main"}
+buildSession :: ServerState -> Text
+buildSession ss =
+  T.unlines
+    [ msgSessionStart,
+      "",
+      "Compilation Status",
+      msgCompilationStatus,
+      "",
+      msgGhcMode
+    ]
   where
     sessionInfo = ss ^. serverSessionInfo
     mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
@@ -161,16 +155,6 @@ buildSession ss = do
       where
         ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
         backend = T.pack $ show $ sessionBackend sessionInfo
-
-    txt =
-      T.unlines
-        [ msgSessionStart,
-          "",
-          "Compilation Status",
-          msgCompilationStatus,
-          "",
-          msgGhcMode
-        ]
 
 buildPauseResume ::
   forall m.

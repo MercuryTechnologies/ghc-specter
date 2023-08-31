@@ -72,22 +72,22 @@ render _ui ss = do
   liftIO $ delete vec3
 
 renderSessionInfo :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSessionInfo ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildSession ss)
+renderSessionInfo ss =
+  liftIO $
+    T.withCString (Session.buildSession ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderProcessPanel ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildProcessPanel ss)
+renderProcessPanel ss =
+  liftIO $
+    T.withCString (Session.buildProcessPanel ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderRtsPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderRtsPanel ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildRtsPanel ss)
+renderRtsPanel ss =
+  liftIO $
+    T.withCString (Session.buildRtsPanel ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
