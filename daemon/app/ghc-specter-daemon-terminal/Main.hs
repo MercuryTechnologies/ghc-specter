@@ -55,7 +55,8 @@ main = do
             { runHandlerRefreshAction = pure (),
               runHandlerHitScene = \_ -> pure Nothing,
               runHandlerGetScene = \_ -> pure Nothing,
-              runHandlerAddToStage = \_ -> pure ()
+              runHandlerAddToStage = \_ -> pure (),
+              runHandlerScrollDownConsoleToEnd = pure ()
             }
         runner =
           RunnerEnv

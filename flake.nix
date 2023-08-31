@@ -85,32 +85,20 @@
           then "ghc-specter:env"
           else "ghc-specter:dev";
       in
-        pkgs.mkShell {
-          packages = [
-            # for build
-            hsenv
-            pkgs.ogdf
-            pkgs.cabal-install
-
-            # for doc
-            pyenv
-
-            # for formatting
-            pkgs.alejandra
-            pkgs.ormolu
-
-            # for agda
-            pkgs.zlib
-
-            # for socket testing
-            pkgs.socat
-
-            # for GUI
-            pkgs.pkgconfig
-            pkgs.imgui
-            pkgs.implot
-            pkgs.glfw
+        (hpkgsFor compiler).shellFor {
+          packages = p: [
+            p.ghc-specter-render
+            p.ghc-specter-plugin
+            p.ghc-specter-daemon
           ];
+          buildInputs =
+            [
+              pkgs.cabal-install
+              pkgs.alejandra
+              pkgs.ormolu
+              pyenv
+            ]
+            ++ (pkgs.lib.optionals isEnv [(hpkgsFor compiler).ghc-specter-daemon]);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
