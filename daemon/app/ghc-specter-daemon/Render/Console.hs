@@ -53,6 +53,7 @@ import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import STD.Deletable (delete)
 import Util.GUI
   ( makeTabContents,
+    windowFlagsNoScrollbar,
     windowFlagsScroll,
   )
 import Util.Render
@@ -100,11 +101,12 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
     w <- ImGui.getWindowWidth
     x0 <- imVec2_x_get v0
     y0 <- imVec2_y_get v0
-    pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 60)
+    pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 20)
     ImGui.setNextWindowPos pos 0 zerovec
     liftIO $ delete pos
-  vec1 <- liftIO $ ImGui.newImVec2 130 260
-  _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsScroll
+  --
+  vec1 <- liftIO $ ImGui.newImVec2 130 200
+  _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsNoScrollbar
   renderHelp ss mconsoleFocus
   liftIO ImGui.endChild
   liftIO $ delete zerovec

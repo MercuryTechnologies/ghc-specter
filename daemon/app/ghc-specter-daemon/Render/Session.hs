@@ -32,14 +32,9 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui qualified
-import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (defTableFlags, windowFlagsNone)
-import Util.Render
-  ( SharedState (..),
-    mkRenderState,
-    runImRender,
-  )
+import Util.Render (SharedState (..))
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render _ui ss = do

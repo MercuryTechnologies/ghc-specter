@@ -7,6 +7,7 @@ module Util.GUI
 
     -- * common flags
     windowFlagsNone,
+    windowFlagsNoScrollbar,
     windowFlagsScroll,
     windowFlagsNoScroll,
     defTableFlags,
@@ -109,6 +110,11 @@ windowFlagsNone :: CInt
 windowFlagsNone =
   fromIntegral $
     fromEnum ImGuiWindowFlags_None
+
+windowFlagsNoScrollbar :: CInt
+windowFlagsNoScrollbar =
+  fromIntegral $
+    fromEnum ImGuiWindowFlags_NoScrollbar
 
 windowFlagsScroll :: CInt
 windowFlagsScroll =
