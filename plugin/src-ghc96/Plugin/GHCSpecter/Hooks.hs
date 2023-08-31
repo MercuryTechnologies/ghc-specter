@@ -309,16 +309,28 @@ sendCompStateOnPhase drvId phase pt = do
           msrcFile' <- traverse canonicalizePath msrcFile
           for_ mmodName $ \modName ->
             sendModuleName drvId modName msrcFile'
-        _ -> pure ()
+        PhaseEnd -> pure ()
     T_HscPostTc {} ->
       case pt of
+        PhaseStart -> pure ()
         PhaseEnd -> do
           -- send timing information
           hscOutTime <- getCurrentTime
           mmeminfo <- getMemInfo
-          let timer = Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
+          mmodName <- atomically $ getModuleFromDriverId drvId
+          -- NOTE: This hs-boot handling is a workaround.
+          -- TODO: we have a problem with nonlinear phase progression (such as building .o and .dyn_o), anyway.
+          -- THis should be solved in a correct way.
+          let timer
+                | fmap ("hs-boot" `T.isSuffixOf`) mmodName == Just True =
+                    Timer
+                      [ (TimerHscOut, (hscOutTime, mmeminfo)),
+                        (TimerAs, (hscOutTime, Nothing)),
+                        (TimerEnd, (hscOutTime, Nothing))
+                      ]
+                | otherwise =
+                    Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
-        _ -> pure ()
     T_HscBackend {} -> pure ()
     T_CmmCpp {} -> pure ()
     T_Cmm {} -> pure ()
@@ -331,19 +343,19 @@ sendCompStateOnPhase drvId phase pt = do
           mmeminfo <- getMemInfo
           let timer = Timer [(TimerAs, (asStartTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
-        _ -> pure ()
+        PhaseEnd -> pure ()
     T_LlvmOpt {} -> pure ()
     T_LlvmLlc {} -> pure ()
     T_LlvmMangle {} -> pure ()
     T_MergeForeign {} ->
       case pt of
+        PhaseStart -> pure ()
         PhaseEnd -> do
           -- send timing information
           endTime <- getCurrentTime
           mmeminfo <- getMemInfo
           let timer = Timer [(TimerEnd, (endTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
-        _ -> pure ()
     T_Js _ _ _ _ -> pure ()
     T_ForeignJs _ _ _ _ -> pure ()
 
