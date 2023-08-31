@@ -65,13 +65,14 @@ render ui ss = do
         | isNothing (tui._timingFrozenTable) = ("freeze", TimingFlow False)
         | otherwise = ("thaw", TimingFlow True)
   liftIO $ do
-    whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
-      sendToControl shared (TimingEv (snd freezeOrThaw))
-    ImGui.sameLine_
     alloca $ \p_checked -> do
       poke p_checked (fromBool isPartitioned)
-      whenM (toBool <$> ImGui.checkbox ("Phase partition" :: CString) p_checked) $
+      whenM (toBool <$> ImGui.checkbox ("Partition phases" :: CString) p_checked) $
         sendToControl shared (TimingEv (UpdatePartition (not isPartitioned)))
+    ImGui.sameLine_
+    whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
+      sendToControl shared (TimingEv (snd freezeOrThaw))
+
   renderState <- mkRenderState
   let stage_ref :: TVar Stage
       stage_ref = renderState.currSharedState.sharedStage

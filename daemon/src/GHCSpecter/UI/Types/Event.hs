@@ -130,10 +130,11 @@ data TimingEvent
   | UpdateParallel Bool
   | HoverOnModule ModuleName
   | HoverOffModule ModuleName
-  | BlockerModuleGraphEv BlockerModuleGraphEvent
   deriving (Show, Eq)
 
-data BlockerEvent = ComputeBlockerGraph
+data BlockerEvent
+  = ComputeBlockerGraph
+  | BlockerModuleGraphEv BlockerModuleGraphEvent
   deriving (Show, Eq)
 
 data ConsoleEvent k
