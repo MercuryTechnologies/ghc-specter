@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -w #-}
-
 module GHCSpecter.Util.Transformation
   ( isValid,
 
@@ -45,8 +43,6 @@ transformScroll vpLimit scale (dx, dy) vp = vp''
       let (x0', y0') = (x0 - dx', y0 - dy')
           (x1', y1') = (x1 - dx', y1 - dy')
           vp' = ViewPort (x0', y0') (x1', y1')
-          w = x1' - x0'
-          h = y1' - y0'
           eps = 1.0
        in case vpLimit of
             Nothing -> vp'

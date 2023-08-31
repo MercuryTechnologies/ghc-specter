@@ -20,6 +20,7 @@ module GHCSpecter.UI.Types.Event
     SessionEvent (..),
     BlockerModuleGraphEvent (..),
     TimingEvent (..),
+    BlockerEvent (..),
     ConsoleEvent (..),
 
     -- * top-level events
@@ -37,7 +38,7 @@ import GHCSpecter.Channel.Common.Types (DriverId, ModuleName)
 -- Enums
 --
 
-data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming
+data Tab = TabSession | TabModuleGraph | TabSourceView | TabTiming | TabBlocker
   deriving (Eq, Show)
 
 data DetailLevel = UpTo30 | UpTo100 | UpTo300
@@ -129,9 +130,10 @@ data TimingEvent
   | UpdateParallel Bool
   | HoverOnModule ModuleName
   | HoverOffModule ModuleName
-  | ShowBlockerGraph
-  | CloseBlockerGraph
   | BlockerModuleGraphEv BlockerModuleGraphEvent
+  deriving (Show, Eq)
+
+data BlockerEvent = ComputeBlockerGraph
   deriving (Show, Eq)
 
 data ConsoleEvent k
@@ -153,6 +155,7 @@ data UserEvent
   | SubModuleEv SubModuleEvent
   | SessionEv SessionEvent
   | TimingEv TimingEvent
+  | BlockerEv BlockerEvent
   | MouseEv MouseEvent
   | KeyEv KeyEvent
   | ConsoleEv (ConsoleEvent DriverId)

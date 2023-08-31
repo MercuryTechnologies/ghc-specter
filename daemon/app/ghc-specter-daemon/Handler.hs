@@ -90,8 +90,9 @@ handleScrollOrZoom scene_id = do
       isCtrlDown = shared.sharedCtrlDown
   case shared.sharedMousePos of
     Nothing -> pure ()
-    Just (x, y) ->
-      when (wheelX > eps || wheelX < -eps || wheelY > eps || wheelY < -eps) $ do
+    Just (x, y) -> do
+      isHovered <- toBool <$> liftIO (ImGui.isItemHovered 0)
+      when (isHovered && (wheelX > eps || wheelX < -eps || wheelY > eps || wheelY < -eps)) $ do
         let x' = fromIntegral x
             y' = fromIntegral y
             xy = fromGlobalCoords renderState (x', y')

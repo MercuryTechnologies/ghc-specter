@@ -427,7 +427,7 @@ buildBlockers hoveredMod ttable = do
         flowLineByLine 0 $
           selected NE.:| ([line, blockedBy] ++ upstreams ++ [line, blocking] ++ downstreams)
       size = viewPortHeight vp
-      box = rectangle (0, 0) 200 size (Just Black) Nothing (Just 1.0) Nothing
+      box = rectangle (0, 0) 200 size (Just Black) (Just White) (Just 1.0) Nothing
   pure
     Scene
       { sceneId = "blockers",

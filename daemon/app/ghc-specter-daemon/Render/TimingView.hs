@@ -41,7 +41,7 @@ import ImGui qualified
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
-import Util.GUI (windowFlagsScroll)
+import Util.GUI (windowFlagsNoScroll)
 import Util.Render
   ( ImRenderState (..),
     SharedState (..),
@@ -119,7 +119,7 @@ renderBlocker hoveredMod ttable = do
     delete zerovec
     delete pos
   vec1 <- liftIO $ ImGui.newImVec2 250 180
-  _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool True) windowFlagsScroll
+  _ <- liftIO $ ImGui.beginChild ("blocker_window" :: CString) vec1 (fromBool False) windowFlagsNoScroll
   liftIO $ delete vec1
   renderState' <- mkRenderState
   runImRender renderState' $

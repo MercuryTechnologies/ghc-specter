@@ -139,7 +139,7 @@ executable ghc-specter-daemon
     Util.Render
   hs-source-dirs:
       app/ghc-specter-daemon
-  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures -Werror
   build-depends:
       base >=4.15 && <5
     , bytestring

@@ -76,7 +76,8 @@ import GHCSpecter.UI.Constants
     uiUpdateInterval,
   )
 import GHCSpecter.UI.Types
-  ( HasConsoleUI (..),
+  ( HasBlockerUI (..),
+    HasConsoleUI (..),
     HasModuleGraphUI (..),
     HasSessionUI (..),
     HasSourceViewUI (..),
@@ -91,6 +92,7 @@ import GHCSpecter.UI.Types
   )
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
+    BlockerEvent (..),
     BlockerModuleGraphEvent (..),
     ConsoleEvent (..),
     Event (..),
@@ -625,15 +627,6 @@ goTiming ev = do
     TimingEv (HoverOffModule _modu) -> do
       modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Nothing)
       refresh
-    TimingEv ShowBlockerGraph -> do
-      printMsg "show blocker graph is pressed"
-      asyncWork timingBlockerGraphWorker
-      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ True)
-      refresh
-    TimingEv CloseBlockerGraph -> do
-      printMsg "close blocker graph is pressed"
-      modifyUI (uiModel . modelTiming . timingUIBlockerGraph .~ False)
-      refresh
     TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
       printMsg ("blocker module graph event: " <> T.pack (show e))
       pure ()
@@ -652,6 +645,31 @@ goTiming ev = do
             { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)],
               handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)],
               handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+            }
+          mev
+    _ -> pure ()
+
+goBlocker :: (e ~ Event) => UserEvent -> Control e ()
+goBlocker ev = do
+  case ev of
+    BlockerEv (ComputeBlockerGraph) -> do
+      printMsg "compute blocker graph is pressed"
+      asyncWork timingBlockerGraphWorker
+      refresh
+    _ -> pure ()
+  case ev of
+    MouseEv mev ->
+      void $
+        handleHoverScrollZoom
+          (\_ -> Nothing)
+          HandlerHoverScrollZoom
+            { handlerHover = [],
+              handlerScroll =
+                [ ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+                ],
+              handlerZoom =
+                [ ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+                ]
             }
           mev
     _ -> pure ()
@@ -701,7 +719,8 @@ stageFrame = do
         ("source-view", modelSourceView . srcViewSourceViewPort),
         ("supple-view", modelSourceView . srcViewSuppViewPort),
         ("supple-view-contents", modelSourceView . srcViewSuppViewPort),
-        ("timing-chart", modelTiming . timingUIViewPort)
+        ("timing-chart", modelTiming . timingUIViewPort),
+        ("blocker-module-graph", modelBlocker . blockerUIViewPort)
       ]
 
 -- | top-level main loop, branching according to tab event
@@ -713,6 +732,7 @@ mainLoop = do
     TabModuleGraph -> branchLoop goModuleGraph
     TabSourceView -> branchLoop goSourceView
     TabTiming -> branchLoop goTiming
+    TabBlocker -> branchLoop goBlocker
   where
     branchLoop :: (UserEvent -> Control e ()) -> Control e r
     branchLoop go = loop

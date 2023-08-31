@@ -69,10 +69,10 @@ timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
 
 modGraphWidth :: (Num a) => a
-modGraphWidth = 1440
+modGraphWidth = 1024
 
 modGraphHeight :: (Num a) => a
-modGraphHeight = 768
+modGraphHeight = 300
 
 sessionModStatusDim :: (Num a) => (a, a)
 sessionModStatusDim = (250, 80)
@@ -118,6 +118,7 @@ emptyWidgetConfig =
 
 -- TODO: use type-level literal or something to be more safe.
 -- TODO: also replace each repeated values for adjacent elements with a single variable.
+-- TODO: THIS WHOLE CONFIG IS NOW OBSOLETE.
 appWidgetConfig :: WidgetConfig
 appWidgetConfig =
   WidgetConfig
@@ -128,7 +129,7 @@ appWidgetConfig =
               ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
             ),
             ( "console-main",
-              ViewPort (0, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consoleInputHeight)
+              ViewPort (0, 0) (canvasDim ^. _1, consolePanelHeight)
             ),
             ( "console-input",
               ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim
@@ -159,8 +160,8 @@ appWidgetConfig =
           ],
       _wcfgModuleGraph =
         Map.fromList
-          [ ("main-module-graph", ViewPort (0, tabHeight) (modGraphWidth, 0.5 * modGraphHeight + tabHeight)),
-            ("sub-module-graph", ViewPort (0, 0.5 * modGraphHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2))
+          [ ("main-module-graph", ViewPort (0, 0) (modGraphWidth, modGraphHeight)),
+            ("sub-module-graph", ViewPort (0, 0) (modGraphWidth, 0.5 * modGraphHeight))
           ],
       _wcfgSourceView =
         Map.fromList
@@ -174,7 +175,7 @@ appWidgetConfig =
         Map.fromList
           [ ("timing-chart", ViewPort (0, 0) (0.85 * timingWidth, timingHeight)),
             ("mem-chart", ViewPort (0.85 * timingWidth, 0) (timingWidth, timingHeight)),
-            ("timing-range", ViewPort (0, timingHeight) (timingWidth, timingHeight + timingRangeHeight))
-            -- ("blockers", ViewPort (0, timingHeight + timingRangeHeight + tabHeight) (300, canvasDim ^. _2))
+            ("timing-range", ViewPort (0, timingHeight) (timingWidth, timingHeight + timingRangeHeight)),
+            ("blocker-module-graph", ViewPort (0, 0) (timingWidth, timingHeight))
           ]
     }

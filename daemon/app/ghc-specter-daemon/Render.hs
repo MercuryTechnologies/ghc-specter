@@ -14,11 +14,10 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Data.Bits ((.|.))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
-import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
@@ -44,7 +43,6 @@ import ImGui.Enum
   ( ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
-    ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation
   ( imGuiIO_Fonts_get,
@@ -53,18 +51,11 @@ import ImGui.ImGuiIO.Implementation
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.Console (consoleInputBufferSize)
-import Render.Console qualified as Console (render)
+import Render.Console qualified as Console
 import Render.ModuleGraph qualified as ModuleGraph
-  ( render,
-    renderBlockerGraph,
-  )
 import Render.Session qualified as Session
-  ( renderCompilationStatus,
-    renderSession,
-  )
-import Render.SourceView qualified as SourceView (render)
-import Render.TimingView qualified as Timing (render)
-import STD.Deletable (delete)
+import Render.SourceView qualified as SourceView
+import Render.TimingView qualified as Timing
 import System.FilePath ((</>))
 import Util.GUI
   ( finalize,
@@ -78,45 +69,6 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render (SharedState (..))
-
-tabSession :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabSession ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#session" :: CString) zerovec (fromBool False) windowFlagsScroll
-  Session.renderSession ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabModuleGraph = ModuleGraph.render
-
-tabSourceView :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabSourceView ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#source-view" :: CString) zerovec (fromBool False) windowFlagsScroll
-  SourceView.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabTiming :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabTiming ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  let flags =
-        fromIntegral $
-          fromEnum ImGuiWindowFlags_NoScrollbar
-            .|. fromEnum ImGuiWindowFlags_NoScrollWithMouse
-  _ <- liftIO $ beginChild ("#timing-view" :: CString) zerovec (fromBool False) flags
-  Timing.render ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
-
-tabBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-tabBlockerGraph ui ss = do
-  zerovec <- liftIO $ newImVec2 0 0
-  _ <- liftIO $ beginChild ("#blocker-graph" :: CString) zerovec (fromBool False) windowFlagsScroll
-  ModuleGraph.renderBlockerGraph ui ss
-  liftIO endChild
-  liftIO $ delete zerovec
 
 singleFrame ::
   ImGuiIO ->
@@ -134,7 +86,13 @@ singleFrame io window ui ss oldShared = do
   newFrame
 
   viewport <- getMainViewport
-  beginViewportSideBar ("#test" :: CString) viewport (fromIntegral (fromEnum ImGuiDir_Down)) 30 windowFlagsNoScroll
+  _ <-
+    beginViewportSideBar
+      ("#test" :: CString)
+      viewport
+      (fromIntegral (fromEnum ImGuiDir_Down))
+      30
+      windowFlagsNoScroll
   let help = "Scroll with mouse wheel or touchpad. Ctrl+Scroll for zooming in/out.     Framerate = "
   frate_str <- showFramerate io
 
@@ -178,11 +136,11 @@ singleFrame io window ui ss oldShared = do
             tabState <-
               makeTabContents
                 mnextTab
-                [ (TabSession, "Session", tabSession ui ss),
-                  (TabModuleGraph, "Module graph", tabModuleGraph ui ss),
-                  (TabSourceView, "Source view", tabSourceView ui ss),
-                  (TabTiming, "Timing view", tabTiming ui ss),
-                  (TabTiming, "Blocker graph", tabBlockerGraph ui ss)
+                [ (TabSession, "Session", Session.render ui ss),
+                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                  (TabSourceView, "Source view", SourceView.render ui ss),
+                  (TabTiming, "Timing view", Timing.render ui ss),
+                  (TabBlocker, "Blocker graph", ModuleGraph.renderBlockerGraph ui ss)
                 ]
             liftIO endTabBar
             -- tab event handling
