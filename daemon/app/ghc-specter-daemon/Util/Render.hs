@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Util.Render
   ( -- * state
@@ -21,6 +22,9 @@ module Util.Render
     renderScene,
     buildEventMap,
     addEventMap,
+
+    -- * rendering console
+    renderConsoleItem,
   )
 where
 
@@ -29,20 +33,28 @@ import Control.Concurrent.STM
     TVar,
     atomically,
     modifyTVar',
+    writeTQueue,
   )
 import Control.Monad (when)
+import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Foreign qualified as T
+import Data.Tree (drawTree)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
 import Foreign.C.String (CString)
 import Foreign.Marshal.Array (allocaArray)
-import Foreign.Marshal.Utils (fromBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (Ptr, castPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
@@ -59,7 +71,13 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     overlapsWith,
   )
-import GHCSpecter.UI.Types.Event (Event, Tab (..))
+import GHCSpecter.Server.Types (ConsoleItem (..))
+import GHCSpecter.UI.Types.Event
+  ( ConsoleEvent (..),
+    Event (..),
+    Tab (..),
+    UserEvent (..),
+  )
 import ImGui
 import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
@@ -284,3 +302,29 @@ addEventMap emap = ImRender $ do
   liftIO $
     atomically $
       modifyTVar' emref (emap :)
+
+--
+-- console functions
+--
+
+--
+renderConsoleItem :: SharedState UserEvent -> ConsoleItem -> IO ()
+renderConsoleItem _ (ConsoleCommand txt) = separator >> T.withCString txt textUnformatted >> separator
+renderConsoleItem _ (ConsoleText txt) = T.withCString txt textUnformatted
+renderConsoleItem s (ConsoleButton buttonss) =
+  case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
+    Nothing -> T.withCString "no buttons" textUnformatted
+    Just ls' -> traverse_ mkRow ls'
+  where
+    mkButton (label, cmd) = do
+      T.withCString label $ \cstr ->
+        whenM (toBool <$> button cstr) $
+          atomically $
+            writeTQueue (s.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
+    mkRow :: NonEmpty (Text, Text) -> IO ()
+    mkRow buttons = do
+      traverse_ (\itm -> mkButton itm >> sameLine_) buttons
+      newLine
+renderConsoleItem _ (ConsoleCore forest) = T.withCString (T.unlines $ fmap render1 forest) textUnformatted
+  where
+    render1 tr = T.pack $ drawTree $ fmap show tr

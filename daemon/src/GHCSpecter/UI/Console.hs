@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.UI.Console
   ( -- * utilities
@@ -151,6 +152,9 @@ buildTextBlock txt = do
   let (vp, contentss) = flowLineByLine 0 ls''
   pure (vp, sconcat contentss)
 
+{-
+-- This is obsolete.
+
 buildConsoleItem ::
   forall m k.
   (MonadTextLayout m) =>
@@ -189,27 +193,15 @@ buildConsoleItem (ConsoleButton buttonss) = do
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
+-}
 
 buildConsoleMain ::
-  forall m k.
-  (MonadTextLayout m, IsKey k, Eq k) =>
+  forall k.
+  (IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  m (Scene (Primitive (ConsoleEvent k)))
-buildConsoleMain contents mfocus = do
-  contentss <-
-    case NE.nonEmpty items of
-      Nothing -> NE.singleton <$> buildEachLine "No console history"
-      Just items' -> traverse buildConsoleItem items'
-  let (extent, rendered) = flowLineByLine 0 contentss
-  pure
-    Scene
-      { sceneId = "console-main",
-        sceneGlobalViewPort = extent,
-        sceneLocalViewPort = extent,
-        sceneElements = F.toList $ sconcat rendered,
-        sceneExtents = Just extent
-      }
+  [ConsoleItem]
+buildConsoleMain contents mfocus = items
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     items = join $ maybeToList mtxts
