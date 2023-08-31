@@ -13,7 +13,7 @@ where
 import Control.Concurrent.STM (readTVarIO)
 import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
-import Data.Foldable (for_, traverse_)
+import Data.Foldable (traverse_)
 import Data.List qualified as L
 import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as M
@@ -47,6 +47,7 @@ import GHCSpecter.Control.DSL
     refresh,
     refreshUIAfter,
     saveSession,
+    scrollDownConsoleToEnd,
     sendRequest,
     shouldUpdate,
   )
@@ -60,7 +61,6 @@ import GHCSpecter.Graphics.DSL
     ViewPort (..),
     eventMapGlobalViewPort,
     eventMapId,
-    moveBoundingBoxBy,
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
@@ -328,15 +328,6 @@ handleHoverScrollZoom hitWho handlers mev =
       let isHandled = or rs
       when isHandled refresh
       pure isHandled
-
-scrollDownConsoleToEnd :: Control Event ()
-scrollDownConsoleToEnd = do
-  mext <- fmap (sceneExtents =<<) (getScene "console-main")
-  for_ mext $ \(ViewPort (x0, _y0) (_x1, y1)) -> do
-    modifyUI $ \ui ->
-      let ViewPortInfo (vp'@(ViewPort (x0', _y0') (_x1', y1'))) _ = ui ^. uiModel . modelConsole . consoleViewPort
-          vp'' = moveBoundingBoxBy (x0 - x0', y1 - y1') vp'
-       in (uiModel . modelConsole . consoleViewPort .~ ViewPortInfo vp'' Nothing) ui
 
 dumpWork :: (UIState -> ServerState -> Text) -> FilePath -> Control Event ()
 dumpWork mkContent file = do

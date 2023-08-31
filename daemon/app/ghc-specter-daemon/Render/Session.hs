@@ -12,6 +12,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.List (partition)
 import Data.Maybe (isJust)
+import Data.Text.Foreign qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types
@@ -31,14 +32,9 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui qualified
-import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (defTableFlags, windowFlagsNone)
-import Util.Render
-  ( SharedState (..),
-    mkRenderState,
-    runImRender,
-  )
+import Util.Render (SharedState (..))
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render _ui ss = do
@@ -71,22 +67,22 @@ render _ui ss = do
   liftIO $ delete vec3
 
 renderSessionInfo :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderSessionInfo ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildSession ss)
+renderSessionInfo ss =
+  liftIO $
+    T.withCString (Session.buildSession ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderProcessPanel ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildProcessPanel ss)
+renderProcessPanel ss =
+  liftIO $
+    T.withCString (Session.buildProcessPanel ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderRtsPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderRtsPanel ss = do
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildRtsPanel ss)
+renderRtsPanel ss =
+  liftIO $
+    T.withCString (Session.buildRtsPanel ss) $ \cstr ->
+      ImGui.textUnformatted cstr
 
 renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
@@ -95,9 +91,9 @@ renderCompilationStatus ss = do
     ImGui.textUnformatted (statusTxt :: CString)
     whenM (toBool <$> ImGui.button (buttonTxt :: CString)) $
       sendToControl shared (SessionEv event)
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
+    let txt = Session.buildModuleInProgress drvModMap pausedMap timingInProg
+    T.withCString txt $ \cstr ->
+      ImGui.textUnformatted cstr
   where
     sessionInfo = ss._serverSessionInfo
     statusTxt

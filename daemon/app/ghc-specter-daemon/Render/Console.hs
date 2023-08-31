@@ -7,14 +7,13 @@ module Render.Console
   )
 where
 
-import Control.Concurrent.STM (atomically, readTVar)
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
-import Data.Foldable (for_, traverse_)
-import Data.List qualified as L
+import Data.Foldable (traverse_)
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -29,7 +28,6 @@ import GHCSpecter.Data.Map
     keyMapToList,
     lookupKey,
   )
-import GHCSpecter.Graphics.DSL (Scene (..), Stage (..))
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     ServerState (..),
@@ -52,17 +50,17 @@ import Handler (sendToControl)
 import ImGui qualified
 import ImGui.Enum
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
-import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI
   ( makeTabContents,
+    windowFlagsNoScrollbar,
     windowFlagsScroll,
   )
 import Util.Render
   ( ImRenderState (..),
     SharedState (..),
     mkRenderState,
-    runImRender,
+    renderConsoleItem,
   )
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
@@ -86,22 +84,14 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   -- main contents
   vec2 <- liftIO $ ImGui.newImVec2 0 (-25)
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
+  let items = buildConsoleMain consoleMap mconsoleFocus
   renderState <- mkRenderState
-  let stage_ref = renderState.currSharedState.sharedStage
-  Stage stage <- liftIO $ atomically $ readTVar stage_ref
-  for_ (L.find ((== "console-main") . sceneId) stage) $ \stageMain -> do
-    runImRender renderState $
-      renderComponent
-        True
-        ConsoleEv
-        ( do
-            scene <- buildConsoleMain consoleMap mconsoleFocus
-            pure
-              scene
-                { sceneGlobalViewPort = stageMain.sceneGlobalViewPort,
-                  sceneLocalViewPort = stageMain.sceneLocalViewPort
-                }
-        )
+  liftIO $
+    traverse_ (renderConsoleItem renderState.currSharedState) items
+  let console_scroll_ref = renderState.currSharedState.sharedWillScrollDownConsole
+  whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
+    liftIO $ ImGui.setScrollHereY 0.5
+    liftIO $ atomically $ writeTVar console_scroll_ref False
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry
@@ -111,11 +101,12 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
     w <- ImGui.getWindowWidth
     x0 <- imVec2_x_get v0
     y0 <- imVec2_y_get v0
-    pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 60)
+    pos <- ImGui.newImVec2 (x0 + w - 150) (y0 + 20)
     ImGui.setNextWindowPos pos 0 zerovec
     liftIO $ delete pos
-  vec1 <- liftIO $ ImGui.newImVec2 130 260
-  _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsScroll
+  --
+  vec1 <- liftIO $ ImGui.newImVec2 130 200
+  _ <- liftIO $ ImGui.beginChild ("child_window" :: CString) vec1 (fromBool True) windowFlagsNoScrollbar
   renderHelp ss mconsoleFocus
   liftIO ImGui.endChild
   liftIO $ delete zerovec

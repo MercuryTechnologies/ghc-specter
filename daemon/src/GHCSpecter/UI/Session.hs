@@ -13,6 +13,7 @@ import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import GHCSpecter.Channel.Common.Types
@@ -54,7 +55,6 @@ import GHCSpecter.Server.Types
     HasTimingState (..),
     ServerState (..),
   )
-import GHCSpecter.UI.Components.TextView (buildTextView)
 import GHCSpecter.UI.Types.Event
   ( SessionEvent (..),
   )
@@ -62,14 +62,11 @@ import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 buildModuleInProgress ::
-  (MonadTextLayout m) =>
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  m (Scene (Primitive e))
-buildModuleInProgress drvModMap pausedMap timingInProg = do
-  scene <- buildTextView (T.unlines msgs) []
-  pure scene {sceneId = "module-status"}
+  Text
+buildModuleInProgress drvModMap pausedMap timingInProg = T.unlines msgs
   where
     msgs =
       let is = fmap fst timingInProg
@@ -82,12 +79,9 @@ buildModuleInProgress drvModMap pausedMap timingInProg = do
        in fmap formatMessage imodinfos
 
 buildProcessPanel ::
-  (MonadTextLayout m) =>
   ServerState ->
-  m (Scene (Primitive e))
-buildProcessPanel ss = do
-  scene <- buildTextView (T.unlines msgsProcessInfo) []
-  pure scene {sceneId = "session-process"}
+  Text
+buildProcessPanel ss = T.unlines msgsProcessInfo
   where
     sessionInfo = ss ^. serverSessionInfo
     msgsProcessInfo =
@@ -108,13 +102,8 @@ buildProcessPanel ss = do
               let mkItem x = T.pack x
                in fmap mkItem (procArguments procinfo)
 
-buildRtsPanel ::
-  (MonadTextLayout m) =>
-  ServerState ->
-  m (Scene (Primitive e))
-buildRtsPanel ss = do
-  scene <- buildTextView (T.unlines msgsRtsInfo) []
-  pure scene {sceneId = "session-rts"}
+buildRtsPanel :: ServerState -> Text
+buildRtsPanel ss = T.unlines msgsRtsInfo
   where
     sessionInfo = ss ^. serverSessionInfo
     msgsRtsInfo =
@@ -126,13 +115,16 @@ buildRtsPanel ss = do
             TL.toStrict $ pShowNoColor rtsflags
           ]
 
-buildSession ::
-  (MonadTextLayout m) =>
-  ServerState ->
-  m (Scene (Primitive e))
-buildSession ss = do
-  scene <- buildTextView txt []
-  pure scene {sceneId = "session-main"}
+buildSession :: ServerState -> Text
+buildSession ss =
+  T.unlines
+    [ msgSessionStart,
+      "",
+      "Compilation Status",
+      msgCompilationStatus,
+      "",
+      msgGhcMode
+    ]
   where
     sessionInfo = ss ^. serverSessionInfo
     mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
@@ -163,16 +155,6 @@ buildSession ss = do
       where
         ghcMode = T.pack $ show $ sessionGhcMode sessionInfo
         backend = T.pack $ show $ sessionBackend sessionInfo
-
-    txt =
-      T.unlines
-        [ msgSessionStart,
-          "",
-          "Compilation Status",
-          msgCompilationStatus,
-          "",
-          msgGhcMode
-        ]
 
 buildPauseResume ::
   forall m.

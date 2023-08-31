@@ -4,6 +4,8 @@
 module GHCSpecter.UI.Console
   ( -- * utilities
     getTabName,
+    buildEachLine,
+    buildTextBlock,
 
     -- * build component
     buildConsoleTab,
@@ -18,11 +20,10 @@ import Control.Monad (join)
 import Data.Foldable qualified as F
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
-import Data.Maybe (fromMaybe, mapMaybe, maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Semigroup (sconcat)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Tree (drawTree)
 import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( IsKey (..),
@@ -43,8 +44,7 @@ import GHCSpecter.Graphics.DSL
     viewPortWidth,
   )
 import GHCSpecter.Layouter.Packer
-  ( flowInline,
-    flowLineByLine,
+  ( flowLineByLine,
     toSizedLine,
   )
 import GHCSpecter.Layouter.Text
@@ -151,6 +151,10 @@ buildTextBlock txt = do
   let (vp, contentss) = flowLineByLine 0 ls''
   pure (vp, sconcat contentss)
 
+{-
+-- NOTE: This is obsolete.
+-- TODO: place this to the attic.
+
 buildConsoleItem ::
   forall m k.
   (MonadTextLayout m) =>
@@ -189,27 +193,15 @@ buildConsoleItem (ConsoleButton buttonss) = do
 buildConsoleItem (ConsoleCore forest) = buildTextBlock (T.unlines $ fmap render1 forest)
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
+-}
 
 buildConsoleMain ::
-  forall m k.
-  (MonadTextLayout m, IsKey k, Eq k) =>
+  forall k.
+  (IsKey k, Eq k) =>
   KeyMap k [ConsoleItem] ->
   Maybe k ->
-  m (Scene (Primitive (ConsoleEvent k)))
-buildConsoleMain contents mfocus = do
-  contentss <-
-    case NE.nonEmpty items of
-      Nothing -> NE.singleton <$> buildEachLine "No console history"
-      Just items' -> traverse buildConsoleItem items'
-  let (extent, rendered) = flowLineByLine 0 contentss
-  pure
-    Scene
-      { sceneId = "console-main",
-        sceneGlobalViewPort = extent,
-        sceneLocalViewPort = extent,
-        sceneElements = F.toList $ sconcat rendered,
-        sceneExtents = Just extent
-      }
+  [ConsoleItem]
+buildConsoleMain contents mfocus = items
   where
     mtxts = mfocus >>= (`lookupKey` contents)
     items = join $ maybeToList mtxts
