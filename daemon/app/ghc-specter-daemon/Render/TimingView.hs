@@ -14,7 +14,9 @@ import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString)
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fromBool, toBool)
+import Foreign.Storable (poke)
 import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
@@ -62,9 +64,14 @@ render ui ss = do
       freezeOrThaw
         | isNothing (tui._timingFrozenTable) = ("freeze", TimingFlow False)
         | otherwise = ("thaw", TimingFlow True)
-  liftIO $
+  liftIO $ do
     whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
       sendToControl shared (TimingEv (snd freezeOrThaw))
+    ImGui.sameLine_
+    alloca $ \p_checked -> do
+      poke p_checked (fromBool isPartitioned)
+      whenM (toBool <$> ImGui.checkbox ("Phase partition" :: CString) p_checked) $
+        sendToControl shared (TimingEv (UpdatePartition (not isPartitioned)))
   renderState <- mkRenderState
   let stage_ref :: TVar Stage
       stage_ref = renderState.currSharedState.sharedStage
@@ -116,12 +123,13 @@ render ui ss = do
   where
     drvModMap = ss._serverDriverModuleMap
     tui = ui._uiModel._modelTiming
-    mhoveredMod = tui._timingUIHoveredModule
-
     ttable =
       fromMaybe
         (ss._serverTiming._tsTimingTable)
         (tui._timingFrozenTable)
+    isPartitioned = tui._timingUIPartition
+
+    mhoveredMod = tui._timingUIHoveredModule
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
