@@ -121,13 +121,30 @@ renderSourceTextView modu ss = do
 renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSuppViewPanel modu srcUI ss = do
   renderState <- mkRenderState
-  runImRender renderState $ do
-    let (sceneSuppTab, sceneSuppContents) = runIdentity (buildSuppViewPanel modu srcUI ss)
-    renderComponent
-      False
-      SourceViewEv
-      (pure sceneSuppTab)
-    renderComponent
-      False
-      (\_ -> DummyEv)
-      (pure sceneSuppContents)
+  let stage_ref :: TVar Stage
+      stage_ref = renderState.currSharedState.sharedStage
+  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  for_ (L.find ((== "supple-view-tab") . sceneId) stage) $ \stage_supp_tab ->
+    for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
+      liftIO $ putStrLn "renderSuppViewPanel"
+      runImRender renderState $ do
+        let (sceneSuppTab, sceneSuppContents) =
+              runIdentity (buildSuppViewPanel modu srcUI ss)
+        renderComponent
+          False
+          SourceViewEv
+          ( pure
+              sceneSuppTab
+                { sceneGlobalViewPort = stage_supp_tab.sceneGlobalViewPort,
+                  sceneLocalViewPort = stage_supp_tab.sceneLocalViewPort
+                }
+          )
+        renderComponent
+          True
+          (\_ -> DummyEv)
+          ( pure
+              sceneSuppContents
+                { sceneGlobalViewPort = stage_supp.sceneGlobalViewPort,
+                  sceneLocalViewPort = stage_supp.sceneLocalViewPort
+                }
+          )
