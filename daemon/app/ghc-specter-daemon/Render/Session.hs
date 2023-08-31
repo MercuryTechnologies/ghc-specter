@@ -12,6 +12,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.List (partition)
 import Data.Maybe (isJust)
+import Data.Text.Foreign qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types
@@ -95,9 +96,9 @@ renderCompilationStatus ss = do
     ImGui.textUnformatted (statusTxt :: CString)
     whenM (toBool <$> ImGui.button (buttonTxt :: CString)) $
       sendToControl shared (SessionEv event)
-  renderState <- mkRenderState
-  runImRender renderState $
-    renderComponent False SessionEv (Session.buildModuleInProgress drvModMap pausedMap timingInProg)
+    let txt = Session.buildModuleInProgress drvModMap pausedMap timingInProg
+    T.withCString txt $ \cstr ->
+      ImGui.textUnformatted cstr
   where
     sessionInfo = ss._serverSessionInfo
     statusTxt

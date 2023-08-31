@@ -13,6 +13,7 @@ import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import GHCSpecter.Channel.Common.Types
@@ -62,14 +63,11 @@ import Text.Pretty.Simple (pShowNoColor)
 import Prelude hiding (div)
 
 buildModuleInProgress ::
-  (MonadTextLayout m) =>
   BiKeyMap DriverId ModuleName ->
   KeyMap DriverId BreakpointLoc ->
   [(DriverId, Timer)] ->
-  m (Scene (Primitive e))
-buildModuleInProgress drvModMap pausedMap timingInProg = do
-  scene <- buildTextView (T.unlines msgs) []
-  pure scene {sceneId = "module-status"}
+  Text
+buildModuleInProgress drvModMap pausedMap timingInProg = T.unlines msgs
   where
     msgs =
       let is = fmap fst timingInProg
