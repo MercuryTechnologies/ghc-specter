@@ -7,12 +7,14 @@ module Render.TimingView
 where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar)
+import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Foldable (for_)
 import Data.List qualified as L
+import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString)
-import Foreign.Marshal.Utils (fromBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.Timing.Types
   ( TimingTable (..),
@@ -36,7 +38,11 @@ import GHCSpecter.UI.Types
     UIModel (..),
     UIState (..),
   )
-import GHCSpecter.UI.Types.Event (UserEvent (..))
+import GHCSpecter.UI.Types.Event
+  ( TimingEvent (..),
+    UserEvent (..),
+  )
+import Handler (sendToControl)
 import ImGui qualified
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 import Render.Common (renderComponent)
@@ -51,6 +57,14 @@ import Util.Render
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render ui ss = do
+  shared <- ask
+  let freezeOrThaw :: (CString, TimingEvent)
+      freezeOrThaw
+        | isNothing (tui._timingFrozenTable) = ("freeze", TimingFlow False)
+        | otherwise = ("thaw", TimingFlow True)
+  liftIO $
+    whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
+      sendToControl shared (TimingEv (snd freezeOrThaw))
   renderState <- mkRenderState
   let stage_ref :: TVar Stage
       stage_ref = renderState.currSharedState.sharedStage
@@ -104,7 +118,10 @@ render ui ss = do
     tui = ui._uiModel._modelTiming
     mhoveredMod = tui._timingUIHoveredModule
 
-    ttable = ss._serverTiming._tsTimingTable
+    ttable =
+      fromMaybe
+        (ss._serverTiming._tsTimingTable)
+        (tui._timingFrozenTable)
 
 renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
