@@ -36,7 +36,7 @@ rowSize :: Double
 rowSize = 8
 
 ratio :: Double
-ratio = 0.625
+ratio = 1.3 -- 0.625
 
 charSize :: Double
 charSize = rowSize * ratio

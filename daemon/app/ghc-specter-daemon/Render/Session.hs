@@ -38,7 +38,7 @@ import Util.Render (SharedState (..))
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render _ui ss = do
-  vec1 <- liftIO $ ImGui.newImVec2 0 100
+  vec1 <- liftIO $ ImGui.newImVec2 0 120
   vec2 <- liftIO $ ImGui.newImVec2 500 0
   vec3 <- liftIO $ ImGui.newImVec2 0 0
   _ <- liftIO $ ImGui.beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
