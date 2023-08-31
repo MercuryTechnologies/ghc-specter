@@ -14,7 +14,7 @@ import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
@@ -37,11 +37,13 @@ import GHCSpecter.Server.Types
 import GHCSpecter.UI.Components.GraphView qualified as GraphView
 import GHCSpecter.UI.Types
   ( ModuleGraphUI (..),
+    TimingUI (..),
     UIModel (..),
     UIState (..),
   )
 import GHCSpecter.UI.Types.Event
-  ( BlockerEvent (..),
+  ( BlockerDetailLevel (..),
+    BlockerEvent (..),
     BlockerModuleGraphEvent (..),
     SubModuleEvent (..),
     TimingEvent (..),
@@ -193,10 +195,23 @@ renderSubModuleGraph ui ss = do
       pure subgraph
 
 renderBlockerGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
-renderBlockerGraph _ui ss = do
-  whenM (toBool <$> liftIO (ImGui.button ("Re-compute Blocker Graph" :: CString))) $ do
-    shared <- ask
-    liftIO $ sendToControl shared (BlockerEv ComputeBlockerGraph)
+renderBlockerGraph ui ss = do
+  shared <- ask
+  liftIO $ do
+    let opts :: [(CString, BlockerDetailLevel)]
+        opts =
+          [ (">=2", Blocking2),
+            (">=3", Blocking3),
+            (">=4", Blocking4),
+            (">=5", Blocking5)
+          ]
+        mkRadio (label, level) = do
+          whenM (toBool <$> ImGui.radioButton_ label (fromBool (curr_level == level))) $
+            sendToControl shared (BlockerEv (BlockerModuleGraphEv (BMGUpdateLevel level)))
+          ImGui.sameLine_
+    traverse_ mkRadio opts
+    whenM (toBool <$> ImGui.button ("Re-compute Blocker Graph" :: CString)) $ do
+      sendToControl shared (BlockerEv ComputeBlockerGraph)
   case mblockerGraphViz of
     Nothing -> pure ()
     Just blockerGraphViz -> do
@@ -207,7 +222,7 @@ renderBlockerGraph _ui ss = do
         runImRender renderState $
           renderComponent
             True
-            (TimingEv . BlockerModuleGraphEv . BMGGraph)
+            (BlockerEv . BlockerModuleGraphEv . BMGGraph)
             ( do
                 scene <- GraphView.buildModuleGraph nameMap valueFor blockerGraphViz (Nothing, Nothing)
                 -- TODO: this should be set up from buildModuleGraph
@@ -222,6 +237,7 @@ renderBlockerGraph _ui ss = do
     drvModMap = ss._serverDriverModuleMap
     nameMap = ss._serverModuleGraphState._mgsModuleGraphInfo.mginfoModuleNameMap
     ttable = ss._serverTiming._tsTimingTable
+    curr_level = ss._serverTiming._tsBlockerDetailLevel
     maxTime =
       case ttable._ttableTimingInfos of
         [] -> secondsToNominalDiffTime 1.0

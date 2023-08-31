@@ -52,11 +52,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1693456084,
-        "narHash": "sha256-v0LvvdGMO1ICPwJqQTYbYIk8mZBVDmCSsmPWAwoVQqA=",
+        "lastModified": 1693489325,
+        "narHash": "sha256-U12duK8lC0Mbm8NavcF5SxFeTLtuOkjeTTnXAAxJmU0=",
         "owner": "wavewave",
         "repo": "hs-imgui",
-        "rev": "91f0c845dc8f7e1fa36b9b0141bbf2244e761290",
+        "rev": "bb161fe8087261532d7272c3be2573af4e071812",
         "type": "github"
       },
       "original": {

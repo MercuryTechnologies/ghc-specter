@@ -618,14 +618,6 @@ goTiming ev = do
     TimingEv (HoverOffModule _modu) -> do
       modifyUI (uiModel . modelTiming . timingUIHoveredModule .~ Nothing)
       refresh
-    TimingEv (BlockerModuleGraphEv (BMGGraph e)) -> do
-      printMsg ("blocker module graph event: " <> T.pack (show e))
-      pure ()
-    TimingEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
-      printMsg ("blocker module graph update: " <> T.pack (show lvl))
-      modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
-      asyncWork timingBlockerGraphWorker
-      refresh
     _ -> pure ()
   case ev of
     MouseEv mev ->
@@ -645,6 +637,14 @@ goBlocker ev = do
   case ev of
     BlockerEv (ComputeBlockerGraph) -> do
       printMsg "compute blocker graph is pressed"
+      asyncWork timingBlockerGraphWorker
+      refresh
+    BlockerEv (BlockerModuleGraphEv (BMGGraph e)) -> do
+      printMsg ("blocker module graph event: " <> T.pack (show e))
+      pure ()
+    BlockerEv (BlockerModuleGraphEv (BMGUpdateLevel lvl)) -> do
+      printMsg ("blocker module graph update: " <> T.pack (show lvl))
+      modifySS (serverTiming . tsBlockerDetailLevel .~ lvl)
       asyncWork timingBlockerGraphWorker
       refresh
     _ -> pure ()
