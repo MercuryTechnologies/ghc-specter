@@ -89,7 +89,10 @@ renderModuleTree :: SourceViewUI -> ServerState -> ReaderT (SharedState UserEven
 renderModuleTree srcUI ss = do
   renderState <- mkRenderState
   runImRender renderState $
-    renderComponent False SourceViewEv (buildModuleTree srcUI ss)
+    renderComponent
+      False
+      SourceViewEv
+      (buildModuleTree srcUI ss)
 
 renderSourceTextView :: Text -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSourceTextView modu ss = do

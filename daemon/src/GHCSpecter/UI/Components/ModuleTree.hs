@@ -9,6 +9,7 @@ where
 
 import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
+import Data.List qualified as L
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Traversable (for)
@@ -26,6 +27,7 @@ import GHCSpecter.Graphics.DSL
     movePrimitiveBy,
     rectangle,
     viewPortHeight,
+    viewPortSum,
     viewPortWidth,
   )
 import GHCSpecter.Layouter.Text
@@ -69,13 +71,15 @@ buildModuleTree srcUI ss = do
       tr' <- traverse renderNode tr
       pure $ indentLevel tr'
   let contents = concatMap render $ zip [0 ..] (concat rendered0)
+      defViewPort = ViewPort (0, 0) canvasDim
+      extent = L.foldl' viewPortSum defViewPort $ fmap primBoundingBox contents
   pure
     Scene
       { sceneId = "module-tree",
-        sceneGlobalViewPort = ViewPort (0, 0) canvasDim,
-        sceneLocalViewPort = ViewPort (0, 0) canvasDim,
+        sceneGlobalViewPort = extent,
+        sceneLocalViewPort = extent,
         sceneElements = contents,
-        sceneExtents = Nothing
+        sceneExtents = Just extent
       }
   where
     timing = ss ^. serverTiming . tsTimingMap
