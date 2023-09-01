@@ -11,14 +11,16 @@ import Control.Concurrent.STM
     atomically,
     readTVar,
   )
+import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Foldable (for_)
-import Data.Functor.Identity (runIdentity)
 import Data.List qualified as L
 import Data.Map qualified as M
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.Text qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo (..))
@@ -29,19 +31,24 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Components.ModuleTree (buildModuleTree)
 import GHCSpecter.UI.Components.TextView (buildTextView)
-import GHCSpecter.UI.SourceView (buildSuppViewPanel)
+import GHCSpecter.UI.SourceView (buildSuppView)
 import GHCSpecter.UI.Types
   ( SourceViewUI (..),
     UIModel (..),
     UIState (..),
   )
-import GHCSpecter.UI.Types.Event (UserEvent (..))
+import GHCSpecter.UI.Types.Event
+  ( SourceViewEvent (..),
+    UserEvent (..),
+  )
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
+import Handler (sendToControl)
 import ImGui qualified
 import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI
   ( defTableFlags,
+    makeTabContents,
     windowFlagsNoScroll,
     windowFlagsNoScrollbar,
   )
@@ -123,30 +130,52 @@ renderSourceTextView modu ss = do
 
 renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSuppViewPanel modu srcUI ss = do
+  shared <- ask
+  whenM (toBool <$> liftIO (ImGui.beginTabBar ("#supp-view-tabbar" :: CString))) $ do
+    let tab_contents =
+          fmap
+            ( \((t, i), tab_title) ->
+                ( (t, i),
+                  tab_title,
+                  renderSuppViewContents modu srcUI ss
+                )
+            )
+            suppViewTabs
+    mselected <- makeTabContents Nothing tab_contents
+    when (mtab /= mselected) $
+      case mselected of
+        Nothing -> pure ()
+        Just selected ->
+          liftIO $ sendToControl shared (SourceViewEv (SourceViewTab selected))
+    liftIO ImGui.endTabBar
+  where
+    mtab = srcUI._srcViewSuppViewTab
+    suppViews = fromMaybe [] (M.lookup modu (ss._serverSuppView))
+    suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
+
+renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSuppViewContents modu srcUI ss = do
   renderState <- mkRenderState
   let stage_ref :: TVar Stage
       stage_ref = renderState.currSharedState.sharedStage
   Stage stage <- liftIO $ atomically $ readTVar stage_ref
-  for_ (L.find ((== "supple-view-tab") . sceneId) stage) $ \stage_supp_tab ->
-    for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
-      runImRender renderState $ do
-        let (sceneSuppTab, sceneSuppContents) =
-              runIdentity (buildSuppViewPanel modu srcUI ss)
-        renderComponent
-          False
-          SourceViewEv
-          ( pure
-              sceneSuppTab
-                { sceneGlobalViewPort = stage_supp_tab.sceneGlobalViewPort,
-                  sceneLocalViewPort = stage_supp_tab.sceneLocalViewPort
-                }
-          )
-        renderComponent
-          True
-          (\_ -> DummyEv)
-          ( pure
+  for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
+    runImRender renderState $ do
+      renderComponent
+        True
+        (\_ -> DummyEv)
+        ( do
+            sceneSuppContents <- buildSuppView msupp_view
+            pure
               sceneSuppContents
                 { sceneGlobalViewPort = stage_supp.sceneGlobalViewPort,
                   sceneLocalViewPort = stage_supp.sceneLocalViewPort
                 }
-          )
+        )
+  where
+    mtab = srcUI._srcViewSuppViewTab
+    suppViews = fromMaybe [] (M.lookup modu (ss._serverSuppView))
+    msupp_view = do
+      tab <- mtab
+      suppView <- L.lookup tab suppViews
+      pure suppView

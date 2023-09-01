@@ -168,8 +168,7 @@ appWidgetConfig =
           [ ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2)),
             ("source-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
             ("supple-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
-            ("supple-view-tab", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), tabHeight)),
-            ("supple-view-contents", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2))
+            ("supple-view-contents", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2))
           ],
       _wcfgTiming =
         Map.fromList
