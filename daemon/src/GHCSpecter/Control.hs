@@ -203,6 +203,7 @@ handleConsoleCommand drvId msg
       mainLoop
   | msg == ":dump-heap" = sendRequest $ ConsoleReq drvId DumpHeap
   | msg == ":exit-ghc-debug" = sendRequest $ SessionReq ExitGhcDebug
+  | msg == ":ghci-on-ghc" = sendRequest $ ConsoleReq drvId GhciOnGhc
   | otherwise = sendRequest $ ConsoleReq drvId (Ping msg)
 
 appendNewCommand :: DriverId -> Text -> Control e ()

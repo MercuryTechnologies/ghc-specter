@@ -33,6 +33,7 @@ data ConsoleRequest
   | ListCore
   | PrintCore [Text]
   | DumpHeap
+  | GhciOnGhc
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary ConsoleRequest

@@ -183,12 +183,18 @@ renderHelp ss mconsoleFocus = do
       liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)
 
     pausedMap = ss._serverPaused
+    -- TODO: this should be removed from this. move this to GHCSpecter.UI.Console.
     getHelp k =
       let title =
             let mpaused = lookupKey k pausedMap
              in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
           classify txt =
-            if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug" || txt == ":list-core"
+            if txt == ":next"
+              || txt == ":goto-source"
+              || txt == ":dump-heap"
+              || txt == ":exit-ghc-debug"
+              || txt == ":ghci-on-ghc"
+              || txt == ":list-core"
               then Left (txt, ConsoleButtonPressed True txt)
               else Right txt
           helpMsgs =
