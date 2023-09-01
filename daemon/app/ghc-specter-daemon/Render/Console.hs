@@ -86,7 +86,7 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   let items = buildConsoleMain consoleMap mconsoleFocus
   renderState <- mkRenderState
   liftIO $
-    traverse_ (renderConsoleItem renderState.currSharedState) items
+    traverse_ (renderConsoleItem renderState) items
   let console_scroll_ref = renderState.currSharedState.sharedWillScrollDownConsole
   whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
     liftIO $ ImGui.setScrollHereY 0.5

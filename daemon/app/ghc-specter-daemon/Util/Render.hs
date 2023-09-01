@@ -33,7 +33,10 @@ import Control.Concurrent.STM
     TVar,
     atomically,
     modifyTVar',
+    newTVarIO,
+    readTVar,
     writeTQueue,
+    writeTVar,
   )
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
@@ -112,7 +115,9 @@ data ImRenderState e = ImRenderState
     currUpperLeftInGlobalViewport :: (Double, Double),
     currUpperLeftInLocalViewport :: (Double, Double),
     -- | (scaleX, scaleY)
-    currScale :: (Double, Double)
+    currScale :: (Double, Double),
+    -- TODO: This is ugly. let's get rid of all these TVar, when changing to state monad.
+    currLocalIDRef :: TVar Int
   }
 
 mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
@@ -120,6 +125,7 @@ mkRenderState = do
   shared <- ask
   draw_list <- liftIO getWindowDrawList
   oxy <- liftIO getOriginInImGui
+  local_id_ref <- liftIO $ newTVarIO 0
   pure
     ImRenderState
       { currSharedState = shared,
@@ -127,7 +133,8 @@ mkRenderState = do
         currOriginInImGui = oxy,
         currUpperLeftInGlobalViewport = (0, 0),
         currUpperLeftInLocalViewport = (0, 0),
-        currScale = (1.0, 1.0)
+        currScale = (1.0, 1.0),
+        currLocalIDRef = local_id_ref
       }
 
 --
@@ -309,7 +316,7 @@ addEventMap emap = ImRender $ do
 --
 
 --
-renderConsoleItem :: SharedState UserEvent -> ConsoleItem -> IO ()
+renderConsoleItem :: ImRenderState UserEvent -> ConsoleItem -> IO ()
 renderConsoleItem _ (ConsoleCommand txt) = separator >> T.withCString txt textUnformatted >> separator
 renderConsoleItem _ (ConsoleText txt) = T.withCString txt textUnformatted
 renderConsoleItem s (ConsoleButton buttonss) =
@@ -318,10 +325,17 @@ renderConsoleItem s (ConsoleButton buttonss) =
     Just ls' -> traverse_ mkRow ls'
   where
     mkButton (label, cmd) = do
+      let ref = s.currLocalIDRef
+      n <- atomically $ do
+        n <- readTVar ref
+        writeTVar ref (n + 1)
+        pure n
+      pushID (fromIntegral n)
       T.withCString label $ \cstr ->
         whenM (toBool <$> button cstr) $
           atomically $
-            writeTQueue (s.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
+            writeTQueue (s.currSharedState.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
+      popID
     mkRow :: NonEmpty (Text, Text) -> IO ()
     mkRow buttons = do
       traverse_ (\itm -> mkButton itm >> sameLine_) buttons
