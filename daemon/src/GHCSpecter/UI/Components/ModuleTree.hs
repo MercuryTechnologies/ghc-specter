@@ -1,5 +1,6 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.UI.Components.ModuleTree
   ( buildModuleTree,
@@ -10,11 +11,14 @@ where
 import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
 import Data.List qualified as L
+import Data.Maybe (isJust)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Traversable (for)
 import Data.Tree (Tree (..), flatten, foldTree)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Data.Map (backwardLookup)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL
   ( Color (..),
@@ -95,7 +99,8 @@ buildModuleTree srcUI ss = do
 
     renderNode :: (ModuleName, Bool) -> m [Primitive SourceViewEvent]
     renderNode (modu, b) = do
-      let color
+      let doesModuleExist = ss ^. serverModuleGraphState . mgsModuleNames . to (modu `Set.member`)
+          color
             | isModuleCompilationDone drvModMap timing modu = Green
             | otherwise = Black
           (matched, txt) =
@@ -133,11 +138,13 @@ buildModuleTree srcUI ss = do
       let bbox = primBoundingBox renderedText
           w = viewPortWidth bbox
           h = viewPortHeight bbox
-      pure
+      pure $
         [ rectangle (0, 0) w h (Just Red) colorBox Nothing (Just hitEvent),
-          renderedText,
-          rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)
+          renderedText
         ]
+          ++ if doesModuleExist
+            then [rectangle (w + 3, 0) 10 10 (Just Black) colorBreakpoint (Just 1.0) (Just hitEventBreakpoint)]
+            else []
 
     annotateLevel :: a -> [Tree (Int, a)] -> Tree (Int, a)
     annotateLevel x ys = Node (0, x) (fmap (fmap (\(l, txt) -> (l + 1, txt))) ys)

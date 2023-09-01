@@ -38,6 +38,8 @@ import Control.Lens (makeClassy, (%~))
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Tree (Forest, Tree)
 import GHC.Generics (Generic)
@@ -90,6 +92,7 @@ emptyTimingState =
 
 data ModuleGraphState = ModuleGraphState
   { _mgsModuleGraphInfo :: ModuleGraphInfo,
+    _mgsModuleNames :: Set ModuleName,
     _mgsModuleForest :: Forest ModuleName,
     _mgsClusterGraph :: Maybe GraphVisInfo,
     _mgsClustering :: [(ModuleName, [ModuleName])],
@@ -103,6 +106,7 @@ emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState =
   ModuleGraphState
     { _mgsModuleGraphInfo = emptyModuleGraphInfo,
+      _mgsModuleNames = Set.empty,
       _mgsModuleForest = [],
       _mgsClusterGraph = Nothing,
       _mgsClustering = [],
@@ -156,8 +160,8 @@ data ServerState = ServerState
 
 makeClassy ''ServerState
 
-initServerState {- Int -> -} :: ServerState
-initServerState {- nodeSizeLimit -} =
+initServerState :: ServerState
+initServerState =
   ServerState
     { _serverMessageSN = 0,
       _serverShouldUpdate = True,
