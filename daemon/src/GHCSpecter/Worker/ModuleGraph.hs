@@ -115,9 +115,6 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $
       incrementSN . (serverModuleGraphState . mgsSubgraph .~ subgraphs)
-  -- for test
-  -- putStrLn (drawForest (fmap (fmap T.unpack) forest))
-  print mod_names
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->

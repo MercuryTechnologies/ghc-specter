@@ -1,6 +1,4 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.UI.Components.ModuleTree
   ( buildModuleTree,
@@ -11,14 +9,12 @@ where
 import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
 import Data.List qualified as L
-import Data.Maybe (isJust)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Traversable (for)
 import Data.Tree (Tree (..), flatten, foldTree)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
-import GHCSpecter.Data.Map (backwardLookup)
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
 import GHCSpecter.Graphics.DSL
   ( Color (..),
