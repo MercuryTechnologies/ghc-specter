@@ -31,13 +31,14 @@ import Data.Time.Clock (UTCTime, getCurrentTime)
 import GHC.Core.Opt.Monad (getDynFlags)
 import GHC.Data.IOEnv (getEnv)
 import GHC.Driver.Env (HscEnv (..))
+import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Pipeline (PipeEnv (..), runPhase)
 import GHC.Driver.Pipeline.Phases
   ( PhaseHook (..),
     TPhase (..),
   )
 import GHC.Driver.Plugins (PluginWithArgs (..), StaticPlugin (..), staticPlugins)
-import GHC.Driver.Session (DynFlags)
+import GHC.Driver.Session (DynFlags, extractDynFlags, gopt)
 import GHC.Hs.Extension (GhcRn)
 import GHC.Stats
   ( GCDetails (..),
@@ -310,7 +311,7 @@ sendCompStateOnPhase drvId phase pt = do
           for_ mmodName $ \modName ->
             sendModuleName drvId modName msrcFile'
         PhaseEnd -> pure ()
-    T_HscPostTc {} ->
+    T_HscPostTc env modSummary _ _ _ ->
       case pt of
         PhaseStart -> pure ()
         PhaseEnd -> do
@@ -331,6 +332,13 @@ sendCompStateOnPhase drvId phase pt = do
                 | otherwise =
                     Timer [(TimerHscOut, (hscOutTime, mmeminfo))]
           queueMessage (CMTiming drvId timer)
+          -- send HIE file information to the daemon after compilation
+          let dflags = extractDynFlags env
+          when (gopt Opt_WriteHie dflags) $ do
+            let modLoc = ms_location modSummary
+                hiefile = ml_hie_file modLoc
+            hiefile' <- canonicalizePath hiefile
+            queueMessage (CMHsHie drvId hiefile')
     T_HscBackend {} -> pure ()
     T_CmmCpp {} -> pure ()
     T_Cmm {} -> pure ()
