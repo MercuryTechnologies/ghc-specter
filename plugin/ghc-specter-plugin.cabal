@@ -33,6 +33,7 @@ library
       Plugin.GHCSpecter.Hooks
       Plugin.GHCSpecter.Init
       Plugin.GHCSpecter.Tasks
+      Plugin.GHCSpecter.Tasks.Common
       Plugin.GHCSpecter.Tasks.Core2Core
       Plugin.GHCSpecter.Tasks.Typecheck
       Plugin.GHCSpecter.Types

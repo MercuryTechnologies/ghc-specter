@@ -25,6 +25,7 @@ where
 import Data.Text (Text)
 import GHC.Core.Opt.Monad (CoreM)
 import GHC.Driver.Env (Hsc)
+import GHC.Driver.Env.Types (HscEnv)
 import GHC.Driver.Session (DynFlags)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types (RnM, TcGblEnv (..), TcM)
@@ -33,6 +34,7 @@ import GHC.Utils.Outputable (Outputable (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (HsUntypedSplice, LHsExpr)
+import Plugin.GHCSpecter.Tasks.Common (runGhciOnGhc)
 import Plugin.GHCSpecter.Tasks.Core2Core (listCore, printCore)
 import Plugin.GHCSpecter.Tasks.Typecheck
   ( fetchUnqualifiedImports,
@@ -91,8 +93,12 @@ core2coreCommands guts =
       (":print-core", printCore guts)
     ]
 
-prePhaseCommands :: CommandSet IO
-prePhaseCommands = emptyCommandSet
+prePhaseCommands :: HscEnv -> CommandSet IO
+prePhaseCommands env =
+  CommandSet
+    [(":ghci-on-ghc", \_ -> runGhciOnGhc env)]
 
-postPhaseCommands :: CommandSet IO
-postPhaseCommands = emptyCommandSet
+postPhaseCommands :: HscEnv -> CommandSet IO
+postPhaseCommands env =
+  CommandSet
+    [(":ghci-on-ghc", \_ -> runGhciOnGhc env)]

@@ -121,8 +121,8 @@ consoleAction drvId loc cmds actionRef = liftIO $ do
               isInGhcDebug' <- psIsInGhcDebug <$> readTVar sessionRef
               when isInGhcDebug' retry
         reply $ ConsoleReplyText Nothing "Dump-Heap-finished"
-      GhciOnGhc -> do
-        putStrLn "ghci-on-ghc"
+      GhciOnGhc ->
+        doCommand ":ghci-on-ghc" (const True) "ghci-on-ghc" []
   where
     reply = queueMessage . CMConsole drvId
 

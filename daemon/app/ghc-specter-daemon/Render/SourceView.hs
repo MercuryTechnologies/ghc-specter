@@ -126,7 +126,6 @@ renderSuppViewPanel modu srcUI ss = do
   Stage stage <- liftIO $ atomically $ readTVar stage_ref
   for_ (L.find ((== "supple-view-tab") . sceneId) stage) $ \stage_supp_tab ->
     for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
-      liftIO $ putStrLn "renderSuppViewPanel"
       runImRender renderState $ do
         let (sceneSuppTab, sceneSuppContents) =
               runIdentity (buildSuppViewPanel modu srcUI ss)
