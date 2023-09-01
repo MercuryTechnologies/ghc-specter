@@ -10,18 +10,14 @@ module Plugin.GHCSpecter
   )
 where
 
-import Control.Monad (when)
-import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (for_)
 import Data.Functor ((<&>))
 import Data.Text qualified as T
 import GHC.Core.Opt.Monad (CoreM, getDynFlags)
 import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
 import GHC.Driver.Env (Hsc, HscEnv (..))
-import GHC.Driver.Flags (GeneralFlag (Opt_WriteHie))
 import GHC.Driver.Hooks (Hooks (..))
 import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
-import GHC.Driver.Session (gopt)
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types
   ( TcGblEnv (..),
@@ -31,17 +27,12 @@ import GHC.Tc.Types
     unsafeTcPluginTcM,
   )
 import GHC.Types.Unique.FM (emptyUFM)
-import GHC.Unit.Module.Location (ModLocation (..))
 import GHC.Unit.Module.ModSummary (ModSummary (..))
 import GHCSpecter.Channel.Common.Types (DriverId (..))
-import GHCSpecter.Channel.Outbound.Types
-  ( BreakpointLoc (..),
-    ChanMessage (..),
-  )
+import GHCSpecter.Channel.Outbound.Types (BreakpointLoc (..))
 import GHCSpecter.Util.GHC (showPpr)
 import Language.Haskell.Syntax.Decls (HsGroup)
 import Language.Haskell.Syntax.Expr (LHsExpr)
-import Plugin.GHCSpecter.Comm (queueMessage)
 import Plugin.GHCSpecter.Console (breakPoint)
 import Plugin.GHCSpecter.Hooks
   ( runMetaHook',
@@ -58,7 +49,6 @@ import Plugin.GHCSpecter.Tasks
     typecheckResultActionCommands,
   )
 import Safe (headMay, readMay)
-import System.Directory (canonicalizePath)
 
 --
 -- parsedResultAction plugin
@@ -150,7 +140,7 @@ typeCheckResultActionPlugin ::
   ModSummary ->
   TcGblEnv ->
   TcM TcGblEnv
-typeCheckResultActionPlugin opts modSummary tc = do
+typeCheckResultActionPlugin opts _modSummary tc = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
     breakPoint
       drvId
