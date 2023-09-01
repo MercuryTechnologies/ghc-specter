@@ -18,6 +18,7 @@ import GHC.Driver.Main
   )
 import GHC.Driver.Session (getDynFlags)
 import GHC.Runtime.Eval (execOptions, execStmt)
+import GHC.Runtime.Interpreter (evalString)
 import GHC.Runtime.Interpreter.Types (Interp (interpInstance), InterpInstance (..))
 import GHCSpecter.Channel.Outbound.Types (ConsoleReply (..))
 import GHCSpecter.Util.GHC (printPpr, showPpr)
@@ -44,7 +45,8 @@ runGhciOnGhc env = do
                 r <- liftIO $ hscParsedStmt env' stmt
                 case r of
                   Nothing -> reply "no result"
-                  Just (ids, _, fix_env) -> do
+                  Just (ids, fhv, _fix_env) -> do
+                    value <- liftIO $ evalString interp fhv
                     dflags <- getDynFlags
-                    let result_str = show (length ids) <> " : " <> showPpr dflags ids
+                    let result_str = value -- showPpr dflags value  -- show (length ids) <> " : " <> showPpr dflags ids
                     reply ("result = " <> T.pack result_str)
