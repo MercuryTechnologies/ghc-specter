@@ -66,50 +66,44 @@
           // hs-imgui.haskellOverlay.${system} pkgs hself hsuper
           // haskellOverlay pkgs hself hsuper);
 
-      mkShellFor = isEnv: compiler: let
+      mkEnvShellFor = compiler: let
         hsenv = (hpkgsFor compiler).ghcWithPackages (
-          p:
-            [
-              p.OGDF
-              p.imgui
-              p.implot
-              p.hspec-discover
-            ]
-            ++ (pkgs.lib.optionals isEnv [p.ghc-specter-daemon])
+          p: [
+            p.ghc-specter-daemon
+            p.ghc-specter-plugin
+          ]
         );
-        pyenv =
-          pkgs.python3.withPackages
-          (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);
-        prompt =
-          if isEnv
-          then "ghc-specter:env"
-          else "ghc-specter:dev";
+        prompt = "ghc-specter:env";
       in
         pkgs.mkShell {
           packages = [
-            # for build
             hsenv
-            pkgs.ogdf
             pkgs.cabal-install
-
-            # for doc
-            pyenv
-
-            # for formatting
             pkgs.alejandra
             pkgs.ormolu
+          ];
+          shellHook = ''
+            export PS1="\n[${prompt}:\w]$ \0"
+          '';
+        };
 
-            # for agda
-            pkgs.zlib
-
-            # for socket testing
-            pkgs.socat
-
-            # for GUI
-            pkgs.pkgconfig
-            pkgs.imgui
-            pkgs.implot
-            pkgs.glfw
+      mkDevShellFor = compiler: let
+        pyenv =
+          pkgs.python3.withPackages
+          (p: [p.sphinx p.sphinx_rtd_theme p.myst-parser]);
+        prompt = "ghc-specter:dev";
+      in
+        (hpkgsFor compiler).shellFor {
+          packages = p: [
+            p.ghc-specter-render
+            p.ghc-specter-plugin
+            p.ghc-specter-daemon
+          ];
+          buildInputs = [
+            pkgs.cabal-install
+            pkgs.alejandra
+            pkgs.ormolu
+            pyenv
           ];
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
@@ -132,10 +126,10 @@
       inherit haskellOverlay;
 
       devShells =
-        pkgs.lib.genAttrs supportedCompilers (mkShellFor false)
+        pkgs.lib.genAttrs supportedCompilers mkDevShellFor
         // {
           default = devShells.${defaultCompiler};
-          env = mkShellFor true defaultCompiler;
+          env = mkEnvShellFor defaultCompiler;
         };
 
       packages = pkgs.lib.genAttrs supportedCompilers mkPackagesFor;
