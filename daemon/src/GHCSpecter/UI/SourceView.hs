@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.SourceView
-  ( buildSuppViewPanel,
+  ( buildSuppView,
+    buildSuppViewPanel,
   )
 where
 

@@ -63,7 +63,7 @@ timingWidth :: (Num a) => a
 timingWidth = 1024
 
 timingHeight :: (Num a) => a
-timingHeight = 600
+timingHeight = 500
 
 timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
@@ -72,7 +72,7 @@ modGraphWidth :: (Num a) => a
 modGraphWidth = 1024
 
 modGraphHeight :: (Num a) => a
-modGraphHeight = 300
+modGraphHeight = 500
 
 sessionModStatusDim :: (Num a) => (a, a)
 sessionModStatusDim = (250, 80)
@@ -168,8 +168,7 @@ appWidgetConfig =
           [ ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2)),
             ("source-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
             ("supple-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
-            ("supple-view-tab", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), tabHeight)),
-            ("supple-view-contents", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2))
+            ("supple-view-contents", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2))
           ],
       _wcfgTiming =
         Map.fromList
