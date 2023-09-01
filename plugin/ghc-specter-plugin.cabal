@@ -50,7 +50,7 @@ library
     , directory
     , errors
     , extra
-    -- , ghc-debug-stub
+    , ghc-debug-stub
     , network
     , process
     , safe
