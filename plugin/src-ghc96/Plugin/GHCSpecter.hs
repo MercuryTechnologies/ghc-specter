@@ -152,14 +152,6 @@ typeCheckResultActionPlugin ::
   TcM TcGblEnv
 typeCheckResultActionPlugin opts modSummary tc = do
   for_ (DriverId <$> (readMay =<< headMay opts)) $ \drvId -> do
-    -- send HIE file information to the daemon after compilation
-    dflags <- getDynFlags
-    let modLoc = ms_location modSummary
-    when (gopt Opt_WriteHie dflags) $
-      liftIO $ do
-        let hiefile = ml_hie_file modLoc
-        hiefile' <- canonicalizePath hiefile
-        queueMessage (CMHsHie drvId hiefile')
     breakPoint
       drvId
       TypecheckResultAction
