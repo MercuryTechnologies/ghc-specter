@@ -26,7 +26,6 @@ import GHCSpecter.Channel.Common.Types (DriverId (..))
 import GHCSpecter.Data.Map
   ( KeyMap,
     keyMapToList,
-    lookupKey,
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
@@ -34,9 +33,9 @@ import GHCSpecter.Server.Types
   )
 import GHCSpecter.UI.Console
   ( buildConsoleMain,
+    getHelp,
     getTabName,
   )
-import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types
   ( ConsoleUI (..),
     UIModel (..),
@@ -169,7 +168,7 @@ renderInput inputEntry = do
 
 renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do
-  case getHelp <$> mconsoleFocus of
+  case getHelp ss <$> mconsoleFocus of
     Nothing -> pure ()
     Just (title, items) -> do
       liftIO $ ImGui.textUnformatted (fromString (T.unpack title) :: CString)
@@ -181,19 +180,3 @@ renderHelp ss mconsoleFocus = do
         liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv ev)
     renderItem (Right txt) =
       liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)
-
-    pausedMap = ss._serverPaused
-    getHelp k =
-      let title =
-            let mpaused = lookupKey k pausedMap
-             in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
-          classify txt =
-            if txt == ":next" || txt == ":goto-source" || txt == ":dump-heap" || txt == ":exit-ghc-debug" || txt == ":list-core"
-              then Left (txt, ConsoleButtonPressed True txt)
-              else Right txt
-          helpMsgs =
-            maybe
-              [Right "No Help!"]
-              (fmap classify)
-              (consoleCommandList <$> lookupKey k (ss._serverPaused))
-       in (title, helpMsgs)

@@ -4,6 +4,7 @@
 module GHCSpecter.UI.Console
   ( -- * utilities
     getTabName,
+    getHelp,
     buildEachLine,
     buildTextBlock,
 
@@ -63,14 +64,44 @@ import GHCSpecter.UI.Constants
   ( canvasDim,
     consoleInputHeight,
   )
+import GHCSpecter.UI.Help (consoleCommandList)
 import GHCSpecter.UI.Types.Event (ConsoleEvent (..))
 import Prelude hiding (div)
+
+--
+--
+--
 
 getTabName :: ServerState -> DriverId -> Text
 getTabName ss k =
   let ktxt = T.pack $ show (unDriverId k)
       mlookedup = forwardLookup k (ss._serverDriverModuleMap)
    in maybe ktxt (\m -> ktxt <> " - " <> m) mlookedup
+
+getHelp :: ServerState -> DriverId -> (Text, [Either (Text, ConsoleEvent k) Text])
+getHelp ss k =
+  let pausedMap = ss._serverPaused
+      title =
+        let mpaused = lookupKey k pausedMap
+         in maybe "" (\loc -> "paused at " <> T.pack (show loc)) mpaused
+      classify txt =
+        if txt == ":next"
+          || txt == ":goto-source"
+          || txt == ":dump-heap"
+          || txt == ":exit-ghc-debug"
+          || txt == ":list-core"
+          then Left (txt, ConsoleButtonPressed True txt)
+          else Right txt
+      helpMsgs =
+        maybe
+          [Right "No Help!"]
+          (fmap classify)
+          (consoleCommandList <$> lookupKey k (ss._serverPaused))
+   in (title, helpMsgs)
+
+--
+--
+--
 
 buildEachLine ::
   forall m e.
@@ -104,7 +135,7 @@ buildConsoleHelp ::
   (k -> (Text, [Either (Text, ConsoleEvent k) Text])) ->
   Maybe k ->
   m (Scene (Primitive (ConsoleEvent k)))
-buildConsoleHelp getHelp mfocus = do
+buildConsoleHelp get_help mfocus = do
   titleElem <-
     toSizedLine . NE.singleton <$> drawText' (0, 0) UpperLeft Sans Black 8 title
   helpElems <- traverse renderItem items
@@ -120,7 +151,7 @@ buildConsoleHelp getHelp mfocus = do
         sceneExtents = Nothing
       }
   where
-    mhelp = getHelp <$> mfocus
+    mhelp = get_help <$> mfocus
     (title, items) = fromMaybe ("", []) mhelp
     renderItem (Left (txt, ev)) = do
       let hitEvent =
