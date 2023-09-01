@@ -63,7 +63,7 @@ timingWidth :: (Num a) => a
 timingWidth = 1024
 
 timingHeight :: (Num a) => a
-timingHeight = 600
+timingHeight = 500
 
 timingRangeHeight :: (Num a) => a
 timingRangeHeight = 10
@@ -72,7 +72,7 @@ modGraphWidth :: (Num a) => a
 modGraphWidth = 1024
 
 modGraphHeight :: (Num a) => a
-modGraphHeight = 300
+modGraphHeight = 500
 
 sessionModStatusDim :: (Num a) => (a, a)
 sessionModStatusDim = (250, 80)

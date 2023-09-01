@@ -7,7 +7,6 @@ module Render (main) where
 import Control.Concurrent.STM
   ( TVar,
     atomically,
-    newTVarIO,
     readTVarIO,
     writeTVar,
   )
