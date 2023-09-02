@@ -17,6 +17,7 @@ import Data.Graph (buildG)
 import Data.IntMap qualified as IM
 import Data.List qualified as L
 import Data.Maybe (mapMaybe)
+import Data.Set qualified as Set
 import Data.Text qualified as T
 import GHCSpecter.Channel.Common.Types (type ModuleName)
 import GHCSpecter.Channel.Outbound.Types
@@ -65,6 +66,7 @@ moduleGraphWorker var mgi = do
   let nodeSizeLimit = calcNodeSizeLimit mgi
       forest = makeSourceTree mgi
       modNameMap = mginfoModuleNameMap mgi
+      mod_names = Set.fromList $ F.toList modNameMap
       modDep = mginfoModuleDep mgi
       modBiDep = makeBiDep modDep
       nVtx = F.length $ mginfoModuleNameMap mgi
@@ -99,7 +101,8 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $
       let updater =
-            (serverModuleGraphState . mgsModuleForest .~ forest)
+            (serverModuleGraphState . mgsModuleNames .~ mod_names)
+              . (serverModuleGraphState . mgsModuleForest .~ forest)
               . (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
               . ( serverModuleGraphState . mgsClustering
                     .~ fmap (\(c, ms) -> (c, fmap snd ms)) clustering

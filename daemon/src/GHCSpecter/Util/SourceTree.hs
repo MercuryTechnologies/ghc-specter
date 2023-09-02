@@ -23,6 +23,8 @@ appendTo (x : xs) (t : ts)
   | x == rootLabel t = Node x (appendTo xs (subForest t)) : ts
   | otherwise = t : appendTo (x : xs) ts
 
+-- TODO: This algorithm does not distinguish the module prefix that is not
+-- matched with an actual module. We need to refine it.
 makeSourceTree :: ModuleGraphInfo -> Forest ModuleName
 makeSourceTree mgi =
   let modNames =

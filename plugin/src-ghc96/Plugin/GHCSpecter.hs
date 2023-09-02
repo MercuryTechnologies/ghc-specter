@@ -1,4 +1,3 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE MultiWayIf #-}
 
 -- This module provides the current module under compilation.
@@ -17,7 +16,15 @@ import GHC.Core.Opt.Monad (CoreM, getDynFlags)
 import GHC.Core.Opt.Pipeline.Types (CoreToDo (..))
 import GHC.Driver.Env (Hsc, HscEnv (..))
 import GHC.Driver.Hooks (Hooks (..))
-import GHC.Driver.Plugins (ParsedResult, Plugin (..), PluginWithArgs (..), StaticPlugin (..), defaultPlugin, staticPlugins, type CommandLineOption)
+import GHC.Driver.Plugins
+  ( CommandLineOption,
+    ParsedResult,
+    Plugin (..),
+    PluginWithArgs (..),
+    StaticPlugin (..),
+    defaultPlugin,
+    staticPlugins,
+  )
 import GHC.Hs.Extension (GhcRn, GhcTc)
 import GHC.Tc.Types
   ( TcGblEnv (..),
