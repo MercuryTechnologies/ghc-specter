@@ -403,11 +403,11 @@ runPhaseHook' = PhaseHook $ \phase -> do
     Nothing -> runPhase phase'
     Just drvId -> do
       let locPrePhase = PreRunPhase phaseTxt
-      breakPoint drvId locPrePhase prePhaseCommands
       sendCompStateOnPhase drvId phase PhaseStart
+      breakPoint drvId locPrePhase prePhaseCommands
       result <- runPhase phase'
       let phase'Txt = phaseTxt
           locPostPhase = PostRunPhase (phaseTxt, phase'Txt)
-      breakPoint drvId locPostPhase postPhaseCommands
       sendCompStateOnPhase drvId phase PhaseEnd
+      breakPoint drvId locPostPhase postPhaseCommands
       pure result
