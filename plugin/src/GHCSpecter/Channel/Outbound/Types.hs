@@ -36,11 +36,7 @@ import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime)
-import Data.Time.Clock.POSIX
-  ( posixSecondsToUTCTime,
-    utcTimeToPOSIXSeconds,
-  )
+import Data.Time.Clock (UTCTime (..))
 import Data.Tree (Forest)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
@@ -107,10 +103,6 @@ data MemInfo = MemInfo
   deriving (Show, Generic)
 
 instance Binary MemInfo
-
-instance Binary UTCTime where
-  get = posixSecondsToUTCTime . toEnum <$> get
-  put x = put (fromEnum (utcTimeToPOSIXSeconds x))
 
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary)

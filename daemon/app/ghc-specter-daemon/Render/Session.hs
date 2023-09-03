@@ -88,7 +88,7 @@ renderDynFlags ss =
     T.withCString txt $ \cstr ->
       ImGui.textUnformatted cstr
   where
-    txt = "DynFlags\n" <> dynFlags_info
+    txt = dynFlags_info
     dynFlags_info =
       maybe "" unDynFlagsInfo ss._serverSessionInfo.sessionDynFlags
 
