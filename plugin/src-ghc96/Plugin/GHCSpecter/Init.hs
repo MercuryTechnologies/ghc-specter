@@ -16,6 +16,7 @@ import Control.Concurrent.STM
 import Control.Monad (void, when)
 import Data.List qualified as L
 import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
 import Data.Time.Clock (getCurrentTime)
 import GHC.Driver.Backend (backendDescription)
 import GHC.Driver.Env (HscEnv (..))
@@ -45,6 +46,7 @@ import Plugin.GHCSpecter.Types
 import System.Directory (canonicalizePath, getCurrentDirectory)
 import System.Environment (getArgs, getExecutablePath)
 import System.Process (getCurrentPid)
+import Text.Pretty.Simple (pShowNoColor)
 
 mkDynFlagsInfo :: HscEnv -> DynFlagsInfo
 mkDynFlagsInfo env = DynFlagsInfo (T.pack str)
@@ -52,7 +54,7 @@ mkDynFlagsInfo env = DynFlagsInfo (T.pack str)
     dflags = hsc_dflags env
     showWithOpts (s, os) = L.intercalate " " (s : fmap showOpt os)
     str =
-      show (GHC.settings dflags)
+      (TL.unpack (pShowNoColor (GHC.settings dflags)))
         <> "\nprogramName = "
         <> GHC.programName dflags
         <> "\nprojectVersion = "
