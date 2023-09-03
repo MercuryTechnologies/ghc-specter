@@ -16,7 +16,8 @@ import Data.Text.Foreign qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types
-  ( SessionInfo (..),
+  ( DynFlagsInfo (..),
+    SessionInfo (..),
     getEnd,
   )
 import GHCSpecter.Data.Map (keyMapToList)
@@ -39,7 +40,7 @@ import Util.Render (SharedState (..))
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render _ui ss = do
   vec1 <- liftIO $ ImGui.newImVec2 0 300
-  vec2 <- liftIO $ ImGui.newImVec2 500 0
+  vec2 <- liftIO $ ImGui.newImVec2 0 0
   vec3 <- liftIO $ ImGui.newImVec2 0 0
   whenM (toBool <$> liftIO (ImGui.beginTable ("##table" :: CString) 2 defTableFlags)) $ do
     liftIO $ ImGui.tableSetupColumn_ ("#session" :: CString)
@@ -84,7 +85,12 @@ renderSessionInfo ss =
 renderDynFlags :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderDynFlags ss =
   liftIO $
-    ImGui.textUnformatted ("DynFlags" :: CString)
+    T.withCString txt $ \cstr ->
+      ImGui.textUnformatted cstr
+  where
+    txt = "DynFlags\n" <> dynFlags_info
+    dynFlags_info =
+      maybe "" unDynFlagsInfo ss._serverSessionInfo.sessionDynFlags
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss =
