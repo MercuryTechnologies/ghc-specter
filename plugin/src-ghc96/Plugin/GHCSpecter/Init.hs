@@ -52,9 +52,8 @@ mkDynFlagsInfo env = DynFlagsInfo (T.pack str)
     dflags = hsc_dflags env
     showWithOpts (s, os) = L.intercalate " " (s : fmap showOpt os)
     str =
-      -- showPpr dflags (GHC.settings dflags)
-      -- <>
-      "\nprogramName = "
+      show (GHC.settings dflags)
+        <> "\nprogramName = "
         <> GHC.programName dflags
         <> "\nprojectVersion = "
         <> GHC.projectVersion dflags

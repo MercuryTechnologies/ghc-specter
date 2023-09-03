@@ -5,6 +5,7 @@
 module GHCSpecter.Data.GHC.Orphans () where
 
 import Data.Binary (Binary (..))
+import GHC.Platform (PlatformMisc (..))
 import GHC.RTS.Flags
   ( CCFlags,
     ConcFlags,
@@ -22,9 +23,27 @@ import GHC.RTS.Flags
     TickyFlags,
     TraceFlags,
   )
+import GHC.Settings
+  ( GhcNameVersion (..),
+    Settings (..),
+    ToolSettings (..),
+    FileSettings (..),
+  )
 import GHC.Stats (GCDetails, RTSStats)
+import GHC.Utils.CliOption (Option (..), showOpt)
 
 -- orphan instances
+-- Settings
+
+instance Show Option where
+  show = showOpt
+deriving instance Show PlatformMisc
+deriving instance Show Settings
+deriving instance Show ToolSettings
+deriving instance Show FileSettings
+deriving instance Show GhcNameVersion
+
+-- RTS
 instance Binary GiveGCStats
 
 instance Binary GCFlags
