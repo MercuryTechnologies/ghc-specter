@@ -16,6 +16,7 @@ module GHCSpecter.Channel.Outbound.Types
     ModuleGraphInfo (..),
     emptyModuleGraphInfo,
     ConsoleReply (..),
+    DynFlagsInfo (..),
     ProcessInfo (..),
     GhcMode (..),
     Backend (..),
@@ -35,11 +36,7 @@ import Data.IntMap (IntMap)
 import Data.List qualified as L
 import Data.Map.Strict (Map)
 import Data.Text (Text)
-import Data.Time.Clock (UTCTime)
-import Data.Time.Clock.POSIX
-  ( posixSecondsToUTCTime,
-    utcTimeToPOSIXSeconds,
-  )
+import Data.Time.Clock (UTCTime (..))
 import Data.Tree (Forest)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
@@ -107,10 +104,6 @@ data MemInfo = MemInfo
 
 instance Binary MemInfo
 
-instance Binary UTCTime where
-  get = posixSecondsToUTCTime . toEnum <$> get
-  put x = put (fromEnum (utcTimeToPOSIXSeconds x))
-
 newtype Timer = Timer {unTimer :: [(TimerTag, (UTCTime, Maybe MemInfo))]}
   deriving (Show, Generic, Binary)
 
@@ -150,6 +143,14 @@ instance Binary ModuleGraphInfo
 emptyModuleGraphInfo :: ModuleGraphInfo
 emptyModuleGraphInfo = ModuleGraphInfo mempty mempty []
 
+-- | Serializable part of DynFlags
+newtype DynFlagsInfo = DynFlagsInfo
+  { unDynFlagsInfo :: Text
+  }
+  deriving (Show, Generic)
+
+instance Binary DynFlagsInfo
+
 -- | GHC process info, including process id, command line arguments.
 data ProcessInfo = ProcessInfo
   { procPID :: Int,
@@ -175,7 +176,8 @@ data Backend = NCG | LLVM | ViaC | Interpreter | NoBackend
 instance Binary Backend
 
 data SessionInfo = SessionInfo
-  { sessionProcess :: Maybe ProcessInfo,
+  { sessionDynFlags :: Maybe DynFlagsInfo,
+    sessionProcess :: Maybe ProcessInfo,
     sessionGhcMode :: GhcMode,
     sessionBackend :: Backend,
     sessionStartTime :: Maybe UTCTime,
@@ -188,7 +190,8 @@ instance Binary SessionInfo
 emptySessionInfo :: SessionInfo
 emptySessionInfo =
   SessionInfo
-    { sessionProcess = Nothing,
+    { sessionDynFlags = Nothing,
+      sessionProcess = Nothing,
       sessionGhcMode = CompManager,
       sessionBackend = NCG,
       sessionStartTime = Nothing,

@@ -16,7 +16,8 @@ import Data.Text.Foreign qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types
-  ( SessionInfo (..),
+  ( DynFlagsInfo (..),
+    SessionInfo (..),
     getEnd,
   )
 import GHCSpecter.Data.Map (keyMapToList)
@@ -38,14 +39,23 @@ import Util.Render (SharedState (..))
 
 render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 render _ui ss = do
-  vec1 <- liftIO $ ImGui.newImVec2 0 120
-  vec2 <- liftIO $ ImGui.newImVec2 500 0
+  vec1 <- liftIO $ ImGui.newImVec2 0 300
+  vec2 <- liftIO $ ImGui.newImVec2 0 0
   vec3 <- liftIO $ ImGui.newImVec2 0 0
-  _ <- liftIO $ ImGui.beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
-  renderSessionInfo ss
-  liftIO ImGui.endChild
   whenM (toBool <$> liftIO (ImGui.beginTable ("##table" :: CString) 2 defTableFlags)) $ do
     liftIO $ ImGui.tableSetupColumn_ ("#session" :: CString)
+    liftIO $ ImGui.tableNextRow 0
+    liftIO $ ImGui.tableSetColumnIndex 0
+
+    _ <- liftIO $ ImGui.beginChild ("#session-info" :: CString) vec1 (fromBool False) windowFlagsNone
+    renderSessionInfo ss
+    liftIO ImGui.endChild
+
+    liftIO $ ImGui.tableSetColumnIndex 1
+    _ <- liftIO $ ImGui.beginChild ("#dynflags" :: CString) vec1 (fromBool False) windowFlagsNone
+    renderDynFlags ss
+    liftIO ImGui.endChild
+
     liftIO $ ImGui.tableNextRow 0
     liftIO $ ImGui.tableSetColumnIndex 0
     --
@@ -71,6 +81,16 @@ renderSessionInfo ss =
   liftIO $
     T.withCString (Session.buildSession ss) $ \cstr ->
       ImGui.textUnformatted cstr
+
+renderDynFlags :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderDynFlags ss =
+  liftIO $
+    T.withCString txt $ \cstr ->
+      ImGui.textUnformatted cstr
+  where
+    txt = dynFlags_info
+    dynFlags_info =
+      maybe "" unDynFlagsInfo ss._serverSessionInfo.sessionDynFlags
 
 renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderProcessPanel ss =

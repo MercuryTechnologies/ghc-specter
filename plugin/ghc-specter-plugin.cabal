@@ -51,6 +51,8 @@ library
     , extra
     , ghc-debug-stub
     , network
+    -- TODO: this needs to be taken out later.
+    , pretty-simple
     , process
     , safe
     , stm
