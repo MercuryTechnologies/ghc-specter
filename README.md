@@ -1,14 +1,20 @@
 # ghc-specter
 Inspecting tool for the GHC pipeline through GHC plugin
 
-## How to use
+ghc-specter is an inspecting tool and visualizer of internal states of
+the GHC compilation pipeline via GHC plugins and hooks. Haskell developers
+often need investigation in the middle of the compilation, for example,
+to identify blocking compilation steps dominating the build time or to
+investigate a problematic Template Haskell code, but have to rely only on
+built-in GHC logging or resort to a custom modification of the GHC source
+code. As a GHC driver plugin, invoked by simple command-line flags,
+ghc-specter collects the relevant information directly inside from the GHC
+compilation and send to a visualizer daemon on live. The user can also pause
+and intervene the GHC process in the middle of compilation to inspect the
+GHC internal state and inspect the the compilation process in an interactive
+session.
 
-### Configuration
-One can configure ghc-specter by the file `ghc-specter.yaml`.
-The file should be present in the directory where ghc-specter-daemon
-runs and where a target `ghc` runs (usually the root directory of a
-cabal project).
-A sample config YAML file can be found in `ghc-specter.yaml.sample`.
+## How to use
 
 ### Run daemon
 ```
