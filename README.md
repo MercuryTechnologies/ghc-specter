@@ -19,7 +19,7 @@ session.
 ### Run daemon
 ```
 $ nix develop
-$ cabal run ghc-specter-daemon:ghc-specter-daemon -- online
+$ cabal run ghc-specter-daemon:exe:ghc-specter-daemon
 ```
 
 ### Run GHC in a project
