@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.Components.ModuleTree
@@ -6,7 +7,6 @@ module GHCSpecter.UI.Components.ModuleTree
   )
 where
 
-import Control.Lens (to, (^.))
 import Data.Bifunctor (first)
 import Data.List qualified as L
 import Data.Set qualified as Set
@@ -35,15 +35,13 @@ import GHCSpecter.Layouter.Text
     drawText',
   )
 import GHCSpecter.Server.Types
-  ( HasModuleGraphState (..),
-    HasServerState (..),
-    HasTimingState (..),
+  ( ModuleGraphState (..),
     ServerState (..),
+    TimingState (..),
   )
 import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types
-  ( HasSourceViewUI (..),
-    SourceViewUI (..),
+  ( SourceViewUI (..),
   )
 import GHCSpecter.UI.Types.Event (SourceViewEvent (..))
 import GHCSpecter.Util.SourceTree
@@ -82,20 +80,22 @@ buildModuleTree srcUI ss = do
         sceneExtents = Just extent
       }
   where
-    timing = ss ^. serverTiming . tsTimingMap
-    drvModMap = ss ^. serverDriverModuleMap
-    mexpandedModu = srcUI ^. srcViewExpandedModule
+    timing = ss._serverTiming._tsTimingMap
+    drvModMap = ss._serverDriverModuleMap
+    mexpandedModu = srcUI._srcViewExpandedModule
     expanded = maybe [] (T.splitOn ".") mexpandedModu
     displayedForest =
-      ss ^. serverModuleGraphState . mgsModuleForest . to (expandFocusOnly expanded . fmap markLeaf)
+      expandFocusOnly expanded . fmap markLeaf $
+        ss._serverModuleGraphState._mgsModuleForest
     displayedForest' :: [Tree (ModuleName, Bool)]
     displayedForest' =
       fmap (fmap (first (T.intercalate "."))) . fmap (accumPrefix []) $ displayedForest
-    breakpoints = ss ^. serverModuleBreakpoints
+    breakpoints = ss._serverModuleBreakpoints
 
     renderNode :: (ModuleName, Bool) -> m [Primitive SourceViewEvent]
     renderNode (modu, b) = do
-      let doesModuleExist = ss ^. serverModuleGraphState . mgsModuleNames . to (modu `Set.member`)
+      let doesModuleExist =
+            modu `Set.member` ss._serverModuleGraphState._mgsModuleNames
           color
             | isModuleCompilationDone drvModMap timing modu = Green
             | otherwise = Black

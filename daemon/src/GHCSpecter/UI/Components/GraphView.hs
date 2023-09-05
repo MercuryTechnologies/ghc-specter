@@ -1,5 +1,5 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.Components.GraphView
@@ -8,14 +8,13 @@ module GHCSpecter.UI.Components.GraphView
   )
 where
 
-import Control.Lens ((^.), _1)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Tuple (swap)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Graphics.DSL
   ( Color (..),
     HitEvent (..),
@@ -31,8 +30,6 @@ import GHCSpecter.Layouter.Graph.Types
   ( Dimension (..),
     EdgeLayout (..),
     GraphVisInfo (..),
-    HasGraphVisInfo (..),
-    HasNodeLayout (..),
     NodeLayout (..),
     Point (..),
     toTuple,
@@ -62,11 +59,11 @@ buildModuleGraph
   valueFor
   grVisInfo
   (mfocused, mhinted) = do
-    let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+    let Dim canvasWidth canvasHeight = grVisInfo._gviCanvasDim
         extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
         revNameMap = M.fromList $ fmap swap $ IM.toList nameMap
         nodeLayoutMap =
-          IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
+          IM.fromList $ fmap (\n -> (fst n._nodePayload, n)) (grVisInfo._gviNodes)
         -- graph layout parameter
         aFactor = 1.05
         offX = -15
@@ -118,7 +115,7 @@ buildModuleGraph
               renderedText
             ]
     renderedNodes <-
-      concat <$> traverse node (grVisInfo ^. gviNodes)
+      concat <$> traverse node (grVisInfo._gviNodes)
     pure
       Scene
         { sceneId = "main-module-graph",
@@ -126,7 +123,7 @@ buildModuleGraph
           sceneLocalViewPort = extent,
           sceneElements =
             [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
-              ++ fmap edge (grVisInfo ^. gviEdges)
+              ++ fmap edge (grVisInfo._gviEdges)
               ++ renderedNodes,
           sceneExtents = Just extent
         }
@@ -139,9 +136,9 @@ buildGraph ::
   GraphVisInfo ->
   m [Primitive ModuleGraphEvent]
 buildGraph cond grVisInfo = do
-  let Dim canvasWidth canvasHeight = grVisInfo ^. gviCanvasDim
+  let Dim canvasWidth canvasHeight = grVisInfo._gviCanvasDim
       nodeLayoutMap =
-        IM.fromList $ fmap (\n -> (n ^. nodePayload . _1, n)) (grVisInfo ^. gviNodes)
+        IM.fromList $ fmap (\n -> (fst n._nodePayload, n)) (grVisInfo._gviNodes)
       -- graph layout parameter
       aFactor = 1.5
       offX = -15
@@ -176,8 +173,8 @@ buildGraph cond grVisInfo = do
             renderedText
           ]
   renderedNodes <-
-    concat <$> traverse node (grVisInfo ^. gviNodes)
+    concat <$> traverse node (grVisInfo._gviNodes)
   pure $
     [rectangle (0, 0) canvasWidth canvasHeight Nothing Nothing Nothing Nothing] -- just dummy for now
-      ++ fmap edge (grVisInfo ^. gviEdges)
+      ++ fmap edge (grVisInfo._gviEdges)
       ++ renderedNodes

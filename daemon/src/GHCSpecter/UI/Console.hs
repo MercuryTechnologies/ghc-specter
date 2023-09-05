@@ -16,7 +16,6 @@ module GHCSpecter.UI.Console
   )
 where
 
-import Control.Lens ((^.), _1)
 import Control.Monad (join)
 import Data.Foldable qualified as F
 import Data.List.NonEmpty (NonEmpty (..))
@@ -123,7 +122,7 @@ buildConsoleTab tabs mfocus =
     tabCfg =
       TabConfig
         { tabCfgId = "console-tab",
-          tabCfgWidth = canvasDim ^. _1,
+          tabCfgWidth = fst canvasDim,
           tabCfgHeight = 15,
           tabCfgItems = tabs
         }
@@ -246,8 +245,8 @@ buildConsoleInput inputEntry = do
   pure
     Scene
       { sceneId = "console-input",
-        sceneGlobalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight),
-        sceneLocalViewPort = ViewPort (0, 0) (canvasDim ^. _1, consoleInputHeight),
+        sceneGlobalViewPort = ViewPort (0, 0) (fst canvasDim, consoleInputHeight),
+        sceneLocalViewPort = ViewPort (0, 0) (fst canvasDim, consoleInputHeight),
         sceneElements = [rendered],
         sceneExtents = Nothing
       }
