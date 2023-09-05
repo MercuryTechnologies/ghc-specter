@@ -15,7 +15,7 @@ import Control.Concurrent.STM
     modifyTVar',
     writeTQueue,
   )
-import Control.Lens ((%~), (.~))
+import Control.Lens ((%~))
 import Data.Bifunctor (bimap)
 import Data.Foldable (find, for_)
 import Data.Map.Strict (Map)
@@ -53,7 +53,7 @@ import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.GHC.Hie
   ( DeclRow' (..),
     DefRow' (..),
-    HasModuleHieInfo (..),
+    ModuleHieInfo (..),
     RefRow' (..),
     emptyModuleHieInfo,
   )
@@ -188,11 +188,12 @@ hieWorker ssRef workQ hiefile = do
       (refs, decls) = genRefsAndDecls "" modu refmap
       defs = genDefRow "" modu refmap
       modHie =
-        (modHieRefs .~ refs)
-          . (modHieDecls .~ decls)
-          . (modHieDefs .~ defs)
-          . (modHieSource .~ src)
-          $ emptyModuleHieInfo
+        emptyModuleHieInfo
+          { _modHieRefs = refs,
+            _modHieDecls = decls,
+            _modHieDefs = defs,
+            _modHieSource = src
+          }
       callGraphWork = CallGraph.worker ssRef modName modHie
   atomically $ do
     modifyTVar' ssRef $
@@ -204,7 +205,7 @@ moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do
   for_ (M.toList modSrcs) $ \(modu, srcFile) -> do
     src <- TIO.readFile srcFile
-    let update Nothing = Just ((modHieSource .~ src) emptyModuleHieInfo)
-        update (Just modHie) = Just ((modHieSource .~ src) modHie)
+    let update Nothing = Just (emptyModuleHieInfo {_modHieSource = src})
+        update (Just modHie) = Just (modHie {_modHieSource = src})
     atomically $
       modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.alter update modu)

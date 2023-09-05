@@ -16,7 +16,7 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~))
+import Control.Lens ((%~))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
@@ -47,9 +47,9 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
-    HasModuleGraphState (..),
     HasServerState (..),
     HasTimingState (..),
+    ModuleGraphState (..),
     ServerState (..),
     SupplementaryView (..),
     incrementSN,
@@ -80,9 +80,16 @@ updateInbox chanMsg = incrementSN . updater
               Just $ Timer (unTimer timer0 ++ unTimer timer')
          in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
       CMBox (CMSession s') ->
-        (serverSessionInfo .~ s')
+        (\ss -> ss {_serverSessionInfo = s'})
       CMBox (CMModuleGraph mgi _msrcs) ->
-        (serverModuleGraphState . mgsModuleGraphInfo .~ mgi)
+        ( \ss ->
+            ss
+              { _serverModuleGraphState =
+                  ss._serverModuleGraphState
+                    { _mgsModuleGraphInfo = mgi
+                    }
+              }
+        )
       CMBox (CMHsHie _ _) ->
         id
       CMBox (CMPaused drvId loc) ->

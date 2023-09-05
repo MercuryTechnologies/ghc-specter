@@ -13,7 +13,6 @@ import Control.Concurrent.STM
     readTVar,
     writeTVar,
   )
-import Control.Lens ((.~))
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
     SessionInfo (..),
@@ -25,9 +24,7 @@ import GHCSpecter.Data.Timing.Util
 import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    HasTimingState (..),
-    ModuleGraphState (..),
+  ( ModuleGraphState (..),
     ServerState (..),
     TimingState (..),
   )
@@ -46,7 +43,13 @@ timingWorker ssRef = do
           drvModMap = ss._serverDriverModuleMap
           mgi = ss._serverModuleGraphState._mgsModuleGraphInfo
           ttable = makeTimingTable timing drvModMap mgi sessStart
-      atomically $ modifyTVar' ssRef (serverTiming . tsTimingTable .~ ttable)
+      atomically $ modifyTVar' ssRef $ \ss_ ->
+        ss_
+          { _serverTiming =
+              ss_._serverTiming
+                { _tsTimingTable = ttable
+                }
+          }
 
 timingBlockerGraphWorker :: TVar ServerState -> IO ()
 timingBlockerGraphWorker ssRef = do
@@ -57,11 +60,23 @@ timingBlockerGraphWorker ssRef = do
           mgi = ss._serverModuleGraphState._mgsModuleGraphInfo
           ttable = ss._serverTiming._tsTimingTable
           blockerGraph = makeBlockerGraph blThre mgi ttable
-          ss' = (serverTiming . tsBlockerGraph .~ blockerGraph) ss
+          ss' =
+            ss
+              { _serverTiming =
+                  ss._serverTiming
+                    { _tsBlockerGraph = blockerGraph
+                    }
+              }
       writeTVar ssRef ss'
       pure (ss', mgi)
   let modNameMap = mginfoModuleNameMap mgi
       blockerReversed = makeRevDep (ss'._serverTiming._tsBlockerGraph)
   grVisInfo <- Sugiyama.layOutGraph modNameMap blockerReversed
   atomically $
-    modifyTVar' ssRef (serverTiming . tsBlockerGraphViz .~ Just grVisInfo)
+    modifyTVar' ssRef $ \ss ->
+      ss
+        { _serverTiming =
+            ss._serverTiming
+              { _tsBlockerGraphViz = Just grVisInfo
+              }
+        }

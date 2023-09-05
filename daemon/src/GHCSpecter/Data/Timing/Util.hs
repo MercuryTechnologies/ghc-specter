@@ -13,7 +13,6 @@ module GHCSpecter.Data.Timing.Util
   )
 where
 
-import Control.Lens ((&), (.~))
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -46,8 +45,7 @@ import GHCSpecter.Data.Map
     lookupKey,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasTimingTable (..),
-    PipelineInfo (..),
+  ( PipelineInfo (..),
     TimingTable (..),
     emptyTimingTable,
   )
@@ -62,8 +60,6 @@ isModuleCompilationDone drvModMap timing modu =
     i <- backwardLookup modu drvModMap
     (fmap fst . getEnd =<< lookupKey i timing)
 
---      timing ^? to () . _Just . to getEnd . _Just . _1
-
 makeTimingTable ::
   KeyMap DriverId Timer ->
   BiKeyMap DriverId ModuleName ->
@@ -72,9 +68,10 @@ makeTimingTable ::
   TimingTable
 makeTimingTable timing drvModMap mgi sessStart =
   emptyTimingTable
-    & (ttableTimingInfos .~ timingInfos)
-      . (ttableBlockingUpstreamDependency .~ lastDepMap)
-      . (ttableBlockedDownstreamDependency .~ lastDepRevMap)
+    { _ttableTimingInfos = timingInfos,
+      _ttableBlockingUpstreamDependency = lastDepMap,
+      _ttableBlockedDownstreamDependency = lastDepRevMap
+    }
   where
     findModName drvId = forwardLookup drvId drvModMap
     subtractTime (modName, timer) = do
