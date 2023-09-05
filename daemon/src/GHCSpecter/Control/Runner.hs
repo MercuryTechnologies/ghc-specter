@@ -1,11 +1,11 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Control.Runner
   ( RunnerHandler (..),
     RunnerEnv (..),
-    type Runner,
+    Runner,
     stepControl,
     stepControlUpToEvent,
   )
@@ -23,13 +23,11 @@ import Control.Concurrent.STM
     writeTQueue,
     writeTVar,
   )
-import Control.Lens ((.~), (^.))
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Indexed.Free (IxFree (..))
 import Control.Monad.Trans.Reader (ReaderT, ask)
--- import Data.ByteString.Lazy qualified as BL
 import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -37,26 +35,21 @@ import Data.Text.IO qualified as TIO
 import Data.Time.Clock qualified as Clock
 import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Control.Types
-  ( ControlF (..),
-    type Control,
+  ( Control,
+    ControlF (..),
   )
 import GHCSpecter.Graphics.DSL
   ( EventMap,
     Scene,
   )
 import GHCSpecter.Server.Types (ServerState)
-import GHCSpecter.UI.Types
-  ( HasUIState (..),
-    UIState (..),
-  )
+import GHCSpecter.UI.Types (UIState (..))
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (..),
     Event (..),
     SystemEvent (..),
     UserEvent,
   )
-
--- import System.IO (IOMode (..), withFile)
 
 data RunnerHandler e = RunnerHandler
   { runHandlerRefreshAction :: IO (),
@@ -223,10 +216,10 @@ stepControl (Free (GetCurrentTime cont)) = do
   now <- liftIO Clock.getCurrentTime
   pure (Left (cont now))
 stepControl (Free (GetLastUpdatedUI cont)) = do
-  lastUpdatedUI <- (^. uiLastUpdated) <$> getUI'
+  lastUpdatedUI <- (._uiLastUpdated) <$> getUI'
   pure (Left (cont lastUpdatedUI))
 stepControl (Free (ShouldUpdate b next)) = do
-  modifyUI' (uiShouldUpdate .~ b)
+  modifyUI' (\s -> s {_uiShouldUpdate = b})
   pure (Left next)
 stepControl (Free (SaveSession next)) = do
   -- TODO: proper saving

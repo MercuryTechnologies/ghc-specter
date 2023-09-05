@@ -11,7 +11,7 @@ module GHCSpecter.Control
 where
 
 import Control.Concurrent.STM (readTVarIO)
-import Control.Lens (Lens', to, (%~), (&), (.~), (^.), _1, _2)
+import Control.Lens (Lens', (%~), (&), (.~), (^.), _1, _2)
 import Control.Monad (guard, void, when)
 import Data.Foldable (traverse_)
 import Data.List qualified as L
@@ -53,7 +53,7 @@ import GHCSpecter.Control.DSL
   )
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Data.Map (alterToKeyMap, emptyKeyMap, forwardLookup)
-import GHCSpecter.Data.Timing.Types (HasTimingTable (..))
+import GHCSpecter.Data.Timing.Types (TimingTable (..))
 import GHCSpecter.Graphics.DSL
   ( EventMap,
     HitEvent (..),
@@ -66,17 +66,19 @@ import GHCSpecter.Server.Types
   ( ConsoleItem (..),
     HasServerState (..),
     HasTimingState (..),
-    ServerState,
+    ServerState (..),
+    TimingState (..),
   )
 import GHCSpecter.UI.Constants
-  ( HasWidgetConfig (..),
+  ( WidgetConfig (..),
     timingHeight,
     timingMaxWidth,
     timingWidth,
     uiUpdateInterval,
   )
 import GHCSpecter.UI.Types
-  ( HasBlockerUI (..),
+  ( ConsoleUI (..),
+    HasBlockerUI (..),
     HasConsoleUI (..),
     HasModuleGraphUI (..),
     HasSessionUI (..),
@@ -86,8 +88,9 @@ import GHCSpecter.UI.Types
     HasUIState (..),
     HasViewPortInfo (..),
     ModuleGraphUI (..),
-    UIModel,
-    UIState,
+    TimingUI (..),
+    UIModel (..),
+    UIState (..),
     ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event
@@ -192,7 +195,7 @@ handleConsoleCommand drvId msg
           modifyUI (uiModel . modelSourceView . srcViewFocusedBinding .~ Just sym)
   | msg == ":goto-source" = do
       modifyUISS $ \(ui, ss) ->
-        let mmod = ss ^. serverDriverModuleMap . to (forwardLookup drvId)
+        let mmod = forwardLookup drvId (ss._serverDriverModuleMap)
             ui' =
               ui
                 & (uiModel . modelSourceView . srcViewExpandedModule .~ mmod)
@@ -343,12 +346,12 @@ handleConsole (ConsoleTab i) = do
   modifyUI (uiModel . modelConsole . consoleFocus .~ Just i)
   refresh
 handleConsole (ConsoleKey key) = do
-  model0 <- (^. uiModel) <$> getUI
+  model0 <- (._uiModel) <$> getUI
   if key == "Enter"
-    then case model0 ^. modelConsole . consoleFocus of
+    then case model0._modelConsole._consoleFocus of
       Nothing -> pure ()
       Just drvId -> do
-        let msg = model0 ^. modelConsole . consoleInputEntry
+        let msg = model0._modelConsole._consoleInputEntry
         appendNewCommand drvId msg
         modifyUI (uiModel . modelConsole . consoleInputEntry .~ "")
         handleConsoleCommand drvId msg
@@ -361,8 +364,8 @@ handleConsole (ConsoleInput content) = do
 handleConsole (ConsoleButtonPressed isImmediate msg) = do
   if isImmediate
     then do
-      model0 <- (^. uiModel) <$> getUI
-      case model0 ^. modelConsole . consoleFocus of
+      model0 <- (._uiModel) <$> getUI
+      case model0._modelConsole._consoleFocus of
         Nothing -> pure ()
         Just drvId -> do
           appendNewCommand drvId msg
@@ -406,7 +409,7 @@ handleSessionEvent sev = do
         let ui' =
               ui
                 & (uiModel . modelConsole . consoleFocus .~ Nothing)
-            sinfo = ss ^. serverSessionInfo
+            sinfo = ss._serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = False}
             ss' =
               (serverSessionInfo .~ sinfo')
@@ -419,7 +422,7 @@ handleSessionEvent sev = do
       refresh
     PauseSessionEv -> do
       modifySS $ \ss ->
-        let sinfo = ss ^. serverSessionInfo
+        let sinfo = ss._serverSessionInfo
             sinfo' = sinfo {sessionIsPaused = True}
          in ss
               & (serverSessionInfo .~ sinfo') . (serverShouldUpdate .~ True)
@@ -452,8 +455,8 @@ goModuleGraph ev = do
   case ev of
     MainModuleEv mev -> do
       modifyUISS $ \(ui, ss) ->
-        let model = ui ^. uiModel
-            mgui = model ^. modelMainModuleGraph
+        let model = ui._uiModel
+            mgui = model._modelMainModuleGraph
             mgui' = handleModuleGraphEv mev mgui
             model' = (modelMainModuleGraph .~ mgui') model
             ui' = (uiModel .~ model') ui
@@ -462,11 +465,11 @@ goModuleGraph ev = do
       refresh
     SubModuleEv sev -> do
       modifyUISS $ \(ui, ss) ->
-        let model = ui ^. uiModel
+        let model = ui._uiModel
             model' =
               case sev of
                 SubModuleGraphEv sgev ->
-                  let mgui = model ^. modelSubModuleGraph . _2
+                  let mgui = snd (model._modelSubModuleGraph)
                       mgui' = handleModuleGraphEv sgev mgui
                    in (modelSubModuleGraph . _2 .~ mgui') model
                 SubModuleLevelEv d' ->
@@ -531,7 +534,7 @@ goSourceView ev = do
                 | otherwise = L.delete modu
               ss' = (serverModuleBreakpoints %~ updater) ss
            in (ui, ss')
-      let bps = ss' ^. serverModuleBreakpoints
+      let bps = ss'._serverModuleBreakpoints
       sendRequest $ SessionReq (SetModuleBreakpoints bps)
       refresh
     SourceViewEv (SourceViewTab tab) -> do
@@ -566,12 +569,12 @@ goTiming ev = do
   case ev of
     TimingEv ToCurrentTime -> do
       modifyUISS $ \(ui, ss) ->
-        let model = ui ^. uiModel
+        let model = ui._uiModel
             ttable =
               fromMaybe
-                (ss ^. serverTiming . tsTimingTable)
-                (model ^. modelTiming . timingFrozenTable)
-            timingInfos = ttable ^. ttableTimingInfos
+                (ss._serverTiming._tsTimingTable)
+                (model._modelTiming._timingFrozenTable)
+            timingInfos = ttable._ttableTimingInfos
             -- TODO: this should be drawn from a library function.
             nMods = length timingInfos
             totalHeight = 5 * nMods
@@ -592,8 +595,8 @@ goTiming ev = do
     TimingEv (TimingFlow isFlowing) -> do
       printMsg $ "TimingFlow " <> T.pack (show isFlowing)
       modifyUISS $ \(ui, ss) ->
-        let model = ui ^. uiModel
-            ttable = ss ^. serverTiming . tsTimingTable
+        let model = ui._uiModel
+            ttable = ss._serverTiming._tsTimingTable
             model'
               | isFlowing = (modelTiming . timingFrozenTable .~ Nothing) model
               | otherwise = (modelTiming . timingFrozenTable .~ Just ttable) model
@@ -673,21 +676,21 @@ initializeMainView =
 
 stageFrame :: (e ~ Event) => Control e ()
 stageFrame = do
-  model <- (^. uiModel) <$> getUI
-  let wcfg = model ^. modelWidgetConfig
+  model <- (._uiModel) <$> getUI
+  let wcfg = model._modelWidgetConfig
       allCfgs =
-        (wcfg ^. wcfgTopLevel . to M.toList)
-          ++ (wcfg ^. wcfgSession . to M.toList)
-          ++ (wcfg ^. wcfgModuleGraph . to M.toList)
-          ++ (wcfg ^. wcfgSourceView . to M.toList)
-          ++ (wcfg ^. wcfgTiming . to M.toList)
+        (M.toList wcfg._wcfgTopLevel)
+          ++ (M.toList wcfg._wcfgSession)
+          ++ (M.toList wcfg._wcfgModuleGraph)
+          ++ (M.toList wcfg._wcfgSourceView)
+          ++ (M.toList wcfg._wcfgTiming)
       mkScene (name, gvp) =
         let lvp =
               case L.lookup name lensMap of
                 Nothing -> translateToOrigin gvp
                 Just l ->
                   let vpi = model ^. l
-                   in fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
+                   in fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
          in Scene
               { sceneId = name,
                 sceneGlobalViewPort = gvp,
@@ -717,7 +720,7 @@ stageFrame = do
 -- | top-level main loop, branching according to tab event
 mainLoop :: forall e r. (e ~ Event) => Control e r
 mainLoop = do
-  tab <- (^. uiModel . modelTab) <$> getUI
+  tab <- (._uiModel._modelTab) <$> getUI
   case tab of
     TabSession -> branchLoop goSession
     TabModuleGraph -> branchLoop goModuleGraph
@@ -731,13 +734,13 @@ mainLoop = do
         handleConsoleKey ev =
           case ev of
             KeyEv (NormalKeyPressed txt) -> do
-              currInput <- (^. uiModel . modelConsole . consoleInputEntry) <$> getUI
+              currInput <- (._uiModel._modelConsole._consoleInputEntry) <$> getUI
               pure $ ConsoleEv (ConsoleInput (currInput <> txt))
             KeyEv (SpecialKeyPressed KeyEnter) -> do
               -- TODO: should use enum, not text
               pure $ ConsoleEv (ConsoleKey "Enter")
             KeyEv (SpecialKeyPressed KeyBackspace) -> do
-              currInput <- (^. uiModel . modelConsole . consoleInputEntry) <$> getUI
+              currInput <- (._uiModel._modelConsole._consoleInputEntry) <$> getUI
               pure $ ConsoleEv (ConsoleInput (T.dropEnd 1 currInput))
             _ -> pure ev
         handleConsoleHoverScrollZoom ev =
@@ -784,7 +787,7 @@ mainLoop = do
           case ev of
             SessionEv sev -> handleSessionEvent sev >> pure True
             TabEv tab' -> do
-              tab <- (^. uiModel . modelTab) <$> getUI
+              tab <- (._uiModel._modelTab) <$> getUI
               if (tab /= tab')
                 then do
                   modifyUI

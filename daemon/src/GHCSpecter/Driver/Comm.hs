@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Driver.Comm
@@ -15,7 +16,7 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~), (^.))
+import Control.Lens ((%~), (.~))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
@@ -42,8 +43,7 @@ import GHCSpecter.Data.Map
     insertToBiKeyMap,
   )
 import GHCSpecter.Driver.Session.Types
-  ( HasServerSession (..),
-    ServerSession (..),
+  ( ServerSession (..),
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
@@ -98,7 +98,7 @@ updateInbox chanMsg = incrementSN . updater
                 upd1 = (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
                 upd2 ss = fromMaybe ss $ do
                   tab <- mtab
-                  modu <- forwardLookup drvId (ss ^. serverDriverModuleMap)
+                  modu <- forwardLookup drvId (ss._serverDriverModuleMap)
                   let item = SuppViewText txt
                   let append Nothing = Just [((tab, 0), item)]
                       append (Just xs) =
@@ -133,7 +133,7 @@ invokeWorker ssRef workQ (CMBox o) =
       mmodu <-
         atomically $ do
           ss <- readTVar ssRef
-          let drvModMap = ss ^. serverDriverModuleMap
+          let drvModMap = ss._serverDriverModuleMap
           pure $ forwardLookup drvId drvModMap
       case mmodu of
         Nothing -> do
@@ -160,8 +160,8 @@ listener socketFile ssess workQ = do
     _ <- forkIO $ sender sock
     receiver sock
   where
-    ssRef = ssess ^. ssServerStateRef
-    chanSignal = ssess ^. ssSubscriberSignal
+    ssRef = ssess._ssServerStateRef
+    chanSignal = ssess._ssSubscriberSignal
     sender sock = forever $ do
       putStrLn $ "########"
       newPauseState <- atomically $ readTChan chanSignal

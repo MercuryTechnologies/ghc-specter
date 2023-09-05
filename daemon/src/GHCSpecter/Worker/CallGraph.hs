@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -27,13 +28,9 @@ where
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
 import Control.Lens
   ( makeClassy,
-    to,
     (%~),
-    (^.),
-    (^..),
     _1,
     _2,
-    _3,
   )
 import Control.Monad.Trans.State (runState)
 import Data.Function (on)
@@ -47,12 +44,12 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Tuple (swap)
+import Data.Tuple.Extra (fst3, snd3, thd3)
 import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.GHC.Hie
-  ( HasDeclRow' (..),
-    HasModuleHieInfo (..),
-    HasRefRow' (..),
-    ModuleHieInfo,
+  ( DeclRow' (..),
+    ModuleHieInfo (..),
+    RefRow' (..),
   )
 import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
@@ -92,13 +89,13 @@ getTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
 getTopLevelDecls modHieInfo = sortedTopLevelDecls
   where
     extract decl =
-      let spos = (decl ^. decl'SLine, decl ^. decl'SCol)
-          epos = (decl ^. decl'ELine, decl ^. decl'ECol)
-          name = decl ^. decl'NameOcc
+      let spos = (decl._decl'SLine, decl._decl'SCol)
+          epos = (decl._decl'ELine, decl._decl'ECol)
+          name = decl._decl'NameOcc
        in ((spos, epos), name)
-    decls = modHieInfo ^.. modHieDecls . traverse . to extract
+    decls = fmap extract (modHieInfo._modHieDecls)
     topLevelDecls = filterTopLevel decls
-    sortedTopLevelDecls = L.sortBy (compare `on` (^. _1)) topLevelDecls
+    sortedTopLevelDecls = L.sortBy (compare `on` fst) topLevelDecls
 
 getReducedTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
 getReducedTopLevelDecls modHieInfo =
@@ -106,15 +103,15 @@ getReducedTopLevelDecls modHieInfo =
     (\((start, end), decl) -> (,decl) <$> reduceDeclRange src (start, end) decl)
     topLevelDecls
   where
-    src = modHieInfo ^. modHieSource
+    src = modHieInfo._modHieSource
     topLevelDecls = getTopLevelDecls modHieInfo
 
 breakSourceText :: ModuleHieInfo -> [Text]
 breakSourceText modHieInfo = txts ++ [txt]
   where
-    src = modHieInfo ^. modHieSource
+    src = modHieInfo._modHieSource
     topLevelDecls = getTopLevelDecls modHieInfo
-    (txts, (_, txt)) = runState (traverse (splitLineColumn . (^. _1 . _1)) topLevelDecls) ((1, 1), src)
+    (txts, (_, txt)) = runState (traverse (splitLineColumn . (fst . fst)) topLevelDecls) ((1, 1), src)
 
 makeRawCallGraph ::
   ModuleName ->
@@ -125,23 +122,23 @@ makeRawCallGraph ::
 makeRawCallGraph modName modHieInfo = fmap extract topDecls
   where
     topDecls = getTopLevelDecls modHieInfo
-    allRefs = modHieInfo ^.. modHieRefs . traverse
+    allRefs = modHieInfo._modHieRefs
     extract ((declStart, declEnd), declName) =
       let isHiddenSymbol r =
-            "$" `T.isPrefixOf` (r ^. ref'NameOcc)
+            "$" `T.isPrefixOf` (r._ref'NameOcc)
           isSelf r =
-            r ^. ref'NameOcc == declName && r ^. ref'NameMod == modName
+            r._ref'NameOcc == declName && r._ref'NameMod == modName
           isDepOn r =
-            let refStart = (r ^. ref'SLine, r ^. ref'SCol)
-                refEnd = (r ^. ref'ELine, r ^. ref'ECol)
+            let refStart = (r._ref'SLine, r._ref'SCol)
+                refEnd = (r._ref'ELine, r._ref'ECol)
              in (refStart, refEnd) `isContainedIn` (declStart, declEnd)
 
           mkItem r =
-            let unitName = r ^. ref'NameUnit
+            let unitName = r._ref'NameUnit
                 mmodName =
-                  let m = r ^. ref'NameMod
+                  let m = r._ref'NameMod
                    in if m == modName then Nothing else Just m
-                refName = r ^. ref'NameOcc
+                refName = r._ref'NameOcc
              in (unitName, mmodName, refName)
 
           depRefs =
@@ -163,14 +160,14 @@ restrictToUnitCallGraph ::
 restrictToUnitCallGraph = fmap ((_1 %~ UnitSymbol Nothing) . (_2 %~ restrict))
   where
     restrict =
-      fmap (\r -> UnitSymbol (r ^. _2) (r ^. _3))
-        . filter (\r -> r ^. _1 . to (\u -> isInPlace u || isMain u))
+      fmap (\r -> UnitSymbol (snd3 r) (thd3 r))
+        . filter (\r -> let u = fst3 r in isInPlace u || isMain u)
 
 makeSymbolMap :: [(UnitSymbol, [UnitSymbol])] -> IntMap UnitSymbol
 makeSymbolMap callGraph = IM.fromList (zip [1 ..] syms)
   where
-    decls = fmap (^. _1) callGraph
-    refs = concatMap (^. _2) callGraph
+    decls = fmap fst callGraph
+    refs = concatMap snd callGraph
     syms = L.nubSort (decls ++ refs)
 
 reverseMap :: (Ord k) => IntMap k -> Map k Int
@@ -204,15 +201,15 @@ layOutCallGraph modName modHieInfo = do
   case mcallGraph of
     Nothing -> pure Nothing
     Just callGraph -> do
-      let symMap = callGraph ^. modCallSymMap
+      let symMap = callGraph._modCallSymMap
       if IM.size symMap > maxGraphSize
         then pure Nothing
         else do
           let renderSym s =
-                let prefix = maybe "" (<> ".") (s ^. symModule)
-                 in prefix <> s ^. symName
+                let prefix = maybe "" (<> ".") (s._symModule)
+                 in prefix <> s._symName
               labelMap = fmap renderSym symMap
-              gr = callGraph ^. modCallGraph . to makeRevDep
+              gr = makeRevDep callGraph._modCallGraph
           grVis <- Sugiyama.layOutGraph labelMap gr
           pure (Just grVis)
 

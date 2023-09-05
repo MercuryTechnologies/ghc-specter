@@ -1,4 +1,3 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Util.SourceTree
@@ -9,11 +8,11 @@ module GHCSpecter.Util.SourceTree
   )
 where
 
-import Control.Lens (to, (^..))
+import Data.Foldable qualified as F
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Tree (Forest, Tree (..), foldTree)
-import GHCSpecter.Channel.Common.Types (type ModuleName)
+import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 
 appendTo :: [ModuleName] -> Forest ModuleName -> Forest ModuleName
@@ -29,9 +28,8 @@ makeSourceTree :: ModuleGraphInfo -> Forest ModuleName
 makeSourceTree mgi =
   let modNames =
         L.sort $
-          mginfoModuleNameMap mgi
-            ^.. traverse
-              . to (T.splitOn ".")
+          F.toList $
+            fmap (T.splitOn ".") (mginfoModuleNameMap mgi)
    in L.foldl' (\(!ts) m -> appendTo m ts) [] modNames
 
 markLeaf :: Tree a -> Tree (a, Bool)
