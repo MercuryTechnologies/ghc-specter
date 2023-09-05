@@ -11,7 +11,6 @@ module GHCSpecter.Control
 where
 
 import Control.Concurrent.STM (readTVarIO)
-import Control.Lens (Lens', (%~), (&), (^.), _2)
 import Control.Monad (guard, void, when)
 import Data.Foldable (traverse_)
 import Data.List qualified as L
@@ -64,7 +63,6 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
-    HasServerState (..),
     ServerState (..),
     TimingState (..),
   )
@@ -78,13 +76,6 @@ import GHCSpecter.UI.Constants
 import GHCSpecter.UI.Types
   ( BlockerUI (..),
     ConsoleUI (..),
-    HasBlockerUI (..),
-    HasConsoleUI (..),
-    HasModuleGraphUI (..),
-    HasSessionUI (..),
-    HasSourceViewUI (..),
-    HasTimingUI (..),
-    HasUIModel (..),
     ModuleGraphUI (..),
     SessionUI (..),
     SourceViewUI (..),
@@ -244,7 +235,7 @@ appendNewCommand drvId newMsg = do
     let newCmd = ConsoleCommand newMsg
         append Nothing = Just [newCmd]
         append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
-        ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
+        ss' = ss {_serverConsole = alterToKeyMap append drvId ss._serverConsole}
      in ss'
 
 scroll ::
@@ -688,7 +679,7 @@ goSourceView ev = do
           let updater
                 | isSet = (modu :)
                 | otherwise = L.delete modu
-              ss' = (serverModuleBreakpoints %~ updater) ss
+              ss' = ss {_serverModuleBreakpoints = updater ss._serverModuleBreakpoints}
            in (ui, ss')
       let bps = ss'._serverModuleBreakpoints
       sendRequest $ SessionReq (SetModuleBreakpoints bps)
@@ -955,8 +946,8 @@ stageFrame = do
         let lvp =
               case L.lookup name lensMap of
                 Nothing -> translateToOrigin gvp
-                Just l ->
-                  let vpi = model ^. l
+                Just get_viewport_info ->
+                  let vpi = get_viewport_info model
                    in fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
          in Scene
               { sceneId = name,
@@ -968,20 +959,20 @@ stageFrame = do
       scenes = fmap mkScene allCfgs
   traverse_ addToStage scenes
   where
-    lensMap :: [(Text, Lens' UIModel ViewPortInfo)]
+    lensMap :: [(Text, UIModel -> ViewPortInfo)]
     lensMap =
-      [ ("console-main", modelConsole . consoleViewPort),
-        ("module-status", modelSession . sessionUIModStatusViewPort),
-        ("session-process", modelSession . sessionUIProcessViewPort),
-        ("session-rts", modelSession . sessionUIRtsViewPort),
-        ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
-        ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort),
-        ("module-tree", modelSourceView . srcViewModuleTreeViewPort),
-        ("source-view", modelSourceView . srcViewSourceViewPort),
-        ("supple-view", modelSourceView . srcViewSuppViewPort),
-        ("supple-view-contents", modelSourceView . srcViewSuppViewPort),
-        ("timing-chart", modelTiming . timingUIViewPort),
-        ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+      [ ("console-main", (._modelConsole._consoleViewPort)),
+        ("module-status", (._modelSession._sessionUIModStatusViewPort)),
+        ("session-process", (._modelSession._sessionUIProcessViewPort)),
+        ("session-rts", (._modelSession._sessionUIRtsViewPort)),
+        ("main-module-graph", (._modelMainModuleGraph._modGraphViewPort)),
+        ("sub-module-graph", (._modGraphViewPort) . snd . (._modelSubModuleGraph)),
+        ("module-tree", (._modelSourceView._srcViewModuleTreeViewPort)),
+        ("source-view", (._modelSourceView._srcViewSourceViewPort)),
+        ("supple-view", (._modelSourceView._srcViewSuppViewPort)),
+        ("supple-view-contents", (._modelSourceView._srcViewSuppViewPort)),
+        ("timing-chart", (._modelTiming._timingUIViewPort)),
+        ("blocker-module-graph", (._modelBlocker._blockerUIViewPort))
       ]
 
 -- | top-level main loop, branching according to tab event
