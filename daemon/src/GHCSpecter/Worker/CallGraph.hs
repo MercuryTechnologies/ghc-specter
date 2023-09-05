@@ -26,12 +26,7 @@ module GHCSpecter.Worker.CallGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens
-  ( makeClassy,
-    (%~),
-    _1,
-    _2,
-  )
+import Control.Lens (makeClassy)
 import Control.Monad.Trans.State (runState)
 import Data.Function (on)
 import Data.IntMap (IntMap)
@@ -55,8 +50,7 @@ import GHCSpecter.Layouter.Graph.Algorithm.Builder (makeRevDep)
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo)
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState (..),
+  ( ServerState (..),
     SupplementaryView (..),
   )
 import GHCSpecter.Util.SourceText
@@ -157,7 +151,7 @@ isMain = (== "main")
 restrictToUnitCallGraph ::
   [(Text, [(Text, Maybe ModuleName, Text)])] ->
   [(UnitSymbol, [UnitSymbol])]
-restrictToUnitCallGraph = fmap ((_1 %~ UnitSymbol Nothing) . (_2 %~ restrict))
+restrictToUnitCallGraph = fmap (\(x, xs) -> (UnitSymbol Nothing x, restrict xs))
   where
     restrict =
       fmap (\r -> UnitSymbol (snd3 r) (thd3 r))
@@ -222,6 +216,11 @@ worker var modName modHieInfo = do
       let append x Nothing = Just [x]
           append x (Just xs) = Just (xs ++ [x])
       atomically $
-        modifyTVar' var $
-          serverSuppView
-            %~ M.alter (append (("CallGraph", 0), SuppViewCallgraph callGraphViz)) modName
+        modifyTVar' var $ \ss ->
+          let supp_view = ss._serverSuppView
+              supp_view' =
+                M.alter
+                  (append (("CallGraph", 0), SuppViewCallgraph callGraphViz))
+                  modName
+                  supp_view
+           in ss {_serverSuppView = supp_view'}

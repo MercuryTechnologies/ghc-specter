@@ -14,7 +14,6 @@ module GHCSpecter.UI.Components.TimingView
   )
 where
 
-import Control.Lens ((%~), (^.), _1, _2)
 import Control.Monad (join)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -35,8 +34,7 @@ import GHCSpecter.Data.Map
     forwardLookup,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasPipelineInfo (..),
-    PipelineInfo (..),
+  ( PipelineInfo (..),
     TimingTable (..),
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
@@ -243,7 +241,10 @@ buildTimingChart drvModMap tui ttable = do
         then do
           pure [box x, boxAs x, boxHscOut x, renderedText]
         else pure [box x, renderedText]
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    timingInfos' =
+      fmap
+        (\(drv_id, pinfo) -> (forwardLookup drv_id drvModMap, pinfo))
+        timingInfos
     allItems = zip [0 ..] timingInfos'
     rangeY =
       let vpi = tui._timingUIViewPort
@@ -299,9 +300,12 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
         sceneExtents = Nothing
       }
   where
+    -- TODO: refactor these repeated part.
     timingInfos = ttable._ttableTimingInfos
     timingInfos' =
-      fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+      fmap
+        (\(drv_id, pinfo) -> (forwardLookup drv_id drvModMap, pinfo))
+        timingInfos
     getMem (_, x) = maybe 0 (negate . memAllocCounter) (snd (x._plEnd))
     timingInfos''
       | not isOrdered = timingInfos'
@@ -328,8 +332,8 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
        in fmap (\x -> polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25) xs
 
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
-    box color lz (i, item) =
-      case item ^. _2 . lz . _2 of
+    box color get_field (i, item) =
+      case snd $ get_field $ snd item of
         Nothing -> []
         Just minfo ->
           [ rectangle
@@ -350,13 +354,13 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
       if (tui._timingUIPartition)
         then
           pure $
-            box LightSlateGray plEnd x
-              ++ box DeepSkyBlue plAs x
-              ++ box RoyalBlue plHscOut x
+            box LightSlateGray (._plEnd) x
+              ++ box DeepSkyBlue (._plAs) x
+              ++ box RoyalBlue (._plHscOut) x
               ++ [renderedText]
         else
           pure $
-            box LightSlateGray plEnd x
+            box LightSlateGray (._plEnd) x
               ++ [renderedText]
 
 buildTimingRange ::
