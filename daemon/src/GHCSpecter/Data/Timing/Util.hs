@@ -1,5 +1,5 @@
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Data.Timing.Util
@@ -13,7 +13,7 @@ module GHCSpecter.Data.Timing.Util
   )
 where
 
-import Control.Lens (to, (&), (.~), (^.), (^?), _1, _2, _Just)
+import Control.Lens ((&), (.~))
 import Data.Function (on)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
@@ -27,7 +27,7 @@ import Data.Time.Clock
 import Data.Tuple (swap)
 import GHCSpecter.Channel.Common.Types
   ( DriverId (..),
-    type ModuleName,
+    ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types
   ( ModuleGraphInfo (..),
@@ -46,22 +46,23 @@ import GHCSpecter.Data.Map
     lookupKey,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasPipelineInfo (..),
-    HasTimingTable (..),
+  ( HasTimingTable (..),
     PipelineInfo (..),
-    TimingTable,
+    TimingTable (..),
     emptyTimingTable,
   )
 
 isTimeInTimerRange :: (Ord a) => a -> PipelineInfo (a, b) -> Bool
 isTimeInTimerRange x tinfo =
-  x >= (tinfo ^. plStart . _1) && x <= (tinfo ^. plEnd . _1)
+  x >= (fst tinfo._plStart) && x <= (fst tinfo._plEnd)
 
 isModuleCompilationDone :: BiKeyMap DriverId ModuleName -> KeyMap DriverId Timer -> ModuleName -> Bool
 isModuleCompilationDone drvModMap timing modu =
   isJust $ do
     i <- backwardLookup modu drvModMap
-    timing ^? to (lookupKey i) . _Just . to getEnd . _Just . _1
+    (fmap fst . getEnd =<< lookupKey i timing)
+
+--      timing ^? to () . _Just . to getEnd . _Just . _1
 
 makeTimingTable ::
   KeyMap DriverId Timer ->
@@ -94,7 +95,7 @@ makeTimingTable timing drvModMap mgi sessStart =
               }
       pure (modName, tinfo)
     timingInfos =
-      L.sortOn (^. _2 . plStart . _1)
+      L.sortOn (fst . _plStart . snd)
         . mapMaybe subtractTime
         $ keyMapToList timing
 
@@ -114,7 +115,7 @@ makeTimingTable timing drvModMap mgi sessStart =
           upTiming = filter isMyUpstream timingInfos'
       if (null upTiming)
         then Nothing
-        else pure $ L.maximumBy (compare `on` (^. _2 . plEnd . _1)) upTiming
+        else pure $ L.maximumBy (compare `on` (fst . _plEnd . snd)) upTiming
 
     lastDepMap =
       M.fromList $
@@ -137,7 +138,7 @@ makeBlockerGraph blockerThreshold mgi ttable = blockerGraph
     nameModMap = M.fromList $ fmap swap $ IM.toList modNameMap
     modDep = mginfoModuleDep mgi
 
-    blocked = ttable ^. ttableBlockedDownstreamDependency
+    blocked = ttable._ttableBlockedDownstreamDependency
     blockers =
       mapMaybe (\k -> M.lookup k nameModMap) $
         M.keys $
