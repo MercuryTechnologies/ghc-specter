@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module GHCSpecter.Driver.Session
   ( -- * main session procedure
     main,
@@ -12,7 +14,6 @@ import Control.Concurrent.STM
     retry,
     writeTQueue,
   )
-import Control.Lens ((^.))
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Time.Clock (nominalDiffTimeToSeconds)
@@ -23,11 +24,9 @@ import GHCSpecter.Control.Runner
 import GHCSpecter.Control.Types (Control)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
-    HasClientSession (..),
-    HasServerSession (..),
     ServerSession (..),
   )
-import GHCSpecter.Server.Types (HasServerState (..))
+import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Constants (chanUpdateInterval)
 import GHCSpecter.UI.Types.Event
   ( BackgroundEvent (MessageChanUpdated),
@@ -44,19 +43,19 @@ main ::
 main runner servSess cs controlMain = do
   -- start chanDriver
   lastMessageSN <-
-    (^. serverMessageSN) <$> atomically (readTVar ssRef)
+    (._serverMessageSN) <$> atomically (readTVar ssRef)
   _ <- forkIO $ chanDriver lastMessageSN
   -- start controlDriver
   _ <- forkIO $ controlDriver runner
   pure ()
   where
-    ssRef = servSess ^. ssServerStateRef
-    chanQEv = cs ^. csPublisherEvent
+    ssRef = servSess._ssServerStateRef
+    chanQEv = cs._csPublisherEvent
     blockUntilNewMessage lastSN = do
       ss <- readTVar ssRef
-      if (ss ^. serverMessageSN == lastSN)
+      if (ss._serverMessageSN == lastSN)
         then retry
-        else pure (ss ^. serverMessageSN)
+        else pure (ss._serverMessageSN)
 
     -- background connector between server channel and UI frame
     chanDriver lastMessageSN = do

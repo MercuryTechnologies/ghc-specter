@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.Driver.Comm
@@ -15,7 +16,6 @@ import Control.Concurrent.STM
     readTChan,
     readTVar,
   )
-import Control.Lens ((%~), (.~), (^.))
 import Control.Monad (forever, void)
 import Data.Foldable qualified as F
 import Data.Map.Strict qualified as M
@@ -42,16 +42,14 @@ import GHCSpecter.Data.Map
     insertToBiKeyMap,
   )
 import GHCSpecter.Driver.Session.Types
-  ( HasServerSession (..),
-    ServerSession (..),
+  ( ServerSession (..),
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
-    HasModuleGraphState (..),
-    HasServerState (..),
-    HasTimingState (..),
+    ModuleGraphState (..),
     ServerState (..),
     SupplementaryView (..),
+    TimingState (..),
     incrementSN,
   )
 import GHCSpecter.Worker.Hie
@@ -69,52 +67,75 @@ updateInbox chanMsg = incrementSN . updater
 
     updater = case chanMsg of
       CMBox (CMCheckImports modu msg) ->
-        (serverInbox %~ M.insert (CheckImports, modu) msg)
+        \ss -> ss {_serverInbox = M.insert (CheckImports, modu) msg ss._serverInbox}
       CMBox (CMModuleInfo drvId modu mfile) ->
         let msg = ConsoleText ("module name: " <> modu <> ", file: " <> T.pack (show mfile))
-         in (serverDriverModuleMap %~ insertToBiKeyMap (drvId, modu))
-              . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+         in \ss ->
+              ss
+                { _serverDriverModuleMap = insertToBiKeyMap (drvId, modu) ss._serverDriverModuleMap,
+                  _serverConsole = alterToKeyMap (appendConsoleMsg msg) drvId ss._serverConsole
+                }
       CMBox (CMTiming drvId timer') ->
         let f Nothing = Just timer'
             f (Just timer0) =
               Just $ Timer (unTimer timer0 ++ unTimer timer')
-         in (serverTiming . tsTimingMap %~ alterToKeyMap f drvId)
+         in \ss ->
+              let timing_map = ss._serverTiming._tsTimingMap
+                  timing_map' = alterToKeyMap f drvId timing_map
+               in ss
+                    { _serverTiming =
+                        ss._serverTiming
+                          { _tsTimingMap = timing_map'
+                          }
+                    }
       CMBox (CMSession s') ->
-        (serverSessionInfo .~ s')
+        (\ss -> ss {_serverSessionInfo = s'})
       CMBox (CMModuleGraph mgi _msrcs) ->
-        (serverModuleGraphState . mgsModuleGraphInfo .~ mgi)
+        ( \ss ->
+            ss
+              { _serverModuleGraphState =
+                  ss._serverModuleGraphState
+                    { _mgsModuleGraphInfo = mgi
+                    }
+              }
+        )
       CMBox (CMHsHie _ _) ->
         id
       CMBox (CMPaused drvId loc) ->
         let msg = ConsoleText ("paused at " <> T.pack (show loc))
             updateSessionInfo sinfo = sinfo {sessionIsPaused = True}
-         in (serverSessionInfo %~ updateSessionInfo)
-              . (serverPaused %~ alterToKeyMap (const (Just loc)) drvId)
-              . (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+         in \ss ->
+              ss
+                { _serverSessionInfo = updateSessionInfo ss._serverSessionInfo,
+                  _serverPaused = alterToKeyMap (const (Just loc)) drvId ss._serverPaused,
+                  _serverConsole = alterToKeyMap (appendConsoleMsg msg) drvId ss._serverConsole
+                }
       CMBox (CMConsole drvId creply) ->
         case creply of
           ConsoleReplyText mtab txt ->
             let msg = ConsoleText txt
-                upd1 = (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+                upd1 ss = ss {_serverConsole = alterToKeyMap (appendConsoleMsg msg) drvId ss._serverConsole}
                 upd2 ss = fromMaybe ss $ do
                   tab <- mtab
-                  modu <- forwardLookup drvId (ss ^. serverDriverModuleMap)
+                  modu <- forwardLookup drvId (ss._serverDriverModuleMap)
                   let item = SuppViewText txt
                   let append Nothing = Just [((tab, 0), item)]
                       append (Just xs) =
                         let n = length $ filter (\((tab', _), _) -> tab' == tab) xs
                          in Just (xs ++ [((tab, n), item)])
                       ss' =
-                        (serverSuppView %~ M.alter append modu) ss
+                        ss {_serverSuppView = M.alter append modu ss._serverSuppView}
                   pure ss'
              in upd2 . upd1
           ConsoleReplyCoreBindList bindList ->
             let mkButton n = (n, ":print-core " <> n)
                 msg = ConsoleButton (fmap (fmap mkButton) bindList)
-             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+             in \ss ->
+                  ss {_serverConsole = alterToKeyMap (appendConsoleMsg msg) drvId ss._serverConsole}
           ConsoleReplyCore forest ->
             let msg = ConsoleCore forest
-             in (serverConsole %~ alterToKeyMap (appendConsoleMsg msg) drvId)
+             in \ss ->
+                  ss {_serverConsole = alterToKeyMap (appendConsoleMsg msg) drvId ss._serverConsole}
 
 -- TODO: These all should be part of Control, not here.
 invokeWorker :: TVar ServerState -> TQueue (IO ()) -> ChanMessageBox -> IO ()
@@ -133,7 +154,7 @@ invokeWorker ssRef workQ (CMBox o) =
       mmodu <-
         atomically $ do
           ss <- readTVar ssRef
-          let drvModMap = ss ^. serverDriverModuleMap
+          let drvModMap = ss._serverDriverModuleMap
           pure $ forwardLookup drvId drvModMap
       case mmodu of
         Nothing -> do
@@ -160,8 +181,8 @@ listener socketFile ssess workQ = do
     _ <- forkIO $ sender sock
     receiver sock
   where
-    ssRef = ssess ^. ssServerStateRef
-    chanSignal = ssess ^. ssSubscriberSignal
+    ssRef = ssess._ssServerStateRef
+    chanSignal = ssess._ssSubscriberSignal
     sender sock = forever $ do
       putStrLn $ "########"
       newPauseState <- atomically $ readTChan chanSignal

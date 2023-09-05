@@ -40,7 +40,7 @@ module GHCSpecter.UI.Constants
   )
 where
 
-import Control.Lens (makeClassy, to, (^.), _1, _2)
+import Control.Lens (makeClassy)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Text (Text)
@@ -124,35 +124,35 @@ appWidgetConfig =
   WidgetConfig
     { _wcfgTopLevel =
         Map.fromList
-          [ ("tab", ViewPort (0, 0) (canvasDim ^. _1, tabHeight)),
+          [ ("tab", ViewPort (0, 0) (fst canvasDim, tabHeight)),
             ( "console-tab",
-              ViewPort (0, canvasDim ^. _2 - consolePanelHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight)
+              ViewPort (0, snd canvasDim - consolePanelHeight) (fst canvasDim, snd canvasDim - consolePanelHeight + tabHeight)
             ),
             ( "console-main",
-              ViewPort (0, 0) (canvasDim ^. _1, consolePanelHeight)
+              ViewPort (0, 0) (fst canvasDim, consolePanelHeight)
             ),
             ( "console-input",
-              ViewPort (0, canvasDim ^. _2 - consoleInputHeight) canvasDim
+              ViewPort (0, snd canvasDim - consoleInputHeight) canvasDim
             ),
             ( "console-help",
-              ViewPort (canvasDim ^. _1 - 200, canvasDim ^. _2 - consolePanelHeight + tabHeight) (canvasDim ^. _1, canvasDim ^. _2 - consolePanelHeight + tabHeight + 200)
+              ViewPort (fst canvasDim - 200, snd canvasDim - consolePanelHeight + tabHeight) (fst canvasDim, snd canvasDim - consolePanelHeight + tabHeight + 200)
             )
           ],
       _wcfgSession =
         Map.fromList
           [ ( "module-status",
               ViewPort
-                (canvasDim ^. _1 - sessionModStatusDim ^. _1, tabHeight)
-                (canvasDim ^. _1, sessionModStatusDim ^. _2 + tabHeight)
+                (fst canvasDim - fst sessionModStatusDim, tabHeight)
+                (fst canvasDim, snd sessionModStatusDim + tabHeight)
             ),
             ( "session-main",
               ViewPort (5, tabHeight + 5) canvasDim
             ),
             ( "session-process",
-              ViewPort (5, 100) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 400)
+              ViewPort (5, 100) (fst canvasDim - fst sessionModStatusDim - 5, 400)
             ),
             ( "session-rts",
-              ViewPort (5, 405) (canvasDim ^. _1 - sessionModStatusDim ^. _1 - 5, 700)
+              ViewPort (5, 405) (fst canvasDim - fst sessionModStatusDim - 5, 700)
             ),
             ( "session-button",
               ViewPort (1000, tabHeight) (1100, tabHeight + 15)
@@ -165,10 +165,10 @@ appWidgetConfig =
           ],
       _wcfgSourceView =
         Map.fromList
-          [ ("module-tree", ViewPort (0, tabHeight) (canvasDim ^. _1 . to (* 0.2), canvasDim ^. _2)),
-            ("source-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
-            ("supple-view", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2)),
-            ("supple-view-contents", ViewPort (0, 0) (canvasDim ^. _1 . to (* 0.5), canvasDim ^. _2))
+          [ ("module-tree", ViewPort (0, tabHeight) (0.2 * fst canvasDim, snd canvasDim)),
+            ("source-view", ViewPort (0, 0) (0.5 * fst canvasDim, snd canvasDim)),
+            ("supple-view", ViewPort (0, 0) (0.5 * fst canvasDim, snd canvasDim)),
+            ("supple-view-contents", ViewPort (0, 0) (0.5 * fst canvasDim, snd canvasDim))
           ],
       _wcfgTiming =
         Map.fromList

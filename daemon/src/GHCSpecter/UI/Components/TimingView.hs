@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.Components.TimingView
@@ -13,7 +14,6 @@ module GHCSpecter.UI.Components.TimingView
   )
 where
 
-import Control.Lens (to, (%~), (^.), (^?), _1, _2, _Just)
 import Control.Monad (join)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -34,9 +34,8 @@ import GHCSpecter.Data.Map
     forwardLookup,
   )
 import GHCSpecter.Data.Timing.Types
-  ( HasPipelineInfo (..),
-    HasTimingTable (..),
-    TimingTable,
+  ( PipelineInfo (..),
+    TimingTable (..),
   )
 import GHCSpecter.Data.Timing.Util (isTimeInTimerRange)
 import GHCSpecter.Graphics.DSL
@@ -66,9 +65,8 @@ import GHCSpecter.UI.Constants
     timingWidth,
   )
 import GHCSpecter.UI.Types
-  ( HasTimingUI (..),
-    HasViewPortInfo (..),
-    TimingUI,
+  ( TimingUI (..),
+    ViewPortInfo (..),
   )
 import GHCSpecter.UI.Types.Event
   ( TimingEvent (..),
@@ -117,8 +115,8 @@ buildRules showParallel table totalHeight totalTime =
       let avg = secondsToNominalDiffTime $ realToFrac $ 0.5 * (sec1 + sec2)
           filtered =
             filter
-              (\x -> x ^. _2 . to (isTimeInTimerRange avg))
-              (table ^. ttableTimingInfos)
+              (\x -> isTimeInTimerRange avg (snd x))
+              (table._ttableTimingInfos)
        in length filtered
     rangesWithCPUUsage =
       fmap (\range -> (range, getParallelCompilation range)) ranges
@@ -159,7 +157,7 @@ buildTimingChart drvModMap tui ttable = do
         sceneGlobalViewPort = extent,
         sceneLocalViewPort = extent,
         sceneElements =
-          buildRules (tui ^. timingUIHowParallel) ttable totalHeight totalTime
+          buildRules (tui._timingUIHowParallel) ttable totalHeight totalTime
             ++ renderedItems
             ++ lineToUpstream
             ++ linesToDownstream,
@@ -167,32 +165,32 @@ buildTimingChart drvModMap tui ttable = do
       }
   where
     extent = ViewPort (0, 0) (timingMaxWidth, fromIntegral totalHeight)
-    timingInfos = ttable ^. ttableTimingInfos
-    mhoveredMod = tui ^. timingUIHoveredModule
+    timingInfos = ttable._ttableTimingInfos
+    mhoveredMod = tui._timingUIHoveredModule
     nMods = length timingInfos
-    modEndTimes = fmap (^. _2 . plEnd . _1) timingInfos
+    modEndTimes = fmap (fst . _plEnd . snd) timingInfos
     totalTime =
       case modEndTimes of
         [] -> secondsToNominalDiffTime 1 -- default time length = 1 sec
         _ -> maximum modEndTimes
     totalHeight = 5 * nMods
     leftOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
+      let startTime = fst tinfo._plStart
        in diffTime2X totalTime startTime
     rightOfBox (_, tinfo) =
-      let endTime = tinfo ^. plEnd . _1
+      let endTime = fst tinfo._plEnd
        in diffTime2X totalTime endTime
     widthOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          endTime = tinfo ^. plEnd . _1
+      let startTime = fst tinfo._plStart
+          endTime = fst tinfo._plEnd
        in diffTime2X totalTime (endTime - startTime)
     widthHscOutOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          hscOutTime = tinfo ^. plHscOut . _1
+      let startTime = fst tinfo._plStart
+          hscOutTime = fst tinfo._plHscOut
        in diffTime2X totalTime (hscOutTime - startTime)
     widthAsOfBox (_, tinfo) =
-      let startTime = tinfo ^. plStart . _1
-          asTime = tinfo ^. plAs . _1
+      let startTime = fst tinfo._plStart
+          asTime = fst tinfo._plAs
        in diffTime2X totalTime (asTime - startTime)
 
     box (i, item@(mmodu, _)) =
@@ -211,9 +209,9 @@ buildTimingChart drvModMap tui ttable = do
             (leftOfBox item, module2Y i)
             (widthOfBox item)
             3
-            (highlighter ^. _1)
+            (fst highlighter)
             (Just LightSlateGray)
-            (highlighter ^. _2)
+            (snd highlighter)
             mhitEvent
     boxHscOut (i, item) =
       rectangle
@@ -239,16 +237,19 @@ buildTimingChart drvModMap tui ttable = do
       drawText' (rightOfBox item, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x = do
       renderedText <- moduleText x
-      if tui ^. timingUIPartition
+      if tui._timingUIPartition
         then do
           pure [box x, boxAs x, boxHscOut x, renderedText]
         else pure [box x, renderedText]
-    timingInfos' = fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
+    timingInfos' =
+      fmap
+        (\(drv_id, pinfo) -> (forwardLookup drv_id drvModMap, pinfo))
+        timingInfos
     allItems = zip [0 ..] timingInfos'
     rangeY =
-      let vpi = tui ^. timingUIViewPort
-          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+      let vpi = tui._timingUIViewPort
+          vp = fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
+       in (snd vp.topLeft, snd vp.bottomRight)
     filteredItems = filter (`isInRange` rangeY) allItems
     mkLine src tgt = do
       (srcIdx, srcItem) <-
@@ -267,14 +268,14 @@ buildTimingChart drvModMap tui ttable = do
       where
         mkLineToUpstream hoveredMod = do
           upMod <-
-            M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency)
+            M.lookup hoveredMod (ttable._ttableBlockingUpstreamDependency)
           mkLine hoveredMod upMod
     linesToDownstream = maybe [] (fromMaybe [] . mkLinesToDownstream) mhoveredMod
       where
         mkLinesToDownstream :: ModuleName -> Maybe [Primitive TimingEvent]
         mkLinesToDownstream hoveredMod = do
           downMods <-
-            M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency)
+            M.lookup hoveredMod (ttable._ttableBlockedDownstreamDependency)
           pure $ mapMaybe (`mkLine` hoveredMod) downMods
 
 buildMemChart ::
@@ -299,10 +300,13 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
         sceneExtents = Nothing
       }
   where
-    timingInfos = ttable ^. ttableTimingInfos
+    -- TODO: refactor these repeated part.
+    timingInfos = ttable._ttableTimingInfos
     timingInfos' =
-      fmap (_1 %~ (`forwardLookup` drvModMap)) timingInfos
-    getMem x = fromMaybe 0 (x ^? _2 . plEnd . _2 . _Just . to (negate . memAllocCounter))
+      fmap
+        (\(drv_id, pinfo) -> (forwardLookup drv_id drvModMap, pinfo))
+        timingInfos
+    getMem (_, x) = maybe 0 (negate . memAllocCounter) (snd (x._plEnd))
     timingInfos''
       | not isOrdered = timingInfos'
       | otherwise =
@@ -311,9 +315,9 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
     nMods = length allItems
     totalHeight = 5 * nMods
     rangeY =
-      let vpi = tui ^. timingUIViewPort
-          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+      let vpi = tui._timingUIViewPort
+          vp = fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
+       in (snd vp.topLeft, snd vp.bottomRight)
     filteredItems = filter (`isInRange` rangeY) allItems
     alloc2X alloc =
       let -- ratio to 16 GiB
@@ -328,8 +332,8 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
        in fmap (\x -> polyline (x, 0) [] (x, fromIntegral totalHeight) Gray 0.25) xs
 
     widthOfBox minfo = alloc2X (negate (memAllocCounter minfo))
-    box color lz (i, item) =
-      case item ^. _2 . lz . _2 of
+    box color get_field (i, item) =
+      case snd $ get_field $ snd item of
         Nothing -> []
         Just minfo ->
           [ rectangle
@@ -347,16 +351,16 @@ buildMemChart isOrdered offsetForText drvModMap tui ttable = do
       drawText' (offsetForText, module2Y i + 3) LowerLeft Sans Black fontSize moduTxt
     makeItem x = do
       renderedText <- moduleText x
-      if (tui ^. timingUIPartition)
+      if (tui._timingUIPartition)
         then
           pure $
-            box LightSlateGray plEnd x
-              ++ box DeepSkyBlue plAs x
-              ++ box RoyalBlue plHscOut x
+            box LightSlateGray (._plEnd) x
+              ++ box DeepSkyBlue (._plAs) x
+              ++ box RoyalBlue (._plHscOut) x
               ++ [renderedText]
         else
           pure $
-            box LightSlateGray plEnd x
+            box LightSlateGray (._plEnd) x
               ++ [renderedText]
 
 buildTimingRange ::
@@ -372,17 +376,17 @@ buildTimingRange tui ttable =
       sceneExtents = Nothing
     }
   where
-    timingInfos = ttable ^. ttableTimingInfos
+    timingInfos = ttable._ttableTimingInfos
     nMods = length timingInfos
     allItems = zip [0 ..] timingInfos
     rangeY =
-      let vpi = tui ^. timingUIViewPort
-          vp = fromMaybe (vpi ^. vpViewPort) (vpi ^. vpTempViewPort)
-       in (topLeft vp ^. _2, bottomRight vp ^. _2)
+      let vpi = tui._timingUIViewPort
+          vp = fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
+       in (snd vp.topLeft, snd vp.bottomRight)
     filteredItems = filter (`isInRange` rangeY) allItems
 
     (minI, maxI) =
-      let idxs = fmap (^. _1) filteredItems
+      let idxs = fmap fst filteredItems
        in (minimum idxs, maximum idxs)
 
     convert i = floor @Double (fromIntegral i / fromIntegral nMods * timingWidth)
@@ -438,6 +442,6 @@ buildBlockers hoveredMod ttable = do
       }
   where
     upMods =
-      maybeToList (M.lookup hoveredMod (ttable ^. ttableBlockingUpstreamDependency))
+      maybeToList (M.lookup hoveredMod (ttable._ttableBlockingUpstreamDependency))
     downMods =
-      fromMaybe [] (M.lookup hoveredMod (ttable ^. ttableBlockedDownstreamDependency))
+      fromMaybe [] (M.lookup hoveredMod (ttable._ttableBlockedDownstreamDependency))

@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GHCSpecter.Worker.Hie
@@ -15,7 +16,6 @@ import Control.Concurrent.STM
     modifyTVar',
     writeTQueue,
   )
-import Control.Lens ((%~), (.~))
 import Data.Bifunctor (bimap)
 import Data.Foldable (find, for_)
 import Data.Map.Strict (Map)
@@ -53,13 +53,12 @@ import GHCSpecter.Channel.Common.Types (ModuleName)
 import GHCSpecter.Data.GHC.Hie
   ( DeclRow' (..),
     DefRow' (..),
-    HasModuleHieInfo (..),
+    ModuleHieInfo (..),
     RefRow' (..),
     emptyModuleHieInfo,
   )
 import GHCSpecter.Server.Types
-  ( HasHieState (..),
-    HasServerState (..),
+  ( HieState (..),
     ServerState (..),
   )
 import GHCSpecter.Util.GHC (moduleNameString)
@@ -188,23 +187,28 @@ hieWorker ssRef workQ hiefile = do
       (refs, decls) = genRefsAndDecls "" modu refmap
       defs = genDefRow "" modu refmap
       modHie =
-        (modHieRefs .~ refs)
-          . (modHieDecls .~ decls)
-          . (modHieDefs .~ defs)
-          . (modHieSource .~ src)
-          $ emptyModuleHieInfo
+        emptyModuleHieInfo
+          { _modHieRefs = refs,
+            _modHieDecls = decls,
+            _modHieDefs = defs,
+            _modHieSource = src
+          }
       callGraphWork = CallGraph.worker ssRef modName modHie
   atomically $ do
-    modifyTVar' ssRef $
-      serverHieState . hieModuleMap
-        %~ M.insert modName modHie
+    modifyTVar' ssRef $ \ss ->
+      let hie_mmap = ss._serverHieState._hieModuleMap
+          hie_mmap' = M.insert modName modHie hie_mmap
+       in ss {_serverHieState = ss._serverHieState {_hieModuleMap = hie_mmap'}}
     writeTQueue workQ callGraphWork
 
 moduleSourceWorker :: TVar ServerState -> Map ModuleName FilePath -> IO ()
 moduleSourceWorker ssRef modSrcs = do
   for_ (M.toList modSrcs) $ \(modu, srcFile) -> do
     src <- TIO.readFile srcFile
-    let update Nothing = Just ((modHieSource .~ src) emptyModuleHieInfo)
-        update (Just modHie) = Just ((modHieSource .~ src) modHie)
+    let update Nothing = Just (emptyModuleHieInfo {_modHieSource = src})
+        update (Just modHie) = Just (modHie {_modHieSource = src})
     atomically $
-      modifyTVar' ssRef (serverHieState . hieModuleMap %~ M.alter update modu)
+      modifyTVar' ssRef $ \ss ->
+        let hie_mmap = ss._serverHieState._hieModuleMap
+            hie_mmap' = M.alter update modu hie_mmap
+         in ss {_serverHieState = ss._serverHieState {_hieModuleMap = hie_mmap'}}

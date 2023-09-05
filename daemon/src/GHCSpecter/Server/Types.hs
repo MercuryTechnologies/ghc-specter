@@ -1,9 +1,9 @@
-{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Server.Types
-  ( type ChanModule,
-    type Inbox,
+  ( ChanModule,
+    Inbox,
 
     -- * Timing state
     TimingState (..),
@@ -34,7 +34,7 @@ module GHCSpecter.Server.Types
   )
 where
 
-import Control.Lens (makeClassy, (%~))
+import Control.Lens (makeClassy)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
@@ -45,7 +45,7 @@ import Data.Tree (Forest, Tree)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types
   ( DriverId,
-    type ModuleName,
+    ModuleName,
   )
 import GHCSpecter.Channel.Outbound.Types
   ( BreakpointLoc,
@@ -178,4 +178,4 @@ initServerState =
     }
 
 incrementSN :: ServerState -> ServerState
-incrementSN = serverMessageSN %~ (+ 1)
+incrementSN s = s {_serverMessageSN = s._serverMessageSN + 1}

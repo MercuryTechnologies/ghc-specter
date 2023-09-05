@@ -8,7 +8,6 @@ module GHCSpecter.Worker.ModuleGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens ((.~))
 import Data.Bifunctor (second)
 import Data.Foldable qualified as F
 import Data.Function (on)
@@ -37,8 +36,7 @@ import GHCSpecter.Layouter.Graph.Algorithm.Cluster
 import GHCSpecter.Layouter.Graph.Sugiyama qualified as Sugiyama
 import GHCSpecter.Layouter.Graph.Types (GraphVisInfo (..))
 import GHCSpecter.Server.Types
-  ( HasModuleGraphState (..),
-    HasServerState (..),
+  ( ModuleGraphState (..),
     ServerState (..),
     incrementSN,
   )
@@ -101,12 +99,16 @@ moduleGraphWorker var mgi = do
   atomically $
     modifyTVar' var $
       let updater =
-            (serverModuleGraphState . mgsModuleNames .~ mod_names)
-              . (serverModuleGraphState . mgsModuleForest .~ forest)
-              . (serverModuleGraphState . mgsClusterGraph .~ Just grVisInfo)
-              . ( serverModuleGraphState . mgsClustering
-                    .~ fmap (\(c, ms) -> (c, fmap snd ms)) clustering
-                )
+            \ss ->
+              let mgs = ss._serverModuleGraphState
+                  mgs' =
+                    mgs
+                      { _mgsModuleNames = mod_names,
+                        _mgsModuleForest = forest,
+                        _mgsClusterGraph = Just grVisInfo,
+                        _mgsClustering = fmap (\(c, ms) -> (c, fmap snd ms)) clustering
+                      }
+               in ss {_serverModuleGraphState = mgs'}
        in incrementSN . updater
   subgraphs <-
     traverse
@@ -114,7 +116,7 @@ moduleGraphWorker var mgi = do
       [UpTo30, UpTo100, UpTo300]
   atomically $
     modifyTVar' var $
-      incrementSN . (serverModuleGraphState . mgsSubgraph .~ subgraphs)
+      incrementSN . (\ss -> ss {_serverModuleGraphState = ss._serverModuleGraphState {_mgsSubgraph = subgraphs}})
 
 layOutModuleSubgraph ::
   ModuleGraphInfo ->

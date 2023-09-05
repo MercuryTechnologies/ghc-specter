@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.Session
@@ -9,7 +10,6 @@ module GHCSpecter.UI.Session
   )
 where
 
-import Control.Lens ((^.))
 import Data.IntMap qualified as IM
 import Data.List (partition)
 import Data.Maybe (fromMaybe, isJust)
@@ -50,10 +50,9 @@ import GHCSpecter.Layouter.Text
     drawText',
   )
 import GHCSpecter.Server.Types
-  ( HasModuleGraphState (..),
-    HasServerState (..),
-    HasTimingState (..),
+  ( ModuleGraphState (..),
     ServerState (..),
+    TimingState (..),
   )
 import GHCSpecter.UI.Types.Event
   ( SessionEvent (..),
@@ -83,7 +82,7 @@ buildProcessPanel ::
   Text
 buildProcessPanel ss = T.unlines msgsProcessInfo
   where
-    sessionInfo = ss ^. serverSessionInfo
+    sessionInfo = ss._serverSessionInfo
     msgsProcessInfo =
       case sessionProcess sessionInfo of
         Nothing -> []
@@ -105,7 +104,7 @@ buildProcessPanel ss = T.unlines msgsProcessInfo
 buildRtsPanel :: ServerState -> Text
 buildRtsPanel ss = T.unlines msgsRtsInfo
   where
-    sessionInfo = ss ^. serverSessionInfo
+    sessionInfo = ss._serverSessionInfo
     msgsRtsInfo =
       case procRTSFlags <$> sessionProcess sessionInfo of
         Nothing -> []
@@ -126,9 +125,9 @@ buildSession ss =
       msgGhcMode
     ]
   where
-    sessionInfo = ss ^. serverSessionInfo
-    mgi = ss ^. serverModuleGraphState . mgsModuleGraphInfo
-    timing = ss ^. serverTiming . tsTimingMap
+    sessionInfo = ss._serverSessionInfo
+    mgi = ss._serverModuleGraphState._mgsModuleGraphInfo
+    timing = ss._serverTiming._tsTimingMap
     timingList = keyMapToList timing
     (timingDone, timingInProg) =
       partition (\(_, t) -> isJust (getEnd t)) timingList

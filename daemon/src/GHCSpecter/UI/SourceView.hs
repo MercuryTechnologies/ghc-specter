@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module GHCSpecter.UI.SourceView
@@ -6,7 +7,6 @@ module GHCSpecter.UI.SourceView
   )
 where
 
-import Control.Lens ((^.))
 import Data.List qualified as L
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe, isJust)
@@ -19,12 +19,11 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.Layouter.Graph.Types
   ( Dimension (..),
-    HasGraphVisInfo (..),
+    GraphVisInfo (..),
   )
 import GHCSpecter.Layouter.Text (MonadTextLayout)
 import GHCSpecter.Server.Types
-  ( HasServerState (..),
-    ServerState (..),
+  ( ServerState (..),
     SupplementaryView (..),
   )
 import GHCSpecter.UI.Components.GraphView qualified as GraphView
@@ -32,8 +31,7 @@ import GHCSpecter.UI.Components.Tab qualified as Tab
 import GHCSpecter.UI.Components.TextView qualified as TextView
 import GHCSpecter.UI.Constants (canvasDim)
 import GHCSpecter.UI.Types
-  ( HasSourceViewUI (..),
-    SourceViewUI (..),
+  ( SourceViewUI (..),
   )
 import GHCSpecter.UI.Types.Event
   ( SourceViewEvent (..),
@@ -64,7 +62,7 @@ buildSuppView (Just (SuppViewCallgraph grVis)) = do
         sceneExtents = Just extent
       }
   where
-    Dim canvasWidth canvasHeight = grVis ^. gviCanvasDim
+    Dim canvasWidth canvasHeight = grVis._gviCanvasDim
     extent = ViewPort (0, 0) (canvasWidth + 100, canvasHeight + 100)
 buildSuppView (Just (SuppViewText txt)) = do
   scene <- TextView.buildTextView txt []
@@ -87,8 +85,8 @@ buildSuppViewPanel modu srcUI ss = do
   suppViewScene <- buildSuppView msuppView
   pure (srcViewTabScene, suppViewScene)
   where
-    mtab = srcUI ^. srcViewSuppViewTab
-    suppViews = fromMaybe [] (M.lookup modu (ss ^. serverSuppView))
+    mtab = srcUI._srcViewSuppViewTab
+    suppViews = fromMaybe [] (M.lookup modu (ss._serverSuppView))
     msuppView = do
       tab <- mtab
       suppView <- L.lookup tab suppViews
