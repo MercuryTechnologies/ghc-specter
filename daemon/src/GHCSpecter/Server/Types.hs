@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Server.Types
   ( ChanModule,
@@ -7,17 +6,14 @@ module GHCSpecter.Server.Types
 
     -- * Timing state
     TimingState (..),
-    HasTimingState (..),
     emptyTimingState,
 
     -- * ModuleGraph state
     ModuleGraphState (..),
-    HasModuleGraphState (..),
     emptyModuleGraphState,
 
     -- * Hie state
     HieState (..),
-    HasHieState (..),
     emptyHieState,
 
     -- * Supplementary view
@@ -28,13 +24,11 @@ module GHCSpecter.Server.Types
 
     -- * Server state
     ServerState (..),
-    HasServerState (..),
     initServerState,
     incrementSN,
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.IntMap (IntMap)
 import Data.IntMap qualified as IM
 import Data.Map.Strict (Map)
@@ -78,8 +72,6 @@ data TimingState = TimingState
   }
   deriving (Show, Generic)
 
-makeClassy ''TimingState
-
 emptyTimingState :: TimingState
 emptyTimingState =
   TimingState
@@ -100,8 +92,6 @@ data ModuleGraphState = ModuleGraphState
   }
   deriving (Show, Generic)
 
-makeClassy ''ModuleGraphState
-
 emptyModuleGraphState :: ModuleGraphState
 emptyModuleGraphState =
   ModuleGraphState
@@ -117,8 +107,6 @@ newtype HieState = HieState
   { _hieModuleMap :: Map ModuleName ModuleHieInfo
   }
   deriving (Show, Generic)
-
-makeClassy ''HieState
 
 emptyHieState :: HieState
 emptyHieState = HieState mempty
@@ -157,8 +145,6 @@ data ServerState = ServerState
     _serverModuleBreakpoints :: [ModuleName]
   }
   deriving (Show, Generic)
-
-makeClassy ''ServerState
 
 initServerState :: ServerState
 initServerState =
