@@ -1,24 +1,18 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Data.GHC.Hie
   ( -- * Row data for Hie
     RefRow' (..),
-    HasRefRow' (..),
     DeclRow' (..),
-    HasDeclRow' (..),
     DefRow' (..),
-    HasDefRow' (..),
 
     -- * Hie info per module
     ModuleHieInfo (..),
-    HasModuleHieInfo (..),
     emptyModuleHieInfo,
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GHCSpecter.Channel.Common.Types (type ModuleName)
@@ -36,8 +30,6 @@ data RefRow' = RefRow'
   }
   deriving (Show, Generic)
 
-makeClassy ''RefRow'
-
 -- | DeclRow has OccName
 data DeclRow' = DeclRow'
   { _decl'Src :: FilePath,
@@ -50,8 +42,6 @@ data DeclRow' = DeclRow'
   }
   deriving (Show, Generic)
 
-makeClassy ''DeclRow'
-
 -- | DefRow has OccName
 data DefRow' = DefRow'
   { _def'Src :: FilePath,
@@ -63,8 +53,6 @@ data DefRow' = DefRow'
   }
   deriving (Show, Generic)
 
-makeClassy ''DefRow'
-
 data ModuleHieInfo = ModuleHieInfo
   { _modHieRefs :: [RefRow'],
     _modHieDecls :: [DeclRow'],
@@ -72,8 +60,6 @@ data ModuleHieInfo = ModuleHieInfo
     _modHieSource :: Text
   }
   deriving (Show, Generic)
-
-makeClassy ''ModuleHieInfo
 
 emptyModuleHieInfo :: ModuleHieInfo
 emptyModuleHieInfo = ModuleHieInfo [] [] [] ""

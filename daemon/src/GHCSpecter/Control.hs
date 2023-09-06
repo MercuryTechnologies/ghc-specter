@@ -11,7 +11,6 @@ module GHCSpecter.Control
 where
 
 import Control.Concurrent.STM (readTVarIO)
-import Control.Lens (Lens', (%~), (&), (.~), (^.), _2)
 import Control.Monad (guard, void, when)
 import Data.Foldable (traverse_)
 import Data.List qualified as L
@@ -64,7 +63,6 @@ import GHCSpecter.Graphics.DSL
   )
 import GHCSpecter.Server.Types
   ( ConsoleItem (..),
-    HasServerState (..),
     ServerState (..),
     TimingState (..),
   )
@@ -76,17 +74,10 @@ import GHCSpecter.UI.Constants
     uiUpdateInterval,
   )
 import GHCSpecter.UI.Types
-  ( ConsoleUI (..),
-    HasBlockerUI (..),
-    HasConsoleUI (..),
-    HasModuleGraphUI (..),
-    HasSessionUI (..),
-    HasSourceViewUI (..),
-    HasTimingUI (..),
-    HasUIModel (..),
-    HasUIState (..),
-    HasViewPortInfo (..),
+  ( BlockerUI (..),
+    ConsoleUI (..),
     ModuleGraphUI (..),
+    SessionUI (..),
     SourceViewUI (..),
     TimingUI (..),
     UIModel (..),
@@ -129,10 +120,24 @@ import GHCSpecter.Worker.Timing
   )
 import System.IO (IOMode (..), withFile)
 
+data TinyLens a b = TinyLens {getL :: a -> b, setL :: b -> a -> a}
+
+modifyL :: TinyLens a b -> (b -> b) -> a -> a
+modifyL l f x =
+  let y = getL l x
+      !y' = f y
+   in setL l y' x
+
+composeL :: TinyLens a b -> TinyLens b c -> TinyLens a c
+composeL l1 l2 = TinyLens get' set'
+  where
+    get' = getL l2 . getL l1
+    set' x = modifyL l1 (setL l2 x)
+
 data HandlerHoverScrollZoom = HandlerHoverScrollZoom
-  { handlerHover :: [(Text, Lens' UIModel (Maybe Text))],
-    handlerScroll :: [(Text, Lens' UIModel ViewPortInfo)],
-    handlerZoom :: [(Text, Lens' UIModel ViewPortInfo)]
+  { handlerHover :: [(Text, TinyLens UIModel (Maybe Text))],
+    handlerScroll :: [(Text, TinyLens UIModel ViewPortInfo)],
+    handlerZoom :: [(Text, TinyLens UIModel ViewPortInfo)]
   }
 
 nextUserEvent :: (e ~ Event) => Control e UserEvent
@@ -230,27 +235,27 @@ appendNewCommand drvId newMsg = do
     let newCmd = ConsoleCommand newMsg
         append Nothing = Just [newCmd]
         append (Just prevMsgs) = Just (prevMsgs ++ [newCmd])
-        ss' = ss & (serverConsole %~ alterToKeyMap append drvId)
+        ss' = ss {_serverConsole = alterToKeyMap append drvId ss._serverConsole}
      in ss'
 
 scroll ::
   EventMap e ->
-  Lens' UIModel ViewPortInfo ->
+  TinyLens UIModel ViewPortInfo ->
   (Double, Double) ->
   UIModel ->
   UIModel
 scroll emap lensViewPort (dx, dy) model =
   let ViewPort (cx0, _) (cx1, _) = eventMapGlobalViewPort emap
-      vp@(ViewPort (vx0, _) (vx1, _)) = model ^. lensViewPort ^. vpViewPort
+      vp@(ViewPort (vx0, _) (vx1, _)) = (getL lensViewPort model)._vpViewPort
       mvpExtent = sceneExtents emap
       scale = (cx1 - cx0) / (vx1 - vx0)
       vp' = transformScroll mvpExtent scale (dx, dy) vp
       vp'' = if isValid vp' then vp' else vp
-   in (lensViewPort .~ ViewPortInfo vp'' Nothing) model
+   in setL lensViewPort (ViewPortInfo vp'' Nothing) model
 
 zoom ::
   EventMap e ->
-  Lens' UIModel ViewPortInfo ->
+  TinyLens UIModel ViewPortInfo ->
   ((Double, Double), Double) ->
   UIModel ->
   UIModel
@@ -259,12 +264,12 @@ zoom emap lensViewPort ((x, y), scale) model =
       -- NOTE: While zooming is in progress, the scaling is always relative to
       -- the currently drawn (temporary) view.
       vp =
-        fromMaybe (model ^. lensViewPort . vpViewPort) (model ^. lensViewPort . vpTempViewPort)
+        fromMaybe ((getL lensViewPort model)._vpViewPort) ((getL lensViewPort model)._vpTempViewPort)
       rx = (x - cx0) / (cx1 - cx0)
       ry = (y - cy0) / (cy1 - cy0)
       vp' = (transformZoom (rx, ry) scale vp)
       vp'' = if isValid vp' then vp' else vp
-   in (lensViewPort . vpTempViewPort .~ Just vp'') model
+   in modifyL lensViewPort (\vpi -> vpi {_vpTempViewPort = Just vp''}) model
 
 -- TODO: this function should handle all of MouseEvent.
 handleHoverScrollZoom ::
@@ -284,17 +289,17 @@ handleHoverScrollZoom hitWho handlers mev =
             let mupdated = do
                   emap <- memap
                   guard (eventMapId emap == component)
-                  let mprevHit = ui ^. uiModel . hoverLens
+                  let mprevHit = getL hoverLens ui._uiModel
                       mnowHit = do
                         hitEvent <- hitItem (x, y) emap
                         ev' <- hitEventHoverOn hitEvent
                         hitWho ev'
                   if mnowHit /= mprevHit
-                    then pure ((uiModel . hoverLens .~ mnowHit) ui, ss {_serverShouldUpdate = False})
+                    then pure (ui {_uiModel = setL hoverLens mnowHit ui._uiModel}, ss {_serverShouldUpdate = False})
                     else Nothing
              in fromMaybe (ui, ss) mupdated
-        let mprevHit = ui ^. uiModel . hoverLens
-            mnowHit = ui' ^. uiModel . hoverLens
+        let mprevHit = getL hoverLens ui._uiModel
+            mnowHit = getL hoverLens ui'._uiModel
             isChanged = mnowHit /= mprevHit
         pure isChanged
     Scroll scene_id (_x, _y) (dx, dy) -> do
@@ -307,7 +312,7 @@ handleHoverScrollZoom hitWho handlers mev =
             modifyUI $ \ui ->
               let mupdated = do
                     guard isHandled
-                    pure $ (uiModel %~ scroll emap scrollLens (dx, dy)) ui
+                    pure ui {_uiModel = scroll emap scrollLens (dx, dy) ui._uiModel}
                in fromMaybe ui mupdated
             pure isHandled
     ZoomUpdate scene_id (xcenter, ycenter) scale -> do
@@ -320,7 +325,7 @@ handleHoverScrollZoom hitWho handlers mev =
             modifyUI $ \ui ->
               let mupdated = do
                     guard isHandled
-                    pure $ (uiModel %~ zoom emap zoomLens ((xcenter, ycenter), scale)) ui
+                    pure ui {_uiModel = zoom emap zoomLens ((xcenter, ycenter), scale) ui._uiModel}
                in fromMaybe ui mupdated
             pure isHandled
     -- TODO: this should have pointer info.
@@ -328,8 +333,9 @@ handleHoverScrollZoom hitWho handlers mev =
       _ <-
         handleFor handlerZoom $ \(_component, zoomLens) -> do
           modifyUI $ \ui ->
-            let ui' = case ui ^. uiModel . zoomLens . vpTempViewPort of
-                  Just viewPort -> (uiModel . zoomLens .~ ViewPortInfo viewPort Nothing) ui
+            let ui' = case (getL zoomLens (ui._uiModel))._vpTempViewPort of
+                  Just viewPort ->
+                    ui {_uiModel = setL zoomLens (ViewPortInfo viewPort Nothing) ui._uiModel}
                   Nothing -> ui
              in ui'
           -- TODO: This is because it cannot distinguish components unfortunately.
@@ -339,8 +345,8 @@ handleHoverScrollZoom hitWho handlers mev =
     MouseClick {} -> pure False
   where
     handleFor ::
-      (HandlerHoverScrollZoom -> [(Text, Lens' UIModel a)]) ->
-      ((Text, Lens' UIModel a) -> Control e Bool) ->
+      (HandlerHoverScrollZoom -> [(Text, TinyLens UIModel a)]) ->
+      ((Text, TinyLens UIModel a) -> Control e Bool) ->
       Control e Bool
     handleFor getHandler go = do
       rs <- traverse go (getHandler handlers)
@@ -511,15 +517,35 @@ goSession ev = do
           HandlerHoverScrollZoom
             { handlerHover = [],
               handlerScroll =
-                [ ("module-status", modelSession . sessionUIModStatusViewPort),
-                  ("session-process", modelSession . sessionUIProcessViewPort),
-                  ("session-rts", modelSession . sessionUIRtsViewPort)
+                [ ( "module-status",
+                    composeL
+                      lensModelSession
+                      (TinyLens (._sessionUIModStatusViewPort) (\vp s -> s {_sessionUIModStatusViewPort = vp}))
+                  ),
+                  ( "session-process",
+                    composeL
+                      lensModelSession
+                      (TinyLens (._sessionUIProcessViewPort) (\vp s -> s {_sessionUIProcessViewPort = vp}))
+                  ),
+                  ( "session-rts",
+                    composeL
+                      lensModelSession
+                      (TinyLens (._sessionUIRtsViewPort) (\vp s -> s {_sessionUIRtsViewPort = vp}))
+                  )
                 ],
               handlerZoom =
-                [("session-process", modelSession . sessionUIProcessViewPort)]
+                [ ( "session-process",
+                    composeL
+                      lensModelSession
+                      (TinyLens (._sessionUIProcessViewPort) (\vp s -> s {_sessionUIProcessViewPort = vp}))
+                  )
+                ]
             }
           mev
     _ -> pure ()
+  where
+    lensModelSession =
+      TinyLens (._modelSession) (\x m -> m {_modelSession = x})
 
 goModuleGraph :: (e ~ Event) => UserEvent -> Control e ()
 goModuleGraph ev = do
@@ -568,21 +594,43 @@ goModuleGraph ev = do
           )
           HandlerHoverScrollZoom
             { handlerHover =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphUIHover),
-                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphUIHover)
+                [ ("main-module-graph", composeL lensMainModuleGraph lensUIHover),
+                  ("sub-module-graph", composeL lensSubModuleGraph lensUIHover)
                 ],
               handlerScroll =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
-                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                [ ("main-module-graph", composeL lensMainModuleGraph lensViewPort),
+                  ("sub-module-graph", composeL lensSubModuleGraph lensViewPort)
                 ],
               handlerZoom =
-                [ ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
-                  ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort)
+                [ ("main-module-graph", composeL lensMainModuleGraph lensViewPort),
+                  ("sub-module-graph", composeL lensSubModuleGraph lensViewPort)
                 ]
             }
           mev
     _ -> pure ()
   where
+    lensMainModuleGraph =
+      TinyLens
+        (._modelMainModuleGraph)
+        (\g m -> m {_modelMainModuleGraph = g})
+    lensSubModuleGraph =
+      TinyLens
+        (snd . (._modelSubModuleGraph))
+        ( \g m ->
+            m
+              { _modelSubModuleGraph =
+                  let (lvl, _) = m._modelSubModuleGraph
+                   in (lvl, g)
+              }
+        )
+    lensUIHover =
+      TinyLens
+        (._modGraphUIHover)
+        (\h g -> g {_modGraphUIHover = h})
+    lensViewPort =
+      TinyLens
+        (._modGraphViewPort)
+        (\vp g -> g {_modGraphViewPort = vp})
     handleModuleGraphEv ::
       ModuleGraphEvent ->
       ModuleGraphUI ->
@@ -631,7 +679,7 @@ goSourceView ev = do
           let updater
                 | isSet = (modu :)
                 | otherwise = L.delete modu
-              ss' = (serverModuleBreakpoints %~ updater) ss
+              ss' = ss {_serverModuleBreakpoints = updater ss._serverModuleBreakpoints}
            in (ui, ss')
       let bps = ss'._serverModuleBreakpoints
       sendRequest $ SessionReq (SetModuleBreakpoints bps)
@@ -660,17 +708,40 @@ goSourceView ev = do
           HandlerHoverScrollZoom
             { handlerHover = [],
               handlerScroll =
-                [ ("module-tree", modelSourceView . srcViewModuleTreeViewPort),
-                  ("source-view", modelSourceView . srcViewSourceViewPort),
-                  ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                [ ( "module-tree",
+                    composeL
+                      lensSourceView
+                      (TinyLens (._srcViewModuleTreeViewPort) (\vp s -> s {_srcViewModuleTreeViewPort = vp}))
+                  ),
+                  ( "source-view",
+                    composeL
+                      lensSourceView
+                      (TinyLens (._srcViewSourceViewPort) (\vp s -> s {_srcViewSourceViewPort = vp}))
+                  ),
+                  ( "supple-view-contents",
+                    composeL
+                      lensSourceView
+                      (TinyLens (._srcViewSuppViewPort) (\vp s -> s {_srcViewSuppViewPort = vp}))
+                  )
                 ],
               handlerZoom =
-                [ ("source-view", modelSourceView . srcViewSourceViewPort),
-                  ("supple-view-contents", modelSourceView . srcViewSuppViewPort)
+                [ ( "source-view",
+                    composeL
+                      lensSourceView
+                      (TinyLens (._srcViewSourceViewPort) (\vp s -> s {_srcViewSourceViewPort = vp}))
+                  ),
+                  ( "supple-view-contents",
+                    composeL
+                      lensSourceView
+                      (TinyLens (._srcViewSuppViewPort) (\vp s -> s {_srcViewSuppViewPort = vp}))
+                  )
                 ]
             }
           mev
     _ -> pure ()
+  where
+    lensSourceView =
+      TinyLens (._modelSourceView) (\s m -> m {_modelSourceView = s})
 
 goTiming :: (e ~ Event) => UserEvent -> Control e ()
 goTiming ev = do
@@ -777,12 +848,33 @@ goTiming ev = do
         handleHoverScrollZoom
           (\case TimingEv (HoverOnModule modu) -> Just modu; _ -> Nothing)
           HandlerHoverScrollZoom
-            { handlerHover = [("timing-chart", modelTiming . timingUIHoveredModule)],
-              handlerScroll = [("timing-chart", modelTiming . timingUIViewPort)],
-              handlerZoom = [("timing-chart", modelTiming . timingUIViewPort)]
+            { handlerHover =
+                [ ( "timing-chart",
+                    composeL
+                      lensTiming
+                      (TinyLens (._timingUIHoveredModule) (\h t -> t {_timingUIHoveredModule = h}))
+                  )
+                ],
+              handlerScroll =
+                [ ( "timing-chart",
+                    composeL
+                      lensTiming
+                      (TinyLens (._timingUIViewPort) (\vp t -> t {_timingUIViewPort = vp}))
+                  )
+                ],
+              handlerZoom =
+                [ ( "timing-chart",
+                    composeL
+                      lensTiming
+                      (TinyLens (._timingUIViewPort) (\vp t -> t {_timingUIViewPort = vp}))
+                  )
+                ]
             }
           mev
     _ -> pure ()
+  where
+    lensTiming =
+      TinyLens (._modelTiming) (\t m -> m {_modelTiming = t})
 
 goBlocker :: (e ~ Event) => UserEvent -> Control e ()
 goBlocker ev = do
@@ -814,14 +906,19 @@ goBlocker ev = do
           HandlerHoverScrollZoom
             { handlerHover = [],
               handlerScroll =
-                [ ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+                [ ("blocker-module-graph", composeL lensBlocker lensViewPort)
                 ],
               handlerZoom =
-                [ ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+                [ ("blocker-module-graph", composeL lensBlocker lensViewPort)
                 ]
             }
           mev
     _ -> pure ()
+  where
+    lensBlocker =
+      TinyLens (._modelBlocker) (\b m -> m {_modelBlocker = b})
+    lensViewPort =
+      TinyLens (._blockerUIViewPort) (\vp b -> b {_blockerUIViewPort = vp})
 
 initializeMainView :: Control e ()
 initializeMainView =
@@ -849,8 +946,8 @@ stageFrame = do
         let lvp =
               case L.lookup name lensMap of
                 Nothing -> translateToOrigin gvp
-                Just l ->
-                  let vpi = model ^. l
+                Just get_viewport_info ->
+                  let vpi = get_viewport_info model
                    in fromMaybe (vpi._vpViewPort) (vpi._vpTempViewPort)
          in Scene
               { sceneId = name,
@@ -862,20 +959,20 @@ stageFrame = do
       scenes = fmap mkScene allCfgs
   traverse_ addToStage scenes
   where
-    lensMap :: [(Text, Lens' UIModel ViewPortInfo)]
+    lensMap :: [(Text, UIModel -> ViewPortInfo)]
     lensMap =
-      [ ("console-main", modelConsole . consoleViewPort),
-        ("module-status", modelSession . sessionUIModStatusViewPort),
-        ("session-process", modelSession . sessionUIProcessViewPort),
-        ("session-rts", modelSession . sessionUIRtsViewPort),
-        ("main-module-graph", modelMainModuleGraph . modGraphViewPort),
-        ("sub-module-graph", modelSubModuleGraph . _2 . modGraphViewPort),
-        ("module-tree", modelSourceView . srcViewModuleTreeViewPort),
-        ("source-view", modelSourceView . srcViewSourceViewPort),
-        ("supple-view", modelSourceView . srcViewSuppViewPort),
-        ("supple-view-contents", modelSourceView . srcViewSuppViewPort),
-        ("timing-chart", modelTiming . timingUIViewPort),
-        ("blocker-module-graph", modelBlocker . blockerUIViewPort)
+      [ ("console-main", (._modelConsole._consoleViewPort)),
+        ("module-status", (._modelSession._sessionUIModStatusViewPort)),
+        ("session-process", (._modelSession._sessionUIProcessViewPort)),
+        ("session-rts", (._modelSession._sessionUIRtsViewPort)),
+        ("main-module-graph", (._modelMainModuleGraph._modGraphViewPort)),
+        ("sub-module-graph", (._modGraphViewPort) . snd . (._modelSubModuleGraph)),
+        ("module-tree", (._modelSourceView._srcViewModuleTreeViewPort)),
+        ("source-view", (._modelSourceView._srcViewSourceViewPort)),
+        ("supple-view", (._modelSourceView._srcViewSuppViewPort)),
+        ("supple-view-contents", (._modelSourceView._srcViewSuppViewPort)),
+        ("timing-chart", (._modelTiming._timingUIViewPort)),
+        ("blocker-module-graph", (._modelBlocker._blockerUIViewPort))
       ]
 
 -- | top-level main loop, branching according to tab event
@@ -913,10 +1010,10 @@ mainLoop = do
                   HandlerHoverScrollZoom
                     { handlerHover = [],
                       handlerScroll =
-                        [ ("console-main", modelConsole . consoleViewPort)
+                        [ ("console-main", composeL lensConsole lensViewPort)
                         ],
                       handlerZoom =
-                        [ ("console-main", modelConsole . consoleViewPort)
+                        [ ("console-main", composeL lensConsole lensViewPort)
                         ]
                     }
                   mev
@@ -924,7 +1021,9 @@ mainLoop = do
                 then nextUserEvent
                 else pure ev
             _ -> pure ev
-
+          where
+            lensConsole = TinyLens (._modelConsole) (\c m -> m {_modelConsole = c})
+            lensViewPort = TinyLens (._consoleViewPort) (\vp c -> c {_consoleViewPort = vp})
         handleClick ev0 =
           case ev0 of
             MouseEv (MouseClick scene_id (x, y)) -> do

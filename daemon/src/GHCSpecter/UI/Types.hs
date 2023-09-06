@@ -1,53 +1,42 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Types
   ( -- * ViewPortInfo
     ViewPortInfo (..),
-    HasViewPortInfo (..),
 
     -- * SessionUI
     SessionUI (..),
-    HasSessionUI (..),
     emptySessionUI,
 
     -- * ModuleGraphUI
     ModuleGraphUI (..),
-    HasModuleGraphUI (..),
     emptyModuleGraphUI,
 
     -- * SourceViewUI
     SourceViewUI (..),
-    HasSourceViewUI (..),
     emptySourceViewUI,
 
     -- * TimingUI
     TimingUI (..),
-    HasTimingUI (..),
     emptyTimingUI,
 
     -- * BlockerUI
     BlockerUI (..),
-    HasBlockerUI (..),
 
     -- * ConsoleUI
     ConsoleUI (..),
-    HasConsoleUI (..),
     emptyConsoleUI,
 
     -- * UIModel
     UIModel (..),
-    HasUIModel (..),
     emptyUIModel,
 
     -- * UIState
     UIState (..),
-    HasUIState (..),
     emptyUIState,
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Common.Types (DriverId)
@@ -71,16 +60,12 @@ data ViewPortInfo = ViewPortInfo
   }
   deriving (Show)
 
-makeClassy ''ViewPortInfo
-
 data SessionUI = SessionUI
   { _sessionUIModStatusViewPort :: ViewPortInfo,
     _sessionUIMainViewPort :: ViewPortInfo,
     _sessionUIProcessViewPort :: ViewPortInfo,
     _sessionUIRtsViewPort :: ViewPortInfo
   }
-
-makeClassy ''SessionUI
 
 emptySessionUI :: SessionUI
 emptySessionUI =
@@ -98,8 +83,6 @@ data ModuleGraphUI = ModuleGraphUI
     _modGraphUIClick :: Maybe Text,
     _modGraphViewPort :: ViewPortInfo
   }
-
-makeClassy ''ModuleGraphUI
 
 emptyModuleGraphUI :: ModuleGraphUI
 emptyModuleGraphUI =
@@ -119,8 +102,6 @@ data SourceViewUI = SourceViewUI
     _srcViewSourceViewPort :: ViewPortInfo,
     _srcViewSuppViewPort :: ViewPortInfo
   }
-
-makeClassy ''SourceViewUI
 
 emptySourceViewUI :: SourceViewUI
 emptySourceViewUI =
@@ -144,8 +125,6 @@ data TimingUI = TimingUI
     _timingUIHoveredModule :: Maybe Text
   }
 
-makeClassy ''TimingUI
-
 emptyTimingUI :: TimingUI
 emptyTimingUI =
   TimingUI
@@ -159,8 +138,6 @@ emptyTimingUI =
 data BlockerUI = BlockerUI
   { _blockerUIViewPort :: ViewPortInfo
   }
-
-makeClassy ''BlockerUI
 
 emptyBlockerUI :: BlockerUI
 emptyBlockerUI =
@@ -176,8 +153,6 @@ data ConsoleUI = ConsoleUI
     -- | console viewport
     _consoleViewPort :: ViewPortInfo
   }
-
-makeClassy ''ConsoleUI
 
 emptyConsoleUI :: ConsoleUI
 emptyConsoleUI =
@@ -213,8 +188,6 @@ data UIModel = UIModel
     _modelTransientBanner :: Maybe Double
   }
 
-makeClassy ''UIModel
-
 emptyUIModel :: UIModel
 emptyUIModel =
   UIModel
@@ -248,8 +221,6 @@ data UIState = UIState
     -- | main UI state
     _uiModel :: UIModel
   }
-
-makeClassy ''UIState
 
 emptyUIState :: UTCTime -> UIState
 emptyUIState now =

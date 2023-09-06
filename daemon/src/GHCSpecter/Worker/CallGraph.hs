@@ -1,13 +1,10 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Worker.CallGraph
   ( -- * UnitSymbol
     UnitSymbol (..),
-    HasUnitSymbol (..),
     ModuleCallGraph (..),
-    HasModuleCallGraph (..),
 
     -- * top-level decl
     getTopLevelDecls,
@@ -26,7 +23,6 @@ module GHCSpecter.Worker.CallGraph
 where
 
 import Control.Concurrent.STM (TVar, atomically, modifyTVar')
-import Control.Lens (makeClassy)
 import Control.Monad.Trans.State (runState)
 import Data.Function (on)
 import Data.IntMap (IntMap)
@@ -67,8 +63,6 @@ data UnitSymbol = UnitSymbol
   }
   deriving (Eq, Ord, Show)
 
-makeClassy ''UnitSymbol
-
 -- | Call graph inside a module in the current unit scope
 -- the index runs from 1 through the number of symbols.
 data ModuleCallGraph = ModuleCallGraph
@@ -76,8 +70,6 @@ data ModuleCallGraph = ModuleCallGraph
     _modCallGraph :: IntMap [Int]
   }
   deriving (Show)
-
-makeClassy ''ModuleCallGraph
 
 getTopLevelDecls :: ModuleHieInfo -> [(((Int, Int), (Int, Int)), Text)]
 getTopLevelDecls modHieInfo = sortedTopLevelDecls

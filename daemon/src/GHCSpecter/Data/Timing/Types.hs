@@ -1,19 +1,15 @@
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Data.Timing.Types
   ( -- * extracted information along the compilation pipeline of a given module
     PipelineInfo (..),
-    HasPipelineInfo (..),
 
     -- * collective timing information for the session
     TimingTable (..),
-    HasTimingTable (..),
     emptyTimingTable,
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
 import Data.Time.Clock (NominalDiffTime)
@@ -30,8 +26,6 @@ data PipelineInfo a = PipelineInfo
   }
   deriving (Show, Generic, Functor)
 
-makeClassy ''PipelineInfo
-
 data TimingTable = TimingTable
   { -- | Start-time-ordered info table.
     _ttableTimingInfos :: [(DriverId, PipelineInfo (NominalDiffTime, Maybe MemInfo))],
@@ -39,8 +33,6 @@ data TimingTable = TimingTable
     _ttableBlockedDownstreamDependency :: Map ModuleName [ModuleName]
   }
   deriving (Show, Generic)
-
-makeClassy ''TimingTable
 
 emptyTimingTable :: TimingTable
 emptyTimingTable = TimingTable [] M.empty M.empty

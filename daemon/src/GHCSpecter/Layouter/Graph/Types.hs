@@ -1,24 +1,17 @@
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Layouter.Graph.Types
   ( -- * graph visualization information
     Point (..),
-    HasPoint (..),
     toTuple,
     Dimension (..),
-    HasDimension (..),
     NodeLayout (..),
-    HasNodeLayout (..),
     EdgeLayout (..),
-    HasEdgeLayout (..),
     GraphVisInfo (..),
-    HasGraphVisInfo (..),
     transposeGraphVis,
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
@@ -27,8 +20,6 @@ data Point = Point
     _pointY :: Double
   }
   deriving (Show, Generic)
-
-makeClassy ''Point
 
 toTuple :: Point -> (Double, Double)
 toTuple (Point x y) = (x, y)
@@ -39,8 +30,6 @@ data Dimension = Dim
   }
   deriving (Show, Generic)
 
-makeClassy ''Dimension
-
 data NodeLayout a = NodeLayout
   { -- | information in node
     _nodePayload :: a,
@@ -50,8 +39,6 @@ data NodeLayout a = NodeLayout
     _nodeSize :: Dimension
   }
   deriving (Show, Generic)
-
-makeClassy ''NodeLayout
 
 data EdgeLayout = EdgeLayout
   { -- | edge id from the graph layouter
@@ -65,16 +52,12 @@ data EdgeLayout = EdgeLayout
   }
   deriving (Show, Generic)
 
-makeClassy ''EdgeLayout
-
 data GraphVisInfo = GraphVisInfo
   { _gviCanvasDim :: Dimension,
     _gviNodes :: [NodeLayout (Int, Text)],
     _gviEdges :: [EdgeLayout]
   }
   deriving (Show, Generic)
-
-makeClassy ''GraphVisInfo
 
 -- | swap horizontal and vertical directions.
 transposeGraphVis :: GraphVisInfo -> GraphVisInfo

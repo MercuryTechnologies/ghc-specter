@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.UI.Constants
   ( -- * time interval
@@ -32,7 +31,6 @@ module GHCSpecter.UI.Constants
 
     -- * widget config types
     WidgetConfig (..),
-    HasWidgetConfig (..),
     emptyWidgetConfig,
 
     -- * default widget config
@@ -40,7 +38,6 @@ module GHCSpecter.UI.Constants
   )
 where
 
-import Control.Lens (makeClassy)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Text (Text)
@@ -103,8 +100,6 @@ data WidgetConfig = WidgetConfig
     _wcfgSourceView :: Map Text ViewPort,
     _wcfgTiming :: Map Text ViewPort
   }
-
-makeClassy ''WidgetConfig
 
 emptyWidgetConfig :: WidgetConfig
 emptyWidgetConfig =

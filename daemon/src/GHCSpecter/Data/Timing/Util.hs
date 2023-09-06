@@ -1,6 +1,5 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module GHCSpecter.Data.Timing.Util
   ( -- * timing info utilities
