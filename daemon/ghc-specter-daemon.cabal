@@ -89,14 +89,12 @@ library
     , indexed
     , indexed-free
     , pretty-simple
-    , resourcet
     , safe
     , stdcxx
     , stm
     , text
     , time
     , transformers
-    , unliftio
   default-language: GHC2021
   if impl (ghc >= 9.7)
     hs-source-dirs:

@@ -50,8 +50,6 @@
         # ghc-specter-*
         "ghc-specter-plugin" =
           hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
-        "ghc-specter-render" =
-          hself.callCabal2nix "ghc-specter-render" ./render {};
         "ghc-specter-daemon" =
           hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
         "ghc-build-analyzer" =
@@ -95,7 +93,6 @@
       in
         (hpkgsFor compiler).shellFor {
           packages = p: [
-            p.ghc-specter-render
             p.ghc-specter-plugin
             p.ghc-specter-daemon
           ];
@@ -114,7 +111,6 @@
         inherit
           (hpkgsFor compiler)
           ghc-specter-plugin
-          ghc-specter-render
           ghc-specter-daemon
           ghc-build-analyzer
           ;
