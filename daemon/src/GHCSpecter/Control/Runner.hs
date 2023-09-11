@@ -26,7 +26,7 @@ import Control.Concurrent.STM
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Indexed.Free (IxFree (..))
+-- import Control.Monad.Indexed.Free (IxFree (..))
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Text (Text)
@@ -37,6 +37,7 @@ import GHCSpecter.Channel.Inbound.Types (Request)
 import GHCSpecter.Control.Types
   ( Control,
     ControlF (..),
+    IFree (..),
   )
 import GHCSpecter.Graphics.DSL
   ( EventMap,
@@ -156,72 +157,72 @@ stepControl ::
             r
         )
     )
-stepControl (Pure r) = pure (Right (Right r))
-stepControl (Free (GetUI cont)) = do
+stepControl (IPure r) = pure (Right (Right r))
+stepControl (IFree (GetUI cont)) = do
   ui <- getUI'
   pure (Left (cont ui))
-stepControl (Free (PutUI ui next)) = do
+stepControl (IFree (PutUI ui next)) = do
   putUI' ui
   pure (Left next)
-stepControl (Free (ModifyUI upd next)) = do
+stepControl (IFree (ModifyUI upd next)) = do
   modifyUI' upd
   pure (Left next)
-stepControl (Free (GetSS cont)) = do
+stepControl (IFree (GetSS cont)) = do
   ss <- getSS'
   pure (Left (cont ss))
-stepControl (Free (PutSS ss next)) = do
+stepControl (IFree (PutSS ss next)) = do
   putSS' ss
   pure (Left next)
-stepControl (Free (ModifySS upd next)) = do
+stepControl (IFree (ModifySS upd next)) = do
   modifySS' upd
   pure (Left next)
-stepControl (Free (ModifyUISS upd next)) = do
+stepControl (IFree (ModifyUISS upd next)) = do
   void $ modifyUISS' upd
   pure (Left next)
-stepControl (Free (ModifyAndReturn upd cont)) = do
+stepControl (IFree (ModifyAndReturn upd cont)) = do
   (_before, after) <- modifyUISS' upd
   pure (Left (cont after))
-stepControl (Free (ModifyAndReturnBoth upd cont)) = do
+stepControl (IFree (ModifyAndReturnBoth upd cont)) = do
   (before, after) <- modifyUISS' upd
   pure (Left (cont (before, after)))
-stepControl (Free (HitScene xy cont)) = do
+stepControl (IFree (HitScene xy cont)) = do
   hitScene' <- runHandlerHitScene . runnerHandler <$> ask
   memap <- liftIO $ hitScene' xy
   pure (Left (cont memap))
-stepControl (Free (GetScene name cont)) = do
+stepControl (IFree (GetScene name cont)) = do
   getScene' <- runHandlerGetScene . runnerHandler <$> ask
   memap <- liftIO $ getScene' name
   pure (Left (cont memap))
-stepControl (Free (AddToStage scene next)) = do
+stepControl (IFree (AddToStage scene next)) = do
   addToStage' <- runHandlerAddToStage . runnerHandler <$> ask
   liftIO $ addToStage' scene
   pure (Left next)
-stepControl (Free (ScrollDownConsoleToEnd next)) = do
+stepControl (IFree (ScrollDownConsoleToEnd next)) = do
   scrollDownConsoleToEnd' <- runHandlerScrollDownConsoleToEnd . runnerHandler <$> ask
   liftIO scrollDownConsoleToEnd'
   pure (Left next)
-stepControl (Free (SendRequest b next)) = do
+stepControl (IFree (SendRequest b next)) = do
   sendRequest' b
   pure (Left next)
-stepControl (Free (NextEvent cont)) =
+stepControl (IFree (NextEvent cont)) =
   pure (Right (Left cont))
-stepControl (Free (PrintMsg txt next)) = do
+stepControl (IFree (PrintMsg txt next)) = do
   counterRef <- runnerCounter <$> ask
   liftIO $ do
     n <- readIORef counterRef
     modifyIORef' counterRef (+ 1)
     TIO.putStrLn $ (T.pack (show n) <> " : " <> txt)
   pure (Left next)
-stepControl (Free (GetCurrentTime cont)) = do
+stepControl (IFree (GetCurrentTime cont)) = do
   now <- liftIO Clock.getCurrentTime
   pure (Left (cont now))
-stepControl (Free (GetLastUpdatedUI cont)) = do
+stepControl (IFree (GetLastUpdatedUI cont)) = do
   lastUpdatedUI <- (._uiLastUpdated) <$> getUI'
   pure (Left (cont lastUpdatedUI))
-stepControl (Free (ShouldUpdate b next)) = do
+stepControl (IFree (ShouldUpdate b next)) = do
   modifyUI' (\s -> s {_uiShouldUpdate = b})
   pure (Left next)
-stepControl (Free (SaveSession next)) = do
+stepControl (IFree (SaveSession next)) = do
   -- TODO: proper saving
   {- ss <- getSS'
   -- TODO: use asynchronous worker
@@ -229,17 +230,17 @@ stepControl (Free (SaveSession next)) = do
     withFile "session.json" WriteMode $ \h ->
       BL.hPutStr h (encode ss) -}
   pure (Left next)
-stepControl (Free (Refresh next)) = do
+stepControl (IFree (Refresh next)) = do
   refreshAction <- runHandlerRefreshAction . runnerHandler <$> ask
   liftIO refreshAction
   pure (Left next)
-stepControl (Free (RefreshUIAfter nSec next)) = do
+stepControl (IFree (RefreshUIAfter nSec next)) = do
   chanQEv <- runnerQEvent <$> ask
   liftIO $ do
     threadDelay (floor (nSec * 1_000_000))
     atomically $ writeTQueue chanQEv (SysEv (BkgEv RefreshUI))
   pure (Left next)
-stepControl (Free (AsyncWork worker next)) = do
+stepControl (IFree (AsyncWork worker next)) = do
   ssRef <- runnerServerState <$> ask
   _ <- liftIO $ forkIO $ worker ssRef
   pure (Left next)
