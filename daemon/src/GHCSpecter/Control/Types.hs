@@ -45,7 +45,7 @@ class IFunctor m => IApplicative m where
   iap :: m i j (a -> b) -> m j k a -> m i k b
 
 class IApplicative m => IMonad m where
-  ibind :: (a -> m i j b) -> m j k a -> m i k b
+  ibind :: (a -> m i j b) -> m k i a -> m k j b
 
 data IFree f i j a where
   IPure :: a -> IFree f i i a
@@ -72,63 +72,12 @@ instance IFunctor f => IMonad (IFree f) where
   ibind g (IPure x) = g x
   ibind g (IFree fmx) = IFree (ifmap (ibind g) fmx)
 
--- IPure (g x)
-{- iap (IPure g :: IFree f i j (a -> b)) (IFree fmx :: IFree f j k a) = IFree (ifmap (g') fmx)
-  where
-    g' :: IFree f j k' a -> IFree f i k' b
-    g' = ifmap g -}
--- (IPure x) = ifmap g mx --  IPure (g x)
--- iap (IPure g) (IFree fx) = IFree (ifmap (ifmap g) fx)
-
--- g :: a -> b
--- fx :: f j k (IFree f i j a)
---
-
--- ifmap (ifmap g) fx
-
-{- ipure x = IPure x
-iap (IPure g) (IPure x) = IPure (g x)
-iap (IPure g) (IFree (ffx :: f j k (IFree f i j a))) =
-  let ffx' = ifmap (\fx -> ifmap g fx) ffx
-   in IFree ffx' -}
-{-
-instance IFunctor f => IMonad (IFree f) where
-  ibind = undefined
--}
-
 instance IFunctor f => Applicative (IFree f i i) where
   pure = ipure
   (<*>) = iap
 
 instance IFunctor f => Monad (IFree f i i) where
   (>>=) = flip ibind
-
---
---        IFree (ifmap (ifmap g) fx)
--- IFree fg <*> IPure x = undefined -- IFree (fg <*> x)
--- IFree fg <*> IFree fx = IFree (fg <*> fx)
-
--- g :: a -> b
--- mx :: IFree f i k a
-
---  fg :: f i j (IFree f j i (a -> b))
---                                undefined
-
--- instance IFunctor f => Monad (IFree f i i) where
-
-{-
-instance IFunctor f => Functor (IFree f i i) where
-  fmap g (IPure x) = IPure (g x)
-  fmap g (IFree fx) = IFree (ifmap (ifmap g) fx)
--}
-
--- instance Applicative (f i j) =>
-
-{-
-instance Functor (IFree f i i) where
--}
-
--- instance Applicative (Free f i i) => Monad (f i i) where
 
 -- | Pattern functor for effects of Control DSL.
 -- TODO: once commit (atomic state update) and refresh frame are cleared,
