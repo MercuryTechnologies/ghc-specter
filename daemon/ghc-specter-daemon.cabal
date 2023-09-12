@@ -86,9 +86,6 @@ library
     , ghc
     , ghc-specter-plugin
     , haskeline
-    -- TODO: this will be replaced by an internal delim continuation
-    , indexed
-    , indexed-free
     , pretty-simple
     , safe
     , stdcxx

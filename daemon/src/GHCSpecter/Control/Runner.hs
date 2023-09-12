@@ -26,7 +26,6 @@ import Control.Concurrent.STM
 import Control.Monad (void)
 import Control.Monad.Extra (loopM)
 import Control.Monad.IO.Class (liftIO)
--- import Control.Monad.Indexed.Free (IxFree (..))
 import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.IORef (IORef, modifyIORef', readIORef)
 import Data.Text (Text)

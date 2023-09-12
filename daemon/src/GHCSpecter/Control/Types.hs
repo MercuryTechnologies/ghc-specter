@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# OPTIONS_GHC -w #-}
 
 module GHCSpecter.Control.Types
   ( -- * tiny indexed free monad
@@ -14,9 +13,6 @@ module GHCSpecter.Control.Types
 where
 
 import Control.Concurrent.STM (TVar)
-import Control.Monad.Indexed (IxFunctor (..))
-import Control.Monad.Indexed.Free (IxFree (..))
-import Control.Monad.Indexed.Free.Class (iliftFree)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 import GHCSpecter.Channel.Inbound.Types (Request)
