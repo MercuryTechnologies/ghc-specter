@@ -5,7 +5,6 @@ where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Resource (allocate)
 import Data.Bits ((.|.))
 import Data.Foldable qualified as F
 import Data.IntMap (IntMap)
@@ -50,8 +49,8 @@ newGA g = newGraphAttributes g (nodeGraphics .|. edgeGraphics .|. nodeLabel .|. 
 
 layOutGraph :: IntMap Text -> IntMap [Int] -> IO GraphVisInfo
 layOutGraph nameMap graph = runGraphLayouter $ do
-  (_, g) <- allocate newGraph delete
-  (_, ga) <- allocate (newGA g) delete
+  g <- liftIO newGraph
+  ga <- liftIO $ newGA g
 
   nodeMap <-
     flip IM.traverseMaybeWithKey graph $ \i _ -> do
@@ -92,5 +91,7 @@ layOutGraph nameMap graph = runGraphLayouter $ do
             endIdx <- IM.lookup end nodeRevIndex
             pure (EdgeLayout k (startIdx, endIdx) srcTgtPts vertices)
 
+  liftIO $ delete ga
+  liftIO $ delete g
   let gvisInfo0 = GraphVisInfo canvasDim nodLayout edgLayout
   pure $ transposeGraphVis gvisInfo0

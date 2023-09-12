@@ -38,6 +38,7 @@ library
       GHCSpecter.Driver.Session.Types
       GHCSpecter.Driver.Terminal
       GHCSpecter.Driver.Worker
+      GHCSpecter.Graphics.DSL
       GHCSpecter.Layouter.Text
       GHCSpecter.Layouter.Graph.Algorithm.BFS
       GHCSpecter.Layouter.Graph.Algorithm.Builder
@@ -84,19 +85,14 @@ library
     , fficxx-runtime
     , ghc
     , ghc-specter-plugin
-    , ghc-specter-render
     , haskeline
-    , indexed
-    , indexed-free
     , pretty-simple
-    , resourcet
     , safe
     , stdcxx
     , stm
     , text
     , time
     , transformers
-    , unliftio
   default-language: GHC2021
   if impl (ghc >= 9.7)
     hs-source-dirs:
@@ -150,7 +146,6 @@ executable ghc-specter-daemon
     , filepath
     , ghc-specter-daemon
     , ghc-specter-plugin
-    , ghc-specter-render
     , imgui
     , implot
     , mtl

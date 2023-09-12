@@ -42,13 +42,6 @@ where
 
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Resource
-  ( MonadResource (..),
-    ResourceT,
-    allocate,
-    release,
-    runResourceT,
-  )
 import Data.ByteString (useAsCString)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
@@ -116,7 +109,6 @@ import OGDF.SugiyamaLayout
   )
 import STD.CppString (cppString_append, newCppString)
 import STD.Deletable (delete)
-import UnliftIO (MonadUnliftIO (withRunInIO))
 
 TH.genListInstanceFor
   NonCPrim
@@ -191,14 +183,14 @@ threeD = 0x008000
 nodeLabelPosition :: CLong
 nodeLabelPosition = 0x010000
 
-newtype GraphLayouter a = GraphLayouter {unGraphLayouter :: ResourceT IO a}
-  deriving (Applicative, Functor, Monad, MonadIO, MonadResource, MonadUnliftIO)
+newtype GraphLayouter a = GraphLayouter {unGraphLayouter :: IO a}
+  deriving (Applicative, Functor, Monad, MonadIO)
 
 runGraphLayouter :: GraphLayouter a -> IO a
-runGraphLayouter (GraphLayouter m) = runResourceT m
+runGraphLayouter (GraphLayouter m) = m
 
 newGraphNodeWithSize :: (Graph, GraphAttributes) -> (Int, Int) -> GraphLayouter NodeElement
-newGraphNodeWithSize (g, ga) (width, height) = liftIO $ do
+newGraphNodeWithSize (g, ga) (width, height) = GraphLayouter $ do
   node <- graph_newNode g
   p_width <- graphAttributes_width ga node
   poke p_width (fromIntegral width)
@@ -207,26 +199,22 @@ newGraphNodeWithSize (g, ga) (width, height) = liftIO $ do
   pure node
 
 appendText :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
-appendText ga node txt =
-  withRunInIO $ \runInIO -> do
-    str <- graphAttributes_label ga node
-    let bs = encodeUtf8 txt
-    useAsCString bs $ \cstr ->
-      runInIO $ do
-        (k', str') <- allocate (newCppString cstr) delete
-        _ <- liftIO $ cppString_append str str'
-        release k'
+appendText ga node txt = GraphLayouter $ do
+  str <- graphAttributes_label ga node
+  let bs = encodeUtf8 txt
+  useAsCString bs $ \cstr -> do
+    str' <- newCppString cstr
+    _ <- cppString_append str str'
+    delete str'
 
 setFillColor :: GraphAttributes -> NodeElement -> Text -> GraphLayouter ()
-setFillColor ga node colorTxt =
-  withRunInIO $ \runInIO -> do
-    color <- graphAttributes_fillColor ga node
-    let bs = encodeUtf8 colorTxt
-    useAsCString bs $ \cstr ->
-      runInIO $ do
-        (k', str') <- allocate (newCppString cstr) delete
-        _ <- liftIO $ color_fromString color str'
-        release k'
+setFillColor ga node colorTxt = GraphLayouter $ do
+  color <- graphAttributes_fillColor ga node
+  let bs = encodeUtf8 colorTxt
+  useAsCString bs $ \cstr -> do
+    str' <- newCppString cstr
+    _ <- color_fromString color str'
+    delete str'
 
 getNodeX :: GraphAttributes -> NodeElement -> GraphLayouter Double
 getNodeX ga n =
@@ -308,16 +296,16 @@ getAllEdgeLayout g ga = do
         Left . (acc',) <$> liftIO (edgeElement_succ e)
 
 doSugiyamaLayout :: GraphAttributes -> GraphLayouter ()
-doSugiyamaLayout ga = do
-  (_, sl) <- allocate newSugiyamaLayout delete
-  liftIO $ do
-    orank <- newOptimalRanking
-    sugiyamaLayout_setRanking sl orank
-    mh <- newMedianHeuristic
-    sugiyamaLayout_setCrossMin sl mh
-    ohl <- newOptimalHierarchyLayout
-    optimalHierarchyLayout_layerDistance ohl 1.0
-    optimalHierarchyLayout_nodeDistance ohl 0
-    optimalHierarchyLayout_weightBalancing ohl 1.0
-    sugiyamaLayout_setLayout sl ohl
-    call sl ga
+doSugiyamaLayout ga = GraphLayouter $ do
+  sl <- newSugiyamaLayout
+  orank <- newOptimalRanking
+  sugiyamaLayout_setRanking sl orank
+  mh <- newMedianHeuristic
+  sugiyamaLayout_setCrossMin sl mh
+  ohl <- newOptimalHierarchyLayout
+  optimalHierarchyLayout_layerDistance ohl 1.0
+  optimalHierarchyLayout_nodeDistance ohl 0
+  optimalHierarchyLayout_weightBalancing ohl 1.0
+  sugiyamaLayout_setLayout sl ohl
+  call sl ga
+  delete sl

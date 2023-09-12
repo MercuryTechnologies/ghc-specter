@@ -1,5 +1,4 @@
 packages:
-  ./render
   ./daemon
   ./plugin
   ./ghc-build-analyzer
