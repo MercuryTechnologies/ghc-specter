@@ -147,7 +147,7 @@ executable ghc-specter-daemon
     , ghc-specter-daemon
     , ghc-specter-plugin
     , imgui
-    , implot
+    -- , implot
     , mtl
     , stdcxx
     , stm
