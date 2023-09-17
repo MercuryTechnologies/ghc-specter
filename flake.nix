@@ -3,6 +3,13 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
+    nixGL = {
+      url = "github:guibou/nixGL/main";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
     fficxx = {
       url = "github:wavewave/fficxx/master";
       inputs = {
@@ -31,6 +38,7 @@
     self,
     nixpkgs,
     flake-utils,
+    nixGL,
     fficxx,
     hs-ogdf,
     hs-imgui,
@@ -39,7 +47,9 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [hs-imgui.overlay.${system}];
+        overlays = [
+          (hs-imgui.overlay.${system})
+        ];
       };
 
       haskellOverlay = final: hself: hsuper: {
@@ -79,6 +89,8 @@
             pkgs.cabal-install
             pkgs.alejandra
             pkgs.ormolu
+            pkgs.zlib	    
+            nixGL.packages.${system}.default
           ];
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
@@ -100,6 +112,8 @@
             pkgs.cabal-install
             pkgs.alejandra
             pkgs.ormolu
+            nixGL.packages.${system}.default
+            pkgs.zlib
             pyenv
           ];
           shellHook = ''

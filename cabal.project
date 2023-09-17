@@ -1,4 +1,3 @@
 packages:
   ./daemon
   ./plugin
-  ./ghc-build-analyzer
