@@ -84,14 +84,14 @@
         prompt = "ghc-specter:env";
       in
         pkgs.mkShell {
-          packages = [
-            hsenv
-            pkgs.cabal-install
-            pkgs.alejandra
-            pkgs.ormolu
-            pkgs.zlib	    
-            nixGL.packages.${system}.default
-          ];
+          packages =
+            [
+              hsenv
+              pkgs.cabal-install
+              pkgs.alejandra
+              pkgs.ormolu
+            ]
+            ++ (pkgs.lib.optional pkgs.stdenv.isLinux nixGL.packages.${system}.default);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
@@ -108,14 +108,14 @@
             p.ghc-specter-plugin
             p.ghc-specter-daemon
           ];
-          buildInputs = [
-            pkgs.cabal-install
-            pkgs.alejandra
-            pkgs.ormolu
-            nixGL.packages.${system}.default
-            pkgs.zlib
-            pyenv
-          ];
+          buildInputs =
+            [
+              pkgs.cabal-install
+              pkgs.alejandra
+              pkgs.ormolu
+              pyenv
+            ]
+            ++ (pkgs.lib.optional pkgs.stdenv.isLinux nixGL.packages.${system}.default);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
