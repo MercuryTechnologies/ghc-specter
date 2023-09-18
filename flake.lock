@@ -47,16 +47,19 @@
         "flake-utils": [
           "flake-utils"
         ],
+        "nixGL": [
+          "nixGL"
+        ],
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1693489325,
-        "narHash": "sha256-U12duK8lC0Mbm8NavcF5SxFeTLtuOkjeTTnXAAxJmU0=",
+        "lastModified": 1695058566,
+        "narHash": "sha256-NYzHKeBe9GQF8SXOWussT7j3+IEmvDSsdj4/nkb+nHY=",
         "owner": "wavewave",
         "repo": "hs-imgui",
-        "rev": "bb161fe8087261532d7272c3be2573af4e071812",
+        "rev": "46a9dc12be9caf20ec11049505997577a8d980d6",
         "type": "github"
       },
       "original": {
@@ -93,6 +96,30 @@
         "type": "github"
       }
     },
+    "nixGL": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1685908677,
+        "narHash": "sha256-E4zUPEUFyVWjVm45zICaHRpfGepfkE9Z2OECV9HXfA4=",
+        "owner": "guibou",
+        "repo": "nixGL",
+        "rev": "489d6b095ab9d289fe11af0219a9ff00fe87c7c5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "guibou",
+        "ref": "main",
+        "repo": "nixGL",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1692215615,
@@ -115,6 +142,7 @@
         "flake-utils": "flake-utils",
         "hs-imgui": "hs-imgui",
         "hs-ogdf": "hs-ogdf",
+        "nixGL": "nixGL",
         "nixpkgs": "nixpkgs"
       }
     }
