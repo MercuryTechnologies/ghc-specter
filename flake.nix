@@ -30,6 +30,7 @@
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
+        nixGL.follows = "nixGL";
         fficxx.follows = "fficxx";
       };
     };

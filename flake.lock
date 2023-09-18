@@ -47,16 +47,19 @@
         "flake-utils": [
           "flake-utils"
         ],
+        "nixGL": [
+          "nixGL"
+        ],
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1694963134,
-        "narHash": "sha256-gGAzt0g9jqy6eNMXFSOjqOy+TaXGVnNOBKXvebqXKrA=",
+        "lastModified": 1695058566,
+        "narHash": "sha256-NYzHKeBe9GQF8SXOWussT7j3+IEmvDSsdj4/nkb+nHY=",
         "owner": "wavewave",
         "repo": "hs-imgui",
-        "rev": "5cded28d94e701e3c23a410f60dd309a98fdeca3",
+        "rev": "46a9dc12be9caf20ec11049505997577a8d980d6",
         "type": "github"
       },
       "original": {
