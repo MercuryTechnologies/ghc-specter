@@ -4,7 +4,8 @@
 
 module Util.Plot
   ( -- * draw utilities
-    -- makeSparkline,
+
+  -- makeSparkline,
   )
 where
 
