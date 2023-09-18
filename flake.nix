@@ -91,7 +91,7 @@
               pkgs.alejandra
               pkgs.ormolu
             ]
-            ++ (pkgs.lib.optional pkgs.stdenv.isLinux nixGL.packages.${system}.default);
+            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
@@ -115,7 +115,7 @@
               pkgs.ormolu
               pyenv
             ]
-            ++ (pkgs.lib.optional pkgs.stdenv.isLinux nixGL.packages.${system}.default);
+            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
