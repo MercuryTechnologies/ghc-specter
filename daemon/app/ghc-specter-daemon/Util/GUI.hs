@@ -44,7 +44,7 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_Framerate_get,
   )
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
-import ImPlot qualified
+-- import ImPlot qualified
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Util.Orphans ()
@@ -71,7 +71,7 @@ initialize title = do
   -- Enable vsync
   glfwSwapInterval 1
   ctxt <- createContext
-  ImPlot.createImPlotContext
+  -- ImPlot.createImPlotContext
 
   -- Setup Dear ImGui style
   -- styleColorsDark

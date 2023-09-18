@@ -4,10 +4,12 @@
 
 module Util.Plot
   ( -- * draw utilities
-    makeSparkline,
+
+  -- makeSparkline,
   )
 where
 
+{-
 import Control.Monad.Extra (whenM)
 import Data.Bits ((.|.))
 import FFICXX.Runtime.TH (IsCPrimitive (..), TemplateParamInfo (..))
@@ -75,3 +77,4 @@ makeSparkline pdat offset = do
     ImPlot.endPlot
   delete spark_size
   delete zero
+-}
