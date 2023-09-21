@@ -45,7 +45,8 @@ import ImGui.Enum
     ImGuiMouseButton_ (..),
   )
 import ImGui.ImGuiIO.Implementation
-  ( imGuiIO_Fonts_get,
+  ( imGuiIO_FontGlobalScale_set,
+    imGuiIO_Fonts_get,
     imGuiIO_MouseWheelH_get,
     imGuiIO_MouseWheel_get,
   )
@@ -184,9 +185,11 @@ prepareAssets io = do
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
   fonts <- imGuiIO_Fonts_get io
   -- _fontDefault <- imFontAtlas_AddFontDefault fonts
+  let scale = 2.0
   _fontDefault <-
     withCString free_sans_path $ \cstr -> do
-      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * 2.0)
+      imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale)
+  imGuiIO_FontGlobalScale_set io (1.0 / scale)
   fontSans <-
     withCString free_sans_path $ \cstr -> do
       imFontAtlas_AddFontFromFileTTF fonts cstr 8
