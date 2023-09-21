@@ -53,13 +53,21 @@ initialize :: String -> IO (ImGuiContext, ImGuiIO, GLFWwindow)
 initialize title = do
   let glsl_version :: CString
       glsl_version = "#version 150"
-  glfwInit
+  putStrLn "init1"
+  successCode <- glfwInit
+  if successCode /= 0
+    then putStrLn "GLFW is initialized"
+    else putStrLn "GLFW is not initialized"
   glfwWindowHint (0x22002 {- GLFW_CONTEXT_VERSION_MAJOR -}) 3
+  putStrLn "init3"
   glfwWindowHint (0x22003 {- GLFW_CONTEXT_VERSION_MINOR -}) 2
+  putStrLn "init4"
   -- 3.2+ only
   glfwWindowHint (0x22008 {- GLFW_OPENGL_PROFILE -}) (0x32001 {- GLFW_OPENGL_CORE_PROFILE -})
+  putStrLn "init5"
   -- Required on Mac
   glfwWindowHint (0x22006 {- GLFW_OPENGL_FORWARD_COMPAT -}) (1 {- GL_TRUE -})
+  putStrLn "init6"
   window :: GLFWwindow <-
     glfwCreateWindow
       1280
@@ -67,23 +75,36 @@ initialize title = do
       (fromString title :: CString)
       (cast_fptr_to_obj nullPtr :: GLFWmonitor)
       (cast_fptr_to_obj nullPtr :: GLFWwindow)
+  if get_fptr window == nullPtr
+    then putStrLn "Cannot create window"
+    else putStrLn "Successful window creation"
+  putStrLn $ "init7: " ++ show window
   glfwMakeContextCurrent window
+  putStrLn "init8"
   -- Enable vsync
   glfwSwapInterval 1
+  putStrLn "init9"
   ctxt <- createContext
+  putStrLn "init10"
   -- ImPlot.createImPlotContext
 
   -- Setup Dear ImGui style
   -- styleColorsDark
   styleColorsLight
+  putStrLn "init11"
 
   -- Setup Platform/Renderer backends
-  _ <- imGui_ImplGlfw_InitForOpenGL window (fromBool True)
+  b <- imGui_ImplGlfw_InitForOpenGL window (fromBool True)
+  putStrLn ("after InitForOpenGL: " <> show b)
+  putStrLn "init12"
   _ <- imGui_ImplOpenGL3_Init glsl_version
+  putStrLn "init13"
 
   -- Enable Keyboard Controls and Gamepad Controls
   io <- getIO
+  putStrLn "init14"
   flags <- imGuiIO_ConfigFlags_get io
+  putStrLn "init15"
   let flags' =
         flags
           .|. fromIntegral (fromEnum ImGuiConfigFlags_NavEnableKeyboard)
