@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Util.GUI
@@ -30,11 +31,11 @@ import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text qualified as T
 import FFICXX.Runtime.Cast (FPtr (..))
-import Foreign.C.String (CString)
-import Foreign.C.Types (CInt)
+import Foreign.C.String (CString, peekCString)
+import Foreign.C.Types (CInt (..))
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fromBool, toBool)
-import Foreign.Ptr (nullPtr)
+import Foreign.Ptr (FunPtr, nullPtr)
 import Foreign.Storable (peek)
 import ImGui
 import ImGui.Enum
@@ -46,14 +47,35 @@ import ImGui.ImGuiIO.Implementation
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
 -- import ImPlot qualified
 import STD.Deletable (delete)
+import System.Exit (exitFailure)
 import Text.Printf (printf)
 import Util.Orphans ()
 
+type GLFWerrorfun = CInt -> CString -> IO ()
+
+foreign import ccall "wrapper"
+  makeFunPtr :: GLFWerrorfun -> IO (FunPtr GLFWerrorfun)
+
+foreign import ccall safe "glfwSetErrorCallback"
+  c_glfwSetErrorCallback :: FunPtr GLFWerrorfun -> IO (FunPtr GLFWerrorfun)
+
+printError :: CInt -> CString -> IO ()
+printError err_code cstr = do
+  putStrLn ("Error Code : " <> show err_code)
+  str <- peekCString cstr
+  putStrLn ("Error: " <> str)
+
 initialize :: String -> IO (ImGuiContext, ImGuiIO, GLFWwindow)
 initialize title = do
+  fun_ptr <- makeFunPtr printError
+  _ <- c_glfwSetErrorCallback fun_ptr
+
   let glsl_version :: CString
       glsl_version = "#version 150"
-  glfwInit
+  successCode <- glfwInit
+  if successCode /= 0
+    then putStrLn "GLFW is initialized"
+    else putStrLn "GLFW is not initialized" >> exitFailure
   glfwWindowHint (0x22002 {- GLFW_CONTEXT_VERSION_MAJOR -}) 3
   glfwWindowHint (0x22003 {- GLFW_CONTEXT_VERSION_MINOR -}) 2
   -- 3.2+ only
@@ -67,6 +89,9 @@ initialize title = do
       (fromString title :: CString)
       (cast_fptr_to_obj nullPtr :: GLFWmonitor)
       (cast_fptr_to_obj nullPtr :: GLFWwindow)
+  if get_fptr window == nullPtr
+    then putStrLn "Cannot create window" >> exitFailure
+    else putStrLn "Successful window creation"
   glfwMakeContextCurrent window
   -- Enable vsync
   glfwSwapInterval 1
@@ -78,7 +103,7 @@ initialize title = do
   styleColorsLight
 
   -- Setup Platform/Renderer backends
-  _ <- imGui_ImplGlfw_InitForOpenGL window (fromBool True)
+  _b <- imGui_ImplGlfw_InitForOpenGL window (fromBool True)
   _ <- imGui_ImplOpenGL3_Init glsl_version
 
   -- Enable Keyboard Controls and Gamepad Controls
