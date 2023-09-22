@@ -40,7 +40,8 @@ import GHCSpecter.UI.Types.Event
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiDir_ (..),
+  ( ImGuiCond_ (..),
+    ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
     ImGuiWindowFlags_ (..),
@@ -139,7 +140,6 @@ singleFrame io window ui ss oldShared = do
         whenM (toBool <$> beginMenu ("ghc-specter" :: CString) (fromBool True)) $ do
           b1 <- menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
           putStrLn $ "b1 = " <> show b1
-          openPopup ("popup"::CString) 0
           endMenu
         whenM (toBool <$> beginMenu ("Help" :: CString) (fromBool True)) $ do
           b2 <- menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
@@ -148,12 +148,17 @@ singleFrame io window ui ss oldShared = do
         endMainMenuBar
     -- dialog box test
     liftIO $ do
+      begin ("test popup" :: CString) nullPtr 0
+      whenM (toBool <$> button ("open popup" :: CString)) $ do
+        putStrLn "button clicked"
+        openPopup ("popup" :: CString) 0
+
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> beginPopupModal ("popup"::CString) nullPtr flag) $ do
+      whenM (toBool <$> beginPopupModal ("popup" :: CString) nullPtr flag) $ do
         putStrLn "am i here?"
-        textUnformatted ("abcdefghij"::CString)
+        textUnformatted ("abcdefghij" :: CString)
         endPopup
-      -- closeCurrentPopup
+      end
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     let mnextTab = ui._uiModel._modelTabDestination
