@@ -56,13 +56,17 @@
       },
       "locked": {
         "lastModified": 1695336243,
-        "narHash": "sha256-5aYzyzmaVSIoGwS4IgZAjbc+glAKTJM0KiA1LQDTvQM=",
-        "type": "git",
-        "url": "file:///Users/ianwookim/repo/src/hs-imgui"
+        "narHash": "sha256-79bMDRIk3JWVVdyTiNbtZBhTxWV4by/7jdKSLTJ7Ve0=",
+        "owner": "wavewave",
+        "repo": "hs-imgui",
+        "rev": "a094d233cbecd4f25fb70ab651c9735f4d4dedae",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:///Users/ianwookim/repo/src/hs-imgui"
+        "owner": "wavewave",
+        "ref": "main",
+        "repo": "hs-imgui",
+        "type": "github"
       }
     },
     "hs-ogdf": {

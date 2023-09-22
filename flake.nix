@@ -26,8 +26,7 @@
       };
     };
     hs-imgui = {
-      url = "/Users/ianwookim/repo/src/hs-imgui";
-      #url = "github:wavewave/hs-imgui/main";
+      url = "github:wavewave/hs-imgui/main";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -63,7 +62,12 @@
         "ghc-specter-plugin" =
           hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
         "ghc-specter-daemon" =
-          hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
+          final.haskell.lib.overrideCabal
+          (hself.callCabal2nix "ghc-specter-daemon" ./daemon {})
+          (old: {
+            libraryFrameworkDepends =
+              final.lib.optional pkgs.stdenv.isDarwin final.darwin.apple_sdk.frameworks.Cocoa;
+          });
         "ghc-build-analyzer" =
           hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer {};
       };
