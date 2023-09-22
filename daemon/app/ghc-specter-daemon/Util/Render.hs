@@ -52,7 +52,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
@@ -108,8 +108,8 @@ data SharedState e = SharedState
     sharedIsClicked :: Bool,
     sharedTabState :: Maybe Tab,
     sharedChanQEv :: TQueue Event,
-    sharedFontsSans :: [(Int, ImFont)],
-    sharedFontsMono :: [(Int, ImFont)],
+    sharedFontsSans :: NonEmpty (Int, ImFont),
+    sharedFontsMono :: NonEmpty (Int, ImFont),
     sharedFontScaleFactor :: Double,
     sharedEventMap :: TVar [EventMap e],
     sharedStage :: TVar Stage,
@@ -158,16 +158,23 @@ c_detectScaleFactor :: IO CFloat
 c_detectScaleFactor = pure 1.0
 #endif
 
-fontSizeList :: [Int]
+fontSizeList :: NonEmpty Int
 fontSizeList =
-  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72]
+  6 :| [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72]
 
-loadAllFonts :: FilePath -> ImFontAtlas -> CFloat -> IO [(Int, ImFont)]
+loadAllFonts :: FilePath -> ImFontAtlas -> CFloat -> IO (NonEmpty (Int, ImFont))
 loadAllFonts path fonts scale_factor =
   for fontSizeList $ \i ->
     withCString path $ \cstr -> do
       font <- imFontAtlas_AddFontFromFileTTF fonts cstr (fromIntegral i * scale_factor)
       pure (i, font)
+
+pickNearestFont :: NonEmpty (Int, ImFont) -> Double -> (Int, ImFont)
+pickNearestFont fonts size =
+  let (smaller, bigger) = NE.break (\(i, _) -> (fromIntegral i >= size)) fonts
+   in case bigger of
+        [] -> NE.last fonts
+        (x : _) -> x
 
 --
 -- ImRender monad
@@ -269,10 +276,8 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
   liftIO $ do
     let (selected_font_size, selected_font) =
           case font of
-            -- TODO: for now
-            Sans -> s.currSharedState.sharedFontsSans !! 0
-            Mono -> s.currSharedState.sharedFontsMono !! 0
-    -- NOTE: This is rather hacky workaround.
+            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize)
+            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize)
     let (_, sy) = s.currScale
         scale_factor = s.currSharedState.sharedFontScaleFactor
         factor = (fromIntegral fontSize) * sy * scale_factor / fromIntegral selected_font_size

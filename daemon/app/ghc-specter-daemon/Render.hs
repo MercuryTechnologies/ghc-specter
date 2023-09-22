@@ -13,6 +13,8 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (isNothing)
 import Data.Traversable (for)
 import Foreign.C.String (CString, withCString)
@@ -183,7 +185,7 @@ singleFrame io window ui ss oldShared = do
   --
   pure newShared'
 
-prepareAssets :: ImGuiIO -> IO ([(Int, ImFont)], [(Int, ImFont)], Double)
+prepareAssets :: ImGuiIO -> IO (NonEmpty (Int, ImFont), NonEmpty (Int, ImFont), Double)
 prepareAssets io = do
   dir <- getDataDir
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
