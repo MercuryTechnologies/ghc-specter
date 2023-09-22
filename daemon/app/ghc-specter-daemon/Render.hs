@@ -10,14 +10,14 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (ifM, loopM)
+import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
-import Foreign.Marshal.Utils (toBool)
+import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (nullPtr)
 import GHCSpecter.Driver.Session.Types
   ( ClientSession (..),
@@ -132,6 +132,18 @@ singleFrame io window ui ss oldShared = do
       newShared = upd3 . upd2 . upd1 $ oldShared
 
   newShared' <- flip runReaderT newShared $ do
+    -- main menu
+    liftIO $ do
+      whenM (toBool <$> beginMainMenuBar) $ do
+        whenM (toBool <$> beginMenu ("ghc-specter" :: CString) (fromBool True)) $ do
+          b1 <- menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
+          putStrLn $ "b1 = " <> show b1
+          endMenu
+        whenM (toBool <$> beginMenu ("Help" :: CString) (fromBool True)) $ do
+          b2 <- menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
+          putStrLn $ "b2 = " <> show b2
+          endMenu
+        endMainMenuBar
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     let mnextTab = ui._uiModel._modelTabDestination
