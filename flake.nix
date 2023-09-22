@@ -117,7 +117,8 @@
               pkgs.ormolu
               pyenv
             ]
-            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default);
+            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default)
+            ++ (pkgs.lib.optionals (pkgs.stdenv.isDarwin) [pkgs.darwin.apple_sdk.frameworks.Cocoa]);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';

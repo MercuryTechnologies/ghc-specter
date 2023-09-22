@@ -16,7 +16,7 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
-import Foreign.C.Types (CInt (..))
+import Foreign.C.Types (CFloat (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
@@ -46,15 +46,10 @@ import ImGui.Enum
     ImGuiMouseButton_ (..),
   )
 import ImGui.ImGuiIO.Implementation
-  ( imGuiIO_DisplayFramebufferScale_get,
-    imGuiIO_FontGlobalScale_set,
+  ( imGuiIO_FontGlobalScale_set,
     imGuiIO_Fonts_get,
     imGuiIO_MouseWheelH_get,
     imGuiIO_MouseWheel_get,
-  )
-import ImGui.ImVec2.Implementation
-  ( imVec2_x_get,
-    imVec2_y_get,
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.BlockerView qualified as BlockerView
@@ -78,8 +73,8 @@ import Util.GUI
   )
 import Util.Render (SharedState (..))
 
-foreign import ccall unsafe "scale"
-  c_scale :: IO CInt
+foreign import ccall unsafe "detectScaleFactor"
+  c_detectScaleFactor :: IO CFloat
 
 singleFrame ::
   ImGuiIO ->
@@ -194,14 +189,14 @@ prepareAssets io = do
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
   fonts <- imGuiIO_Fonts_get io
   -- _fontDefault <- imFontAtlas_AddFontDefault fonts
-  let scale = 2.0
+  scale <- c_detectScaleFactor
   _fontDefault <-
     withCString free_sans_path $ \cstr -> do
       imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale)
-  v <- imGuiIO_DisplayFramebufferScale_get io
-  scaleX <- imVec2_x_get v
-  scaleY <- imVec2_y_get v
-  print (scaleX, scaleY)
+  -- v <- imGuiIO_DisplayFramebufferScale_get io
+  -- scaleX <- imVec2_x_get v
+  -- scaleY <- imVec2_y_get v
+  -- print (scaleX, scaleY)
   imGuiIO_FontGlobalScale_set io (1.0 / scale)
   fontSans <-
     withCString free_sans_path $ \cstr -> do
@@ -209,8 +204,6 @@ prepareAssets io = do
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
-  s <- c_scale
-  putStrLn $ "scale = " <> show s
   pure (fontSans, fontMono)
 
 main ::
