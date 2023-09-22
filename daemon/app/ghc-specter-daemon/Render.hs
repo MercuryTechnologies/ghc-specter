@@ -82,6 +82,10 @@ c_detectScaleFactor :: IO CFloat
 c_detectScaleFactor = pure 1.0
 #endif
 
+fontSizeList :: [Int]
+fontSizeList =
+  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72 ]
+
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -205,6 +209,8 @@ prepareAssets io = do
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
+  b <- imFontAtlas_Build fonts
+  putStrLn $ "b = " <> show b
   pure (fontSans, fontMono)
 
 main ::
