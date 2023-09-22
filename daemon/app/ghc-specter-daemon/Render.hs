@@ -16,6 +16,7 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
+import Foreign.C.Types (CInt (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (toBool)
 import Foreign.Ptr (nullPtr)
@@ -76,6 +77,9 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render (SharedState (..))
+
+foreign import ccall unsafe "scale"
+  c_scale :: IO CInt
 
 singleFrame ::
   ImGuiIO ->
@@ -205,6 +209,8 @@ prepareAssets io = do
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
+  s <- c_scale
+  putStrLn $ "scale = " <> show s
   pure (fontSans, fontMono)
 
 main ::
