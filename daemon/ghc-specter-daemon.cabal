@@ -75,10 +75,11 @@ library
   hs-source-dirs:
       src
   if os(darwin)
+    cpp-options: -D__MACOS__
     cxx-options: -D__MACOS__
     frameworks: Cocoa
-  cxx-sources:
-      app/ghc-specter-daemon/cbits/shim.mm
+    cxx-sources:
+        app/ghc-specter-daemon/cbits/shim.mm
   ghc-options: -Wall -Wunused-packages -Werror
   build-depends:
       OGDF

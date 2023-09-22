@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -73,8 +74,13 @@ import Util.GUI
   )
 import Util.Render (SharedState (..))
 
+#ifdef __MACOS__
 foreign import ccall unsafe "detectScaleFactor"
   c_detectScaleFactor :: IO CFloat
+#else
+c_detectScaleFactor :: IO CFloat
+c_detectScaleFactor = pure 1.0
+#endif
 
 singleFrame ::
   ImGuiIO ->
