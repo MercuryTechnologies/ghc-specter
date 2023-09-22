@@ -43,6 +43,7 @@ import ImGui.Enum
   ( ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
+    ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation
   ( imGuiIO_FontGlobalScale_set,
@@ -138,12 +139,21 @@ singleFrame io window ui ss oldShared = do
         whenM (toBool <$> beginMenu ("ghc-specter" :: CString) (fromBool True)) $ do
           b1 <- menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
           putStrLn $ "b1 = " <> show b1
+          openPopup ("popup"::CString) 0
           endMenu
         whenM (toBool <$> beginMenu ("Help" :: CString) (fromBool True)) $ do
           b2 <- menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
           putStrLn $ "b2 = " <> show b2
           endMenu
         endMainMenuBar
+    -- dialog box test
+    liftIO $ do
+      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
+      whenM (toBool <$> beginPopupModal ("popup"::CString) nullPtr flag) $ do
+        putStrLn "am i here?"
+        textUnformatted ("abcdefghij"::CString)
+        endPopup
+      -- closeCurrentPopup
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     let mnextTab = ui._uiModel._modelTabDestination
