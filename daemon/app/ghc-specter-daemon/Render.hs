@@ -14,6 +14,7 @@ import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
+import Data.Foldable (traverse_)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
@@ -65,6 +66,7 @@ import Render.ModuleGraph qualified as ModuleGraph
 import Render.Session qualified as Session
 import Render.SourceView qualified as SourceView
 import Render.TimingView qualified as Timing
+import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
   ( finalize,
@@ -166,24 +168,20 @@ singleFrame io window ui ss oldShared = do
         endPopup
       end
     -- fullscreen window
-    liftIO $ do
-      viewport <- getMainViewport
-      let flags =
-            fromIntegral $
-              fromEnum ImGuiWindowFlags_NoDecoration
-                .|. fromEnum ImGuiWindowFlags_NoMove
-                .|. fromEnum ImGuiWindowFlags_NoSavedSettings
-      pos <- imGuiViewport_WorkPos_get viewport
-      size <- imGuiViewport_WorkSize_get viewport
-      zero <- newImVec2 0 0
-      setNextWindowPos pos 0 zero
-      setNextWindowSize size 0
-      begin ("Example" :: CString) nullPtr flags
-      textUnformatted ("Hello there" :: CString)
-      end
-
+    viewport <- liftIO getMainViewport
+    let flags =
+          fromIntegral $
+            fromEnum ImGuiWindowFlags_NoDecoration
+              .|. fromEnum ImGuiWindowFlags_NoMove
+              .|. fromEnum ImGuiWindowFlags_NoSavedSettings
+    pos <- liftIO $ imGuiViewport_WorkPos_get viewport
+    size <- liftIO $ imGuiViewport_WorkSize_get viewport
+    zero <- liftIO $ newImVec2 0 0
+    liftIO $ setNextWindowPos pos 0 zero
+    liftIO $ setNextWindowSize size 0
+    liftIO $ delete zero
     -- main window
-    _ <- liftIO $ begin ("main" :: CString) nullPtr 0
+    liftIO $ begin ("main" :: CString) nullPtr flags
     let mnextTab = ui._uiModel._modelTabDestination
     tabState <-
       ifM
@@ -207,7 +205,7 @@ singleFrame io window ui ss oldShared = do
             pure tabState
         )
         (pure (newShared.sharedTabState))
-    liftIO end
+    liftIO $ end
 
     -- module-in-progress window
     _ <- liftIO $ begin ("Compilation Status" :: CString) nullPtr windowFlagsScroll
