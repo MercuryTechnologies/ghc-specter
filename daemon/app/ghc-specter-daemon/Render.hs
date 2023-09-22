@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -73,27 +71,11 @@ import Util.GUI
     windowFlagsNone,
     windowFlagsScroll,
   )
-import Util.Render (SharedState (..))
-
-#ifdef __MACOS__
-foreign import ccall unsafe "detectScaleFactor"
-  c_detectScaleFactor :: IO CFloat
-#else
-c_detectScaleFactor :: IO CFloat
-c_detectScaleFactor = pure 1.0
-#endif
-
-fontSizeList :: [Int]
-fontSizeList =
-  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72]
-
-loadAllFonts :: FilePath -> ImFontAtlas -> IO [(Int, ImFont)]
-loadAllFonts path fonts = do
-  scale <- c_detectScaleFactor
-  for fontSizeList $ \i ->
-    withCString path $ \cstr -> do
-      font <- imFontAtlas_AddFontFromFileTTF fonts cstr (fromIntegral i * scale)
-      pure (i, font)
+import Util.Render
+  ( SharedState (..),
+    c_detectScaleFactor,
+    loadAllFonts,
+  )
 
 singleFrame ::
   ImGuiIO ->
@@ -201,30 +183,21 @@ singleFrame io window ui ss oldShared = do
   --
   pure newShared'
 
-prepareAssets :: ImGuiIO -> IO (ImFont, ImFont)
+prepareAssets :: ImGuiIO -> IO ([(Int, ImFont)], [(Int, ImFont)], Double)
 prepareAssets io = do
   dir <- getDataDir
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
   fonts <- imGuiIO_Fonts_get io
-  scale <- c_detectScaleFactor
+  scale_factor <- c_detectScaleFactor
   _fontDefault <-
     withCString free_sans_path $ \cstr -> do
-      imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale)
-  imGuiIO_FontGlobalScale_set io (1.0 / scale)
-  fontSans <-
-    withCString free_sans_path $ \cstr -> do
-      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
-  fontMono <-
-    withCString free_mono_path $ \cstr ->
-      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
-
-  _ <- loadAllFonts free_sans_path fonts
-  _ <- loadAllFonts free_mono_path fonts
-
-  b <- imFontAtlas_Build fonts
-  putStrLn $ "b = " <> show b
-  pure (fontSans, fontMono)
+      imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale_factor)
+  imGuiIO_FontGlobalScale_set io (1.0 / scale_factor)
+  fonts_sans <- loadAllFonts free_sans_path fonts scale_factor
+  fonts_mono <- loadAllFonts free_mono_path fonts scale_factor
+  _ <- imFontAtlas_Build fonts
+  pure (fonts_sans, fonts_mono, realToFrac scale_factor)
 
 main ::
   ServerSession ->
@@ -235,7 +208,7 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
   -- initialize window
   (ctxt, io, window) <- initialize "ghc-specter"
   -- prepare assets (fonts)
-  (fontSans, fontMono) <- prepareAssets io
+  (fonts_sans, fonts_mono, scale_factor) <- prepareAssets io
 
   p_consoleInput <- callocBytes consoleInputBufferSize
   -- state and event channel
@@ -251,8 +224,9 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedIsClicked = False,
             sharedTabState = Nothing,
             sharedChanQEv = chanQEv,
-            sharedFontSans = fontSans,
-            sharedFontMono = fontMono,
+            sharedFontsSans = fonts_sans,
+            sharedFontsMono = fonts_mono,
+            sharedFontScaleFactor = scale_factor,
             sharedEventMap = em_ref,
             sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput,
