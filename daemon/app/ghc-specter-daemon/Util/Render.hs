@@ -171,7 +171,7 @@ loadAllFonts path fonts scale_factor =
 
 pickNearestFont :: NonEmpty (Int, ImFont) -> Double -> (Int, ImFont)
 pickNearestFont fonts size =
-  let (smaller, bigger) = NE.break (\(i, _) -> (fromIntegral i >= size)) fonts
+  let (_smaller, bigger) = NE.break (\(i, _) -> (fromIntegral i >= size)) fonts
    in case bigger of
         [] -> NE.last fonts
         (x : _) -> x
@@ -277,10 +277,10 @@ renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender
     let (_, sy) = s.currScale
         (selected_font_size, selected_font) =
           case font of
-            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize * sy)
-            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize * sy)
+            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize * sy * scale_factor)
+            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize * sy * scale_factor)
         scale_factor = s.currSharedState.sharedFontScaleFactor
-        factor = (fromIntegral fontSize) * sy * scale_factor / fromIntegral selected_font_size
+        factor = (fromIntegral fontSize) * sy / fromIntegral selected_font_size
     imFont_Scale_set selected_font (realToFrac factor)
     pushFont selected_font
     let offsetY = case pos of
