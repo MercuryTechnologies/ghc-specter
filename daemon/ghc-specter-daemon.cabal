@@ -74,12 +74,6 @@ library
       Paths_ghc_specter_daemon
   hs-source-dirs:
       src
-  if os(darwin)
-    cpp-options: -D__MACOS__
-    cxx-options: -D__MACOS__
-    frameworks: Cocoa
-    cxx-sources:
-        app/ghc-specter-daemon/cbits/shim.mm
   ghc-options: -Wall -Wunused-packages -Werror
   build-depends:
       OGDF
@@ -141,6 +135,12 @@ executable ghc-specter-daemon
     Util.Render
   hs-source-dirs:
       app/ghc-specter-daemon
+  if os(darwin)
+    cpp-options: -D__MACOS__
+    cxx-options: -D__MACOS__
+    frameworks: Cocoa
+    cxx-sources:
+        app/ghc-specter-daemon/cbits/shim.mm
   ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N -fno-warn-partial-type-signatures
   build-depends:
       base >=4.15 && <5
