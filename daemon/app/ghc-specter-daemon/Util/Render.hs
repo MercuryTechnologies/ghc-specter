@@ -274,11 +274,11 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
-    let (selected_font_size, selected_font) =
-          case font of
-            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize)
-            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize)
     let (_, sy) = s.currScale
+        (selected_font_size, selected_font) =
+          case font of
+            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize * sy)
+            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize * sy)
         scale_factor = s.currSharedState.sharedFontScaleFactor
         factor = (fromIntegral fontSize) * sy * scale_factor / fromIntegral selected_font_size
     imFont_Scale_set selected_font (realToFrac factor)
