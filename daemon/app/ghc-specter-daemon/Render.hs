@@ -188,15 +188,10 @@ prepareAssets io = do
   let free_sans_path = dir </> "assets" </> "FreeSans.ttf"
       free_mono_path = dir </> "assets" </> "FreeMono.ttf"
   fonts <- imGuiIO_Fonts_get io
-  -- _fontDefault <- imFontAtlas_AddFontDefault fonts
   scale <- c_detectScaleFactor
   _fontDefault <-
     withCString free_sans_path $ \cstr -> do
       imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale)
-  -- v <- imGuiIO_DisplayFramebufferScale_get io
-  -- scaleX <- imVec2_x_get v
-  -- scaleY <- imVec2_y_get v
-  -- print (scaleX, scaleY)
   imGuiIO_FontGlobalScale_set io (1.0 / scale)
   fontSans <-
     withCString free_sans_path $ \cstr -> do
