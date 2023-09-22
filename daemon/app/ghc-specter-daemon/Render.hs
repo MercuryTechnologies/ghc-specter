@@ -13,6 +13,7 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Data.Bits ((.|.))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
@@ -51,6 +52,10 @@ import ImGui.ImGuiIO.Implementation
     imGuiIO_Fonts_get,
     imGuiIO_MouseWheelH_get,
     imGuiIO_MouseWheel_get,
+  )
+import ImGui.ImGuiViewport.Implementation
+  ( imGuiViewport_WorkPos_get,
+    imGuiViewport_WorkSize_get,
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.BlockerView qualified as BlockerView
@@ -152,13 +157,31 @@ singleFrame io window ui ss oldShared = do
       whenM (toBool <$> button ("open popup" :: CString)) $ do
         putStrLn "button clicked"
         openPopup ("popup" :: CString) 0
-
+      center <- imGuiViewport_GetCenter =<< getMainViewport
+      rel_pos <- newImVec2 0.5 0.5
+      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
       whenM (toBool <$> beginPopupModal ("popup" :: CString) nullPtr flag) $ do
-        putStrLn "am i here?"
         textUnformatted ("abcdefghij" :: CString)
         endPopup
       end
+    -- fullscreen window
+    liftIO $ do
+      viewport <- getMainViewport
+      let flags =
+            fromIntegral $
+              fromEnum ImGuiWindowFlags_NoDecoration
+                .|. fromEnum ImGuiWindowFlags_NoMove
+                .|. fromEnum ImGuiWindowFlags_NoSavedSettings
+      pos <- imGuiViewport_WorkPos_get viewport
+      size <- imGuiViewport_WorkSize_get viewport
+      zero <- newImVec2 0 0
+      setNextWindowPos pos 0 zero
+      setNextWindowSize size 0
+      begin ("Example" :: CString) nullPtr flags
+      textUnformatted ("Hello there" :: CString)
+      end
+
     -- main window
     _ <- liftIO $ begin ("main" :: CString) nullPtr 0
     let mnextTab = ui._uiModel._modelTabDestination
