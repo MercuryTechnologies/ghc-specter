@@ -45,10 +45,15 @@ import ImGui.Enum
     ImGuiMouseButton_ (..),
   )
 import ImGui.ImGuiIO.Implementation
-  ( imGuiIO_FontGlobalScale_set,
+  ( imGuiIO_DisplayFramebufferScale_get,
+    imGuiIO_FontGlobalScale_set,
     imGuiIO_Fonts_get,
     imGuiIO_MouseWheelH_get,
     imGuiIO_MouseWheel_get,
+  )
+import ImGui.ImVec2.Implementation
+  ( imVec2_x_get,
+    imVec2_y_get,
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.BlockerView qualified as BlockerView
@@ -189,13 +194,17 @@ prepareAssets io = do
   _fontDefault <-
     withCString free_sans_path $ \cstr -> do
       imFontAtlas_AddFontFromFileTTF fonts cstr (13 * scale)
+  v <- imGuiIO_DisplayFramebufferScale_get io
+  scaleX <- imVec2_x_get v
+  scaleY <- imVec2_y_get v
+  print (scaleX, scaleY)
   imGuiIO_FontGlobalScale_set io (1.0 / scale)
   fontSans <-
     withCString free_sans_path $ \cstr -> do
-      imFontAtlas_AddFontFromFileTTF fonts cstr 8
+      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
   fontMono <-
     withCString free_mono_path $ \cstr ->
-      imFontAtlas_AddFontFromFileTTF fonts cstr 8
+      imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
   pure (fontSans, fontMono)
 
 main ::

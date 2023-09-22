@@ -26,7 +26,8 @@
       };
     };
     hs-imgui = {
-      url = "github:wavewave/hs-imgui/main";
+      url = "/Users/ianwookim/repo/src/hs-imgui";
+      #url = "github:wavewave/hs-imgui/main";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
