@@ -62,7 +62,12 @@
         "ghc-specter-plugin" =
           hself.callCabal2nix "ghc-specter-plugin" ./plugin {};
         "ghc-specter-daemon" =
-          hself.callCabal2nix "ghc-specter-daemon" ./daemon {};
+          final.haskell.lib.overrideCabal
+          (hself.callCabal2nix "ghc-specter-daemon" ./daemon {})
+          (old: {
+            libraryFrameworkDepends =
+              final.lib.optional pkgs.stdenv.isDarwin final.darwin.apple_sdk.frameworks.Cocoa;
+          });
         "ghc-build-analyzer" =
           hself.callCabal2nix "ghc-build-analyzer" ./ghc-build-analyzer {};
       };
@@ -116,7 +121,8 @@
               pkgs.ormolu
               pyenv
             ]
-            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default);
+            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default)
+            ++ (pkgs.lib.optionals (pkgs.stdenv.isDarwin) [pkgs.darwin.apple_sdk.frameworks.Cocoa]);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
           '';
