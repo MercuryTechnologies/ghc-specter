@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -7,6 +9,10 @@ module Util.Render
     SharedState (..),
     ImRenderState (..),
     mkRenderState,
+
+    -- * fonts
+    c_detectScaleFactor,
+    loadAllFonts,
 
     -- * ImRender monad
     ImRender (..),
@@ -46,16 +52,18 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Foreign qualified as T
+import Data.Traversable (for)
 import Data.Tree (drawTree)
 import FFICXX.Runtime.Cast (FPtr (cast_fptr_to_obj))
-import Foreign.C.String (CString)
+import Foreign.C.String (CString, withCString)
+import Foreign.C.Types (CFloat (..))
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import Foreign.Ptr (Ptr, castPtr)
@@ -100,8 +108,9 @@ data SharedState e = SharedState
     sharedIsClicked :: Bool,
     sharedTabState :: Maybe Tab,
     sharedChanQEv :: TQueue Event,
-    sharedFontSans :: ImFont,
-    sharedFontMono :: ImFont,
+    sharedFontsSans :: NonEmpty (Int, ImFont),
+    sharedFontsMono :: NonEmpty (Int, ImFont),
+    sharedFontScaleFactor :: Double,
     sharedEventMap :: TVar [EventMap e],
     sharedStage :: TVar Stage,
     sharedConsoleInput :: CString,
@@ -136,6 +145,36 @@ mkRenderState = do
         currScale = (1.0, 1.0),
         currLocalIDRef = local_id_ref
       }
+
+--
+-- Font
+--
+
+#ifdef __MACOS__
+foreign import ccall unsafe "detectScaleFactor"
+  c_detectScaleFactor :: IO CFloat
+#else
+c_detectScaleFactor :: IO CFloat
+c_detectScaleFactor = pure 1.0
+#endif
+
+fontSizeList :: NonEmpty Int
+fontSizeList =
+  6 :| [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72]
+
+loadAllFonts :: FilePath -> ImFontAtlas -> CFloat -> IO (NonEmpty (Int, ImFont))
+loadAllFonts path fonts scale_factor =
+  for fontSizeList $ \i ->
+    withCString path $ \cstr -> do
+      font <- imFontAtlas_AddFontFromFileTTF fonts cstr (fromIntegral i * scale_factor)
+      pure (i, font)
+
+pickNearestFont :: NonEmpty (Int, ImFont) -> Double -> (Int, ImFont)
+pickNearestFont fonts size =
+  let (_smaller, bigger) = NE.break (\(i, _) -> (fromIntegral i >= size)) fonts
+   in case bigger of
+        [] -> NE.last fonts
+        (x : _) -> x
 
 --
 -- ImRender monad
@@ -235,16 +274,15 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
   liftIO $ do
-    let fontSelected =
-          case font of
-            Sans -> s.currSharedState.sharedFontSans
-            Mono -> s.currSharedState.sharedFontMono
-    -- NOTE: This is rather hacky workaround.
     let (_, sy) = s.currScale
-        -- TODO: This hard-coded 6.0 should be factored out
-        factor = (fromIntegral fontSize) * sy / 6.0
-    imFont_Scale_set fontSelected (realToFrac factor)
-    pushFont fontSelected
+        (selected_font_size, selected_font) =
+          case font of
+            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize * sy * scale_factor)
+            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize * sy * scale_factor)
+        scale_factor = s.currSharedState.sharedFontScaleFactor
+        factor = (fromIntegral fontSize) * sy / fromIntegral selected_font_size
+    imFont_Scale_set selected_font (realToFrac factor)
+    pushFont selected_font
     let offsetY = case pos of
           UpperLeft -> 0
           LowerLeft -> -fontSize
