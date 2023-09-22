@@ -16,6 +16,7 @@ import Control.Monad.Extra (ifM, loopM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Maybe (isNothing)
+import Data.Traversable (for)
 import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CFloat (..))
 import Foreign.Marshal.Alloc (callocBytes, free)
@@ -84,7 +85,15 @@ c_detectScaleFactor = pure 1.0
 
 fontSizeList :: [Int]
 fontSizeList =
-  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72 ]
+  [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 36, 42, 48, 60, 72]
+
+loadAllFonts :: FilePath -> ImFontAtlas -> IO [(Int, ImFont)]
+loadAllFonts path fonts = do
+  scale <- c_detectScaleFactor
+  for fontSizeList $ \i ->
+    withCString path $ \cstr -> do
+      font <- imFontAtlas_AddFontFromFileTTF fonts cstr (fromIntegral i * scale)
+      pure (i, font)
 
 singleFrame ::
   ImGuiIO ->
@@ -209,6 +218,10 @@ prepareAssets io = do
   fontMono <-
     withCString free_mono_path $ \cstr ->
       imFontAtlas_AddFontFromFileTTF fonts cstr (8 * scale)
+
+  _ <- loadAllFonts free_sans_path fonts
+  _ <- loadAllFonts free_mono_path fonts
+
   b <- imFontAtlas_Build fonts
   putStrLn $ "b = " <> show b
   pure (fontSans, fontMono)
