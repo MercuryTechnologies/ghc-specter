@@ -69,7 +69,8 @@ import Render.TimingView qualified as Timing
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
-  ( finalize,
+  ( defTableFlags,
+    finalize,
     globalCursorPosition,
     initialize,
     makeTabContents,
@@ -179,45 +180,67 @@ singleFrame io window ui ss oldShared = do
     zero <- liftIO $ newImVec2 0 0
     liftIO $ setNextWindowPos pos 0 zero
     liftIO $ setNextWindowSize size 0
-    liftIO $ delete zero
-    -- main window
-    liftIO $ begin ("main" :: CString) nullPtr flags
-    let mnextTab = ui._uiModel._modelTabDestination
-    tabState <-
-      ifM
-        (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
-        ( do
-            tabState <-
-              makeTabContents
-                mnextTab
-                [ (TabSession, "Session", Session.render ui ss),
-                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
-                  (TabSourceView, "Source view", SourceView.render ui ss),
-                  (TabTiming, "Timing view", Timing.render ui ss),
-                  (TabBlocker, "Blocker graph", BlockerView.render ui ss)
-                ]
-            liftIO endTabBar
-            -- tab event handling
-            when (newShared.sharedTabState /= tabState) $
-              case tabState of
-                Nothing -> pure ()
-                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
-            pure tabState
-        )
-        (pure (newShared.sharedTabState))
-    liftIO $ end
+    liftIO $ begin ("fullscreen" :: CString) nullPtr flags
 
-    -- module-in-progress window
-    _ <- liftIO $ begin ("Compilation Status" :: CString) nullPtr windowFlagsScroll
-    Session.renderCompilationStatus ss
-    liftIO end
+    isTableCreated <-
+      toBool <$> liftIO (ImGui.beginTable ("##top-level-table" :: CString) 2 defTableFlags)
+    if not isTableCreated
+      then do
+        -- end of fullscreen
+        liftIO end
+        liftIO $ delete zero
+        pure newShared
+      else do
+        liftIO $ tableSetupColumn_ ("#top-level" :: CString)
+        liftIO $ tableNextRow 0
+        liftIO $ tableSetColumnIndex 0
+        -- compilation status panel
+        _ <- liftIO $ beginChild ("Compilation Status" :: CString) zero (fromBool False) windowFlagsNone
+        Session.renderCompilationStatus ss
+        liftIO endChild
 
-    -- console window
-    _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
-    Console.render ui ss
-    liftIO end
+        liftIO $ tableSetColumnIndex 1
+        -- main panel
+        _ <- liftIO $ beginChild ("main" :: CString) zero (fromBool False) windowFlagsNone
+        let mnextTab = ui._uiModel._modelTabDestination
+        tabState <-
+          ifM
+            (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
+            ( do
+                tabState <-
+                  makeTabContents
+                    mnextTab
+                    [ (TabSession, "Session", Session.render ui ss),
+                      (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                      (TabSourceView, "Source view", SourceView.render ui ss),
+                      (TabTiming, "Timing view", Timing.render ui ss),
+                      (TabBlocker, "Blocker graph", BlockerView.render ui ss)
+                    ]
+                liftIO endTabBar
+                -- tab event handling
+                when (newShared.sharedTabState /= tabState) $
+                  case tabState of
+                    Nothing -> pure ()
+                    Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+                pure tabState
+            )
+            (pure (newShared.sharedTabState))
+        -- end of main
+        liftIO $ endChild
+        -- end of table
+        liftIO $ endTable
+        -- end of fullscreen
+        liftIO end
+        liftIO $ delete zero
+        pure $ newShared {sharedTabState = tabState}
 
-    pure $ newShared {sharedTabState = tabState}
+  {-
+     -- console window
+     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
+     Console.render ui ss
+     liftIO end
+  -}
+
   --
   -- finalize rendering by compositing render call
   render
