@@ -118,7 +118,9 @@ data SharedState e = SharedState
     sharedConsoleInput :: CString,
     sharedWillScrollDownConsole :: TVar Bool,
     -- TODO: This is temporarily here. need to make a window config type.
-    sharedLeftPaneSize :: (Double, Double)
+    sharedLeftPaneSize :: (Double, Double),
+    sharedPopup1 :: Bool,
+    sharedPopup2 :: Bool
   }
 
 data ImRenderState e = ImRenderState

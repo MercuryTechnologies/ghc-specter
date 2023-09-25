@@ -15,8 +15,9 @@ import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
+import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Maybe (isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (fromBool, toBool)
@@ -148,32 +149,54 @@ singleFrame io window ui ss oldShared = do
       newShared = upd3 . upd2 . upd1 $ oldShared
 
   newShared' <- flip runReaderT newShared $ do
+    -- TODO: for now, this ugly code exists. Replace this by proper state monad.
+    ref_popup1 <- liftIO $ newIORef Nothing
+    ref_popup2 <- liftIO $ newIORef Nothing
+
     -- main menu
     liftIO $ do
       whenM (toBool <$> beginMainMenuBar) $ do
         whenM (toBool <$> beginMenu ("ghc-specter" :: CString) (fromBool True)) $ do
           b1 <- menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
-          putStrLn $ "b1 = " <> show b1
+          when (toBool b1) $
+            writeIORef ref_popup1 (Just (toBool b1))
           endMenu
         whenM (toBool <$> beginMenu ("Help" :: CString) (fromBool True)) $ do
           b2 <- menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
-          putStrLn $ "b2 = " <> show b2
+          when (toBool b2) $
+            writeIORef ref_popup2 (Just (toBool b2))
           endMenu
         endMainMenuBar
+
     -- dialog box test
-    liftIO $ do
-      begin ("test popup" :: CString) nullPtr 0
-      whenM (toBool <$> button ("open popup" :: CString)) $ do
-        putStrLn "button clicked"
-        openPopup ("popup" :: CString) 0
+    when newShared.sharedPopup1 $
+      liftIO $
+        openPopup ("About ghc-specter" :: CString) 0
+    when newShared.sharedPopup1 $ liftIO $ do
       center <- imGuiViewport_GetCenter =<< getMainViewport
       rel_pos <- newImVec2 0.5 0.5
       setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> beginPopupModal ("popup" :: CString) nullPtr flag) $ do
-        textUnformatted ("abcdefghij" :: CString)
+      whenM (toBool <$> beginPopupModal ("About ghc-specter" :: CString) nullPtr flag) $ do
+        textUnformatted ("ghc-specter 1.0.0.0" :: CString)
+        whenM (toBool <$> button ("close" :: CString)) $
+          writeIORef ref_popup1 (Just False)
         endPopup
-      end
+
+    when newShared.sharedPopup2 $
+      liftIO $
+        openPopup ("Help" :: CString) 0
+    when newShared.sharedPopup2 $ liftIO $ do
+      center <- imGuiViewport_GetCenter =<< getMainViewport
+      rel_pos <- newImVec2 0.5 0.5
+      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
+      whenM (toBool <$> beginPopupModal ("Help" :: CString) nullPtr flag) $ do
+        textUnformatted ("I cannot help you now." :: CString)
+        whenM (toBool <$> button ("close" :: CString)) $
+          writeIORef ref_popup2 (Just False)
+        endPopup
+
     -- fullscreen window
     viewport <- liftIO getMainViewport
     let flags =
@@ -253,10 +276,14 @@ singleFrame io window ui ss oldShared = do
     liftIO endChild
     --
     liftIO popStyleVar_
+
+    (popup1, popup2) <- liftIO ((,) <$> readIORef ref_popup1 <*> readIORef ref_popup2)
     let newShared' =
           newShared
             { sharedTabState = tabState,
-              sharedLeftPaneSize = (w + delta_x, h + delta_y)
+              sharedLeftPaneSize = (w + delta_x, h + delta_y),
+              sharedPopup1 = fromMaybe newShared.sharedPopup1 popup1,
+              sharedPopup2 = fromMaybe newShared.sharedPopup2 popup2
             }
     -- end of fullscreen
     liftIO end
@@ -323,7 +350,9 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput,
             sharedWillScrollDownConsole = console_scroll_ref,
-            sharedLeftPaneSize = (120, 500)
+            sharedLeftPaneSize = (120, 500),
+            sharedPopup1 = False,
+            sharedPopup2 = False
           }
 
   -- main loop
