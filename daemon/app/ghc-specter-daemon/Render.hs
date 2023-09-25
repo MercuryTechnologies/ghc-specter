@@ -46,17 +46,23 @@ import ImGui.Enum
     ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
+    ImGuiStyleVar_ (..),
     ImGuiWindowFlags_ (..),
   )
 import ImGui.ImGuiIO.Implementation
   ( imGuiIO_FontGlobalScale_set,
     imGuiIO_Fonts_get,
+    imGuiIO_MouseDelta_get,
     imGuiIO_MouseWheelH_get,
     imGuiIO_MouseWheel_get,
   )
 import ImGui.ImGuiViewport.Implementation
   ( imGuiViewport_WorkPos_get,
     imGuiViewport_WorkSize_get,
+  )
+import ImGui.ImVec2.Implementation
+  ( imVec2_x_get,
+    imVec2_y_get,
   )
 import Paths_ghc_specter_daemon (getDataDir)
 import Render.BlockerView qualified as BlockerView
@@ -182,65 +188,81 @@ singleFrame io window ui ss oldShared = do
     liftIO $ setNextWindowSize size 0
     liftIO $ begin ("fullscreen" :: CString) nullPtr flags
 
-    isTableCreated <-
-      toBool <$> liftIO (ImGui.beginTable ("##top-level-table" :: CString) 2 defTableFlags)
-    if not isTableCreated
-      then do
-        -- end of fullscreen
-        liftIO end
-        liftIO $ delete zero
-        pure newShared
-      else do
-        liftIO $ tableSetupColumn_ ("#top-level" :: CString)
-        liftIO $ tableNextRow 0
-        liftIO $ tableSetColumnIndex 0
-        -- compilation status panel
-        _ <- liftIO $ beginChild ("Compilation Status" :: CString) zero (fromBool False) windowFlagsNone
-        Session.renderCompilationStatus ss
-        liftIO endChild
+    -- start splitter
+    let (w, h) = newShared.sharedLeftPaneSize
+    liftIO $ pushStyleVar2 (fromIntegral (fromEnum ImGuiStyleVar_ItemSpacing)) zero
+    child1_size <- liftIO $ newImVec2 (realToFrac w) (realToFrac h)
+    liftIO $ beginChild ("Compilation Status" :: CString) child1_size (fromBool True) 0
+    Session.renderCompilationStatus ss
+    liftIO endChild
+    liftIO $ delete child1_size
+    --
+    liftIO sameLine_
+    --
+    vsplitter_size <- liftIO $ newImVec2 8.0 (realToFrac h)
+    liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
+    delta_x <-
+      ifM
+        (toBool <$> liftIO isItemActive)
+        (liftIO (realToFrac <$> (imVec2_x_get =<< imGuiIO_MouseDelta_get io)))
+        (pure 0.0)
+    liftIO $ delete vsplitter_size
+    --
+    liftIO sameLine_
+    --
+    child2_size <- liftIO $ newImVec2 0 (realToFrac h)
+    _ <- liftIO $ beginChild ("main" :: CString) child2_size (fromBool False) windowFlagsNone
+    let mnextTab = ui._uiModel._modelTabDestination
+    tabState <-
+      ifM
+        (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
+        ( do
+            tabState <-
+              makeTabContents
+                mnextTab
+                [ (TabSession, "Session", Session.render ui ss),
+                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                  (TabSourceView, "Source view", SourceView.render ui ss),
+                  (TabTiming, "Timing view", Timing.render ui ss),
+                  (TabBlocker, "Blocker graph", BlockerView.render ui ss)
+                ]
+            liftIO endTabBar
+            -- tab event handling
+            when (newShared.sharedTabState /= tabState) $
+              case tabState of
+                Nothing -> pure ()
+                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+            pure tabState
+        )
+        (pure (newShared.sharedTabState))
+    -- end of main
+    liftIO $ endChild
+    --
+    hsplitter_size <- liftIO $ newImVec2 (-1.0) 8.0
+    liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
+    delta_y <-
+      ifM
+        (toBool <$> liftIO isItemActive)
+        (liftIO (realToFrac <$> (imVec2_y_get =<< imGuiIO_MouseDelta_get io)))
+        (pure 0.0)
+    liftIO $ delete hsplitter_size
+    --
+    -- console window
+    _ <- liftIO $ beginChild ("console" :: CString) zero (fromBool True) windowFlagsNone
+    Console.render ui ss
+    liftIO endChild
+    --
+    liftIO popStyleVar_
+    let newShared' =
+          newShared
+            { sharedTabState = tabState,
+              sharedLeftPaneSize = (w + delta_x, h + delta_y)
+            }
+    -- end of fullscreen
+    liftIO end
+    liftIO $ delete zero
 
-        liftIO $ tableSetColumnIndex 1
-        -- main panel
-        _ <- liftIO $ beginChild ("main" :: CString) zero (fromBool False) windowFlagsNone
-        let mnextTab = ui._uiModel._modelTabDestination
-        tabState <-
-          ifM
-            (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
-            ( do
-                tabState <-
-                  makeTabContents
-                    mnextTab
-                    [ (TabSession, "Session", Session.render ui ss),
-                      (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
-                      (TabSourceView, "Source view", SourceView.render ui ss),
-                      (TabTiming, "Timing view", Timing.render ui ss),
-                      (TabBlocker, "Blocker graph", BlockerView.render ui ss)
-                    ]
-                liftIO endTabBar
-                -- tab event handling
-                when (newShared.sharedTabState /= tabState) $
-                  case tabState of
-                    Nothing -> pure ()
-                    Just tab -> liftIO $ sendToControl newShared (TabEv tab)
-                pure tabState
-            )
-            (pure (newShared.sharedTabState))
-        -- end of main
-        liftIO $ endChild
-        -- end of table
-        liftIO $ endTable
-        -- end of fullscreen
-        liftIO end
-        liftIO $ delete zero
-        pure $ newShared {sharedTabState = tabState}
-
-  {-
-     -- console window
-     _ <- liftIO $ begin ("console" :: CString) nullPtr windowFlagsNone
-     Console.render ui ss
-     liftIO end
-  -}
-
+    pure newShared'
   --
   -- finalize rendering by compositing render call
   render
@@ -300,7 +322,8 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedEventMap = em_ref,
             sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput,
-            sharedWillScrollDownConsole = console_scroll_ref
+            sharedWillScrollDownConsole = console_scroll_ref,
+            sharedLeftPaneSize = (120, 500)
           }
 
   -- main loop

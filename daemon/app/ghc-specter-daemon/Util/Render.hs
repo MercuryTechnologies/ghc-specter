@@ -100,6 +100,8 @@ import Util.Orphans ()
 -- state
 --
 
+-- TODO: Remove all TVars and purify this. (i.e. use a proper state monad).
+
 data SharedState e = SharedState
   { sharedMousePos :: Maybe (Int, Int),
     sharedMouseWheel :: (Double, Double),
@@ -114,7 +116,9 @@ data SharedState e = SharedState
     sharedEventMap :: TVar [EventMap e],
     sharedStage :: TVar Stage,
     sharedConsoleInput :: CString,
-    sharedWillScrollDownConsole :: TVar Bool
+    sharedWillScrollDownConsole :: TVar Bool,
+    -- TODO: This is temporarily here. need to make a window config type.
+    sharedLeftPaneSize :: (Double, Double)
   }
 
 data ImRenderState e = ImRenderState
