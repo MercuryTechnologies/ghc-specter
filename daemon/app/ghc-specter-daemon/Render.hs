@@ -14,7 +14,6 @@ import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 import Data.Bits ((.|.))
-import Data.Foldable (traverse_)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (fromMaybe, isNothing)
@@ -76,8 +75,7 @@ import Render.TimingView qualified as Timing
 import STD.Deletable (delete)
 import System.FilePath ((</>))
 import Util.GUI
-  ( defTableFlags,
-    finalize,
+  ( finalize,
     globalCursorPosition,
     initialize,
     makeTabContents,
@@ -85,7 +83,6 @@ import Util.GUI
     showFramerate,
     windowFlagsNoScroll,
     windowFlagsNone,
-    windowFlagsScroll,
   )
 import Util.Render
   ( SharedState (..),
@@ -173,7 +170,7 @@ singleFrame io window ui ss oldShared = do
       liftIO $
         openPopup ("About ghc-specter" :: CString) 0
     when newShared.sharedPopup1 $ liftIO $ do
-      center <- imGuiViewport_GetCenter =<< getMainViewport
+      center <- imGuiViewport_GetCenter viewport
       rel_pos <- newImVec2 0.5 0.5
       setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
@@ -187,7 +184,7 @@ singleFrame io window ui ss oldShared = do
       liftIO $
         openPopup ("Help" :: CString) 0
     when newShared.sharedPopup2 $ liftIO $ do
-      center <- imGuiViewport_GetCenter =<< getMainViewport
+      center <- imGuiViewport_GetCenter viewport
       rel_pos <- newImVec2 0.5 0.5
       setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
@@ -198,7 +195,6 @@ singleFrame io window ui ss oldShared = do
         endPopup
 
     -- fullscreen window
-    viewport <- liftIO getMainViewport
     let flags =
           fromIntegral $
             fromEnum ImGuiWindowFlags_NoDecoration
@@ -209,13 +205,13 @@ singleFrame io window ui ss oldShared = do
     zero <- liftIO $ newImVec2 0 0
     liftIO $ setNextWindowPos pos 0 zero
     liftIO $ setNextWindowSize size 0
-    liftIO $ begin ("fullscreen" :: CString) nullPtr flags
+    _ <- liftIO $ begin ("fullscreen" :: CString) nullPtr flags
 
     -- start splitter
     let (w, h) = newShared.sharedLeftPaneSize
     liftIO $ pushStyleVar2 (fromIntegral (fromEnum ImGuiStyleVar_ItemSpacing)) zero
     child1_size <- liftIO $ newImVec2 (realToFrac w) (realToFrac h)
-    liftIO $ beginChild ("Compilation Status" :: CString) child1_size (fromBool True) 0
+    _ <- liftIO $ beginChild ("Compilation Status" :: CString) child1_size (fromBool True) 0
     Session.renderCompilationStatus ss
     liftIO endChild
     liftIO $ delete child1_size
@@ -223,7 +219,7 @@ singleFrame io window ui ss oldShared = do
     liftIO sameLine_
     --
     vsplitter_size <- liftIO $ newImVec2 8.0 (realToFrac h)
-    liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
+    _ <- liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
     delta_x <-
       ifM
         (toBool <$> liftIO isItemActive)
@@ -262,7 +258,7 @@ singleFrame io window ui ss oldShared = do
     liftIO $ endChild
     --
     hsplitter_size <- liftIO $ newImVec2 (-1.0) 8.0
-    liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
+    _ <- liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
     delta_y <-
       ifM
         (toBool <$> liftIO isItemActive)
