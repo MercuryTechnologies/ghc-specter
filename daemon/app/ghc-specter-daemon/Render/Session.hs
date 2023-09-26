@@ -9,7 +9,7 @@ where
 
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State (StateT, get)
+import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.List (partition)
 import Data.Maybe (isJust)
 import Data.Text.Foreign qualified as T

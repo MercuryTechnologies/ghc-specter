@@ -8,7 +8,7 @@ where
 
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State (StateT, get)
+import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)

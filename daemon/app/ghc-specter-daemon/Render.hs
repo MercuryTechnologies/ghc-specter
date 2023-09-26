@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.State (StateT, execStateT, get, modify', put)
+import Control.Monad.Trans.State.Strict (StateT, execStateT, get, modify', put)
 import Data.Bits ((.|.))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)

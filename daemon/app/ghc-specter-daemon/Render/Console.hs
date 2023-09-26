@@ -7,11 +7,10 @@ module Render.Console
   )
 where
 
-import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State (StateT, get, modify')
+import Control.Monad.Trans.State.Strict (StateT, get, modify')
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.String (fromString)

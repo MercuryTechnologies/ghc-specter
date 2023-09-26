@@ -6,15 +6,10 @@ module Render.SourceView
   )
 where
 
-import Control.Concurrent.STM
-  ( TVar,
-    atomically,
-    readTVar,
-  )
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State (StateT, get)
+import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Map qualified as M
