@@ -115,9 +115,10 @@ data SharedState e = SharedState
     sharedFontScaleFactor :: Double,
     sharedEventMap :: [EventMap e],
     sharedStage :: Stage,
+    -- TODO: this is impure.
     sharedConsoleInput :: CString,
-    sharedWillScrollDownConsole :: TVar Bool,
-    -- TODO: This is temporarily here. need to make a window config type.
+    -- TODO: need to make a proper window config type.
+    sharedWillScrollDownConsole :: Bool,
     sharedLeftPaneSize :: (Double, Double),
     sharedPopup1 :: Bool,
     sharedPopup2 :: Bool
@@ -359,15 +360,16 @@ addEventMap emap = ImRender $
 --
 
 --
-renderConsoleItem :: SharedState e -> ImRenderState -> ConsoleItem -> IO ()
-renderConsoleItem _ _ (ConsoleCommand txt) = separator >> T.withCString txt textUnformatted >> separator
-renderConsoleItem _ _ (ConsoleText txt) = T.withCString txt textUnformatted
-renderConsoleItem shared s (ConsoleButton buttonss) =
+renderConsoleItem :: forall e. ImRenderState -> ConsoleItem -> StateT (SharedState e) IO ()
+renderConsoleItem _ (ConsoleCommand txt) = liftIO (separator >> T.withCString txt textUnformatted >> separator)
+renderConsoleItem _ (ConsoleText txt) = liftIO $ T.withCString txt textUnformatted
+renderConsoleItem s (ConsoleButton buttonss) = do
+  shared <- get
   case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
-    Nothing -> T.withCString "no buttons" textUnformatted
-    Just ls' -> traverse_ mkRow ls'
+    Nothing -> liftIO $ T.withCString "no buttons" textUnformatted
+    Just ls' -> liftIO $ traverse_ (mkRow shared) ls'
   where
-    mkButton (label, cmd) = do
+    mkButton shared (label, cmd) = do
       -- non-overlapping local id
       let ref = s.currLocalIDRef
       n <- atomically $ do
@@ -380,10 +382,10 @@ renderConsoleItem shared s (ConsoleButton buttonss) =
           atomically $
             writeTQueue (shared.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
       popID
-    mkRow :: NonEmpty (Text, Text) -> IO ()
-    mkRow buttons = do
-      traverse_ (\itm -> mkButton itm >> sameLine_) buttons
+    mkRow :: SharedState e -> NonEmpty (Text, Text) -> IO ()
+    mkRow shared buttons = do
+      traverse_ (\itm -> mkButton shared itm >> sameLine_) buttons
       newLine
-renderConsoleItem _ _ (ConsoleCore forest) = T.withCString (T.unlines $ fmap render1 forest) textUnformatted
+renderConsoleItem _ (ConsoleCore forest) = liftIO $ T.withCString (T.unlines $ fmap render1 forest) textUnformatted
   where
     render1 tr = T.pack $ drawTree $ fmap show tr

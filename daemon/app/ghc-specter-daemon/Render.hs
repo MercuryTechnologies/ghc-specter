@@ -320,7 +320,7 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedEventMap = [],
             sharedStage = Stage [],
             sharedConsoleInput = p_consoleInput,
-            sharedWillScrollDownConsole = console_scroll_ref,
+            sharedWillScrollDownConsole = False,
             sharedLeftPaneSize = (120, 500),
             sharedPopup1 = False,
             sharedPopup2 = False
@@ -330,18 +330,23 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
   flip loopM shared0 $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
-    newShared <- singleFrame io window ui ss oldShared
-    -- synchronize frame state with control.
-    newShared' <-
+    -- synchronize control to frame state
+    oldShared' <-
       atomically $ do
-        -- send constructed event map to control.
-        writeTVar em_ref newShared.sharedEventMap
         -- update frame state from control.
         stage <- readTVar stage_ref
-        pure newShared {sharedStage = stage}
+        will_scroll <- readTVar console_scroll_ref
+        pure oldShared {sharedStage = stage, sharedWillScrollDownConsole = will_scroll}
+    newShared <- singleFrame io window ui ss oldShared'
+    -- synchronize frame state to control.
+    atomically $ do
+      -- send constructed event map to control.
+      writeTVar em_ref newShared.sharedEventMap
+      when (oldShared'.sharedWillScrollDownConsole /= newShared.sharedWillScrollDownConsole) $
+        writeTVar console_scroll_ref newShared.sharedWillScrollDownConsole
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
-    if willClose then pure (Right ()) else pure (Left newShared')
+    if willClose then pure (Right ()) else pure (Left newShared)
 
   free p_consoleInput
   -- close window

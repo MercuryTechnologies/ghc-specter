@@ -11,7 +11,7 @@ import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State (StateT, get)
+import Control.Monad.Trans.State (StateT, get, modify')
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.String (fromString)
@@ -84,13 +84,12 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   let items = buildConsoleMain consoleMap mconsoleFocus
   renderState <- mkRenderState
+  traverse_ (renderConsoleItem renderState) items
   shared <- get
-  liftIO $
-    traverse_ (renderConsoleItem shared renderState) items
-  let console_scroll_ref = shared.sharedWillScrollDownConsole
-  whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
+  when (shared.sharedWillScrollDownConsole) $ do
+    liftIO $ putStrLn "Am I here?"
     liftIO $ ImGui.setScrollHereY 0.5
-    liftIO $ atomically $ writeTVar console_scroll_ref False
+    modify' (\s -> s {sharedWillScrollDownConsole = False})
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry
