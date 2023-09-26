@@ -9,7 +9,7 @@ where
 import Control.Concurrent.STM (atomically, readTVar)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State (StateT, get)
 import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
@@ -45,9 +45,9 @@ import Util.Render
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render _ui ss = do
-  shared <- ask
+  shared <- get
   liftIO $ do
     let opts :: [(CString, BlockerDetailLevel)]
         opts =

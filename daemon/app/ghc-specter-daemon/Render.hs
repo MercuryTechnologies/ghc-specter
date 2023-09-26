@@ -13,6 +13,7 @@ import Control.Monad (when)
 import Control.Monad.Extra (ifM, loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
+import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
 import Data.Bits ((.|.))
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List.NonEmpty (NonEmpty)
@@ -145,7 +146,7 @@ singleFrame io window ui ss oldShared = do
       upd3 = \s -> s {sharedMouseWheel = (wheelX, wheelY), sharedCtrlDown = isCtrlDown}
       newShared = upd3 . upd2 . upd1 $ oldShared
 
-  newShared' <- flip runReaderT newShared $ do
+  newShared' <- flip evalStateT newShared $ do
     -- TODO: for now, this ugly code exists. Replace this by proper state monad.
     ref_popup1 <- liftIO $ newIORef Nothing
     ref_popup2 <- liftIO $ newIORef Nothing

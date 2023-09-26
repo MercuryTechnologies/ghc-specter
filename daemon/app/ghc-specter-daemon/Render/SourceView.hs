@@ -14,7 +14,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State (StateT, get)
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Map qualified as M
@@ -58,7 +58,7 @@ import Util.Render
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
   vec1 <- liftIO $ ImGui.newImVec2 400 0
   vec2 <- liftIO $ ImGui.newImVec2 400 0
@@ -91,7 +91,7 @@ render ui ss = do
     srcUI = ui._uiModel._modelSourceView
     mexpandedModu = srcUI._srcViewExpandedModule
 
-renderModuleTree :: SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderModuleTree :: SourceViewUI -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderModuleTree srcUI ss = do
   renderState <- mkRenderState
   runImRender renderState $
@@ -100,14 +100,14 @@ renderModuleTree srcUI ss = do
       SourceViewEv
       (buildModuleTree srcUI ss)
 
-renderSourceTextView :: Text -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSourceTextView :: Text -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderSourceTextView modu ss = do
   let mmodHieInfo = M.lookup modu (hie._hieModuleMap)
   for_ mmodHieInfo $ \modHieInfo -> do
     let topLevelDecls = getReducedTopLevelDecls modHieInfo
         src = modHieInfo._modHieSource
     renderState <- mkRenderState
-    shared <- ask
+    shared <- get
     let stage_ref :: TVar Stage
         stage_ref = shared.sharedStage
     Stage stage <- liftIO $ atomically $ readTVar stage_ref
@@ -128,9 +128,9 @@ renderSourceTextView modu ss = do
   where
     hie = ss._serverHieState
 
-renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSuppViewPanel :: Text -> SourceViewUI -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderSuppViewPanel modu srcUI ss = do
-  shared <- ask
+  shared <- get
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#supp-view-tabbar" :: CString))) $ do
     let tab_contents =
           fmap
@@ -153,10 +153,10 @@ renderSuppViewPanel modu srcUI ss = do
     suppViews = fromMaybe [] (M.lookup modu (ss._serverSuppView))
     suppViewTabs = fmap (\((t, i), _) -> ((t, i), t <> ":" <> T.pack (show i))) suppViews
 
-renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderSuppViewContents modu srcUI ss = do
   renderState <- mkRenderState
-  shared <- ask
+  shared <- get
   let stage_ref :: TVar Stage
       stage_ref = shared.sharedStage
   Stage stage <- liftIO $ atomically $ readTVar stage_ref

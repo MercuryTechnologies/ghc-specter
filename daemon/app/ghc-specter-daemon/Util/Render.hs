@@ -50,6 +50,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
+import Control.Monad.Trans.State (StateT (..), get)
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -134,7 +135,7 @@ data ImRenderState = ImRenderState
     currLocalIDRef :: TVar Int
   }
 
-mkRenderState :: ReaderT (SharedState e) IO ImRenderState
+mkRenderState :: StateT (SharedState e) IO ImRenderState
 mkRenderState = do
   draw_list <- liftIO getWindowDrawList
   oxy <- liftIO getOriginInImGui
@@ -184,11 +185,11 @@ pickNearestFont fonts size =
 --
 
 newtype ImRender e a = ImRender
-  { unImRender :: ReaderT ImRenderState (ReaderT (SharedState e) IO) a
+  { unImRender :: ReaderT ImRenderState (StateT (SharedState e) IO) a
   }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader ImRenderState)
 
-runImRender :: ImRenderState -> ImRender e a -> ReaderT (SharedState e) IO a
+runImRender :: ImRenderState -> ImRender e a -> StateT (SharedState e) IO a
 runImRender s action = runReaderT (unImRender action) s
 
 --
@@ -276,7 +277,7 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
         (realToFrac swidth)
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
-  shared <- lift ask
+  shared <- lift get
   liftIO $ do
     let (_, sy) = s.currScale
         (selected_font_size, selected_font) =
@@ -348,7 +349,7 @@ buildEventMap scene =
 
 addEventMap :: EventMap e -> ImRender e ()
 addEventMap emap = ImRender $ do
-  emref <- (.sharedEventMap) <$> lift ask
+  emref <- (.sharedEventMap) <$> lift get
   liftIO $
     atomically $
       modifyTVar' emref (emap :)

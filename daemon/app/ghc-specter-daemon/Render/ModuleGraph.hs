@@ -11,7 +11,7 @@ import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State (StateT, get)
 import Data.Bits ((.|.))
 import Data.Foldable (for_)
 import Data.List qualified as L
@@ -52,7 +52,7 @@ import Util.Render
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
   zerovec <- liftIO $ ImGui.newImVec2 0 0
   minusvec <- liftIO $ ImGui.newImVec2 0 (-200)
@@ -80,7 +80,7 @@ render ui ss = do
   liftIO $ delete zerovec
   liftIO $ delete minusvec
 
-renderMainModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderMainModuleGraph :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderMainModuleGraph ui ss = do
   case mgs._mgsClusterGraph of
     Nothing -> pure ()
@@ -89,7 +89,7 @@ renderMainModuleGraph ui ss = do
           mainModuleClicked = mgrui._modGraphUIClick
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
-      shared <- ask
+      shared <- get
       let stage_ref = shared.sharedStage
       Stage stage <- liftIO $ atomically $ readTVar stage_ref
       for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \stageMain -> do
@@ -127,7 +127,7 @@ renderMainModuleGraph ui ss = do
                 nCompiled = length compiled
             pure (fromIntegral nCompiled / fromIntegral nTot)
 
-renderSubModuleGraph :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSubModuleGraph :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderSubModuleGraph ui ss = do
   case esubgraph of
     Left _err -> pure ()
@@ -136,7 +136,7 @@ renderSubModuleGraph ui ss = do
             | isModuleCompilationDone drvModMap timing name = 1
             | otherwise = 0
       renderState <- mkRenderState
-      shared <- ask
+      shared <- get
       let stage_ref = shared.sharedStage
       Stage stage <- liftIO $ atomically $ readTVar stage_ref
       for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \stageSub -> do

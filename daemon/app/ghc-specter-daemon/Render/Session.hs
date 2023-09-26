@@ -9,7 +9,7 @@ where
 
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State (StateT, get)
 import Data.List (partition)
 import Data.Maybe (isJust)
 import Data.Text.Foreign qualified as T
@@ -37,7 +37,7 @@ import STD.Deletable (delete)
 import Util.GUI (defTableFlags, windowFlagsNone)
 import Util.Render (SharedState (..))
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render _ui ss = do
   vec1 <- liftIO $ ImGui.newImVec2 0 300
   vec2 <- liftIO $ ImGui.newImVec2 0 0
@@ -76,13 +76,13 @@ render _ui ss = do
   liftIO $ delete vec2
   liftIO $ delete vec3
 
-renderSessionInfo :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderSessionInfo :: ServerState -> StateT (SharedState UserEvent) IO ()
 renderSessionInfo ss =
   liftIO $
     T.withCString (Session.buildSession ss) $ \cstr ->
       ImGui.textUnformatted cstr
 
-renderDynFlags :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderDynFlags :: ServerState -> StateT (SharedState UserEvent) IO ()
 renderDynFlags ss =
   liftIO $
     T.withCString txt $ \cstr ->
@@ -92,21 +92,21 @@ renderDynFlags ss =
     dynFlags_info =
       maybe "" unDynFlagsInfo ss._serverSessionInfo.sessionDynFlags
 
-renderProcessPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderProcessPanel :: ServerState -> StateT (SharedState UserEvent) IO ()
 renderProcessPanel ss =
   liftIO $
     T.withCString (Session.buildProcessPanel ss) $ \cstr ->
       ImGui.textUnformatted cstr
 
-renderRtsPanel :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderRtsPanel :: ServerState -> StateT (SharedState UserEvent) IO ()
 renderRtsPanel ss =
   liftIO $
     T.withCString (Session.buildRtsPanel ss) $ \cstr ->
       ImGui.textUnformatted cstr
 
-renderCompilationStatus :: ServerState -> ReaderT (SharedState UserEvent) IO ()
+renderCompilationStatus :: ServerState -> StateT (SharedState UserEvent) IO ()
 renderCompilationStatus ss = do
-  shared <- ask
+  shared <- get
   liftIO $ do
     ImGui.textUnformatted (statusTxt :: CString)
     whenM (toBool <$> ImGui.button (buttonTxt :: CString)) $

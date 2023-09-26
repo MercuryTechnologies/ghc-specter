@@ -9,7 +9,7 @@ where
 import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State (StateT, get)
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
@@ -56,9 +56,9 @@ import Util.Render
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
-  shared <- ask
+  shared <- get
   let freezeOrThaw :: (CString, TimingEvent)
       freezeOrThaw
         | isNothing (tui._timingFrozenTable) = ("freeze", TimingFlow False)
@@ -131,7 +131,7 @@ render ui ss = do
 
     mhoveredMod = tui._timingUIHoveredModule
 
-renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
+renderBlocker :: ModuleName -> TimingTable -> StateT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
   liftIO $ do
     v0 <- ImGui.getWindowPos
