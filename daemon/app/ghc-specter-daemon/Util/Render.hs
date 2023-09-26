@@ -38,7 +38,6 @@ import Control.Concurrent.STM
   ( TQueue,
     TVar,
     atomically,
-    modifyTVar',
     newTVarIO,
     readTVar,
     writeTQueue,
@@ -50,7 +49,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
-import Control.Monad.Trans.State (StateT (..), get)
+import Control.Monad.Trans.State (StateT (..), get, modify')
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -114,7 +113,7 @@ data SharedState e = SharedState
     sharedFontsSans :: NonEmpty (Int, ImFont),
     sharedFontsMono :: NonEmpty (Int, ImFont),
     sharedFontScaleFactor :: Double,
-    sharedEventMap :: TVar [EventMap e],
+    sharedEventMap :: [EventMap e],
     sharedStage :: TVar Stage,
     sharedConsoleInput :: CString,
     sharedWillScrollDownConsole :: TVar Bool,
@@ -348,11 +347,12 @@ buildEventMap scene =
    in emap
 
 addEventMap :: EventMap e -> ImRender e ()
-addEventMap emap = ImRender $ do
-  emref <- (.sharedEventMap) <$> lift get
-  liftIO $
-    atomically $
-      modifyTVar' emref (emap :)
+addEventMap emap = ImRender $
+  lift $
+    modify' $
+      \s ->
+        let emap0 = s.sharedEventMap
+         in s {sharedEventMap = emap : emap0}
 
 --
 -- console functions

@@ -121,9 +121,6 @@ singleFrame io window ui ss oldShared = do
 
   mxy <- globalCursorPosition
 
-  -- initialize event map for this frame
-  let emref = oldShared.sharedEventMap
-  atomically $ writeTVar emref []
   isClicked <- toBool <$> isMouseClicked_ (fromIntegral (fromEnum ImGuiMouseButton_Left))
   wheelX <- realToFrac <$> imGuiIO_MouseWheelH_get io
   wheelY <- realToFrac <$> imGuiIO_MouseWheel_get io
@@ -135,14 +132,16 @@ singleFrame io window ui ss oldShared = do
   -- TODO: find a better method for this.
   when (isCtrlDown_old && not isCtrlDown) $
     sendToControl oldShared (MouseEv ZoomEnd)
-  let upd1
+  -- initialize event map for this frame
+  let upd0 = \s -> s {sharedEventMap = []}
+      upd1
         | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
         | otherwise = \s -> s {sharedMousePos = mxy, sharedIsMouseMoved = True}
       upd2
         | isClicked = \s -> s {sharedIsClicked = True}
         | otherwise = \s -> s {sharedIsClicked = False}
       upd3 = \s -> s {sharedMouseWheel = (wheelX, wheelY), sharedCtrlDown = isCtrlDown}
-      newShared = upd3 . upd2 . upd1 $ oldShared
+      newShared = upd3 . upd2 . upd1 . upd0 $ oldShared
 
   newShared' <- flip execStateT newShared $ do
     -- main menu
@@ -317,7 +316,7 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedFontsSans = fonts_sans,
             sharedFontsMono = fonts_mono,
             sharedFontScaleFactor = scale_factor,
-            sharedEventMap = em_ref,
+            sharedEventMap = [],
             sharedStage = stage_ref,
             sharedConsoleInput = p_consoleInput,
             sharedWillScrollDownConsole = console_scroll_ref,
@@ -330,8 +329,11 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
   flip loopM shared0 $ \oldShared -> do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
-    -- TODO: this is ugly. should be handled in a more disciplined way.
     newShared <- singleFrame io window ui ss oldShared
+    -- flush frame state to control
+    atomically $
+      writeTVar em_ref newShared.sharedEventMap
+
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
     if willClose then pure (Right ()) else pure (Left newShared)
