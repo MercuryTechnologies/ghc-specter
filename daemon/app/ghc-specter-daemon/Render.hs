@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.State (execStateT, get, modify', put)
+import Control.Monad.Trans.State (StateT, execStateT, get, modify', put)
 import Data.Bits ((.|.))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)
@@ -90,6 +90,72 @@ import Util.Render
     renderDialog,
   )
 
+makeDivisionPanel ::
+  ImGuiIO ->
+  StateT (SharedState UserEvent) IO () ->
+  StateT (SharedState UserEvent) IO () ->
+  StateT (SharedState UserEvent) IO () ->
+  StateT (SharedState UserEvent) IO ()
+makeDivisionPanel io left_panel main_panel bottom_panel = do
+  newShared <- get
+  viewport <- liftIO getMainViewport
+  -- fullscreen window
+  let flags =
+        fromIntegral $
+          fromEnum ImGuiWindowFlags_NoDecoration
+            .|. fromEnum ImGuiWindowFlags_NoMove
+            .|. fromEnum ImGuiWindowFlags_NoSavedSettings
+  pos <- liftIO $ imGuiViewport_WorkPos_get viewport
+  size <- liftIO $ imGuiViewport_WorkSize_get viewport
+  zero <- liftIO $ newImVec2 0 0
+  liftIO $ setNextWindowPos pos 0 zero
+  liftIO $ setNextWindowSize size 0
+  _ <- liftIO $ begin ("fullscreen" :: CString) nullPtr flags
+
+  -- start splitter
+  let (w, h) = newShared.sharedLeftPaneSize
+  liftIO $ pushStyleVar2 (fromIntegral (fromEnum ImGuiStyleVar_ItemSpacing)) zero
+  child1_size <- liftIO $ newImVec2 (realToFrac w) (realToFrac h)
+  _ <- liftIO $ beginChild ("left-panel" :: CString) child1_size (fromBool True) 0
+  left_panel
+  liftIO endChild
+  liftIO $ delete child1_size
+  --
+  liftIO sameLine_
+  --
+  vsplitter_size <- liftIO $ newImVec2 8.0 (realToFrac h)
+  _ <- liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
+  whenM (toBool <$> liftIO isItemActive) $ do
+    delta_x <- liftIO (realToFrac <$> (imVec2_x_get =<< imGuiIO_MouseDelta_get io))
+    modify' (\s -> s {sharedLeftPaneSize = (w + delta_x, h)})
+  liftIO $ delete vsplitter_size
+  --
+  liftIO sameLine_
+  --
+  child2_size <- liftIO $ newImVec2 0 (realToFrac h)
+  _ <- liftIO $ beginChild ("main-panel" :: CString) child2_size (fromBool False) windowFlagsNone
+  main_panel
+  liftIO $ endChild
+  --
+  hsplitter_size <- liftIO $ newImVec2 (-1.0) 8.0
+  _ <- liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
+  whenM (toBool <$> liftIO isItemActive) $ do
+    delta_y <- liftIO (realToFrac <$> (imVec2_y_get =<< imGuiIO_MouseDelta_get io))
+    modify' (\s -> s {sharedLeftPaneSize = (w, h + delta_y)})
+  liftIO $ delete hsplitter_size
+  --
+  -- console window
+  _ <- liftIO $ beginChild ("bottom-panel" :: CString) zero (fromBool True) windowFlagsNone
+  bottom_panel
+  -- Console.render ui ss
+  liftIO endChild
+  --
+  liftIO popStyleVar_
+  -- end of fullscreen
+  liftIO end
+  liftIO $ delete zero
+
+-- | main rendering
 singleFrame ::
   ImGuiIO ->
   GLFWwindow ->
@@ -179,82 +245,34 @@ singleFrame io window ui ss oldShared = do
             newShared
       put newShared'
 
-    -- fullscreen window
-    let flags =
-          fromIntegral $
-            fromEnum ImGuiWindowFlags_NoDecoration
-              .|. fromEnum ImGuiWindowFlags_NoMove
-              .|. fromEnum ImGuiWindowFlags_NoSavedSettings
-    pos <- liftIO $ imGuiViewport_WorkPos_get viewport
-    size <- liftIO $ imGuiViewport_WorkSize_get viewport
-    zero <- liftIO $ newImVec2 0 0
-    liftIO $ setNextWindowPos pos 0 zero
-    liftIO $ setNextWindowSize size 0
-    _ <- liftIO $ begin ("fullscreen" :: CString) nullPtr flags
+    -- main window drawing
+    let main_panel = do
+          let mnextTab = ui._uiModel._modelTabDestination
+          whenM (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString))) $ do
+            tabState <-
+              makeTabContents
+                mnextTab
+                [ (TabSession, "Session", Session.render ui ss),
+                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+                  (TabSourceView, "Source view", SourceView.render ui ss),
+                  (TabTiming, "Timing view", Timing.render ui ss),
+                  (TabBlocker, "Blocker graph", BlockerView.render ui ss)
+                ]
+            liftIO endTabBar
+            -- tab event handling
+            tabState0 <- (.sharedTabState) <$> get
+            when (tabState0 /= tabState) $ do
+              case tabState of
+                Nothing -> pure ()
+                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+              modify' (\s -> s {sharedTabState = tabState})
+    -- left = compilation status, main = main panel, bottom = console
+    makeDivisionPanel
+      io
+      (Session.renderCompilationStatus ss)
+      main_panel
+      (Console.render ui ss)
 
-    -- start splitter
-    let (w, h) = newShared.sharedLeftPaneSize
-    liftIO $ pushStyleVar2 (fromIntegral (fromEnum ImGuiStyleVar_ItemSpacing)) zero
-    child1_size <- liftIO $ newImVec2 (realToFrac w) (realToFrac h)
-    _ <- liftIO $ beginChild ("Compilation Status" :: CString) child1_size (fromBool True) 0
-    Session.renderCompilationStatus ss
-    liftIO endChild
-    liftIO $ delete child1_size
-    --
-    liftIO sameLine_
-    --
-    vsplitter_size <- liftIO $ newImVec2 8.0 (realToFrac h)
-    _ <- liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
-    whenM (toBool <$> liftIO isItemActive) $ do
-      delta_x <- liftIO (realToFrac <$> (imVec2_x_get =<< imGuiIO_MouseDelta_get io))
-      modify' (\s -> s {sharedLeftPaneSize = (w + delta_x, h)})
-    liftIO $ delete vsplitter_size
-    --
-    liftIO sameLine_
-    --
-    child2_size <- liftIO $ newImVec2 0 (realToFrac h)
-    _ <- liftIO $ beginChild ("main" :: CString) child2_size (fromBool False) windowFlagsNone
-    let mnextTab = ui._uiModel._modelTabDestination
-    whenM (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString))) $ do
-      tabState <-
-        makeTabContents
-          mnextTab
-          [ (TabSession, "Session", Session.render ui ss),
-            (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
-            (TabSourceView, "Source view", SourceView.render ui ss),
-            (TabTiming, "Timing view", Timing.render ui ss),
-            (TabBlocker, "Blocker graph", BlockerView.render ui ss)
-          ]
-      liftIO endTabBar
-      -- tab event handling
-      tabState0 <- (.sharedTabState) <$> get
-      when (tabState0 /= tabState) $ do
-        case tabState of
-          Nothing -> pure ()
-          Just tab -> liftIO $ sendToControl newShared (TabEv tab)
-        modify' (\s -> s {sharedTabState = tabState})
-    -- end of main
-    liftIO $ endChild
-    --
-    hsplitter_size <- liftIO $ newImVec2 (-1.0) 8.0
-    _ <- liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
-    whenM (toBool <$> liftIO isItemActive) $ do
-      delta_y <- liftIO (realToFrac <$> (imVec2_y_get =<< imGuiIO_MouseDelta_get io))
-      modify' (\s -> s {sharedLeftPaneSize = (w, h + delta_y)})
-    liftIO $ delete hsplitter_size
-    --
-    -- console window
-    _ <- liftIO $ beginChild ("console" :: CString) zero (fromBool True) windowFlagsNone
-    Console.render ui ss
-    liftIO endChild
-    --
-    liftIO popStyleVar_
-    -- end of fullscreen
-    liftIO end
-    liftIO $ delete zero
-
-  -- pure newShared'
-  --
   -- finalize rendering by compositing render call
   render
   -- empty background with fill color
