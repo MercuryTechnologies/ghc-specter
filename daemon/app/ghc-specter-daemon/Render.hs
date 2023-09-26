@@ -10,14 +10,12 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (ifM, loopM, whenM)
+import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.Reader (ReaderT (runReaderT))
-import Control.Monad.Trans.State (StateT (runStateT), evalStateT)
+import Control.Monad.Trans.State (execStateT, get, modify')
 import Data.Bits ((.|.))
-import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (isNothing)
 import Foreign.C.String (CString, withCString)
 import Foreign.Marshal.Alloc (callocBytes, free)
 import Foreign.Marshal.Utils (fromBool, toBool)
@@ -146,54 +144,47 @@ singleFrame io window ui ss oldShared = do
       upd3 = \s -> s {sharedMouseWheel = (wheelX, wheelY), sharedCtrlDown = isCtrlDown}
       newShared = upd3 . upd2 . upd1 $ oldShared
 
-  newShared' <- flip evalStateT newShared $ do
-    -- TODO: for now, this ugly code exists. Replace this by proper state monad.
-    ref_popup1 <- liftIO $ newIORef Nothing
-    ref_popup2 <- liftIO $ newIORef Nothing
-
+  newShared' <- flip execStateT newShared $ do
     -- main menu
-    liftIO $ do
-      whenM (toBool <$> beginMainMenuBar) $ do
-        whenM (toBool <$> beginMenu ("ghc-specter" :: CString) (fromBool True)) $ do
-          b1 <- menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
-          when (toBool b1) $
-            writeIORef ref_popup1 (Just (toBool b1))
-          endMenu
-        whenM (toBool <$> beginMenu ("Help" :: CString) (fromBool True)) $ do
-          b2 <- menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
-          when (toBool b2) $
-            writeIORef ref_popup2 (Just (toBool b2))
-          endMenu
-        endMainMenuBar
+    whenM (toBool <$> liftIO beginMainMenuBar) $ do
+      whenM (toBool <$> liftIO (beginMenu ("ghc-specter" :: CString) (fromBool True))) $ do
+        b1 <- liftIO $ menuItem_ ("About ghc-specter" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
+        when (toBool b1) $
+          modify' (\s -> s {sharedPopup1 = True})
+        liftIO endMenu
+      whenM (toBool <$> liftIO (beginMenu ("Help" :: CString) (fromBool True))) $ do
+        b2 <- liftIO $ menuItem_ ("ghc-specter help" :: CString) (nullPtr :: CString) (fromBool False) (fromBool True)
+        when (toBool b2) $
+          modify' (\s -> s {sharedPopup2 = True})
+        liftIO endMenu
+      liftIO endMainMenuBar
 
     -- dialog box test
-    when newShared.sharedPopup1 $
-      liftIO $
-        openPopup ("About ghc-specter" :: CString) 0
-    when newShared.sharedPopup1 $ liftIO $ do
-      center <- imGuiViewport_GetCenter viewport
-      rel_pos <- newImVec2 0.5 0.5
-      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+    when newShared.sharedPopup1 $ do
+      liftIO $ openPopup ("About ghc-specter" :: CString) 0
+      center <- liftIO $ imGuiViewport_GetCenter viewport
+      rel_pos <- liftIO $ newImVec2 0.5 0.5
+      liftIO $ setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+      liftIO $ delete rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> beginPopupModal ("About ghc-specter" :: CString) nullPtr flag) $ do
-        textUnformatted ("ghc-specter 1.0.0.0" :: CString)
-        whenM (toBool <$> button ("close" :: CString)) $
-          writeIORef ref_popup1 (Just False)
-        endPopup
+      whenM (toBool <$> liftIO (beginPopupModal ("About ghc-specter" :: CString) nullPtr flag)) $ do
+        liftIO $ textUnformatted ("ghc-specter 1.0.0.0" :: CString)
+        whenM (toBool <$> liftIO (button ("close" :: CString))) $
+          modify' (\s -> s {sharedPopup1 = False})
+        liftIO endPopup
 
-    when newShared.sharedPopup2 $
-      liftIO $
-        openPopup ("Help" :: CString) 0
-    when newShared.sharedPopup2 $ liftIO $ do
-      center <- imGuiViewport_GetCenter viewport
-      rel_pos <- newImVec2 0.5 0.5
-      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+    when newShared.sharedPopup2 $ do
+      liftIO $ openPopup ("HelpABC" :: CString) 0
+      center <- liftIO $ imGuiViewport_GetCenter viewport
+      rel_pos <- liftIO $ newImVec2 0.5 0.5
+      liftIO $ setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+      -- liftIO $ delete rel_pos
       let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> beginPopupModal ("Help" :: CString) nullPtr flag) $ do
-        textUnformatted ("I cannot help you now." :: CString)
-        whenM (toBool <$> button ("close" :: CString)) $
-          writeIORef ref_popup2 (Just False)
-        endPopup
+      whenM (toBool <$> liftIO (beginPopupModal ("HelpABC" :: CString) nullPtr flag)) $ do
+        liftIO $ textUnformatted ("I cannot help you now." :: CString)
+        whenM (toBool <$> liftIO (button ("close" :: CString))) $
+          modify' (\s -> s {sharedPopup2 = False})
+        liftIO endPopup
 
     -- fullscreen window
     let flags =
@@ -221,11 +212,9 @@ singleFrame io window ui ss oldShared = do
     --
     vsplitter_size <- liftIO $ newImVec2 8.0 (realToFrac h)
     _ <- liftIO $ invisibleButton ("vsplitter" :: CString) vsplitter_size 0
-    delta_x <-
-      ifM
-        (toBool <$> liftIO isItemActive)
-        (liftIO (realToFrac <$> (imVec2_x_get =<< imGuiIO_MouseDelta_get io)))
-        (pure 0.0)
+    whenM (toBool <$> liftIO isItemActive) $ do
+      delta_x <- liftIO (realToFrac <$> (imVec2_x_get =<< imGuiIO_MouseDelta_get io))
+      modify' (\s -> s {sharedLeftPaneSize = (w + delta_x, h)})
     liftIO $ delete vsplitter_size
     --
     liftIO sameLine_
@@ -233,38 +222,32 @@ singleFrame io window ui ss oldShared = do
     child2_size <- liftIO $ newImVec2 0 (realToFrac h)
     _ <- liftIO $ beginChild ("main" :: CString) child2_size (fromBool False) windowFlagsNone
     let mnextTab = ui._uiModel._modelTabDestination
-    tabState <-
-      ifM
-        (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString)))
-        ( do
-            tabState <-
-              makeTabContents
-                mnextTab
-                [ (TabSession, "Session", Session.render ui ss),
-                  (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
-                  (TabSourceView, "Source view", SourceView.render ui ss),
-                  (TabTiming, "Timing view", Timing.render ui ss),
-                  (TabBlocker, "Blocker graph", BlockerView.render ui ss)
-                ]
-            liftIO endTabBar
-            -- tab event handling
-            when (newShared.sharedTabState /= tabState) $
-              case tabState of
-                Nothing -> pure ()
-                Just tab -> liftIO $ sendToControl newShared (TabEv tab)
-            pure tabState
-        )
-        (pure (newShared.sharedTabState))
+    whenM (toBool <$> liftIO (beginTabBar ("#main-tabbar" :: CString))) $ do
+      tabState <-
+        makeTabContents
+          mnextTab
+          [ (TabSession, "Session", Session.render ui ss),
+            (TabModuleGraph, "Module graph", ModuleGraph.render ui ss),
+            (TabSourceView, "Source view", SourceView.render ui ss),
+            (TabTiming, "Timing view", Timing.render ui ss),
+            (TabBlocker, "Blocker graph", BlockerView.render ui ss)
+          ]
+      liftIO endTabBar
+      -- tab event handling
+      tabState0 <- (.sharedTabState) <$> get
+      when (tabState0 /= tabState) $ do
+        case tabState of
+          Nothing -> pure ()
+          Just tab -> liftIO $ sendToControl newShared (TabEv tab)
+        modify' (\s -> s {sharedTabState = tabState})
     -- end of main
     liftIO $ endChild
     --
     hsplitter_size <- liftIO $ newImVec2 (-1.0) 8.0
     _ <- liftIO $ invisibleButton ("hsplitter" :: CString) hsplitter_size 0
-    delta_y <-
-      ifM
-        (toBool <$> liftIO isItemActive)
-        (liftIO (realToFrac <$> (imVec2_y_get =<< imGuiIO_MouseDelta_get io)))
-        (pure 0.0)
+    whenM (toBool <$> liftIO isItemActive) $ do
+      delta_y <- liftIO (realToFrac <$> (imVec2_y_get =<< imGuiIO_MouseDelta_get io))
+      modify' (\s -> s {sharedLeftPaneSize = (w, h + delta_y)})
     liftIO $ delete hsplitter_size
     --
     -- console window
@@ -273,20 +256,11 @@ singleFrame io window ui ss oldShared = do
     liftIO endChild
     --
     liftIO popStyleVar_
-
-    (popup1, popup2) <- liftIO ((,) <$> readIORef ref_popup1 <*> readIORef ref_popup2)
-    let newShared' =
-          newShared
-            { sharedTabState = tabState,
-              sharedLeftPaneSize = (w + delta_x, h + delta_y),
-              sharedPopup1 = fromMaybe newShared.sharedPopup1 popup1,
-              sharedPopup2 = fromMaybe newShared.sharedPopup2 popup2
-            }
     -- end of fullscreen
     liftIO end
     liftIO $ delete zero
 
-    pure newShared'
+  -- pure newShared'
   --
   -- finalize rendering by compositing render call
   render
