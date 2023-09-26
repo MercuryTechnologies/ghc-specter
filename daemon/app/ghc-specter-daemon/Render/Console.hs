@@ -7,11 +7,10 @@ module Render.Console
   )
 where
 
-import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (when)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State.Strict (StateT, get, modify')
 import Data.Bits ((.|.))
 import Data.Foldable (traverse_)
 import Data.String (fromString)
@@ -56,13 +55,12 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     renderConsoleItem,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
   renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry
   where
@@ -77,7 +75,7 @@ renderMainContent ::
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
   Text ->
-  ReaderT (SharedState UserEvent) IO ()
+  StateT (SharedState UserEvent) IO ()
 renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   zerovec <- liftIO $ ImGui.newImVec2 0 0
   -- main contents
@@ -85,12 +83,12 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   let items = buildConsoleMain consoleMap mconsoleFocus
   renderState <- mkRenderState
-  liftIO $
-    traverse_ (renderConsoleItem renderState) items
-  let console_scroll_ref = renderState.currSharedState.sharedWillScrollDownConsole
-  whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
+  traverse_ (renderConsoleItem renderState) items
+  shared <- get
+  when (shared.sharedWillScrollDownConsole) $ do
+    liftIO $ putStrLn "Am I here?"
     liftIO $ ImGui.setScrollHereY 0.5
-    liftIO $ atomically $ writeTVar console_scroll_ref False
+    modify' (\s -> s {sharedWillScrollDownConsole = False})
   liftIO ImGui.endChild
   -- input text line
   renderInput inputEntry
@@ -118,9 +116,9 @@ renderMainPanel ::
   KeyMap DriverId [ConsoleItem] ->
   Maybe DriverId ->
   Text ->
-  ReaderT (SharedState UserEvent) IO ()
+  StateT (SharedState UserEvent) IO ()
 renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
-  renderState <- mkRenderState
+  shared <- get
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
           fmap
@@ -131,15 +129,15 @@ renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
       case mselected of
         Nothing -> pure ()
         Just selected ->
-          liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
+          liftIO $ sendToControl shared (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
 
 consoleInputBufferSize :: Int
 consoleInputBufferSize = 4096
 
-renderInput :: Text -> ReaderT (SharedState UserEvent) IO ()
+renderInput :: Text -> StateT (SharedState UserEvent) IO ()
 renderInput inputEntry = do
-  shared <- ask
+  shared <- get
   liftIO $
     TF.withCStringLen inputEntry $ \(p, len) -> do
       copyBytes (shared.sharedConsoleInput) p len
@@ -166,7 +164,7 @@ renderInput inputEntry = do
           fillBytes (castPtr (shared.sharedConsoleInput)) 0 consoleInputBufferSize
       delete vec
 
-renderHelp :: ServerState -> Maybe DriverId -> ReaderT (SharedState UserEvent) IO ()
+renderHelp :: ServerState -> Maybe DriverId -> StateT (SharedState UserEvent) IO ()
 renderHelp ss mconsoleFocus = do
   case getHelp ss <$> mconsoleFocus of
     Nothing -> pure ()
@@ -176,7 +174,7 @@ renderHelp ss mconsoleFocus = do
   where
     renderItem (Left (txt, ev)) =
       whenM (toBool <$> liftIO (ImGui.button (fromString (T.unpack txt) :: CString))) $ do
-        renderState <- mkRenderState
-        liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv ev)
+        shared <- get
+        liftIO $ sendToControl shared (ConsoleEv ev)
     renderItem (Right txt) =
       liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)

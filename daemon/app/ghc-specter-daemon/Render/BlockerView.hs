@@ -6,10 +6,9 @@ module Render.BlockerView
   )
 where
 
-import Control.Concurrent.STM (atomically, readTVar)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.Foldable (for_, traverse_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
@@ -40,15 +39,14 @@ import Handler (sendToControl)
 import ImGui qualified
 import Render.Common (renderComponent)
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render _ui ss = do
-  shared <- ask
+  shared <- get
   liftIO $ do
     let opts :: [(CString, BlockerDetailLevel)]
         opts =
@@ -68,8 +66,7 @@ render _ui ss = do
     Nothing -> pure ()
     Just blockerGraphViz -> do
       renderState <- mkRenderState
-      let stage_ref = renderState.currSharedState.sharedStage
-      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      let Stage stage = shared.sharedStage
       for_ (L.find ((== "blocker-module-graph") . sceneId) stage) $ \stageBlocker -> do
         runImRender renderState $
           renderComponent

@@ -6,10 +6,9 @@ module Render.TimingView
   )
 where
 
-import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT, ask)
+import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
@@ -51,15 +50,14 @@ import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (windowFlagsNoScroll)
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
 
-render :: UIState -> ServerState -> ReaderT (SharedState UserEvent) IO ()
+render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
-  shared <- ask
+  shared <- get
   let freezeOrThaw :: (CString, TimingEvent)
       freezeOrThaw
         | isNothing (tui._timingFrozenTable) = ("freeze", TimingFlow False)
@@ -74,9 +72,7 @@ render ui ss = do
       sendToControl shared (TimingEv (snd freezeOrThaw))
 
   renderState <- mkRenderState
-  let stage_ref :: TVar Stage
-      stage_ref = renderState.currSharedState.sharedStage
-  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  let Stage stage = shared.sharedStage
   for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
     for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
       for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do
@@ -132,7 +128,7 @@ render ui ss = do
 
     mhoveredMod = tui._timingUIHoveredModule
 
-renderBlocker :: ModuleName -> TimingTable -> ReaderT (SharedState UserEvent) IO ()
+renderBlocker :: ModuleName -> TimingTable -> StateT (SharedState UserEvent) IO ()
 renderBlocker hoveredMod ttable = do
   liftIO $ do
     v0 <- ImGui.getWindowPos

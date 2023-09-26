@@ -31,6 +31,9 @@ module Util.Render
 
     -- * rendering console
     renderConsoleItem,
+
+    -- * render dialog
+    renderDialog,
   )
 where
 
@@ -38,18 +41,18 @@ import Control.Concurrent.STM
   ( TQueue,
     TVar,
     atomically,
-    modifyTVar',
     newTVarIO,
     readTVar,
     writeTQueue,
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (ifM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ReaderT (..))
+import Control.Monad.Trans.State.Strict (StateT (..), get, modify')
 import Data.ByteString (useAsCString)
 import Data.Foldable (for_, traverse_)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -66,7 +69,7 @@ import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CFloat (..))
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (fromBool, toBool)
-import Foreign.Ptr (Ptr, castPtr)
+import Foreign.Ptr (Ptr, castPtr, nullPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
@@ -90,6 +93,10 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import ImGui
+import ImGui.Enum
+  ( ImGuiCond_ (..),
+    ImGuiWindowFlags_ (..),
+  )
 import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
@@ -109,22 +116,24 @@ data SharedState e = SharedState
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
     sharedTabState :: Maybe Tab,
+    -- TODO: this is impure. should be out of the pure state.
     sharedChanQEv :: TQueue Event,
     sharedFontsSans :: NonEmpty (Int, ImFont),
     sharedFontsMono :: NonEmpty (Int, ImFont),
     sharedFontScaleFactor :: Double,
-    sharedEventMap :: TVar [EventMap e],
-    sharedStage :: TVar Stage,
+    sharedEventMap :: [EventMap e],
+    sharedStage :: Stage,
+    -- TODO: this is impure.
     sharedConsoleInput :: CString,
-    sharedWillScrollDownConsole :: TVar Bool,
-    -- TODO: This is temporarily here. need to make a window config type.
+    -- TODO: need to make a proper window config type.
+    sharedWillScrollDownConsole :: Bool,
     sharedLeftPaneSize :: (Double, Double),
     sharedPopup1 :: Bool,
     sharedPopup2 :: Bool
   }
 
-data ImRenderState e = ImRenderState
-  { currSharedState :: SharedState e,
+data ImRenderState = ImRenderState
+  { -- TODO: this is impure.
     currDrawList :: ImDrawList,
     currOriginInImGui :: (Double, Double),
     currUpperLeftInGlobalViewport :: (Double, Double),
@@ -135,16 +144,14 @@ data ImRenderState e = ImRenderState
     currLocalIDRef :: TVar Int
   }
 
-mkRenderState :: ReaderT (SharedState e) IO (ImRenderState e)
+mkRenderState :: StateT (SharedState e) IO ImRenderState
 mkRenderState = do
-  shared <- ask
   draw_list <- liftIO getWindowDrawList
   oxy <- liftIO getOriginInImGui
   local_id_ref <- liftIO $ newTVarIO 0
   pure
     ImRenderState
-      { currSharedState = shared,
-        currDrawList = draw_list,
+      { currDrawList = draw_list,
         currOriginInImGui = oxy,
         currUpperLeftInGlobalViewport = (0, 0),
         currUpperLeftInLocalViewport = (0, 0),
@@ -187,12 +194,12 @@ pickNearestFont fonts size =
 --
 
 newtype ImRender e a = ImRender
-  { unImRender :: ReaderT (ImRenderState e) IO a
+  { unImRender :: ReaderT ImRenderState (StateT (SharedState e) IO) a
   }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadReader (ImRenderState e))
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader ImRenderState)
 
-runImRender :: ImRenderState e -> ImRender e a -> ReaderT (SharedState e) IO a
-runImRender s action = lift $ runReaderT (unImRender action) s
+runImRender :: ImRenderState -> ImRender e a -> StateT (SharedState e) IO a
+runImRender s action = runReaderT (unImRender action) s
 
 --
 --
@@ -201,7 +208,7 @@ runImRender s action = lift $ runReaderT (unImRender action) s
 mkImVec2 :: (Double, Double) -> IO ImVec2
 mkImVec2 (x, y) = newImVec2 (realToFrac x) (realToFrac y)
 
-toGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+toGlobalCoords :: ImRenderState -> (Double, Double) -> (Double, Double)
 toGlobalCoords s (x, y) =
   let (ox, oy) = s.currOriginInImGui
       (cx, cy) = s.currUpperLeftInGlobalViewport
@@ -209,7 +216,7 @@ toGlobalCoords s (x, y) =
       (sx, sy) = s.currScale
    in (ox + cx + sx * (x - vx), oy + cy + sy * (y - vy))
 
-fromGlobalCoords :: ImRenderState e -> (Double, Double) -> (Double, Double)
+fromGlobalCoords :: ImRenderState -> (Double, Double) -> (Double, Double)
 fromGlobalCoords s (x', y') =
   let (ox, oy) = s.currOriginInImGui
       (cx, cy) = s.currUpperLeftInGlobalViewport
@@ -279,13 +286,14 @@ renderShape (SPolyline (Polyline xy0 xys xy1 color swidth)) = ImRender $ do
         (realToFrac swidth)
 renderShape (SDrawText (DrawText (x, y) pos font color fontSize msg)) = ImRender $ do
   s <- ask
+  shared <- lift get
   liftIO $ do
     let (_, sy) = s.currScale
         (selected_font_size, selected_font) =
           case font of
-            Sans -> pickNearestFont s.currSharedState.sharedFontsSans (fromIntegral fontSize * sy * scale_factor)
-            Mono -> pickNearestFont s.currSharedState.sharedFontsMono (fromIntegral fontSize * sy * scale_factor)
-        scale_factor = s.currSharedState.sharedFontScaleFactor
+            Sans -> pickNearestFont shared.sharedFontsSans (fromIntegral fontSize * sy * scale_factor)
+            Mono -> pickNearestFont shared.sharedFontsMono (fromIntegral fontSize * sy * scale_factor)
+        scale_factor = shared.sharedFontScaleFactor
         factor = (fromIntegral fontSize) * sy / fromIntegral selected_font_size
     imFont_Scale_set selected_font (realToFrac factor)
     pushFont selected_font
@@ -349,26 +357,29 @@ buildEventMap scene =
    in emap
 
 addEventMap :: EventMap e -> ImRender e ()
-addEventMap emap = ImRender $ do
-  emref <- (.currSharedState.sharedEventMap) <$> ask
-  liftIO $
-    atomically $
-      modifyTVar' emref (emap :)
+addEventMap emap = ImRender $
+  lift $
+    modify' $
+      \s ->
+        let emap0 = s.sharedEventMap
+         in s {sharedEventMap = emap : emap0}
 
 --
 -- console functions
 --
 
 --
-renderConsoleItem :: ImRenderState UserEvent -> ConsoleItem -> IO ()
-renderConsoleItem _ (ConsoleCommand txt) = separator >> T.withCString txt textUnformatted >> separator
-renderConsoleItem _ (ConsoleText txt) = T.withCString txt textUnformatted
-renderConsoleItem s (ConsoleButton buttonss) =
+renderConsoleItem :: forall e. ImRenderState -> ConsoleItem -> StateT (SharedState e) IO ()
+renderConsoleItem _ (ConsoleCommand txt) = liftIO (separator >> T.withCString txt textUnformatted >> separator)
+renderConsoleItem _ (ConsoleText txt) = liftIO $ T.withCString txt textUnformatted
+renderConsoleItem s (ConsoleButton buttonss) = do
+  shared <- get
   case NE.nonEmpty (mapMaybe NE.nonEmpty buttonss) of
-    Nothing -> T.withCString "no buttons" textUnformatted
-    Just ls' -> traverse_ mkRow ls'
+    Nothing -> liftIO $ T.withCString "no buttons" textUnformatted
+    Just ls' -> liftIO $ traverse_ (mkRow shared) ls'
   where
-    mkButton (label, cmd) = do
+    mkButton shared (label, cmd) = do
+      -- non-overlapping local id
       let ref = s.currLocalIDRef
       n <- atomically $ do
         n <- readTVar ref
@@ -378,12 +389,36 @@ renderConsoleItem s (ConsoleButton buttonss) =
       T.withCString label $ \cstr ->
         whenM (toBool <$> button cstr) $
           atomically $
-            writeTQueue (s.currSharedState.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
+            writeTQueue (shared.sharedChanQEv) (UsrEv (ConsoleEv (ConsoleButtonPressed False cmd)))
       popID
-    mkRow :: NonEmpty (Text, Text) -> IO ()
-    mkRow buttons = do
-      traverse_ (\itm -> mkButton itm >> sameLine_) buttons
+    mkRow :: SharedState e -> NonEmpty (Text, Text) -> IO ()
+    mkRow shared buttons = do
+      traverse_ (\itm -> mkButton shared itm >> sameLine_) buttons
       newLine
-renderConsoleItem _ (ConsoleCore forest) = T.withCString (T.unlines $ fmap render1 forest) textUnformatted
+renderConsoleItem _ (ConsoleCore forest) = liftIO $ T.withCString (T.unlines $ fmap render1 forest) textUnformatted
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
+
+renderDialog :: Text -> Text -> (Bool -> SharedState e -> SharedState e) -> SharedState e -> IO (SharedState e)
+renderDialog id' content setter shared =
+  T.withCString id' $ \c_id ->
+    T.withCString content $ \c_content -> do
+      viewport <- getMainViewport
+      openPopup c_id 0
+      center <- imGuiViewport_GetCenter viewport
+      rel_pos <- newImVec2 0.5 0.5
+      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+      delete rel_pos
+      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
+      ifM
+        (toBool <$> beginPopupModal c_id nullPtr flag)
+        ( do
+            textUnformatted c_content
+            isClosePressed <- toBool <$> button ("close" :: CString)
+            let shared'
+                  | isClosePressed = setter False shared
+                  | otherwise = shared
+            endPopup
+            pure shared'
+        )
+        (pure shared)
