@@ -31,6 +31,9 @@ module Util.Render
 
     -- * rendering console
     renderConsoleItem,
+
+    -- * render dialog
+    renderDialog,
   )
 where
 
@@ -44,7 +47,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Monad (when)
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (ifM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (MonadReader (..))
 import Control.Monad.Trans.Class (lift)
@@ -66,7 +69,7 @@ import Foreign.C.String (CString, withCString)
 import Foreign.C.Types (CFloat (..))
 import Foreign.Marshal.Array (allocaArray)
 import Foreign.Marshal.Utils (fromBool, toBool)
-import Foreign.Ptr (Ptr, castPtr)
+import Foreign.Ptr (Ptr, castPtr, nullPtr)
 import Foreign.Storable (pokeElemOff)
 import GHCSpecter.Graphics.DSL
   ( DrawText (..),
@@ -90,6 +93,10 @@ import GHCSpecter.UI.Types.Event
     UserEvent (..),
   )
 import ImGui
+import ImGui.Enum
+  ( ImGuiCond_ (..),
+    ImGuiWindowFlags_ (..),
+  )
 import ImGui.ImFont.Implementation (imFont_Scale_set)
 import STD.Deletable (delete)
 import Util.Color (getNamedColor)
@@ -109,6 +116,7 @@ data SharedState e = SharedState
     sharedIsMouseMoved :: Bool,
     sharedIsClicked :: Bool,
     sharedTabState :: Maybe Tab,
+    -- TODO: this is impure. should be out of the pure state.
     sharedChanQEv :: TQueue Event,
     sharedFontsSans :: NonEmpty (Int, ImFont),
     sharedFontsMono :: NonEmpty (Int, ImFont),
@@ -125,7 +133,8 @@ data SharedState e = SharedState
   }
 
 data ImRenderState = ImRenderState
-  { currDrawList :: ImDrawList,
+  { -- TODO: this is impure.
+    currDrawList :: ImDrawList,
     currOriginInImGui :: (Double, Double),
     currUpperLeftInGlobalViewport :: (Double, Double),
     currUpperLeftInLocalViewport :: (Double, Double),
@@ -389,3 +398,27 @@ renderConsoleItem s (ConsoleButton buttonss) = do
 renderConsoleItem _ (ConsoleCore forest) = liftIO $ T.withCString (T.unlines $ fmap render1 forest) textUnformatted
   where
     render1 tr = T.pack $ drawTree $ fmap show tr
+
+renderDialog :: Text -> Text -> (Bool -> SharedState e -> SharedState e) -> SharedState e -> IO (SharedState e)
+renderDialog id' content setter shared =
+  T.withCString id' $ \c_id ->
+    T.withCString content $ \c_content -> do
+      viewport <- getMainViewport
+      openPopup c_id 0
+      center <- imGuiViewport_GetCenter viewport
+      rel_pos <- newImVec2 0.5 0.5
+      setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
+      delete rel_pos
+      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
+      ifM
+        (toBool <$> beginPopupModal c_id nullPtr flag)
+        ( do
+            textUnformatted c_content
+            isClosePressed <- toBool <$> button ("close" :: CString)
+            let shared'
+                  | isClosePressed = setter False shared
+                  | otherwise = shared
+            endPopup
+            pure shared'
+        )
+        (pure shared)

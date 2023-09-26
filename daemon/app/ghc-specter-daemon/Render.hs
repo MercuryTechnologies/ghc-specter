@@ -13,7 +13,7 @@ import Control.Concurrent.STM
 import Control.Monad (when)
 import Control.Monad.Extra (loopM, whenM)
 import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Trans.State (execStateT, get, modify')
+import Control.Monad.Trans.State (execStateT, get, modify', put)
 import Data.Bits ((.|.))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (isNothing)
@@ -42,8 +42,7 @@ import GHCSpecter.UI.Types.Event
 import Handler (sendToControl)
 import ImGui
 import ImGui.Enum
-  ( ImGuiCond_ (..),
-    ImGuiDir_ (..),
+  ( ImGuiDir_ (..),
     ImGuiKey (..),
     ImGuiMouseButton_ (..),
     ImGuiStyleVar_ (..),
@@ -88,6 +87,7 @@ import Util.Render
   ( SharedState (..),
     c_detectScaleFactor,
     loadAllFonts,
+    renderDialog,
   )
 
 singleFrame ::
@@ -161,30 +161,23 @@ singleFrame io window ui ss oldShared = do
 
     -- dialog box test
     when newShared.sharedPopup1 $ do
-      liftIO $ openPopup ("About ghc-specter" :: CString) 0
-      center <- liftIO $ imGuiViewport_GetCenter viewport
-      rel_pos <- liftIO $ newImVec2 0.5 0.5
-      liftIO $ setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
-      liftIO $ delete rel_pos
-      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> liftIO (beginPopupModal ("About ghc-specter" :: CString) nullPtr flag)) $ do
-        liftIO $ textUnformatted ("ghc-specter 1.0.0.0" :: CString)
-        whenM (toBool <$> liftIO (button ("close" :: CString))) $
-          modify' (\s -> s {sharedPopup1 = False})
-        liftIO endPopup
-
+      newShared' <-
+        liftIO $
+          renderDialog
+            "About ghc-specter"
+            "ghc-specter 1.0.0.0"
+            (\b s -> s {sharedPopup1 = b})
+            newShared
+      put newShared'
     when newShared.sharedPopup2 $ do
-      liftIO $ openPopup ("HelpABC" :: CString) 0
-      center <- liftIO $ imGuiViewport_GetCenter viewport
-      rel_pos <- liftIO $ newImVec2 0.5 0.5
-      liftIO $ setNextWindowPos center (fromIntegral (fromEnum ImGuiCond_Appearing)) rel_pos
-      -- liftIO $ delete rel_pos
-      let flag = fromIntegral (fromEnum ImGuiWindowFlags_AlwaysAutoResize)
-      whenM (toBool <$> liftIO (beginPopupModal ("HelpABC" :: CString) nullPtr flag)) $ do
-        liftIO $ textUnformatted ("I cannot help you now." :: CString)
-        whenM (toBool <$> liftIO (button ("close" :: CString))) $
-          modify' (\s -> s {sharedPopup2 = False})
-        liftIO endPopup
+      newShared' <-
+        liftIO $
+          renderDialog
+            "Help"
+            "I cannot help you now"
+            (\b s -> s {sharedPopup2 = b})
+            newShared
+      put newShared'
 
     -- fullscreen window
     let flags =
