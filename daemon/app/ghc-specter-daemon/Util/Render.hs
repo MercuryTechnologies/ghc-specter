@@ -114,7 +114,7 @@ data SharedState e = SharedState
     sharedFontsMono :: NonEmpty (Int, ImFont),
     sharedFontScaleFactor :: Double,
     sharedEventMap :: [EventMap e],
-    sharedStage :: TVar Stage,
+    sharedStage :: Stage,
     sharedConsoleInput :: CString,
     sharedWillScrollDownConsole :: TVar Bool,
     -- TODO: This is temporarily here. need to make a window config type.

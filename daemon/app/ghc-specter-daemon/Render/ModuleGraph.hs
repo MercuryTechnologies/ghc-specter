@@ -7,7 +7,6 @@ module Render.ModuleGraph
   )
 where
 
-import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
@@ -90,8 +89,7 @@ renderMainModuleGraph ui ss = do
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
       shared <- get
-      let stage_ref = shared.sharedStage
-      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      let Stage stage = shared.sharedStage
       for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \stageMain -> do
         runImRender renderState $
           renderComponent
@@ -137,8 +135,7 @@ renderSubModuleGraph ui ss = do
             | otherwise = 0
       renderState <- mkRenderState
       shared <- get
-      let stage_ref = shared.sharedStage
-      Stage stage <- liftIO $ atomically $ readTVar stage_ref
+      let Stage stage = shared.sharedStage
       for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \stageSub -> do
         runImRender renderState $
           renderComponent

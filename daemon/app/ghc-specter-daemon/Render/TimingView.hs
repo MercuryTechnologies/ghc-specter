@@ -6,7 +6,6 @@ module Render.TimingView
   )
 where
 
-import Control.Concurrent.STM (TVar, atomically, readTVar)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State (StateT, get)
@@ -72,10 +71,8 @@ render ui ss = do
     whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
       sendToControl shared (TimingEv (snd freezeOrThaw))
 
-  let stage_ref :: TVar Stage
-      stage_ref = shared.sharedStage
   renderState <- mkRenderState
-  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  let Stage stage = shared.sharedStage
   for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
     for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
       for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do

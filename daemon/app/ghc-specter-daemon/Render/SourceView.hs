@@ -108,9 +108,7 @@ renderSourceTextView modu ss = do
         src = modHieInfo._modHieSource
     renderState <- mkRenderState
     shared <- get
-    let stage_ref :: TVar Stage
-        stage_ref = shared.sharedStage
-    Stage stage <- liftIO $ atomically $ readTVar stage_ref
+    let Stage stage = shared.sharedStage
     for_ (L.find ((== "source-view") . sceneId) stage) $ \stage_source ->
       runImRender renderState $
         renderComponent
@@ -157,9 +155,7 @@ renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> StateT (SharedS
 renderSuppViewContents modu srcUI ss = do
   renderState <- mkRenderState
   shared <- get
-  let stage_ref :: TVar Stage
-      stage_ref = shared.sharedStage
-  Stage stage <- liftIO $ atomically $ readTVar stage_ref
+  let Stage stage = shared.sharedStage
   for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
     runImRender renderState $ do
       renderComponent

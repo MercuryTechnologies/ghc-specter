@@ -6,6 +6,7 @@ module Render (main) where
 import Control.Concurrent.STM
   ( TVar,
     atomically,
+    readTVar,
     readTVarIO,
     writeTVar,
   )
@@ -26,7 +27,7 @@ import GHCSpecter.Driver.Session.Types
   )
 import GHCSpecter.Graphics.DSL
   ( EventMap,
-    Stage,
+    Stage (..),
   )
 import GHCSpecter.Server.Types (ServerState (..))
 import GHCSpecter.UI.Types
@@ -132,7 +133,7 @@ singleFrame io window ui ss oldShared = do
   -- TODO: find a better method for this.
   when (isCtrlDown_old && not isCtrlDown) $
     sendToControl oldShared (MouseEv ZoomEnd)
-  -- initialize event map for this frame
+  -- initialize event map and stage for this frame
   let upd0 = \s -> s {sharedEventMap = []}
       upd1
         | oldShared.sharedMousePos == mxy || isNothing mxy = \s -> s {sharedIsMouseMoved = False}
@@ -317,7 +318,7 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
             sharedFontsMono = fonts_mono,
             sharedFontScaleFactor = scale_factor,
             sharedEventMap = [],
-            sharedStage = stage_ref,
+            sharedStage = Stage [],
             sharedConsoleInput = p_consoleInput,
             sharedWillScrollDownConsole = console_scroll_ref,
             sharedLeftPaneSize = (120, 500),
@@ -330,13 +331,17 @@ main servSess cliSess (em_ref, stage_ref, console_scroll_ref) = do
     ui <- readTVarIO uiref
     ss <- readTVarIO ssref
     newShared <- singleFrame io window ui ss oldShared
-    -- flush frame state to control
-    atomically $
-      writeTVar em_ref newShared.sharedEventMap
-
+    -- synchronize frame state with control.
+    newShared' <-
+      atomically $ do
+        -- send constructed event map to control.
+        writeTVar em_ref newShared.sharedEventMap
+        -- update frame state from control.
+        stage <- readTVar stage_ref
+        pure newShared {sharedStage = stage}
     -- loop is going on while the value from the following statement is True.
     willClose <- toBool <$> glfwWindowShouldClose window
-    if willClose then pure (Right ()) else pure (Left newShared)
+    if willClose then pure (Right ()) else pure (Left newShared')
 
   free p_consoleInput
   -- close window
