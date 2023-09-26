@@ -96,6 +96,7 @@
               pkgs.cabal-install
               pkgs.alejandra
               pkgs.ormolu
+              pkgs.zlib
             ]
             ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default);
           shellHook = ''
@@ -119,6 +120,7 @@
               pkgs.cabal-install
               pkgs.alejandra
               pkgs.ormolu
+              pkgs.zlib
               pyenv
             ]
             ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default)

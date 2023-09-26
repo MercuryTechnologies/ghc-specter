@@ -11,7 +11,7 @@ import Control.Concurrent.STM (atomically, readTVar)
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, ask)
 import Data.Bits ((.|.))
 import Data.Foldable (for_)
 import Data.List qualified as L
@@ -47,8 +47,7 @@ import STD.Deletable (delete)
 import Text.Printf (printf)
 import Util.GUI (windowFlagsNoScroll)
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -90,7 +89,8 @@ renderMainModuleGraph ui ss = do
           mainModuleClicked = mgrui._modGraphUIClick
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
-      let stage_ref = renderState.currSharedState.sharedStage
+      shared <- ask
+      let stage_ref = shared.sharedStage
       Stage stage <- liftIO $ atomically $ readTVar stage_ref
       for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \stageMain -> do
         runImRender renderState $
@@ -136,7 +136,8 @@ renderSubModuleGraph ui ss = do
             | isModuleCompilationDone drvModMap timing name = 1
             | otherwise = 0
       renderState <- mkRenderState
-      let stage_ref = renderState.currSharedState.sharedStage
+      shared <- ask
+      let stage_ref = shared.sharedStage
       Stage stage <- liftIO $ atomically $ readTVar stage_ref
       for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \stageSub -> do
         runImRender renderState $

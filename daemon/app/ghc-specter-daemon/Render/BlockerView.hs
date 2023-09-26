@@ -40,8 +40,7 @@ import Handler (sendToControl)
 import ImGui qualified
 import Render.Common (renderComponent)
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -68,7 +67,7 @@ render _ui ss = do
     Nothing -> pure ()
     Just blockerGraphViz -> do
       renderState <- mkRenderState
-      let stage_ref = renderState.currSharedState.sharedStage
+      let stage_ref = shared.sharedStage
       Stage stage <- liftIO $ atomically $ readTVar stage_ref
       for_ (L.find ((== "blocker-module-graph") . sceneId) stage) $ \stageBlocker -> do
         runImRender renderState $

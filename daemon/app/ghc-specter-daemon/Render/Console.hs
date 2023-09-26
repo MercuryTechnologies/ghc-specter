@@ -56,8 +56,7 @@ import Util.GUI
     windowFlagsScroll,
   )
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     renderConsoleItem,
   )
@@ -85,9 +84,10 @@ renderMainContent ss consoleMap mconsoleFocus inputEntry = do
   _ <- liftIO $ ImGui.beginChild ("console-main" :: CString) vec2 (fromBool True) windowFlagsScroll
   let items = buildConsoleMain consoleMap mconsoleFocus
   renderState <- mkRenderState
+  shared <- ask
   liftIO $
-    traverse_ (renderConsoleItem renderState) items
-  let console_scroll_ref = renderState.currSharedState.sharedWillScrollDownConsole
+    traverse_ (renderConsoleItem shared renderState) items
+  let console_scroll_ref = shared.sharedWillScrollDownConsole
   whenM (liftIO $ atomically $ readTVar console_scroll_ref) $ do
     liftIO $ ImGui.setScrollHereY 0.5
     liftIO $ atomically $ writeTVar console_scroll_ref False
@@ -120,7 +120,7 @@ renderMainPanel ::
   Text ->
   ReaderT (SharedState UserEvent) IO ()
 renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
-  renderState <- mkRenderState
+  shared <- ask
   whenM (toBool <$> liftIO (ImGui.beginTabBar ("#console-tabbar" :: CString))) $ do
     let tab_contents =
           fmap
@@ -131,7 +131,7 @@ renderMainPanel ss tabs consoleMap mconsoleFocus inputEntry = do
       case mselected of
         Nothing -> pure ()
         Just selected ->
-          liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv (ConsoleTab selected))
+          liftIO $ sendToControl shared (ConsoleEv (ConsoleTab selected))
     liftIO ImGui.endTabBar
 
 consoleInputBufferSize :: Int
@@ -176,7 +176,7 @@ renderHelp ss mconsoleFocus = do
   where
     renderItem (Left (txt, ev)) =
       whenM (toBool <$> liftIO (ImGui.button (fromString (T.unpack txt) :: CString))) $ do
-        renderState <- mkRenderState
-        liftIO $ sendToControl (renderState.currSharedState) (ConsoleEv ev)
+        shared <- ask
+        liftIO $ sendToControl shared (ConsoleEv ev)
     renderItem (Right txt) =
       liftIO $ ImGui.textUnformatted (fromString (T.unpack txt) :: CString)

@@ -53,8 +53,7 @@ import Util.GUI
     windowFlagsNoScrollbar,
   )
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -108,8 +107,9 @@ renderSourceTextView modu ss = do
     let topLevelDecls = getReducedTopLevelDecls modHieInfo
         src = modHieInfo._modHieSource
     renderState <- mkRenderState
+    shared <- ask
     let stage_ref :: TVar Stage
-        stage_ref = renderState.currSharedState.sharedStage
+        stage_ref = shared.sharedStage
     Stage stage <- liftIO $ atomically $ readTVar stage_ref
     for_ (L.find ((== "source-view") . sceneId) stage) $ \stage_source ->
       runImRender renderState $
@@ -156,8 +156,9 @@ renderSuppViewPanel modu srcUI ss = do
 renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> ReaderT (SharedState UserEvent) IO ()
 renderSuppViewContents modu srcUI ss = do
   renderState <- mkRenderState
+  shared <- ask
   let stage_ref :: TVar Stage
-      stage_ref = renderState.currSharedState.sharedStage
+      stage_ref = shared.sharedStage
   Stage stage <- liftIO $ atomically $ readTVar stage_ref
   for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
     runImRender renderState $ do

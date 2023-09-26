@@ -17,6 +17,7 @@ import Control.Concurrent.STM
   )
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Reader (ask)
 import Data.Bits ((.|.))
 import Data.Text (Text)
@@ -30,7 +31,6 @@ import ImGui qualified
 import ImGui.Enum (ImGuiInputFlags_ (..), ImGuiKey (..))
 import Util.Render
   ( ImRender (..),
-    ImRenderState (..),
     SharedState (..),
     fromGlobalCoords,
   )
@@ -42,7 +42,7 @@ sendToControl shared uev =
 handleMove :: Text -> ImRender UserEvent ()
 handleMove scene_id = do
   renderState <- ImRender ask
-  let shared = renderState.currSharedState
+  shared <- ImRender $ lift ask
   when (shared.sharedIsMouseMoved) $ do
     case shared.sharedMousePos of
       Nothing -> pure ()
@@ -58,7 +58,7 @@ handleMove scene_id = do
 handleClick :: Text -> ImRender UserEvent ()
 handleClick scene_id = do
   renderState <- ImRender ask
-  let shared = renderState.currSharedState
+  shared <- ImRender $ lift ask
   when (shared.sharedIsClicked) $ do
     case shared.sharedMousePos of
       Nothing -> pure ()
@@ -84,8 +84,8 @@ handleScrollOrZoom scene_id = do
   liftIO $ ImGui.setItemKeyOwner key_wheel flags
 
   renderState <- ImRender ask
-  let shared = renderState.currSharedState
-      (wheelX, wheelY) = shared.sharedMouseWheel
+  shared <- ImRender $ lift ask
+  let (wheelX, wheelY) = shared.sharedMouseWheel
       eps = 1e-3
       isCtrlDown = shared.sharedCtrlDown
   case shared.sharedMousePos of

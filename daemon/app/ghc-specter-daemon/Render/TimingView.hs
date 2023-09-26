@@ -51,8 +51,7 @@ import Render.Common (renderComponent)
 import STD.Deletable (delete)
 import Util.GUI (windowFlagsNoScroll)
 import Util.Render
-  ( ImRenderState (..),
-    SharedState (..),
+  ( SharedState (..),
     mkRenderState,
     runImRender,
   )
@@ -73,9 +72,9 @@ render ui ss = do
     whenM (toBool <$> ImGui.button (fst freezeOrThaw)) $
       sendToControl shared (TimingEv (snd freezeOrThaw))
 
-  renderState <- mkRenderState
   let stage_ref :: TVar Stage
-      stage_ref = renderState.currSharedState.sharedStage
+      stage_ref = shared.sharedStage
+  renderState <- mkRenderState
   Stage stage <- liftIO $ atomically $ readTVar stage_ref
   for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
     for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
