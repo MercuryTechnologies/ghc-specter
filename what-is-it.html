@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What is ghc-specter? &mdash; ghc-specter 1.0.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=2ab8bd80"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="How ghc-specter works" href="how-it-works.html" />
+    <link rel="prev" title="ghc-specter User’s guide" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ghc-specter
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">What is <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code>?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#motivation">Motivation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#comparison-with-hls">Comparison with HLS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#supported-ghc">Supported GHC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="how-it-works.html">How <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> works</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ghc-specter</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">What is <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code>?</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/what-is-it.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="what-is-ghc-specter">
+<h1>What is <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code>?<a class="headerlink" href="#what-is-ghc-specter" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> is an inspecting tool and visualizer of internal
+information in the GHC compilation pipeline via GHC plugins and hooks.</p>
+<section id="motivation">
+<h2>Motivation<a class="headerlink" href="#motivation" title="Link to this heading"></a></h2>
+<p>Glasgow Haskell Compiler (GHC) is a de facto standard Haskell compiler.
+Haskell is special among popular programming languages
+as a pure Functional Programming (FP) language with lazy evaluation semantics
+and an advanced type system.
+The GHC compiler is a culmination of compiler research of decades to aggressively
+optimize lazily evaluated FP to the industry strength. Therefore, the compilation
+pipeline consists of a sequence of long and complex processes:
+parsing source, typechecking, transformation of Abstract Syntax Tree (AST) to
+simplified representation called GHC Core, optimization, and compilation into
+low-level and machine-level representation (STG, Cmm, Asm) and external assembler
+and linking steps against many architectures.</p>
+<p>Developers often need investigation in the middle of the pipeline, but have to
+rely only on built-in GHC logging or resort to a custom modification of the
+GHC source code. For example, we often need to identify blocking compilation steps
+dominating the build time, or to investigate a problematic Template Haskell (TH)
+code that is eating up all of the available memory. It is desirable to collect
+the relevant information right away from the very process of the GHC compilation
+and also intervene the process to inspect the internal state of the compiler.</p>
+<p>Fortunately, GHC provides excellent customization mechanisms for power users
+– GHC plugins and GHC hooks, – which do not require to rebuild the whole compiler and use
+that custom compiler for a project’s build system.
+By simple command-line interface (CLI) flags, one can insert
+a custom code at a predefined plugin/hook location in the GHC compiler.</p>
+<p>ghc-specter consists of a GHC plugin (<code class="docutils literal notranslate"><span class="pre">ghc-specter-plugin</span></code>) and a web server process
+(<code class="docutils literal notranslate"><span class="pre">ghc-specter-daemon</span></code>).
+<code class="docutils literal notranslate"><span class="pre">ghc-specter-plugin</span></code> installs a bunch of plugins and hooks into the build of a given
+project under inspection, and enables us to dump GHC’s internal state in various
+available places. The information is being sent to <code class="docutils literal notranslate"><span class="pre">ghc-specter-daemon</span></code>, which presents
+it visually for the sake of developer’s convenience. As arbitrary custom code can be plugged
+in by a plugin, ghc-specter also provides interactive inspection method via a web console
+interface.</p>
+<p>Note that generically, one of the most lacking area of the Haskell ecosystem
+is to have good tooling for making internal idiosynchratic information available
+to users. <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> is invented to fill the gap of the need.</p>
+</section>
+<section id="comparison-with-hls">
+<h2>Comparison with HLS<a class="headerlink" href="#comparison-with-hls" title="Link to this heading"></a></h2>
+<p>Haskell Language Server (HLS) is a Haskell IDE server daemon that
+implements Langauge Server Protocol (LSP) to improve Haskell developer experience
+with modern source code editor capabilities. There is a high-level overlap of the
+goal between HLS and <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code>. However, they are very complementary to each other.</p>
+<p>HLS is a tool that helps Haskell programming tasks, and thus targets the editor
+integration and information indexing in order to shortening typical development
+iteration cycles. Therefore, its focus is leaning towards the frontend side of
+the GHC pipeline: parsing and typechecking. The daemon is designed to collect
+information over a longer span of development, not confining to a single run of
+GHC. Above all, it is not intended to collect the information from the actual
+build process.</p>
+<p>On the contrary, ghc-specter is to gather internal information even in a single
+invocation of GHC, and to render it available in an user-friendly form.
+As GHC is a special compiler with idiosyncratic internal information, we need
+a specialized presentation implementation, so we want graphical web interface
+and web console. The focus of the tool spans over all of the phases of the GHC
+pipeline, not only interested in the user-facing GHC frontend.
+It aims at easing identification of GHC-related problems and monitoring the
+process.</p>
+</section>
+<section id="supported-ghc">
+<h2>Supported GHC<a class="headerlink" href="#supported-ghc" title="Link to this heading"></a></h2>
+<p>GHC 9.2 and 9.4 are supported as of the version 1.0.0.0.
+Because ghc-specter heavily relies on the GHC API and the API is changing
+wildly version by version, we will try to support 3 major versions of GHC or less.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="ghc-specter User’s guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="how-it-works.html" class="btn btn-neutral float-right" title="How ghc-specter works" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Mercury Technologies, Inc.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

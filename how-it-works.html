@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How ghc-specter works &mdash; ghc-specter 1.0.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=2ab8bd80"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="getting-started.html" />
+    <link rel="prev" title="What is ghc-specter?" href="what-is-it.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ghc-specter
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="what-is-it.html">What is <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code>?</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> works</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#background-on-the-ghc-pipeline">Background on the GHC Pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ghc-mode">GHC Mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#phases-and-internal-representation">Phases and internal representation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#environment-and-state">Environment and state</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#plugins-and-hooks">Plugins and Hooks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#ghc-specter-system-design"><code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> System Design</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ghc-specter</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">How <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> works</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/how-it-works.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-ghc-specter-works">
+<h1>How <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> works<a class="headerlink" href="#how-ghc-specter-works" title="Link to this heading"></a></h1>
+<p>As a plugin system that installs multiple plugins and hooks dynamically,
+<code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> is very closely tied to the GHC internal implementation.
+In this section, we will briefly overview the GHC compiler system and
+exhibit how the <code class="docutils literal notranslate"><span class="pre">ghc-specter-plugin</span></code> works inside GHC and also show how
+the <code class="docutils literal notranslate"><span class="pre">ghc-specter-plugin</span></code> and <code class="docutils literal notranslate"><span class="pre">ghc-specter-daemon</span></code> interplay.</p>
+<section id="background-on-the-ghc-pipeline">
+<h2>Background on the GHC Pipeline<a class="headerlink" href="#background-on-the-ghc-pipeline" title="Link to this heading"></a></h2>
+<p>GHC operates in multiple different modes and each invocation of the GHC process consists of
+a sequence of operations called phases in the pipeline. Roughly speaking, what each
+phase/sub-phase does is to transform an intermediate representation of a given program to
+another lower-level intermediate representation until it is finally transformed to an assembly
+or similar (for example, LLVM-IR) so that it can be consumed by external standard tools to create
+an executable binary object. The process varies in different modes undoubtedly.</p>
+<p>The compilation also depends on the configuration environment many of which are set up via
+CLI flags. Over the course, the pipeline enriches (and simplifies if unnecessary) its internal
+state which consists of unique identifiers, names and type checking information.
+All of this persistent or transient information are of the interest of <code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> and we
+will try to capture and dump the information as requested. To hijack the pipeline, we rely on
+the GHC pipeline via the GHC plugin mechanism to install such inspection procedures.</p>
+<p>In the following, we expand the above description in detail.
+Note that The information here is presented for the sake of overview and
+mainly based on the GHC 9.4 implementation, and is neither
+precise nor comprehensive. In addition, for GHC 9.2, there are significant
+differences – in particular, the GHC phases, –  so one should refer to the
+GHC documentation and the source code for more accurate information.</p>
+<section id="ghc-mode">
+<h3>GHC Mode<a class="headerlink" href="#ghc-mode" title="Link to this heading"></a></h3>
+<p>When invoked from the Command-Line-Interface (CLI), GHC is run in a certain mode.
+As we all are familiar, GHC can be used as both compiler and interpreter.
+In fact, this is one of the special luxurious features of GHC that we Haskell
+developers all enjoy. GHC compiler seamlessly integrates the interpreter
+read-eval-print-loop (REPL) session. GHC interpreter and the Run-Time-System (RTS)
+allows one to mix interpreted codes with other precompiled native binary
+bytecode.</p>
+<p>The compiler mode (or batch mode) can be run (i) in compilation manager mode
+(<code class="docutils literal notranslate"><span class="pre">--make</span></code>) in which a single GHC session will make a build plan (by topolically
+ordering module graph) and compile a group of modules associated with their source
+codes, or (ii) in oneshot mode (<code class="docutils literal notranslate"><span class="pre">-c</span></code>) in which only a single module is built for
+that GHC process. As the compilation starts, per module, a single GHC pipeline
+is carried out in a sequence of phases as explained in the next subsection.</p>
+<p>The interpreter mode compiles source codes or load precompiled modules dynamically
+from the user demand in a REPL session. Therefore, the interpreter mode is a
+trampoline process between a REPL session and compilation pipeline. When compiling
+a source file as demanded, the same GHC pipeline is invoked, so the plugins
+associated to each phase will be invoked as the compiler mode. But the backend
+phases for generating Cmm and assembly codes and linking is not performed since
+it is unnecessary.</p>
+</section>
+<section id="phases-and-internal-representation">
+<h3>Phases and internal representation<a class="headerlink" href="#phases-and-internal-representation" title="Link to this heading"></a></h3>
+<p>A single module is being compiled in a single pipeline thread. In large chunks,
+the pipeline consists of the frontend phases, the backend phases and the external
+assembler/linker phases. The frontend phases starts with source codes, and
+parsing, typechecking, desugaring, and results in GHC Core. The GHC Core is
+optimized in a few Core-to-Core passes. Then, the backend phases generate
+the STG and Cmm representation, and finally generates assembly codes or LLVM IR
+depending on the configuration. Afterwards, the external assembler and linker
+(such as gcc or clang toolchain) will create a linkable binary.</p>
+<p>The frontend phase may start with a preprocessor (such as <code class="docutils literal notranslate"><span class="pre">hsc2hs</span></code>). The
+compilation may end before the external linking process. For example, for the
+GHC interpreter mode, the compilation ends with producing bytecode binary and then
+the interpreter RTS will load and execute the bytecode directly.</p>
+<a class="reference internal image-reference" href="_images/GHC_Pipeline.png"><img alt="_images/GHC_Pipeline.png" class="align-left" src="_images/GHC_Pipeline.png" style="width: 320px;" /></a>
+<p>We list the relevant phases as defined in the GHC API 9.4 in the following:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">HsPp</span></code>: C and Haskell preprocessor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Hsc</span></code>: Haskell frontend compiler up to type-checker</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HscPostTc</span></code>: Haskell frontend compiler after type-checker</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HscBackend</span></code>: Core backend compiler</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Cmm</span></code>: C– compiler</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">As</span></code>: External assembler</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LlvmOpt</span></code>, <code class="docutils literal notranslate"><span class="pre">LlvmLlc</span></code>, <code class="docutils literal notranslate"><span class="pre">LlvmMangle</span></code>: LLVM</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MergeForeign</span></code>: linker for foreign source</p></li>
+</ul>
+</div></blockquote>
+<p>In each phase, there can be smaller steps, which is called a <cite>pass</cite> in the GHC
+terminology.</p>
+<p>In the above, we briefly mentioned that each compilation phase produces a certain
+intermediate representation of the Haskell program. In a sense, the compiler is
+a sequence of transformation steps of such representations:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Source code and preprocessed code stored in file text file</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HsParsedModule</span></code> containing High-level Haskell declaration AST <code class="docutils literal notranslate"><span class="pre">HsDecl</span></code>
+(containing <code class="docutils literal notranslate"><span class="pre">HsBind</span></code> and <code class="docutils literal notranslate"><span class="pre">HsExpr</span></code>) annotated with
+<code class="docutils literal notranslate"><span class="pre">Hsc</span></code>-phase-specific <code class="docutils literal notranslate"><span class="pre">pass</span></code>-dependent information.
+Here, <code class="docutils literal notranslate"><span class="pre">pass</span></code> is progressed from <code class="docutils literal notranslate"><span class="pre">Parsed</span></code> through <code class="docutils literal notranslate"><span class="pre">Renamed</span></code> to <code class="docutils literal notranslate"><span class="pre">Typechecked</span></code>.</p></li>
+<li><p>GHC-Core-level <code class="docutils literal notranslate"><span class="pre">CoreProgram</span></code> which consists of a list of <code class="docutils literal notranslate"><span class="pre">CoreBind</span></code> (containing <code class="docutils literal notranslate"><span class="pre">CoreExpr</span></code>)</p></li>
+<li><p>STG-level <code class="docutils literal notranslate"><span class="pre">StgTopBinding</span></code> (<code class="docutils literal notranslate"><span class="pre">StgBinidng</span></code> and <code class="docutils literal notranslate"><span class="pre">StgExpr</span></code>)</p></li>
+<li><p>Cmm-level <code class="docutils literal notranslate"><span class="pre">CmmDecl</span></code></p></li>
+<li><p>Generated assembly or LLVM bitcode in generated files</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="environment-and-state">
+<h3>Environment and state<a class="headerlink" href="#environment-and-state" title="Link to this heading"></a></h3>
+<p>Various configurations are determined before kicking off the compilation process. The CLI parameters
+are parsed and adjusted (by default or determined by system environment) with a few dynamically linked
+objects – GHC plugins are such objects. The resultant configuration is stored in <code class="docutils literal notranslate"><span class="pre">DynFlags</span></code> data type,
+so making the content of <code class="docutils literal notranslate"><span class="pre">DynFlags</span></code> available to users is very useful.</p>
+<p>GHC is invoked in the <code class="docutils literal notranslate"><span class="pre">CompManager</span></code> mode, then the module dependency graph is analyzed and topologically
+sorted. Then, each module compilation is swept over the ordered list with the global shared environment
+<code class="docutils literal notranslate"><span class="pre">HscEnv</span></code>. The module graph information is stored in <code class="docutils literal notranslate"><span class="pre">ModGraph</span></code>.</p>
+<p>Right after parsing the source code, the names in the parsed module are extracted but not yet bound to known
+imported/declared names, and conflicting names are not resolved with unique IDs. Therefore, the compiler
+does the <code class="docutils literal notranslate"><span class="pre">Renamed</span></code> pass. The information extracted and resolved should be accumulated into a global map,
+<code class="docutils literal notranslate"><span class="pre">GlobalRdrEnv</span></code>. After the name resolution and issuing unique IDs, typechecker pass will follow and develop
+another global map as a part of compilation state, collecting typechecking evidences.
+Combining such maps with the fully resolved Haskell AST, the accumulated <code class="docutils literal notranslate"><span class="pre">TcGblEnv</span></code> is produced as the
+result of the frontend typechecker and passed to the <code class="docutils literal notranslate"><span class="pre">HscPostTc</span></code> phase.</p>
+</section>
+<section id="plugins-and-hooks">
+<h3>Plugins and Hooks<a class="headerlink" href="#plugins-and-hooks" title="Link to this heading"></a></h3>
+<blockquote>
+<div><ul class="simple">
+<li><p>GHC plugin, by which one can insert a custom code at a predefined plugin location in the compilation</p></li>
+<li><p>GHC hooks, with which, one can replace a particular segment of compilation by a custom code.</p></li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="ghc-specter-system-design">
+<h2><code class="docutils literal notranslate"><span class="pre">ghc-specter</span></code> System Design<a class="headerlink" href="#ghc-specter-system-design" title="Link to this heading"></a></h2>
+<a class="reference internal image-reference" href="_images/ghc-specter-architecture.png"><img alt="_images/ghc-specter-architecture.png" class="align-left" src="_images/ghc-specter-architecture.png" style="width: 480px;" /></a>
+<p>The left figure shows the configuration of <cite>ghc-specter</cite> application. The GHC plugin
+<cite>ghc-specter-plugin</cite> is instantiated by invoking GHC with the CLI argument
+<cite>-fplugin Plugin.GHCSpecter</cite>.  The daemon process <cite>ghc-specter-daemon</cite> should
+be running as a separate process before the plugin instantiation.
+As designated by a configuration file (<code class="docutils literal notranslate"><span class="pre">ghc-specter.yaml</span></code> by default), the
+communication channel through a Unix socket between GHC and the daemon is
+established.</p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">driverPlugin</span></code> as the starting point, and the plugin will install plugins and hooks dynamically.
+As plugins, <code class="docutils literal notranslate"><span class="pre">parsedResultActionPlugin</span></code>, <code class="docutils literal notranslate"><span class="pre">renamedResultAction</span></code>, <code class="docutils literal notranslate"><span class="pre">spliceRunAction</span></code>, <code class="docutils literal notranslate"><span class="pre">tcPlugin</span></code>,  <code class="docutils literal notranslate"><span class="pre">typecheckPlugin</span></code>, <code class="docutils literal notranslate"><span class="pre">corePlugin</span></code> that installs CoreToDo actions
+interleaved with existing CoreToDo steps.
+As hooks, we use <code class="docutils literal notranslate"><span class="pre">runPhaseHook</span></code>, <code class="docutils literal notranslate"><span class="pre">runMetaHook</span></code>, <code class="docutils literal notranslate"><span class="pre">runPhaseHook</span></code>.</p>
+<p>The daemon is a web server to present the contents from <cite>ghc-specter-plugin</cite>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="what-is-it.html" class="btn btn-neutral float-left" title="What is ghc-specter?" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="getting-started.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Mercury Technologies, Inc.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
