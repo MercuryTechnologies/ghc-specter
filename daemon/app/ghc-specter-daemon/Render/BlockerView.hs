@@ -9,7 +9,7 @@ where
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State.Strict (StateT, get)
-import Data.Foldable (for_, traverse_)
+import Data.Foldable (traverse_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (secondsToNominalDiffTime)
@@ -18,10 +18,7 @@ import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Map (backwardLookup)
 import GHCSpecter.Data.Timing.Types (PipelineInfo (..), TimingTable (..))
-import GHCSpecter.Graphics.DSL
-  ( Scene (..),
-    Stage (..),
-  )
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Server.Types
   ( ModuleGraphState (..),
     ServerState (..),
@@ -37,7 +34,7 @@ import GHCSpecter.UI.Types.Event
   )
 import Handler (sendToControl)
 import ImGui qualified
-import Render.Common (renderComponent)
+import Render.Common (renderComponent, withStage)
 import Util.Render
   ( SharedState (..),
     mkRenderState,
@@ -66,8 +63,7 @@ render _ui ss = do
     Nothing -> pure ()
     Just blockerGraphViz -> do
       renderState <- mkRenderState
-      let Stage stage = shared.sharedStage
-      for_ (L.find ((== "blocker-module-graph") . sceneId) stage) $ \stageBlocker -> do
+      withStage "blocker-module-graph" $ \stageBlocker -> do
         runImRender renderState $
           renderComponent
             True

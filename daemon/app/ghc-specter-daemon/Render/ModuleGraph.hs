@@ -10,9 +10,8 @@ where
 import Control.Error.Util (note)
 import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State.Strict (StateT, get)
+import Control.Monad.Trans.State.Strict (StateT)
 import Data.Bits ((.|.))
-import Data.Foldable (for_)
 import Data.List qualified as L
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as T
@@ -20,10 +19,7 @@ import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Channel.Outbound.Types (ModuleGraphInfo (..))
 import GHCSpecter.Data.Timing.Util (isModuleCompilationDone)
-import GHCSpecter.Graphics.DSL
-  ( Scene (..),
-    Stage (..),
-  )
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Server.Types
   ( ModuleGraphState (..),
     ServerState (..),
@@ -41,7 +37,7 @@ import GHCSpecter.UI.Types.Event
   )
 import ImGui qualified
 import ImGui.Enum (ImGuiTableFlags_ (..))
-import Render.Common (renderComponent)
+import Render.Common (renderComponent, withStage)
 import STD.Deletable (delete)
 import Text.Printf (printf)
 import Util.GUI (windowFlagsNoScroll)
@@ -88,9 +84,7 @@ renderMainModuleGraph ui ss = do
           mainModuleClicked = mgrui._modGraphUIClick
           mainModuleHovered = mgrui._modGraphUIHover
       renderState <- mkRenderState
-      shared <- get
-      let Stage stage = shared.sharedStage
-      for_ (L.find ((== "main-module-graph") . sceneId) stage) $ \stageMain -> do
+      withStage "main-module-graph" $ \stageMain -> do
         runImRender renderState $
           renderComponent
             True
@@ -134,9 +128,7 @@ renderSubModuleGraph ui ss = do
             | isModuleCompilationDone drvModMap timing name = 1
             | otherwise = 0
       renderState <- mkRenderState
-      shared <- get
-      let Stage stage = shared.sharedStage
-      for_ (L.find ((== "sub-module-graph") . sceneId) stage) $ \stageSub -> do
+      withStage "sub-module-graph" $ \stageSub -> do
         runImRender renderState $
           renderComponent
             True

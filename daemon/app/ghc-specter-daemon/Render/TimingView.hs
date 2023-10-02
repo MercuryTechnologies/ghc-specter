@@ -10,7 +10,6 @@ import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State.Strict (StateT, get)
 import Data.Foldable (for_)
-import Data.List qualified as L
 import Data.Maybe (fromMaybe, isNothing)
 import Foreign.C.String (CString)
 import Foreign.Marshal.Alloc (alloca)
@@ -22,7 +21,6 @@ import GHCSpecter.Data.Timing.Types
   )
 import GHCSpecter.Graphics.DSL
   ( Scene (..),
-    Stage (..),
     ViewPort (..),
   )
 import GHCSpecter.Server.Types
@@ -46,7 +44,7 @@ import GHCSpecter.UI.Types.Event
 import Handler (sendToControl)
 import ImGui qualified
 import ImGui.ImVec2.Implementation (imVec2_x_get, imVec2_y_get)
-import Render.Common (renderComponent)
+import Render.Common (renderComponent, withStage)
 import STD.Deletable (delete)
 import Util.GUI (windowFlagsNoScroll)
 import Util.Render
@@ -72,10 +70,9 @@ render ui ss = do
       sendToControl shared (TimingEv (snd freezeOrThaw))
 
   renderState <- mkRenderState
-  let Stage stage = shared.sharedStage
-  for_ (L.find ((== "timing-chart") . sceneId) stage) $ \stageTiming ->
-    for_ (L.find ((== "mem-chart") . sceneId) stage) $ \stageMemory ->
-      for_ (L.find ((== "timing-range") . sceneId) stage) $ \stageRange -> do
+  withStage "timing-chart" $ \stageTiming ->
+    withStage "mem-chart" $ \stageMemory ->
+      withStage "timing-range" $ \stageRange -> do
         let ViewPort (_, vy0) (_, vy1) = stageTiming.sceneLocalViewPort
         runImRender renderState $ do
           renderComponent

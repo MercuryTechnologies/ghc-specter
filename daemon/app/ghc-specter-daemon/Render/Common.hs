@@ -3,15 +3,21 @@
 
 module Render.Common
   ( renderComponent,
+    withStage,
   )
 where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.State.Strict (StateT, get)
+import Data.Foldable (traverse_)
 import Data.Functor.Identity (runIdentity)
+import Data.List qualified as L
+import Data.Text (Text)
 import GHCSpecter.Graphics.DSL
   ( Primitive,
     Scene (..),
+    Stage (..),
     ViewPort (..),
   )
 import GHCSpecter.Layouter.Text (MonadTextLayout (..))
@@ -25,6 +31,7 @@ import ImGui
 import STD.Deletable (delete)
 import Util.Render
   ( ImRender,
+    SharedState (..),
     addEventMap,
     buildEventMap,
     renderScene,
@@ -61,3 +68,12 @@ renderComponent doesHandleScroll toEv buildScene = do
     (vx1, vy1) = scene.sceneGlobalViewPort.bottomRight
     totalW = vx1 - vx0
     totalH = vy1 - vy0
+
+withStage ::
+  Text ->
+  (Scene () -> StateT (SharedState UserEvent) IO a) ->
+  StateT (SharedState UserEvent) IO ()
+withStage scene_name action = do
+  shared <- get
+  let Stage stage = shared.sharedStage
+  traverse_ action (L.find ((== scene_name) . sceneId) stage)
