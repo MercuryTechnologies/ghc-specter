@@ -19,7 +19,7 @@ import Data.Text qualified as T
 import Foreign.C.String (CString)
 import Foreign.Marshal.Utils (fromBool, toBool)
 import GHCSpecter.Data.GHC.Hie (ModuleHieInfo (..))
-import GHCSpecter.Graphics.DSL (Scene (..), Stage (..))
+import GHCSpecter.Graphics.DSL (Scene (..))
 import GHCSpecter.Server.Types
   ( HieState (..),
     ServerState (..),
@@ -39,7 +39,7 @@ import GHCSpecter.UI.Types.Event
 import GHCSpecter.Worker.CallGraph (getReducedTopLevelDecls)
 import Handler (sendToControl)
 import ImGui qualified
-import Render.Common (renderComponent)
+import Render.Common (renderComponent, withStage)
 import STD.Deletable (delete)
 import Util.GUI
   ( defTableFlags,
@@ -55,33 +55,29 @@ import Util.Render
 
 render :: UIState -> ServerState -> StateT (SharedState UserEvent) IO ()
 render ui ss = do
-  vec1 <- liftIO $ ImGui.newImVec2 400 0
-  vec2 <- liftIO $ ImGui.newImVec2 400 0
-  vec3 <- liftIO $ ImGui.newImVec2 400 0
+  zero <- liftIO $ ImGui.newImVec2 0 0
   whenM (toBool <$> liftIO (ImGui.beginTable ("##table" :: CString) 3 defTableFlags)) $ do
     liftIO $ ImGui.tableSetupColumn_ ("graph" :: CString)
     liftIO $ ImGui.tableNextRow 0
     liftIO $ ImGui.tableSetColumnIndex 0
-    _ <- liftIO $ ImGui.beginChild ("#module-tree" :: CString) vec1 (fromBool False) windowFlagsNoScrollbar
+    _ <- liftIO $ ImGui.beginChild ("#module-tree" :: CString) zero (fromBool False) windowFlagsNoScrollbar
     renderModuleTree srcUI ss
     liftIO ImGui.endChild
     --
     liftIO $ ImGui.tableSetColumnIndex 1
-    _ <- liftIO $ ImGui.beginChild ("#source-view" :: CString) vec2 (fromBool False) windowFlagsNoScroll
+    _ <- liftIO $ ImGui.beginChild ("#source-view" :: CString) zero (fromBool False) windowFlagsNoScroll
     for_ mexpandedModu $ \modu ->
       renderSourceTextView modu ss
     liftIO ImGui.endChild
     --
     liftIO $ ImGui.tableSetColumnIndex 2
-    _ <- liftIO $ ImGui.beginChild ("#supp-view" :: CString) vec3 (fromBool False) windowFlagsNoScroll
+    _ <- liftIO $ ImGui.beginChild ("#supp-view" :: CString) zero (fromBool False) windowFlagsNoScroll
     for_ mexpandedModu $ \modu ->
       renderSuppViewPanel modu srcUI ss
     liftIO ImGui.endChild
   --
   liftIO ImGui.endTable
-  liftIO $ delete vec1
-  liftIO $ delete vec2
-  liftIO $ delete vec3
+  liftIO $ delete zero
   where
     srcUI = ui._uiModel._modelSourceView
     mexpandedModu = srcUI._srcViewExpandedModule
@@ -102,9 +98,7 @@ renderSourceTextView modu ss = do
     let topLevelDecls = getReducedTopLevelDecls modHieInfo
         src = modHieInfo._modHieSource
     renderState <- mkRenderState
-    shared <- get
-    let Stage stage = shared.sharedStage
-    for_ (L.find ((== "source-view") . sceneId) stage) $ \stage_source ->
+    withStage "source-view" $ \stage_source ->
       runImRender renderState $
         renderComponent
           True
@@ -149,9 +143,7 @@ renderSuppViewPanel modu srcUI ss = do
 renderSuppViewContents :: Text -> SourceViewUI -> ServerState -> StateT (SharedState UserEvent) IO ()
 renderSuppViewContents modu srcUI ss = do
   renderState <- mkRenderState
-  shared <- get
-  let Stage stage = shared.sharedStage
-  for_ (L.find ((== "supple-view-contents") . sceneId) stage) $ \stage_supp -> do
+  withStage "supple-view-contents" $ \stage_supp ->
     runImRender renderState $ do
       renderComponent
         True
