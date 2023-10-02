@@ -69,7 +69,6 @@ render ui ss = do
     for_ mexpandedModu $ \modu ->
       renderSourceTextView modu ss
     liftIO ImGui.endChild
-    --  updateStage "source-view"
     --
     liftIO $ ImGui.tableSetColumnIndex 2
     _ <- liftIO $ ImGui.beginChild ("#supp-view" :: CString) zero (fromBool False) windowFlagsNoScroll
