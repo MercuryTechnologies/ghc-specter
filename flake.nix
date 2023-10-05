@@ -123,7 +123,17 @@
               pkgs.zlib
               pyenv
             ]
-            ++ (pkgs.lib.optional (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode) nixGL.packages.${system}.default)
+            ++ (
+              pkgs.lib.optionals (pkgs.stdenv.isLinux && !pkgs.lib.inPureEvalMode)
+              [
+                nixGL.packages.${system}.default
+                nixGL.packages.${system}.nixGLNvidia
+                nixGL.packages.${system}.nixGLNvidiaBumblebee
+                nixGL.packages.${system}.nixGLIntel
+                nixGL.packages.${system}.nixVulkanNvidia
+                nixGL.packages.${system}.nixVulkanIntel
+              ]
+            )
             ++ (pkgs.lib.optionals (pkgs.stdenv.isDarwin) [pkgs.darwin.apple_sdk.frameworks.Cocoa]);
           shellHook = ''
             export PS1="\n[${prompt}:\w]$ \0"
