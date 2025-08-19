@@ -12,9 +12,9 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Set up Python
-        uses: actions/setup-python@v4.4.0
+        uses: actions/setup-python@5ccb29d8773c3f3f653e1705f474dfaa8a06a912 # v4.4.0
         with:
           python-version: 3.11.0
       - name: Install dependencies
@@ -36,7 +36,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git commit -m 'deploy'
       - name: Force push to destination branch
-        uses: ad-m/github-push-action@v0.6.0
+        uses: ad-m/github-push-action@40bf560936a8022e68a3c00e7d2abefaf01305a6 # v0.6.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
